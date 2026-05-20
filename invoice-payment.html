@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>請求・入金 | Sclassランボルギーニ</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Bebas+Neue&family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mobile.css">
+<style>
+:root{
+  --gold:#C9A84C;--gold-l:#E8C97A;--gold-d:#7A5C14;
+  --bk:#080808;--d1:#0E0E0E;--d2:#161616;--d3:#1E1E1E;--d4:#282828;
+  --wh:#F0EBE0;--wh2:rgba(240,235,224,0.6);--wh3:rgba(240,235,224,0.25);
+  --red:#E05252;--grn:#52B788;--blu:#5299E0;--org:#E09052;--pur:#9B7FD4;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bk);color:var(--wh);font-family:'Noto Sans JP',sans-serif;font-weight:300;min-height:100vh}
+
+header{background:linear-gradient(180deg,#0e0c06,var(--d1));border-bottom:1px solid var(--gold-d);height:56px;display:flex;align-items:center;padding:0 1.2rem;position:sticky;top:0;z-index:200;gap:1rem}
+.logo-mark{width:28px;height:28px;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold);transform:rotate(45deg);flex-shrink:0}
+.logo-mark span{transform:rotate(-45deg)}
+.sys-name{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.1em;color:var(--gold-l)}
+.sys-sub{font-size:.62rem;letter-spacing:.15em;color:var(--wh2);margin-left:.5rem}
+.back-btn{background:transparent;border:1px solid rgba(201,168,76,.4);color:var(--gold-l);padding:.3rem .8rem;font-size:.72rem;cursor:pointer;text-decoration:none;transition:all .2s;letter-spacing:.05em}
+.back-btn:hover{background:rgba(201,168,76,.15)}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:.7rem}
+.btn-s{background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);padding:.3rem .8rem;font-size:.72rem;cursor:pointer;transition:all .2s;letter-spacing:.05em;font-family:'Noto Sans JP',sans-serif}
+.btn-s:hover{background:var(--gold);color:var(--bk)}
+
+main{padding:1.5rem 2rem;max-width:1500px;margin:0 auto}
+.ptitle{font-family:'Shippori Mincho',serif;font-size:1.5rem;font-weight:400;color:var(--gold-l);margin-bottom:1rem;display:flex;align-items:baseline;gap:.7rem;border-bottom:1px solid rgba(201,168,76,.2);padding-bottom:.5rem}
+.ptitle small{font-family:'Noto Sans JP',sans-serif;font-size:.72rem;color:var(--wh2);font-weight:300}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem;margin-bottom:1.2rem}
+.kpi{background:var(--d2);border:1px solid rgba(201,168,76,.18);padding:.9rem 1rem;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.kpi-lbl{font-size:.65rem;color:var(--wh3);letter-spacing:.1em;margin-bottom:.3rem}
+.kpi-val{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--gold-l);letter-spacing:.05em;line-height:1}
+.kpi-sub{font-size:.62rem;color:var(--wh3);margin-top:.2rem}
+.kv-r{color:var(--red)}.kv-gr{color:var(--grn)}.kv-b{color:var(--blu)}.kv-o{color:var(--org)}.kv-pur{color:var(--pur)}
+
+/* タブ */
+.master-tabs{display:flex;gap:2px;background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:3px;margin-bottom:1.2rem;overflow-x:auto}
+.mtab{flex:1;min-width:120px;padding:.7rem .8rem;cursor:pointer;font-size:.78rem;color:var(--wh2);background:transparent;border:none;transition:all .2s;letter-spacing:.05em;display:flex;align-items:center;justify-content:center;gap:.4rem;font-family:'Noto Sans JP',sans-serif;font-weight:500;white-space:nowrap}
+.mtab:hover:not(.active){background:rgba(201,168,76,.05);color:var(--wh)}
+.mtab.active{background:linear-gradient(180deg,rgba(201,168,76,.2),rgba(201,168,76,.1));color:var(--gold-l);box-shadow:inset 0 -2px 0 var(--gold)}
+.mtab-ic{font-size:1rem}
+.mcon{display:none}.mcon.active{display:block}
+
+/* フィルタ */
+.fp{background:var(--d2);border:1px solid rgba(201,168,76,.15);padding:.7rem .9rem;margin-bottom:1rem}
+.frow{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.6rem}
+.fg{display:flex;flex-direction:column;gap:.25rem}
+.fg label{font-size:.65rem;letter-spacing:.08em;color:var(--wh2)}
+.fc{background:var(--d3);border:1px solid rgba(201,168,76,.22);color:var(--wh);padding:.42rem .65rem;font-family:'Noto Sans JP',sans-serif;font-size:.8rem;outline:none;transition:border-color .2s;width:100%}
+.fc:focus{border-color:var(--gold)}
+select.fc option{background:var(--d3)}
+textarea.fc{resize:vertical}
+
+/* 月送り */
+.month-nav{display:flex;align-items:center;gap:.8rem;margin-bottom:.8rem}
+.dnav{background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);width:32px;height:32px;font-size:1rem;cursor:pointer}
+.dnav:hover{background:rgba(201,168,76,.15)}
+.month-disp{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--gold-l);min-width:120px;text-align:center}
+
+/* テーブル */
+.tw{background:var(--d2);border:1px solid rgba(201,168,76,.15);overflow-x:auto}
+.th-area{padding:.7rem .9rem;border-bottom:1px solid rgba(201,168,76,.15);display:flex;justify-content:space-between;align-items:center}
+.th-area h3{font-size:.85rem;color:var(--gold-l);font-weight:500;letter-spacing:.05em}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+th{background:var(--d3);padding:.5rem .7rem;text-align:left;font-size:.7rem;color:var(--gold-d);letter-spacing:.05em;font-weight:500;border-bottom:1px solid rgba(201,168,76,.2);white-space:nowrap}
+td{padding:.45rem .7rem;border-bottom:1px solid rgba(255,255,255,.04)}
+tr:hover td{background:rgba(201,168,76,.03)}
+tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
+.col-amt{text-align:right;font-variant-numeric:tabular-nums}
+.col-qty{text-align:center;font-variant-numeric:tabular-nums}
+
+/* 集計バー */
+.summary-bar{background:linear-gradient(90deg,rgba(201,168,76,.08),rgba(201,168,76,.02));border:1px solid rgba(201,168,76,.2);padding:.8rem 1.1rem;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem}
+.sm-total{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--gold-l);letter-spacing:.05em}
+.sm-label{font-size:.7rem;color:var(--wh2);letter-spacing:.05em;margin-right:.5rem}
+
+/* バッジ */
+.badge{display:inline-block;font-size:.62rem;padding:.1rem .5rem;border-radius:2px;letter-spacing:.05em}
+.bd-paid{background:rgba(82,183,136,.15);color:var(--grn)}
+.bd-unpaid{background:rgba(224,82,82,.15);color:var(--red)}
+.bd-pending{background:rgba(201,168,76,.15);color:var(--gold-l)}
+.bd-partial{background:rgba(224,144,82,.15);color:var(--org)}
+
+/* ボタン */
+.faction{display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap}
+.btn{padding:.5rem 1.4rem;border:1px solid;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:.82rem;letter-spacing:.05em;transition:all .2s;font-weight:500}
+.btn-p{background:var(--gold);border-color:var(--gold);color:var(--bk)}
+.btn-p:hover{background:var(--gold-l)}
+.btn-g{background:transparent;border-color:rgba(201,168,76,.4);color:var(--wh2)}
+.btn-g:hover{border-color:var(--gold);color:var(--wh)}
+.btn-dn{background:transparent;border-color:rgba(224,82,82,.4);color:var(--red)}
+.btn-dn:hover{background:rgba(224,82,82,.15);border-color:var(--red)}
+
+.act-btn{background:transparent;border:1px solid rgba(201,168,76,.3);color:var(--gold-l);padding:.2rem .5rem;font-size:.7rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-right:.2rem}
+.act-btn:hover{background:var(--gold);color:var(--bk)}
+.act-btn.dn{border-color:rgba(224,82,82,.3);color:var(--red)}
+.act-btn.dn:hover{background:var(--red);color:#fff}
+.act-btn.gr{border-color:rgba(82,183,136,.3);color:var(--grn)}
+.act-btn.gr:hover{background:var(--grn);color:#fff}
+
+/* ヒント */
+.hint-box{background:rgba(82,153,224,.06);border:1px solid rgba(82,153,224,.2);padding:.7rem .9rem;margin-bottom:1rem;font-size:.72rem;color:var(--wh2);line-height:1.6}
+.hint-box strong{color:var(--blu);font-weight:500}
+
+.empty{text-align:center;padding:3rem 1rem;color:var(--wh3)}
+.empty-icon{font-size:3rem;margin-bottom:.8rem;opacity:.4}
+
+.form-section{background:var(--d1);border:1px solid rgba(255,255,255,.04);padding:1rem;margin-bottom:1rem;border-left:2px solid var(--gold-d)}
+.form-section-title{font-size:.72rem;color:var(--gold-d);letter-spacing:.15em;margin-bottom:.7rem;font-weight:500}
+
+/* 顧客カード（売掛サマリー用） */
+.ar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.8rem}
+.ar-card{background:var(--d2);border:1px solid rgba(201,168,76,.18);padding:.9rem 1.1rem;position:relative;overflow:hidden;transition:all .2s;cursor:pointer}
+.ar-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.ar-card.has-debt::before{background:var(--red);opacity:.8}
+.ar-card.has-debt{border-color:rgba(224,82,82,.3)}
+.ar-card:hover{border-color:rgba(201,168,76,.4);transform:translateY(-1px)}
+.ar-name{font-size:.92rem;color:var(--gold-l);font-weight:700;margin-bottom:.4rem}
+.ar-amount{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--red);letter-spacing:.05em;line-height:1.1}
+.ar-amount.zero{color:var(--grn);font-size:1rem}
+.ar-detail{font-size:.7rem;color:var(--wh2);margin-top:.4rem;line-height:1.5}
+.ar-detail strong{color:var(--wh)}
+
+/* 請求書プレビュー */
+.invoice-preview{background:#fff;color:#222;padding:2rem;border:1px solid var(--gold-d);min-height:600px;font-family:'Noto Sans JP',sans-serif}
+.invoice-preview h2{font-size:1.5rem;margin-bottom:1.5rem;color:#000;text-align:center;letter-spacing:.5em;border-bottom:2px solid #888;padding-bottom:.5rem}
+.invoice-preview .row{display:flex;justify-content:space-between;margin-bottom:.4rem;font-size:.85rem}
+.invoice-preview table{margin-top:1rem;width:100%;font-size:.78rem;color:#222}
+.invoice-preview table th{background:#f0f0f0;color:#222;border:1px solid #ccc;padding:.4rem}
+.invoice-preview table td{border:1px solid #ddd;padding:.4rem;background:#fff}
+.invoice-preview .total{font-size:1.2rem;font-weight:700;text-align:right;margin-top:1rem;padding-top:.5rem;border-top:2px solid #888;color:#000}
+
+@media print{
+  header,.master-tabs,.kpi-row,.faction,.fp{display:none !important}
+  body{background:#fff;color:#000}
+  .invoice-preview{border:none;padding:0}
+}
+
+#toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#161616;border:1px solid rgba(201,168,76,.4);color:#E8C97A;padding:.8rem 1.5rem;font-size:.85rem;z-index:9999;opacity:0;transition:opacity .2s;letter-spacing:.05em;pointer-events:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark"><span>L</span></div>
+  <div>
+    <span class="sys-name">INVOICE &amp; PAYMENT</span>
+    <span class="sys-sub">請求・入金</span>
+  </div>
+  <div class="hdr-right">
+    <a class="back-btn" href="portal.html">← ポータルへ戻る</a>
+    <button class="btn-s" onclick="syncFromGAS()">🔄 GAS同期</button>
+    <div style="display:flex;align-items:center;gap:.5rem;padding-left:.8rem;margin-left:.3rem;border-left:1px solid rgba(201,168,76,.2)">
+      <span id="user-badge" style="font-size:.7rem;color:var(--gold-l)">—</span>
+      <button onclick="doLogout()" style="background:transparent;border:1px solid rgba(201,168,76,.25);color:var(--wh2);padding:.2rem .6rem;font-size:.65rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif">ログアウト</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="ptitle">
+    請求・入金システム <small>請求書発行・集金・入金管理</small>
+  </div>
+
+  <!-- KPI -->
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-lbl">未収合計</div><div class="kpi-val kv-r" id="kpi-unpaid">¥0</div><div class="kpi-sub" id="kpi-unpaid-cnt">0件</div></div>
+    <div class="kpi"><div class="kpi-lbl">今月の入金</div><div class="kpi-val kv-gr" id="kpi-paid-month">¥0</div><div class="kpi-sub" id="kpi-paid-cnt">0件</div></div>
+    <div class="kpi"><div class="kpi-lbl">売掛先</div><div class="kpi-val kv-o" id="kpi-ar-count">0</div><div class="kpi-sub">店舗</div></div>
+    <div class="kpi"><div class="kpi-lbl">期日超過</div><div class="kpi-val kv-r" id="kpi-overdue">0</div><div class="kpi-sub">件</div></div>
+    <div class="kpi"><div class="kpi-lbl">発行済請求書</div><div class="kpi-val" id="kpi-invoices">0</div><div class="kpi-sub">通</div></div>
+  </div>
+
+  <!-- ═══ 親タブ ═══ -->
+  <div class="master-tabs">
+    <button class="mtab active" onclick="switchModule('payment',this)"><span class="mtab-ic">💴</span>集金管理</button>
+    <button class="mtab" onclick="switchModule('arsummary',this)"><span class="mtab-ic">📊</span>売掛サマリー</button>
+    <button class="mtab" onclick="switchModule('invoice',this)"><span class="mtab-ic">📄</span>請求書</button>
+    <button class="mtab" onclick="switchModule('bank',this)"><span class="mtab-ic">🏦</span>通帳連携</button>
+    <button class="mtab" onclick="switchModule('history',this)"><span class="mtab-ic">📋</span>入金履歴</button>
+    <button class="mtab" onclick="switchModule('sponsor',this)"><span class="mtab-ic">🎁</span>協賛管理</button>
+  </div>
+
+  <!-- ════════ 集金管理 ════════ -->
+  <div id="m-payment" class="mcon active">
+    <div class="hint-box">
+      <strong>💴 集金管理</strong><br>
+      未収・売掛の注文一覧。「集金」ボタンで集金済みに更新します。一括処理も可能。
+    </div>
+    <div class="fp">
+      <div class="frow">
+        <div class="fg"><label>キーワード</label><input class="fc" id="pm-kw" placeholder="店舗名..." oninput="renderPayment()"></div>
+        <div class="fg"><label>拠点</label><select class="fc" id="pm-br" onchange="renderPayment()"><option value="">全拠点</option><option>仙台</option><option>京都</option></select></div>
+        <div class="fg"><label>状態</label><select class="fc" id="pm-state" onchange="renderPayment()"><option value="unpaid">未収のみ</option><option value="">すべて</option><option value="overdue">期日超過のみ</option></select></div>
+        <div class="fg"><label>支払方法</label><select class="fc" id="pm-pay" onchange="renderPayment()"><option value="">すべて</option><option>現金</option><option>売掛(銀行)</option><option>売掛(現金)</option><option>代引き</option></select></div>
+      </div>
+    </div>
+    <div class="summary-bar">
+      <div><span class="sm-label">表示中:</span><span id="pm-cnt" style="color:var(--gold-l)">0</span><span style="color:var(--wh3);font-size:.7rem">件</span></div>
+      <div><span class="sm-label">合計:</span><span class="sm-total" id="pm-total">¥0</span></div>
+    </div>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="pm-all" onchange="toggleAllPayment(this.checked)"></th>
+            <th>注文日</th><th>拠点</th><th>店舗名</th><th>支払方法</th>
+            <th class="col-amt">金額</th><th>状態</th><th>経過</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="pm-tbody"></tbody>
+      </table>
+    </div>
+    <div class="faction">
+      <button class="btn btn-p" onclick="bulkMarkPaid()">✓ 選択した注文を集金済みにする</button>
+    </div>
+  </div>
+
+  <!-- ════════ 売掛サマリー ════════ -->
+  <div id="m-arsummary" class="mcon">
+    <div class="hint-box">
+      <strong>📊 売掛サマリー</strong><br>
+      取引先ごとの売掛残高を一覧表示。クリックで詳細注文を確認できます。
+    </div>
+    <div class="month-nav">
+      <button class="dnav" onclick="shiftARMonth(-1)">‹</button>
+      <div class="month-disp" id="ar-month-disp">----年--月</div>
+      <button class="dnav" onclick="shiftARMonth(1)">›</button>
+      <button class="btn-s" onclick="setARMonthToday()">今月</button>
+      <button class="btn-s" id="ar-all-btn" onclick="toggleARAll()">全期間</button>
+    </div>
+    <div class="fp">
+      <div class="frow">
+        <div class="fg"><label>キーワード</label><input class="fc" id="ar-kw" placeholder="店舗名..." oninput="renderARSummary()"></div>
+        <div class="fg"><label>拠点</label><select class="fc" id="ar-br" onchange="renderARSummary()"><option value="">全拠点</option><option>仙台</option><option>京都</option></select></div>
+        <div class="fg"><label>状態</label><select class="fc" id="ar-state" onchange="renderARSummary()"><option value="">すべて</option><option value="debt">未収あり</option><option value="paid">完済</option></select></div>
+      </div>
+    </div>
+    <div class="ar-grid" id="ar-grid"></div>
+  </div>
+
+  <!-- ════════ 請求書 ════════ -->
+  <div id="m-invoice" class="mcon">
+    <div class="hint-box">
+      <strong>📄 請求書発行</strong><br>
+      取引先と期間を選択して請求書を作成します。発行後はPDF印刷・LINE送信が可能。
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">▸ 請求書作成</div>
+      <div class="frow">
+        <div class="fg"><label>請求書番号</label><input class="fc" id="iv-no" placeholder="自動採番"></div>
+        <div class="fg"><label>発行日</label><input class="fc" id="iv-date" type="date"></div>
+        <div class="fg"><label>支払期限</label><input class="fc" id="iv-due" type="date"></div>
+        <div class="fg"><label>取引先</label><select class="fc" id="iv-cust" onchange="onIvCustChange()"></select></div>
+      </div>
+      <div class="frow" style="margin-top:.5rem">
+        <div class="fg"><label>対象期間 開始</label><input class="fc" id="iv-from" type="date"></div>
+        <div class="fg"><label>対象期間 終了</label><input class="fc" id="iv-to" type="date"></div>
+        <div class="fg"><label>振込先</label><select class="fc" id="iv-bank"></select></div>
+        <div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-p" onclick="buildInvoicePreview()" style="width:100%">プレビュー作成</button></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">▸ 請求書プレビュー</div>
+      <div id="iv-preview" class="invoice-preview">
+        <div style="text-align:center;color:#888;padding:4rem 2rem">
+          上記フォームから取引先と期間を選択して<br>「プレビュー作成」を押してください
+        </div>
+      </div>
+      <div class="faction">
+        <button class="btn btn-g" onclick="window.print()">🖨 印刷 / PDFで保存</button>
+        <button class="btn btn-p" onclick="saveInvoice()">📁 請求書を保存</button>
+      </div>
+    </div>
+
+    <div class="tw" style="margin-top:1rem">
+      <div class="th-area"><h3>発行済み請求書</h3><span id="iv-cnt" style="font-size:.72rem;color:var(--wh2)"></span></div>
+      <table>
+        <thead>
+          <tr><th>請求書No.</th><th>発行日</th><th>取引先</th><th>対象期間</th><th class="col-amt">金額</th><th>支払期限</th><th>状態</th><th>操作</th></tr>
+        </thead>
+        <tbody id="iv-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════ 通帳連携 ════════ -->
+  <div id="m-bank" class="mcon">
+    <div class="hint-box">
+      <strong>🏦 通帳連携</strong><br>
+      銀行の入出金データをCSVから取込み、注文と自動マッチング。
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">▸ 入金データ手入力</div>
+      <div class="frow">
+        <div class="fg"><label>入金日 <span style="color:var(--red)">*</span></label><input class="fc" id="bk-date" type="date"></div>
+        <div class="fg"><label>振込人</label><input class="fc" id="bk-name" placeholder="店舗名・振込人名"></div>
+        <div class="fg"><label>金額 <span style="color:var(--red)">*</span></label><input class="fc" id="bk-amt" type="number" min="0" step="100"></div>
+        <div class="fg"><label>備考</label><input class="fc" id="bk-note" placeholder="任意"></div>
+      </div>
+      <div class="faction">
+        <button class="btn btn-p" onclick="addBankEntry()">＋ 入金を登録</button>
+        <button class="btn btn-g" onclick="autoMatch()">🔍 自動マッチング</button>
+      </div>
+    </div>
+
+    <div class="tw">
+      <div class="th-area"><h3>入金履歴 / マッチング状況</h3><span id="bk-cnt" style="font-size:.72rem;color:var(--wh2)"></span></div>
+      <table>
+        <thead>
+          <tr><th>入金日</th><th>振込人</th><th class="col-amt">金額</th><th>マッチ</th><th>備考</th><th>操作</th></tr>
+        </thead>
+        <tbody id="bk-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════ 入金履歴 ════════ -->
+  <div id="m-history" class="mcon">
+    <div class="hint-box">
+      <strong>📋 入金履歴</strong><br>
+      集金済み・入金済み注文の一覧。月別の入金集計を確認できます。
+    </div>
+    <div class="month-nav">
+      <button class="dnav" onclick="shiftHistMonth(-1)">‹</button>
+      <div class="month-disp" id="ht-month-disp">----年--月</div>
+      <button class="dnav" onclick="shiftHistMonth(1)">›</button>
+      <button class="btn-s" onclick="setHistMonthToday()">今月</button>
+      <button class="btn-s" id="ht-all-btn" onclick="toggleHistAll()">全期間</button>
+    </div>
+    <div class="summary-bar">
+      <div><span class="sm-label">入金件数:</span><span id="ht-cnt" style="color:var(--gold-l);font-family:'Bebas Neue',sans-serif;font-size:1.1rem">0</span></div>
+      <div><span class="sm-label">入金合計:</span><span class="sm-total" id="ht-total">¥0</span></div>
+    </div>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>入金日</th><th>注文日</th><th>店舗名</th><th>支払方法</th><th class="col-amt">金額</th></tr>
+        </thead>
+        <tbody id="ht-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════ 協賛管理 ════════ -->
+  <div id="m-sponsor" class="mcon">
+    <div class="hint-box">
+      <strong>🎁 協賛管理</strong><br>
+      協賛対象顧客の残数・履歴を管理します。注文時に自動付与され、ここから協賛出荷を登録できます。
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-lbl">協賛対象顧客</div><div class="kpi-val kv-pur" id="kpi-sp-cust">0</div><div class="kpi-sub">店舗</div></div>
+      <div class="kpi"><div class="kpi-lbl">残数合計</div><div class="kpi-val kv-gr" id="kpi-sp-balance">0</div><div class="kpi-sub">本</div></div>
+      <div class="kpi"><div class="kpi-lbl">今月付与</div><div class="kpi-val" id="kpi-sp-earned">0</div><div class="kpi-sub">本</div></div>
+      <div class="kpi"><div class="kpi-lbl">今月使用</div><div class="kpi-val kv-o" id="kpi-sp-used">0</div><div class="kpi-sub">本</div></div>
+    </div>
+
+    <div class="fp">
+      <div class="frow">
+        <div class="fg"><label>キーワード</label><input class="fc" id="sp-kw" placeholder="店舗名..." oninput="renderSponsor()"></div>
+        <div class="fg"><label>表示</label><select class="fc" id="sp-state" onchange="renderSponsor()">
+          <option value="all">全協賛対象</option>
+          <option value="has">残あり</option>
+          <option value="zero">残なし</option>
+        </select></div>
+        <div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-g" onclick="exportSponsorCSV()" style="width:100%">📥 CSV出力</button></div>
+      </div>
+    </div>
+
+    <div class="tw">
+      <div class="th-area"><h3>協賛残数一覧</h3><span id="sp-cnt" style="font-size:.72rem;color:var(--wh2)"></span></div>
+      <table>
+        <thead>
+          <tr>
+            <th>店舗名</th><th>拠点</th><th>協賛条件</th><th>対象商品</th>
+            <th class="col-amt">付与</th><th class="col-amt">使用</th><th class="col-amt">残数</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="sp-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="tw" style="margin-top:1rem">
+      <div class="th-area"><h3>協賛履歴（最新50件）</h3></div>
+      <table>
+        <thead>
+          <tr><th>日付</th><th>店舗名</th><th>種別</th><th class="col-amt">本数</th><th>商品/メモ</th></tr>
+        </thead>
+        <tbody id="sp-log-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<!-- ═══ shared.js インライン化 ═══ -->
+<script>
+const PROD_LIST = [
+  {key:'イエロー',     name:'イエロー',     color:'#f4d03f', cost:5000,  price:10500,  reorder:10},
+  {key:'オレンジ',     name:'オレンジ',     color:'#e67e22', cost:10000, price:21000,  reorder:10},
+  {key:'ブルー',       name:'ブルー',       color:'#2980b9', cost:10000, price:21000,  reorder:10},
+  {key:'ブラック',     name:'ブラック',     color:'#555555', cost:10000, price:21000,  reorder:10},
+  {key:'プラチナ',     name:'プラチナ',     color:'#bdc3c7', cost:15000, price:33000,  reorder:6},
+  {key:'ゴールド',     name:'ゴールド',     color:'#c9a84c', cost:20000, price:44000,  reorder:6},
+  {key:'ルミナス',     name:'ルミナス',     color:'#f9ca24', cost:25000, price:55000,  reorder:6},
+  {key:'レジェンド',   name:'レジェンド',   color:'#8e44ad', cost:25000, price:55000,  reorder:6},
+  {key:'さくら',       name:'さくら',       color:'#f8a5c2', cost:12000, price:25000,  reorder:6},
+  {key:'チェングレット', name:'チェングレット', color:'#27ae60', cost:3000,  price:6800,   reorder:12},
+  {key:'チェングロッソ', name:'チェングロッソ', color:'#16a085', cost:3000,  price:6800,   reorder:12},
+  {key:'トレスコーネ', name:'トレスコーネ', color:'#d35400', cost:3500,  price:7800,   reorder:12},
+  {key:'エラ',         name:'エラ',         color:'#6c5ce7', cost:4500,  price:10000,  reorder:10},
+  {key:'トラミ',       name:'トラミ',       color:'#e17055', cost:6000,  price:13000,  reorder:10},
+  {key:'カンポレオーネ', name:'カンポレオーネ', color:'#00b894', cost:4500,  price:10000,  reorder:10},
+  {key:'GIFTBOX',      name:'GIFTBOX',      color:'#c9a84c', cost:9000,  price:20000,  reorder:5},
+  {key:'コラチョロサ', name:'コラチョロサ', color:'#fd79a8', cost:8000,  price:17000,  reorder:6},
+];
+const PRODS = PROD_LIST.map(p => p.key);
+const PRICE = Object.fromEntries(PROD_LIST.map(p => [p.key, p.price]));
+const COST  = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
+const REORDER = Object.fromEntries(PROD_LIST.map(p => [p.key, p.reorder]));
+
+const S = {
+  branch:'both', orders:[], customers:[], staff:[],
+  stock:{仙台:{}, 京都:{}}, stockDetail:{仙台:{}, 京都:{}},
+  slog:[], collections:[], invoices:[],
+  bankEntries:[], bankHistory:[], company:{}, products:null,
+  purchases:[], cashEntries:[], dailyReps:[],
+  gasUrl: localStorage.getItem('gasUrl') || '',
+};
+
+function today(){ return new Date().toISOString().slice(0,10); }
+function fmt(n){ return (Number(n)||0).toLocaleString('ja-JP'); }
+function yen(n){ return '¥' + fmt(n); }
+function calcAmt(o){
+  const tax = o.tax === 'taxあり' ? 1.1 : 1;
+  const cond = (o.condition || 10) / 10;
+  let total = 0;
+  Object.entries(o.items || {}).forEach(([p,q]) => {
+    total += Math.round((PRICE[p] || 0) * cond) * tax * (q || 0);
+  });
+  return Math.round(total);
+}
+
+function saveState(){
+  try {
+    const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
+                  'invoices','bankEntries','bankHistory','company','products','purchases',
+                  'cashEntries','dailyReps','sponsorLogs'];
+    keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
+  } catch(e){ console.warn('saveState error', e); }
+}
+function loadState(){
+  try {
+    const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
+                  'invoices','bankEntries','bankHistory','company','products','purchases',
+                  'cashEntries','dailyReps','sponsorLogs'];
+    keys.forEach(k => {
+      const v = localStorage.getItem('lmb_' + k);
+      if (v) try { S[k] = JSON.parse(v); } catch(e){}
+    });
+    if (!S.sponsorLogs) S.sponsorLogs = [];
+    S.gasUrl = localStorage.getItem('gasUrl') || '';
+  } catch(e){ console.warn('loadState error', e); }
+}
+
+function toast(msg, type){
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.borderColor = type === 'error' ? 'rgba(224,82,82,.5)' : 'rgba(201,168,76,.4)';
+  setTimeout(() => { t.style.opacity = '0'; }, 2500);
+}
+
+async function gasGet(action, params){
+  if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
+  const q = new URLSearchParams({ action, ...(params||{}) }).toString();
+  try {
+    const r = await fetch(S.gasUrl + '?' + q);
+    return await r.json();
+  } catch(e){ toast('通信エラー: ' + e.message, 'error'); return null; }
+}
+async function gasPost(data){
+  if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
+  try {
+    await fetch(S.gasUrl, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return { ok: true };
+  } catch(e){ toast('送信エラー: ' + e.message, 'error'); return null; }
+}
+
+window.S=S; window.PROD_LIST=PROD_LIST; window.PRODS=PRODS;
+window.PRICE=PRICE; window.COST=COST; window.REORDER=REORDER;
+window.calcAmt=calcAmt; window.today=today; window.fmt=fmt; window.yen=yen;
+window.saveState=saveState; window.loadState=loadState;
+window.toast=toast; window.gasGet=gasGet; window.gasPost=gasPost;
+
+loadState();
+</script>
+
+<!-- ═══ 共通 ═══ -->
+<script>
+const currentUser = JSON.parse(sessionStorage.getItem('lmb_current_user') || 'null') || {
+  id: 'dev-admin', name: '開発者', email: 'admin@sclass.jp',
+  role: 'admin', branch: '両拠点', active: true, isDev: true,
+};
+
+function updateUserBadge(){
+  const badge = document.getElementById('user-badge');
+  if (!badge) return;
+  const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁'};
+  badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name} (${currentUser.role})`;
+}
+
+function doLogout(){
+  if (confirm('ログアウトしますか？')) {
+    sessionStorage.removeItem('lmb_current_user');
+    location.href = 'login.html';
+  }
+}
+
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function canEdit(){ return currentUser && ['admin','manager','staff'].includes(currentUser.role); }
+function canDelete(){ return currentUser && ['admin','manager'].includes(currentUser.role); }
+
+function switchModule(name, el){
+  document.querySelectorAll('.mtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.mcon').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('m-' + name).classList.add('active');
+
+  if (name === 'payment')   renderPayment();
+  if (name === 'arsummary') renderARSummary();
+  if (name === 'invoice')   initInvoice();
+  if (name === 'bank')      renderBank();
+  if (name === 'history')   renderHistory();
+  if (name === 'sponsor')   renderSponsor();
+}
+
+// 経過日数
+function daysSince(dateStr){
+  if (!dateStr) return 0;
+  const d = new Date(dateStr);
+  const now = new Date();
+  return Math.floor((now - d) / (1000 * 60 * 60 * 24));
+}
+
+// KPI更新
+function updateKPI(){
+  let unpaid = 0, unpaidCnt = 0, paidMonth = 0, paidCnt = 0, overdue = 0;
+  const month = today().slice(0,7);
+  const stores = new Set();
+
+  (S.orders || []).forEach(o => {
+    const amt = calcAmt(o);
+    const isUnpaid = o.payStatus !== '集金済み' && o.payStatus !== '入金済み';
+
+    if (isUnpaid){
+      unpaid += amt;
+      unpaidCnt++;
+      stores.add(o.store);
+      // 30日以上経過は超過
+      if (daysSince(o.date) > 30) overdue++;
+    } else if ((o.paidAt || '').slice(0,7) === month){
+      paidMonth += amt;
+      paidCnt++;
+    }
+  });
+
+  document.getElementById('kpi-unpaid').textContent = '¥' + fmt(unpaid);
+  document.getElementById('kpi-unpaid-cnt').textContent = unpaidCnt + '件';
+  document.getElementById('kpi-paid-month').textContent = '¥' + fmt(paidMonth);
+  document.getElementById('kpi-paid-cnt').textContent = paidCnt + '件';
+  document.getElementById('kpi-ar-count').textContent = stores.size;
+  document.getElementById('kpi-overdue').textContent = overdue;
+  document.getElementById('kpi-invoices').textContent = (S.invoices || []).length;
+}
+
+async function syncFromGAS(){
+  if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
+  toast('同期中...');
+  const cust = await gasGet('getCustomers');
+  if (cust && cust.customers) S.customers = cust.customers;
+  saveState();
+  toast('✓ 同期完了');
+  updateKPI();
+  renderPayment();
+}
+</script>
+
+<!-- ═══ 集金管理 ═══ -->
+<script>
+let selectedPayments = new Set();
+
+function renderPayment(){
+  const kw    = (document.getElementById('pm-kw')?.value || '').toLowerCase();
+  const br    = document.getElementById('pm-br')?.value || '';
+  const state = document.getElementById('pm-state')?.value || 'unpaid';
+  const pay   = document.getElementById('pm-pay')?.value || '';
+
+  let list = [...(S.orders || [])];
+  if (state === 'unpaid') {
+    list = list.filter(o => o.payStatus !== '集金済み' && o.payStatus !== '入金済み');
+  } else if (state === 'overdue') {
+    list = list.filter(o => (o.payStatus !== '集金済み' && o.payStatus !== '入金済み') && daysSince(o.date) > 30);
+  }
+  if (kw)  list = list.filter(o => (o.store || '').toLowerCase().includes(kw));
+  if (br)  list = list.filter(o => o.branch === br);
+  if (pay) list = list.filter(o => o.payMethod === pay);
+
+  list.sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+
+  document.getElementById('pm-cnt').textContent = list.length;
+  const total = list.reduce((s,o) => s + calcAmt(o), 0);
+  document.getElementById('pm-total').textContent = '¥' + fmt(total);
+
+  const tbody = document.getElementById('pm-tbody');
+  if (list.length === 0){
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty"><div class="empty-icon">💴</div>該当する注文がありません</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(o => {
+    const amt = calcAmt(o);
+    const days = daysSince(o.date);
+    const overdueClass = days > 30 ? 'bd-unpaid' : (days > 14 ? 'bd-partial' : 'bd-pending');
+    const overdueText  = days > 30 ? `⚠ ${days}日経過` : `${days}日経過`;
+    const checked = selectedPayments.has(o.id) ? 'checked' : '';
+    return `
+    <tr>
+      <td><input type="checkbox" ${checked} onchange="togglePayment('${o.id}',this.checked)"></td>
+      <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(o.date||'')}</td>
+      <td>${escapeHtml(o.branch||'')}</td>
+      <td>${escapeHtml(o.store||'')}</td>
+      <td style="font-size:.72rem">${escapeHtml(o.payMethod||'未設定')}</td>
+      <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
+      <td><span class="badge ${o.payStatus==='売掛'?'bd-pending':'bd-unpaid'}">${escapeHtml(o.payStatus||'未収')}</span></td>
+      <td><span class="badge ${overdueClass}">${overdueText}</span></td>
+      <td><button class="act-btn gr" onclick="quickPaid('${o.id}')">集金</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function togglePayment(id, checked){
+  if (checked) selectedPayments.add(id);
+  else selectedPayments.delete(id);
+}
+
+function toggleAllPayment(checked){
+  document.querySelectorAll('#pm-tbody input[type=checkbox]').forEach(cb => {
+    cb.checked = checked;
+    const id = cb.getAttribute('onchange').match(/'([^']+)'/)?.[1];
+    if (id){
+      if (checked) selectedPayments.add(id);
+      else selectedPayments.delete(id);
+    }
+  });
+}
+
+function quickPaid(id){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const o = S.orders.find(x => x.id === id);
+  if (!o) return;
+  o.payStatus = '集金済み';
+  o.paidAt = new Date().toISOString();
+  o.paidBy = currentUser.name;
+  saveState();
+  if (S.gasUrl) gasPost({ action: 'updatePayStatus', orderId: id, payStatus: '集金済み' });
+  toast('✓ 集金済みに更新');
+  selectedPayments.delete(id);
+  renderPayment();
+  updateKPI();
+}
+
+function bulkMarkPaid(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  if (selectedPayments.size === 0) return toast('注文を選択してください', 'error');
+  if (!confirm(`${selectedPayments.size}件の注文を集金済みにしますか？`)) return;
+  let count = 0;
+  selectedPayments.forEach(id => {
+    const o = S.orders.find(x => x.id === id);
+    if (o){
+      o.payStatus = '集金済み';
+      o.paidAt = new Date().toISOString();
+      o.paidBy = currentUser.name;
+      if (S.gasUrl) gasPost({ action: 'updatePayStatus', orderId: id, payStatus: '集金済み' });
+      count++;
+    }
+  });
+  saveState();
+  selectedPayments.clear();
+  toast(`✓ ${count}件を集金済みに更新`);
+  renderPayment();
+  updateKPI();
+}
+</script>
+
+<!-- ═══ 売掛サマリー ═══ -->
+<script>
+let arMonth = new Date();
+let arShowAll = false;
+
+function setARMonthToday(){ arMonth = new Date(); arShowAll = false; renderARSummary(); }
+function shiftARMonth(n){ arMonth = new Date(arMonth.getFullYear(), arMonth.getMonth() + n, 1); arShowAll = false; renderARSummary(); }
+function toggleARAll(){ arShowAll = !arShowAll; document.getElementById('ar-all-btn').textContent = arShowAll ? '月別表示' : '全期間'; renderARSummary(); }
+
+function renderARSummary(){
+  const yr = arMonth.getFullYear(), mo = arMonth.getMonth();
+  const mStr = `${yr}-${String(mo+1).padStart(2,'0')}`;
+  document.getElementById('ar-month-disp').textContent = `${yr}年${mo+1}月`;
+
+  const kw = (document.getElementById('ar-kw')?.value || '').toLowerCase();
+  const br = document.getElementById('ar-br')?.value || '';
+  const state = document.getElementById('ar-state')?.value || '';
+
+  // 取引先ごとに集計
+  const byStore = {};
+  (S.orders || []).forEach(o => {
+    if (!arShowAll && (o.date || '').slice(0,7) !== mStr) return;
+    if (br && o.branch !== br) return;
+    const key = o.store || '不明';
+    if (!byStore[key]){
+      byStore[key] = { name: key, branch: o.branch, total: 0, unpaid: 0, paid: 0, count: 0, lastDate: '' };
+    }
+    const amt = calcAmt(o);
+    byStore[key].total += amt;
+    byStore[key].count++;
+    if (o.payStatus === '集金済み' || o.payStatus === '入金済み'){
+      byStore[key].paid += amt;
+    } else {
+      byStore[key].unpaid += amt;
+    }
+    if ((o.date || '') > byStore[key].lastDate) byStore[key].lastDate = o.date;
+  });
+
+  let stores = Object.values(byStore);
+  if (kw) stores = stores.filter(s => s.name.toLowerCase().includes(kw));
+  if (state === 'debt') stores = stores.filter(s => s.unpaid > 0);
+  if (state === 'paid') stores = stores.filter(s => s.unpaid === 0);
+
+  stores.sort((a,b) => b.unpaid - a.unpaid);
+
+  const grid = document.getElementById('ar-grid');
+  if (stores.length === 0){
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📊</div>該当する取引先がありません</div>`;
+    return;
+  }
+
+  grid.innerHTML = stores.map(s => {
+    // 協賛残数（typeof check for safety - getSponsorBalance is below in script)
+    const matchedCust = (S.customers || []).find(c => c.name === s.name);
+    let sponsorBadge = '';
+    if (matchedCust && matchedCust.sponsorEnabled && typeof getSponsorBalance === 'function'){
+      const bal = getSponsorBalance(matchedCust.id);
+      if (bal.pts > 0){
+        sponsorBadge = `<span style="display:inline-block;font-size:.6rem;padding:.1rem .4rem;background:rgba(155,127,212,.15);color:#B8A1DC;margin-left:.3rem;border-radius:2px">🎁 残${bal.pts}本</span>`;
+      } else if (bal.earned > 0){
+        sponsorBadge = `<span style="display:inline-block;font-size:.6rem;padding:.1rem .4rem;background:rgba(255,255,255,.05);color:var(--wh3);margin-left:.3rem;border-radius:2px">🎁 残0</span>`;
+      } else {
+        sponsorBadge = `<span style="display:inline-block;font-size:.6rem;padding:.1rem .4rem;background:rgba(155,127,212,.08);color:#B8A1DC;margin-left:.3rem;border-radius:2px;opacity:.6">🎁 対象</span>`;
+      }
+    }
+    return `
+    <div class="ar-card ${s.unpaid > 0 ? 'has-debt' : ''}" onclick="drillStore('${escapeHtml(s.name)}')">
+      <div class="ar-name">${escapeHtml(s.name)}${sponsorBadge}</div>
+      <div class="ar-amount ${s.unpaid === 0 ? 'zero' : ''}">¥${fmt(s.unpaid)}${s.unpaid === 0 ? ' ✓ 完済' : ''}</div>
+      <div class="ar-detail">
+        <div><strong>${s.count}件</strong> / 合計¥${fmt(s.total)}</div>
+        <div>入金済 ¥${fmt(s.paid)} / 拠点: ${escapeHtml(s.branch || '—')}</div>
+        <div style="color:var(--wh3);font-size:.65rem">最終注文: ${s.lastDate || '—'}</div>
+      </div>
+    </div>
+  `;}).join('');
+}
+
+function drillStore(name){
+  document.getElementById('pm-kw').value = name;
+  document.getElementById('pm-state').value = '';
+  switchModule('payment', document.querySelectorAll('.mtab')[0]);
+  renderPayment();
+}
+</script>
+
+<!-- ═══ 請求書 ═══ -->
+<script>
+function initInvoice(){
+  // 顧客選択肢
+  const sel = document.getElementById('iv-cust');
+  sel.innerHTML = '<option value="">選択...</option>' +
+    (S.customers || []).map(c => `<option value="${escapeHtml(c.id || c.name)}">${escapeHtml(c.name)}</option>`).join('');
+
+  if (!document.getElementById('iv-date').value){
+    document.getElementById('iv-date').value = today();
+    // 期日は当月末
+    const d = new Date();
+    const due = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    document.getElementById('iv-due').value = due.toISOString().slice(0,10);
+    // 対象期間は前月
+    const fromDate = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    const toDate = new Date(d.getFullYear(), d.getMonth(), 0);
+    document.getElementById('iv-from').value = fromDate.toISOString().slice(0,10);
+    document.getElementById('iv-to').value = toDate.toISOString().slice(0,10);
+  }
+
+  if (!document.getElementById('iv-no').value){
+    document.getElementById('iv-no').value = 'INV-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + String(Date.now()).slice(-4);
+  }
+
+  renderInvoiceList();
+}
+
+function onIvCustChange(){
+  const id = document.getElementById('iv-cust').value;
+  const c = (S.customers || []).find(x => (x.id || x.name) === id);
+  if (c && c.bankNames && c.bankNames.length > 0){
+    document.getElementById('iv-bank').innerHTML = c.bankNames.map(b => `<option>${escapeHtml(b)}</option>`).join('');
+  } else {
+    document.getElementById('iv-bank').innerHTML = '<option value="">未設定</option>';
+  }
+}
+
+function buildInvoicePreview(){
+  const custId = document.getElementById('iv-cust').value;
+  const c = (S.customers || []).find(x => (x.id || x.name) === custId);
+  if (!c) return toast('取引先を選択してください', 'error');
+
+  const from = document.getElementById('iv-from').value;
+  const to   = document.getElementById('iv-to').value;
+  if (!from || !to) return toast('対象期間を入力してください', 'error');
+
+  const orders = (S.orders || []).filter(o =>
+    o.store === c.name && o.date >= from && o.date <= to
+  );
+
+  const company = S.company || {};
+  let total = 0;
+  const lines = orders.map(o => {
+    const items = Object.entries(o.items || {}).filter(([,q]) => q > 0);
+    const itemsTxt = items.map(([p,q]) => `${p}×${q}`).join(', ');
+    const amt = calcAmt(o);
+    total += amt;
+    return `<tr><td>${o.date}</td><td>${itemsTxt}</td><td style="text-align:right">¥${fmt(amt)}</td></tr>`;
+  }).join('');
+
+  const ivNo  = document.getElementById('iv-no').value;
+  const ivDate = document.getElementById('iv-date').value;
+  const ivDue  = document.getElementById('iv-due').value;
+  const bank   = document.getElementById('iv-bank').value;
+
+  document.getElementById('iv-preview').innerHTML = `
+    <h2>請求書</h2>
+    <div class="row"><span><strong>${escapeHtml(c.invName || c.name)}</strong> 御中</span><span>請求書No: ${escapeHtml(ivNo)}</span></div>
+    <div class="row"><span></span><span>発行日: ${ivDate}</span></div>
+    <div class="row"><span></span><span>支払期限: ${ivDue}</span></div>
+    <div style="margin-top:1rem;padding:.7rem;background:#fafafa;border:1px solid #ddd">
+      <div style="font-size:1rem;font-weight:700;margin-bottom:.4rem">${escapeHtml(company.name || '株式会社Sclass')}</div>
+      <div style="font-size:.78rem;color:#555">${escapeHtml(company.addr || '')}</div>
+      <div style="font-size:.78rem;color:#555">TEL: ${escapeHtml(company.tel || '')}</div>
+      ${company.invNum ? `<div style="font-size:.72rem;color:#777;margin-top:.3rem">登録番号: ${escapeHtml(company.invNum)}</div>` : ''}
+    </div>
+    <p style="margin:1.2rem 0 .5rem;font-size:.85rem">下記の通りご請求申し上げます。</p>
+    <table>
+      <thead><tr><th>日付</th><th>商品</th><th style="text-align:right">金額</th></tr></thead>
+      <tbody>${lines || '<tr><td colspan="3" style="text-align:center;color:#999">対象期間に注文がありません</td></tr>'}</tbody>
+    </table>
+    <div class="total">合計金額（税込）: ¥${fmt(total)}</div>
+    ${bank ? `<div style="margin-top:1rem;padding:.7rem;background:#f8f8f8;border:1px solid #ddd"><strong>振込先:</strong> ${escapeHtml(bank)}</div>` : ''}
+    <div style="margin-top:2rem;text-align:right;font-size:.7rem;color:#999">※ ${orders.length}件の注文に対する請求</div>
+  `;
+
+  // プレビュー用に保持
+  window._currentInvoice = { ivNo, ivDate, ivDue, custId: c.id || c.name, custName: c.name, from, to, total, count: orders.length, bank };
+}
+
+function saveInvoice(){
+  if (!window._currentInvoice) return toast('まずプレビューを作成してください', 'error');
+  const inv = { ...window._currentInvoice, savedAt: new Date().toISOString(), savedBy: currentUser.name };
+
+  if (!S.invoices) S.invoices = [];
+  // 既存チェック
+  const existIdx = S.invoices.findIndex(x => x.ivNo === inv.ivNo);
+  if (existIdx >= 0){
+    if (!confirm('この請求書番号は既に存在します。上書きしますか？')) return;
+    S.invoices[existIdx] = inv;
+  } else {
+    S.invoices.push(inv);
+  }
+  saveState();
+  if (S.gasUrl) gasPost({ action: 'saveInvoice', ...inv });
+  toast('✓ 請求書を保存しました');
+  renderInvoiceList();
+  updateKPI();
+}
+
+function renderInvoiceList(){
+  const list = [...(S.invoices || [])].sort((a,b) => (b.ivDate || '').localeCompare(a.ivDate || ''));
+  document.getElementById('iv-cnt').textContent = list.length + '通';
+  const tbody = document.getElementById('iv-tbody');
+  if (list.length === 0){
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">📄</div>発行済み請求書がありません</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(iv => {
+    const overdue = iv.ivDue && new Date(iv.ivDue) < new Date() && iv.status !== '入金済';
+    return `
+    <tr>
+      <td style="font-family:monospace;font-size:.7rem">${escapeHtml(iv.ivNo)}</td>
+      <td>${escapeHtml(iv.ivDate)}</td>
+      <td>${escapeHtml(iv.custName)}</td>
+      <td style="font-size:.7rem">${iv.from} 〜 ${iv.to}</td>
+      <td class="col-amt" style="color:var(--gold-l)">¥${fmt(iv.total)}</td>
+      <td>${escapeHtml(iv.ivDue)}</td>
+      <td><span class="badge ${overdue ? 'bd-unpaid' : (iv.status === '入金済' ? 'bd-paid' : 'bd-pending')}">${overdue ? '期限超過' : (iv.status || '発行済')}</span></td>
+      <td><button class="act-btn" onclick="reloadInvoice('${escapeHtml(iv.ivNo)}')">📄</button><button class="act-btn dn" onclick="deleteInvoice('${escapeHtml(iv.ivNo)}')">削</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function reloadInvoice(no){
+  const iv = (S.invoices || []).find(x => x.ivNo === no);
+  if (!iv) return;
+  document.getElementById('iv-no').value = iv.ivNo;
+  document.getElementById('iv-date').value = iv.ivDate;
+  document.getElementById('iv-due').value = iv.ivDue;
+  document.getElementById('iv-cust').value = iv.custId;
+  onIvCustChange();
+  document.getElementById('iv-from').value = iv.from;
+  document.getElementById('iv-to').value = iv.to;
+  buildInvoicePreview();
+}
+
+function deleteInvoice(no){
+  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
+  if (!confirm('この請求書を削除しますか？')) return;
+  S.invoices = (S.invoices || []).filter(x => x.ivNo !== no);
+  saveState();
+  toast('✓ 削除しました');
+  renderInvoiceList();
+  updateKPI();
+}
+</script>
+
+<!-- ═══ 通帳連携 ═══ -->
+<script>
+function renderBank(){
+  if (!document.getElementById('bk-date').value){
+    document.getElementById('bk-date').value = today();
+  }
+
+  const list = [...(S.bankEntries || [])].sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+  document.getElementById('bk-cnt').textContent = list.length + '件';
+  const tbody = document.getElementById('bk-tbody');
+  if (list.length === 0){
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-icon">🏦</div>入金データがありません</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(b => `
+    <tr>
+      <td>${escapeHtml(b.date)}</td>
+      <td>${escapeHtml(b.name || '不明')}</td>
+      <td class="col-amt" style="color:var(--grn)">¥${fmt(b.amount)}</td>
+      <td>${b.matchedTo ? `<span class="badge bd-paid">✓ ${escapeHtml(b.matchedTo)}</span>` : '<span class="badge bd-pending">未マッチ</span>'}</td>
+      <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(b.note || '')}</td>
+      <td><button class="act-btn dn" onclick="deleteBank('${escapeHtml(b.id)}')">削</button></td>
+    </tr>
+  `).join('');
+}
+
+function addBankEntry(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const date = document.getElementById('bk-date').value;
+  const name = document.getElementById('bk-name').value.trim();
+  const amt  = parseInt(document.getElementById('bk-amt').value) || 0;
+  const note = document.getElementById('bk-note').value;
+  if (!date || amt <= 0) return toast('日付と金額を入力してください', 'error');
+
+  if (!S.bankEntries) S.bankEntries = [];
+  S.bankEntries.push({
+    id: 'bk-' + Date.now(),
+    date, name, amount: amt, note,
+    matchedTo: null,
+    addedBy: currentUser.name,
+    addedAt: new Date().toISOString(),
+  });
+  saveState();
+  toast(`✓ 入金 ¥${fmt(amt)} を登録`);
+  document.getElementById('bk-name').value = '';
+  document.getElementById('bk-amt').value = '';
+  document.getElementById('bk-note').value = '';
+  renderBank();
+}
+
+function autoMatch(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  let matched = 0;
+  (S.bankEntries || []).forEach(b => {
+    if (b.matchedTo) return;
+    // 振込人名と金額が一致する未収注文を探す
+    const candidates = (S.orders || []).filter(o => {
+      if (o.payStatus === '集金済み' || o.payStatus === '入金済み') return false;
+      if (calcAmt(o) !== b.amount) return false;
+      const storeKey = (o.store || '').toLowerCase();
+      const nameKey  = (b.name || '').toLowerCase();
+      return nameKey.includes(storeKey) || storeKey.includes(nameKey);
+    });
+    if (candidates.length === 1){
+      const o = candidates[0];
+      o.payStatus = '入金済み';
+      o.paidAt = b.date;
+      o.paidBy = '通帳マッチ';
+      b.matchedTo = `注文 ${o.id}`;
+      matched++;
+    }
+  });
+  saveState();
+  toast(matched > 0 ? `✓ ${matched}件をマッチ` : '一致する組み合わせが見つかりませんでした');
+  renderBank();
+  updateKPI();
+}
+
+function deleteBank(id){
+  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
+  if (!confirm('この入金データを削除しますか？')) return;
+  S.bankEntries = (S.bankEntries || []).filter(b => b.id !== id);
+  saveState();
+  toast('✓ 削除しました');
+  renderBank();
+}
+</script>
+
+<!-- ═══ 入金履歴 ═══ -->
+<script>
+let histMonth = new Date();
+let histShowAll = false;
+
+function setHistMonthToday(){ histMonth = new Date(); histShowAll = false; renderHistory(); }
+function shiftHistMonth(n){ histMonth = new Date(histMonth.getFullYear(), histMonth.getMonth() + n, 1); histShowAll = false; renderHistory(); }
+function toggleHistAll(){ histShowAll = !histShowAll; document.getElementById('ht-all-btn').textContent = histShowAll ? '月別表示' : '全期間'; renderHistory(); }
+
+function renderHistory(){
+  const yr = histMonth.getFullYear(), mo = histMonth.getMonth();
+  const mStr = `${yr}-${String(mo+1).padStart(2,'0')}`;
+  document.getElementById('ht-month-disp').textContent = `${yr}年${mo+1}月`;
+
+  let list = (S.orders || []).filter(o =>
+    o.payStatus === '集金済み' || o.payStatus === '入金済み'
+  );
+  if (!histShowAll){
+    list = list.filter(o => (o.paidAt || '').slice(0,7) === mStr);
+  }
+  list.sort((a,b) => (b.paidAt || '').localeCompare(a.paidAt || ''));
+
+  document.getElementById('ht-cnt').textContent = list.length;
+  const total = list.reduce((s,o) => s + calcAmt(o), 0);
+  document.getElementById('ht-total').textContent = '¥' + fmt(total);
+
+  const tbody = document.getElementById('ht-tbody');
+  if (list.length === 0){
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">📋</div>入金履歴がありません</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(o => `
+    <tr>
+      <td>${escapeHtml((o.paidAt || '').slice(0,10))}</td>
+      <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(o.date || '')}</td>
+      <td>${escapeHtml(o.store || '')}</td>
+      <td style="font-size:.72rem">${escapeHtml(o.payMethod || '')}</td>
+      <td class="col-amt" style="color:var(--grn)">¥${fmt(calcAmt(o))}</td>
+    </tr>
+  `).join('');
+}
+</script>
+
+<!-- ═══ 協賛管理 ═══ -->
+<script>
+// ─── 協賛残数取得 ─────
+function getSponsorBalance(custId){
+  if (!S.sponsorLogs) S.sponsorLogs = [];
+  const logs = S.sponsorLogs.filter(l => String(l.custId) === String(custId));
+  const earned = logs.filter(l => l.type === 'earned').reduce((s,l) => s + (l.qty || 0), 0);
+  const used   = logs.filter(l => l.type === 'used').reduce((s,l) => s + (l.qty || 0), 0);
+  return { pts: Math.max(0, earned - used), earned, used };
+}
+
+function renderSponsor(){
+  const kw = (document.getElementById('sp-kw')?.value || '').toLowerCase();
+  const state = document.getElementById('sp-state')?.value || 'all';
+
+  // 協賛対象顧客のみ
+  let list = (S.customers || []).filter(c => c.sponsorEnabled);
+  if (kw) list = list.filter(c => (c.name || '').toLowerCase().includes(kw));
+
+  // 残数計算
+  list = list.map(c => ({ ...c, _bal: getSponsorBalance(c.id) }));
+
+  if (state === 'has') list = list.filter(c => c._bal.pts > 0);
+  if (state === 'zero') list = list.filter(c => c._bal.pts === 0);
+
+  // 残数降順
+  list.sort((a, b) => b._bal.pts - a._bal.pts);
+
+  // KPI
+  const totalCust = (S.customers || []).filter(c => c.sponsorEnabled).length;
+  const totalBalance = (S.customers || []).filter(c => c.sponsorEnabled)
+    .reduce((s, c) => s + getSponsorBalance(c.id).pts, 0);
+  const month = today().slice(0, 7);
+  const monthEarned = (S.sponsorLogs || []).filter(l => l.type === 'earned' && (l.date || '').slice(0,7) === month).reduce((s,l) => s + (l.qty || 0), 0);
+  const monthUsed = (S.sponsorLogs || []).filter(l => l.type === 'used' && (l.date || '').slice(0,7) === month).reduce((s,l) => s + (l.qty || 0), 0);
+
+  document.getElementById('kpi-sp-cust').textContent = totalCust;
+  document.getElementById('kpi-sp-balance').textContent = totalBalance;
+  document.getElementById('kpi-sp-earned').textContent = monthEarned;
+  document.getElementById('kpi-sp-used').textContent = monthUsed;
+
+  document.getElementById('sp-cnt').textContent = list.length + '店舗';
+
+  // 一覧表
+  const tbody = document.getElementById('sp-tbody');
+  if (list.length === 0){
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">🎁</div>協賛対象顧客がありません</div></td></tr>`;
+  } else {
+    tbody.innerHTML = list.map(c => {
+      const trig = parseInt(c.sponsorTrigger) || 0;
+      const reward = parseInt(c.sponsorReward) || 1;
+      const prod = c.sponsorProduct || '全商品';
+      const balCls = c._bal.pts > 0 ? 'color:var(--grn);font-weight:600' : 'color:var(--wh3)';
+      return `
+      <tr>
+        <td><strong>${escapeHtml(c.name)}</strong></td>
+        <td>${escapeHtml(c.branch || '')}</td>
+        <td style="font-size:.7rem">${trig}本→${reward}本</td>
+        <td style="font-size:.72rem">${escapeHtml(prod)}</td>
+        <td class="col-amt">${c._bal.earned}</td>
+        <td class="col-amt" style="color:var(--org)">${c._bal.used}</td>
+        <td class="col-amt" style="${balCls}">${c._bal.pts}本</td>
+        <td>
+          ${c._bal.pts > 0 ? `<button class="act-btn gr" onclick="openSponsorShip('${escapeHtml(c.id)}')">🚚 出荷</button>` : ''}
+          <button class="act-btn" onclick="viewSponsorLog('${escapeHtml(c.id)}')">📋 履歴</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // 履歴
+  const logs = [...(S.sponsorLogs || [])].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 50);
+  const logBody = document.getElementById('sp-log-tbody');
+  if (logs.length === 0){
+    logBody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">📋</div>履歴なし</div></td></tr>`;
+  } else {
+    logBody.innerHTML = logs.map(l => {
+      const cust = (S.customers || []).find(c => String(c.id) === String(l.custId));
+      const typeBadge = l.type === 'earned'
+        ? '<span class="badge bd-paid">+付与</span>'
+        : '<span class="badge bd-out">-使用</span>';
+      return `
+      <tr>
+        <td style="font-size:.72rem">${escapeHtml(l.date || '')}</td>
+        <td>${escapeHtml(cust ? cust.name : (l.custName || l.custId))}</td>
+        <td>${typeBadge}</td>
+        <td class="col-amt" style="color:${l.type === 'earned' ? 'var(--grn)' : 'var(--org)'}">${l.type === 'earned' ? '+' : '-'}${l.qty}本</td>
+        <td style="font-size:.7rem;color:var(--wh2)">${escapeHtml(l.note || '')}${l.product ? ' / ' + escapeHtml(l.product) : ''}</td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+// ─── 協賛出荷ダイアログ ─────
+function openSponsorShip(custId){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const cust = (S.customers || []).find(c => String(c.id) === String(custId));
+  if (!cust) return toast('顧客が見つかりません', 'error');
+  const bal = getSponsorBalance(custId);
+  if (bal.pts <= 0) return toast('協賛残数がありません', 'error');
+
+  // モーダルダイアログ生成
+  let modal = document.getElementById('sponsor-modal');
+  if (!modal){
+    modal = document.createElement('div');
+    modal.id = 'sponsor-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:1rem';
+    document.body.appendChild(modal);
+  }
+
+  const prodOpts = PRODS.map(p => `<option>${p}</option>`).join('');
+
+  modal.innerHTML = `
+    <div style="background:var(--d2);border:1px solid var(--gold-d);max-width:480px;width:100%;padding:1.5rem;position:relative">
+      <button onclick="document.getElementById('sponsor-modal').remove()" style="position:absolute;top:.5rem;right:.5rem;background:transparent;border:none;color:var(--wh3);font-size:1.2rem;cursor:pointer">✕</button>
+      <h3 style="color:var(--gold-l);font-size:1rem;margin-bottom:1rem">🎁 協賛出荷 — ${escapeHtml(cust.name)}</h3>
+      <div style="background:rgba(82,183,136,.07);border:1px solid rgba(82,183,136,.25);padding:.7rem;margin-bottom:1rem;text-align:center">
+        <div style="font-size:.65rem;color:var(--grn)">現在の協賛残数</div>
+        <div style="font-size:2rem;font-weight:700;color:var(--grn);font-family:'Bebas Neue',sans-serif">${bal.pts}本</div>
+        <div style="font-size:.65rem;color:var(--wh3)">累計付与 ${bal.earned}本 / 使用済 ${bal.used}本</div>
+      </div>
+      <div class="fg" style="margin-bottom:.6rem"><label>商品</label><select class="fc" id="sship-prod">${prodOpts}</select></div>
+      <div class="fg" style="margin-bottom:.6rem"><label>本数</label><input type="number" class="fc" id="sship-qty" min="1" max="${bal.pts}" value="1"></div>
+      <div class="fg" style="margin-bottom:.6rem"><label>拠点</label><select class="fc" id="sship-br"><option>仙台</option><option>京都</option></select></div>
+      <div class="fg" style="margin-bottom:1rem"><label>メモ</label><input class="fc" id="sship-note" placeholder="任意"></div>
+      <div class="faction">
+        <button class="btn btn-p" onclick="confirmSponsorShip('${escapeHtml(custId)}')">✓ 出荷を登録</button>
+        <button class="btn btn-g" onclick="document.getElementById('sponsor-modal').remove()">キャンセル</button>
+      </div>
+    </div>
+  `;
+}
+
+function confirmSponsorShip(custId){
+  const cust = (S.customers || []).find(c => String(c.id) === String(custId));
+  if (!cust) return;
+  const qty = parseInt(document.getElementById('sship-qty').value) || 0;
+  const prod = document.getElementById('sship-prod').value;
+  const br = document.getElementById('sship-br').value;
+  const note = document.getElementById('sship-note').value.trim();
+  const bal = getSponsorBalance(custId);
+
+  if (qty <= 0) return toast('本数を入力してください', 'error');
+  if (qty > bal.pts) return toast(`残数（${bal.pts}本）を超えています`, 'error');
+
+  if (!S.sponsorLogs) S.sponsorLogs = [];
+  S.sponsorLogs.push({
+    id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
+    custId: cust.id,
+    custName: cust.name,
+    type: 'used',
+    qty,
+    date: today(),
+    product: prod,
+    branch: br,
+    note: note || '協賛出荷',
+    createdAt: new Date().toISOString(),
+    createdBy: currentUser.name,
+  });
+
+  // 在庫減算
+  if (!S.stock[br]) S.stock[br] = {};
+  S.stock[br][prod] = Math.max(0, (S.stock[br][prod] || 0) - qty);
+
+  // 在庫ログ
+  if (!S.slog) S.slog = [];
+  S.slog.push({
+    date: today(), time: new Date().toTimeString().slice(0,5),
+    branch: br, type: '出庫', product: prod, qty,
+    remaining: S.stock[br][prod],
+    note: `協賛出荷: ${cust.name}${note ? ' / ' + note : ''}`,
+    user: currentUser.name,
+  });
+
+  saveState();
+  document.getElementById('sponsor-modal').remove();
+  toast(`✓ 協賛出荷登録：${cust.name} ${prod} ${qty}本`);
+  renderSponsor();
+}
+
+function viewSponsorLog(custId){
+  const cust = (S.customers || []).find(c => String(c.id) === String(custId));
+  if (!cust) return;
+  const logs = (S.sponsorLogs || []).filter(l => String(l.custId) === String(custId))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  let modal = document.getElementById('sponsor-modal');
+  if (!modal){
+    modal = document.createElement('div');
+    modal.id = 'sponsor-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:1rem';
+    document.body.appendChild(modal);
+  }
+
+  const bal = getSponsorBalance(custId);
+  modal.innerHTML = `
+    <div style="background:var(--d2);border:1px solid var(--gold-d);max-width:700px;width:100%;max-height:80vh;overflow:auto;padding:1.5rem;position:relative">
+      <button onclick="document.getElementById('sponsor-modal').remove()" style="position:absolute;top:.5rem;right:.5rem;background:transparent;border:none;color:var(--wh3);font-size:1.2rem;cursor:pointer">✕</button>
+      <h3 style="color:var(--gold-l);font-size:1rem;margin-bottom:1rem">📋 協賛履歴 — ${escapeHtml(cust.name)}</h3>
+      <div style="display:flex;gap:.7rem;margin-bottom:1rem">
+        <div style="flex:1;background:rgba(82,183,136,.07);padding:.5rem;text-align:center"><div style="font-size:.6rem;color:var(--grn)">累計付与</div><div style="font-size:1.3rem;color:var(--grn);font-family:'Bebas Neue',sans-serif">${bal.earned}本</div></div>
+        <div style="flex:1;background:rgba(224,144,82,.07);padding:.5rem;text-align:center"><div style="font-size:.6rem;color:var(--org)">使用済</div><div style="font-size:1.3rem;color:var(--org);font-family:'Bebas Neue',sans-serif">${bal.used}本</div></div>
+        <div style="flex:1;background:rgba(201,168,76,.07);padding:.5rem;text-align:center"><div style="font-size:.6rem;color:var(--gold-l)">残数</div><div style="font-size:1.3rem;color:var(--gold-l);font-family:'Bebas Neue',sans-serif">${bal.pts}本</div></div>
+      </div>
+      ${logs.length === 0 ? '<div class="empty">履歴なし</div>' : `
+        <table style="width:100%;border-collapse:collapse;font-size:.78rem">
+          <thead><tr><th style="padding:.4rem;text-align:left;color:var(--gold-d);border-bottom:1px solid rgba(201,168,76,.2)">日付</th><th style="padding:.4rem;color:var(--gold-d)">種別</th><th style="padding:.4rem;text-align:right;color:var(--gold-d)">本数</th><th style="padding:.4rem;text-align:left;color:var(--gold-d)">メモ</th></tr></thead>
+          <tbody>${logs.map(l => `
+            <tr>
+              <td style="padding:.4rem;font-size:.72rem">${escapeHtml(l.date || '')}</td>
+              <td style="padding:.4rem"><span class="badge ${l.type==='earned'?'bd-paid':'bd-out'}">${l.type==='earned'?'+付与':'-使用'}</span></td>
+              <td style="padding:.4rem;text-align:right;font-family:'Bebas Neue',sans-serif">${l.qty}本</td>
+              <td style="padding:.4rem;font-size:.7rem;color:var(--wh2)">${escapeHtml(l.note || '')}${l.product?' / '+escapeHtml(l.product):''}</td>
+            </tr>`).join('')}</tbody>
+        </table>
+      `}
+    </div>
+  `;
+}
+
+function exportSponsorCSV(){
+  const customers = (S.customers || []).filter(c => c.sponsorEnabled);
+  if (customers.length === 0) return toast('協賛対象顧客がありません', 'error');
+
+  let csv = '店舗名,拠点,購入条件(本),協賛本数,対象商品,累計付与,使用済,残数\n';
+  customers.forEach(c => {
+    const bal = getSponsorBalance(c.id);
+    csv += `${c.name},${c.branch || ''},${c.sponsorTrigger || ''},${c.sponsorReward || ''},${c.sponsorProduct || '全商品'},${bal.earned},${bal.used},${bal.pts}\n`;
+  });
+  const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `協賛残数_${today()}.csv`;
+  a.click();
+  toast('✓ CSV出力完了');
+}
+</script>
+
+<!-- ═══ 初期化 ═══ -->
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  updateUserBadge();
+  updateKPI();
+  renderPayment();
+});
+</script>
+
+</body>
+</html>

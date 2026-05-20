@@ -1,0 +1,413 @@
+/* ============================================================
+   mobile.css  Sclassランボルギーニ 統合システム
+   スマートフォン・タブレット最適化（共通CSS）
+   全HTMLファイルから <link rel="stylesheet" href="mobile.css"> で読込
+   ============================================================ */
+
+/* ─── タッチターゲット最適化 ─── */
+button, a, .tab, .mtab, input[type="checkbox"], input[type="radio"], select {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* iOS自動拡大防止（フォーカス時のズーム抑制） */
+input, select, textarea {
+  font-size: 16px !important; /* iOS で16px未満は自動ズームされる */
+}
+
+/* iPhone のセーフエリア対応 */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   タブレット（〜1024px）
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@media (max-width: 1024px) {
+  main {
+    padding: 1rem !important;
+  }
+  .kpi-row {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+  .kpi {
+    padding: 0.7rem 0.8rem !important;
+  }
+  .kpi-val {
+    font-size: 1.5rem !important;
+  }
+  .frow {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+  }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   スマートフォン（〜768px）
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@media (max-width: 768px) {
+
+  /* ─── ヘッダー ─── */
+  header {
+    height: auto !important;
+    min-height: 52px !important;
+    padding: 0.5rem 0.8rem !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+  .sys-name {
+    font-size: 0.95rem !important;
+  }
+  .sys-sub {
+    font-size: 0.55rem !important;
+    margin-left: 0.3rem !important;
+  }
+  .hdr-right {
+    width: 100%;
+    margin-left: 0 !important;
+    justify-content: flex-end;
+    gap: 0.4rem !important;
+    flex-wrap: wrap;
+  }
+  .back-btn, .btn-s {
+    padding: 0.35rem 0.6rem !important;
+    font-size: 0.68rem !important;
+  }
+  #user-badge {
+    font-size: 0.65rem !important;
+  }
+
+  /* ─── メイン ─── */
+  main {
+    padding: 0.8rem !important;
+  }
+  .ptitle {
+    font-size: 1.15rem !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.2rem !important;
+  }
+  .ptitle small {
+    font-size: 0.65rem !important;
+  }
+
+  /* ─── KPI（2列） ─── */
+  .kpi-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.4rem !important;
+    margin-bottom: 0.8rem !important;
+  }
+  .kpi {
+    padding: 0.6rem 0.7rem !important;
+  }
+  .kpi-lbl {
+    font-size: 0.58rem !important;
+  }
+  .kpi-val {
+    font-size: 1.25rem !important;
+  }
+  .kpi-sub {
+    font-size: 0.55rem !important;
+  }
+
+  /* ─── タブ（横スクロール） ─── */
+  .master-tabs {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .master-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .mtab {
+    min-width: 90px !important;
+    padding: 0.6rem 0.5rem !important;
+    font-size: 0.7rem !important;
+    flex: 0 0 auto !important;
+  }
+  .mtab-ic {
+    font-size: 0.85rem !important;
+  }
+  .tbar {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tbar::-webkit-scrolling {
+    display: none;
+  }
+  .tab {
+    padding: 0.5rem 0.8rem !important;
+    font-size: 0.72rem !important;
+    flex: 0 0 auto !important;
+    white-space: nowrap;
+  }
+
+  /* ─── フィルタ・フォーム ─── */
+  .fp {
+    padding: 0.6rem 0.7rem !important;
+  }
+  .frow {
+    grid-template-columns: 1fr !important;
+    gap: 0.4rem !important;
+  }
+  .fc {
+    padding: 0.5rem 0.7rem !important;
+  }
+  .fg label {
+    font-size: 0.62rem !important;
+  }
+
+  /* ─── テーブル（横スクロール対応） ─── */
+  .tw {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  table {
+    font-size: 0.72rem !important;
+    min-width: 600px;
+  }
+  th {
+    padding: 0.4rem 0.5rem !important;
+    font-size: 0.62rem !important;
+  }
+  td {
+    padding: 0.35rem 0.5rem !important;
+  }
+  .th-area {
+    padding: 0.5rem 0.7rem !important;
+  }
+  .th-area h3 {
+    font-size: 0.78rem !important;
+  }
+
+  /* ─── 顧客カードグリッド ─── */
+  .cust-grid, .ar-grid, .dr-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.6rem !important;
+  }
+  .cust-card, .ar-card, .dr-card {
+    padding: 0.7rem 0.9rem !important;
+  }
+  .cust-name, .ar-name {
+    font-size: 0.85rem !important;
+  }
+
+  /* ─── 商品グリッド（注文登録） ─── */
+  .prod-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.4rem !important;
+  }
+  .prod-card {
+    padding: 0.5rem 0.6rem !important;
+  }
+  .prod-name {
+    font-size: 0.78rem !important;
+  }
+  .prod-price {
+    font-size: 0.85rem !important;
+  }
+  .qty-btn {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 1rem !important;
+  }
+  .qty-val {
+    font-size: 1.1rem !important;
+  }
+
+  /* ─── 在庫グリッド ─── */
+  .stock-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.5rem !important;
+  }
+
+  /* ─── ボタン ─── */
+  .btn {
+    padding: 0.6rem 1rem !important;
+    font-size: 0.78rem !important;
+    min-height: 40px;
+  }
+  .act-btn {
+    padding: 0.4rem 0.6rem !important;
+    font-size: 0.68rem !important;
+    min-height: 32px;
+  }
+  .faction {
+    gap: 0.4rem !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .faction .btn {
+    width: 100% !important;
+  }
+
+  /* ─── フォームセクション ─── */
+  .form-section, .form-panel {
+    padding: 0.8rem !important;
+  }
+  .form-section-title, .form-panel h3 {
+    font-size: 0.7rem !important;
+  }
+
+  /* ─── 月送りバー ─── */
+  .month-nav {
+    flex-wrap: wrap !important;
+    gap: 0.4rem !important;
+  }
+  .month-disp {
+    font-size: 1rem !important;
+    min-width: 100px !important;
+  }
+  .dnav {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  /* ─── 集計バー ─── */
+  .summary-bar {
+    padding: 0.6rem 0.8rem !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.3rem !important;
+  }
+  .sm-total {
+    font-size: 1.3rem !important;
+  }
+
+  /* ─── ヒントボックス ─── */
+  .hint-box {
+    padding: 0.6rem 0.7rem !important;
+    font-size: 0.68rem !important;
+  }
+
+  /* ─── ポータルのタイルグリッド ─── */
+  .tile-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.6rem !important;
+  }
+  .tile-grid.grid-4 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .tile {
+    padding: 0.9rem !important;
+  }
+  .tile-icon {
+    font-size: 1.8rem !important;
+  }
+  .tile-name {
+    font-size: 0.85rem !important;
+  }
+  .tile-desc {
+    font-size: 0.65rem !important;
+  }
+
+  /* ─── 通知ポップアップ ─── */
+  .notify-popup {
+    right: 0.5rem !important;
+    left: 0.5rem !important;
+    top: 100px !important;
+    min-width: auto !important;
+    max-width: none !important;
+    width: auto !important;
+  }
+  .alert-banner {
+    padding: 0.6rem 0.8rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  /* ─── 動的リスト ─── */
+  .dyn-row {
+    flex-wrap: wrap !important;
+  }
+  .dyn-row input {
+    min-width: 120px !important;
+  }
+
+  /* ─── CSVプレビュー ─── */
+  #csv-preview table {
+    font-size: 0.62rem !important;
+  }
+
+  /* ─── トースト ─── */
+  #toast {
+    bottom: 1rem !important;
+    left: 0.5rem !important;
+    right: 0.5rem !important;
+    transform: none !important;
+    text-align: center;
+    padding: 0.7rem 1rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  /* ─── プレビュー（請求書） ─── */
+  .invoice-preview {
+    padding: 1rem !important;
+    font-size: 0.75rem !important;
+  }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   小型スマホ（〜380px）
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@media (max-width: 380px) {
+  .kpi-row {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .kpi-val {
+    font-size: 1.1rem !important;
+  }
+  .prod-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .tile-grid.grid-4 {
+    grid-template-columns: 1fr !important;
+  }
+  .mtab {
+    min-width: 80px !important;
+  }
+  .sys-name {
+    font-size: 0.85rem !important;
+  }
+  .sys-sub {
+    display: none !important;
+  }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   横向き（landscape）
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@media (max-width: 900px) and (orientation: landscape) {
+  header {
+    height: 48px !important;
+  }
+  .kpi-row {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   スクロールバー（細く）
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(201, 168, 76, 0.3);
+    border-radius: 3px;
+  }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   印刷時のヒント
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@media print {
+  header, .master-tabs, .mtab, .faction, .btn, .btn-s, .act-btn, #toast,
+  .notify-popup, .alert-banner, .back-btn {
+    display: none !important;
+  }
+}

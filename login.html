@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ログイン | Sclassランボルギーニ</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Bebas+Neue&family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mobile.css">
+<style>
+:root{
+  --gold:#C9A84C;--gold-l:#E8C97A;--gold-d:#7A5C14;
+  --bk:#080808;--d1:#0E0E0E;--d2:#161616;--d3:#1E1E1E;
+  --wh:#F0EBE0;--wh2:rgba(240,235,224,0.6);--wh3:rgba(240,235,224,0.25);
+  --red:#E05252;--grn:#52B788;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:radial-gradient(ellipse at center,#1a1608 0%,var(--bk) 60%);color:var(--wh);font-family:'Noto Sans JP',sans-serif;font-weight:300;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem}
+
+.login-box{width:100%;max-width:400px;background:var(--d2);border:1px solid rgba(201,168,76,.25);padding:2.5rem 2rem;position:relative;overflow:hidden}
+.login-box::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+
+.logo-area{text-align:center;margin-bottom:2rem}
+.logo-mark{width:56px;height:56px;border:1.5px solid var(--gold);display:inline-flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.7rem;color:var(--gold);transform:rotate(45deg);margin-bottom:1rem}
+.logo-mark span{transform:rotate(-45deg)}
+.title{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:.15em;color:var(--gold-l)}
+.sub{font-size:.68rem;letter-spacing:.25em;color:var(--wh2);margin-top:.3rem}
+
+.sep{height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,.3),transparent);margin:1.5rem 0}
+
+.field{margin-bottom:.9rem}
+.field label{display:block;font-size:.68rem;letter-spacing:.1em;color:var(--wh2);margin-bottom:.35rem}
+.input{width:100%;background:var(--d3);border:1px solid rgba(201,168,76,.2);color:var(--wh);padding:.6rem .8rem;font-family:'Noto Sans JP',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s}
+.input:focus{border-color:var(--gold)}
+
+.btn-login{width:100%;background:var(--gold);border:none;color:var(--bk);padding:.7rem;font-family:'Noto Sans JP',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;letter-spacing:.08em;transition:all .2s;margin-top:.5rem}
+.btn-login:hover{background:var(--gold-l)}
+.btn-login:disabled{opacity:.5;cursor:not-allowed}
+
+.err-msg{font-size:.78rem;color:var(--red);text-align:center;margin-top:.8rem;min-height:1em}
+.info-msg{font-size:.7rem;color:var(--wh2);text-align:center;margin-top:1rem;line-height:1.6}
+.info-msg strong{color:var(--gold-l)}
+
+.dev-hint{background:rgba(82,153,224,.08);border:1px solid rgba(82,153,224,.2);padding:.7rem;margin-top:1rem;font-size:.68rem;color:var(--wh2);line-height:1.6}
+.dev-hint strong{color:#8BB8E8}
+.dev-hint code{background:var(--d1);padding:.1rem .3rem;font-family:monospace;font-size:.65rem;color:var(--gold-l)}
+</style>
+</head>
+<body>
+
+<div class="login-box">
+  <div class="logo-area">
+    <div class="logo-mark"><span>L</span></div>
+    <div class="title">SCLASS LAMBORGHINI</div>
+    <div class="sub">INTEGRATED PORTAL</div>
+  </div>
+
+  <div class="sep"></div>
+
+  <form id="login-form" onsubmit="doLogin(event)">
+    <div class="field">
+      <label>メールアドレス</label>
+      <input class="input" type="email" id="f-email" required placeholder="name@sclass.jp" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>パスワード</label>
+      <input class="input" type="password" id="f-pass" required placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-login" type="submit">ログイン</button>
+    <div class="err-msg" id="err"></div>
+  </form>
+
+  <div class="dev-hint" id="dev-hint">
+    <strong>💡 初めて使う場合（管理者セットアップ）</strong><br>
+    まだスタッフが登録されていません。<br>
+    <code>admin@sclass.jp</code> / <code>admin123</code> でログインして管理者として入り、スタッフマスターで他のメンバーを登録してください。
+  </div>
+</div>
+
+<!-- ═══ shared.js (最小版) ═══ -->
+<script>
+const S = {
+  staff: JSON.parse(localStorage.getItem('lmb_staff') || '[]'),
+};
+window.S = S;
+
+// パスワードのハッシュ化（簡易）
+function hashPass(p){
+  let h = 0;
+  const s = 'lmb_salt_' + p;
+  for (let i = 0; i < s.length; i++){
+    h = ((h << 5) - h) + s.charCodeAt(i);
+    h |= 0;
+  }
+  return 'h' + Math.abs(h).toString(36);
+}
+window.hashPass = hashPass;
+
+// ─── ログイン処理 ─────
+function doLogin(e){
+  e.preventDefault();
+  const email = document.getElementById('f-email').value.trim().toLowerCase();
+  const pass  = document.getElementById('f-pass').value;
+  const err   = document.getElementById('err');
+  err.textContent = '';
+
+  // 初期管理者（スタッフ未登録の場合）
+  if (email === 'admin@sclass.jp' && pass === 'admin123'){
+    const adminUser = {
+      id: 'admin-init',
+      name: '管理者',
+      email: 'admin@sclass.jp',
+      role: 'admin',
+      branch: '両拠点',
+      active: true,
+      isInitial: true,
+    };
+    sessionStorage.setItem('lmb_current_user', JSON.stringify(adminUser));
+    location.href = 'portal.html';
+    return;
+  }
+
+  // スタッフマスターから検索
+  const staffList = JSON.parse(localStorage.getItem('lmb_staff') || '[]');
+  const user = staffList.find(s => (s.email || '').toLowerCase() === email && s.active !== false);
+
+  if (!user){
+    err.textContent = 'メールアドレスが登録されていないか、無効化されています';
+    return;
+  }
+
+  // パスワードチェック
+  if (!user.passHash){
+    // 初回ログイン：パスワード未設定 → このパスワードで設定
+    user.passHash = hashPass(pass);
+    user.lastLogin = new Date().toISOString();
+    const idx = staffList.findIndex(s => s.id === user.id);
+    if (idx >= 0) staffList[idx] = user;
+    localStorage.setItem('lmb_staff', JSON.stringify(staffList));
+    sessionStorage.setItem('lmb_current_user', JSON.stringify(user));
+    location.href = 'portal.html';
+    return;
+  }
+
+  if (user.passHash !== hashPass(pass)){
+    err.textContent = 'パスワードが違います';
+    return;
+  }
+
+  // 成功
+  user.lastLogin = new Date().toISOString();
+  const idx = staffList.findIndex(s => s.id === user.id);
+  if (idx >= 0) staffList[idx] = user;
+  localStorage.setItem('lmb_staff', JSON.stringify(staffList));
+  sessionStorage.setItem('lmb_current_user', JSON.stringify(user));
+  location.href = 'portal.html';
+}
+
+// スタッフが既に登録されている場合はdev-hintを隠す
+window.addEventListener('DOMContentLoaded', () => {
+  const staffList = JSON.parse(localStorage.getItem('lmb_staff') || '[]');
+  if (staffList.length > 0){
+    const hint = document.getElementById('dev-hint');
+    if (hint) hint.style.display = 'none';
+  }
+
+  // 既にログイン中ならポータルへ
+  const cur = sessionStorage.getItem('lmb_current_user');
+  if (cur){
+    // location.href = 'portal.html';  // 自動遷移は無効化（手動でログインし直せるように）
+  }
+});
+</script>
+
+</body>
+</html>

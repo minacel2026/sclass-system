@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>分析・日報 | Sclassランボルギーニ</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Bebas+Neue&family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mobile.css">
+<style>
+:root{
+  --gold:#C9A84C;--gold-l:#E8C97A;--gold-d:#7A5C14;
+  --bk:#080808;--d1:#0E0E0E;--d2:#161616;--d3:#1E1E1E;--d4:#282828;
+  --wh:#F0EBE0;--wh2:rgba(240,235,224,0.6);--wh3:rgba(240,235,224,0.25);
+  --red:#E05252;--grn:#52B788;--blu:#5299E0;--org:#E09052;--pur:#9B7FD4;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bk);color:var(--wh);font-family:'Noto Sans JP',sans-serif;font-weight:300;min-height:100vh}
+
+header{background:linear-gradient(180deg,#0e0c06,var(--d1));border-bottom:1px solid var(--gold-d);height:56px;display:flex;align-items:center;padding:0 1.2rem;position:sticky;top:0;z-index:200;gap:1rem}
+.logo-mark{width:28px;height:28px;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold);transform:rotate(45deg);flex-shrink:0}
+.logo-mark span{transform:rotate(-45deg)}
+.sys-name{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.1em;color:var(--gold-l)}
+.sys-sub{font-size:.62rem;letter-spacing:.15em;color:var(--wh2);margin-left:.5rem}
+.back-btn{background:transparent;border:1px solid rgba(201,168,76,.4);color:var(--gold-l);padding:.3rem .8rem;font-size:.72rem;cursor:pointer;text-decoration:none;transition:all .2s;letter-spacing:.05em}
+.back-btn:hover{background:rgba(201,168,76,.15)}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:.7rem}
+.btn-s{background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);padding:.3rem .8rem;font-size:.72rem;cursor:pointer;transition:all .2s;letter-spacing:.05em;font-family:'Noto Sans JP',sans-serif}
+.btn-s:hover{background:var(--gold);color:var(--bk)}
+
+main{padding:1.5rem 2rem;max-width:1500px;margin:0 auto}
+.ptitle{font-family:'Shippori Mincho',serif;font-size:1.5rem;font-weight:400;color:var(--gold-l);margin-bottom:1rem;display:flex;align-items:baseline;gap:.7rem;border-bottom:1px solid rgba(201,168,76,.2);padding-bottom:.5rem}
+.ptitle small{font-family:'Noto Sans JP',sans-serif;font-size:.72rem;color:var(--wh2);font-weight:300}
+
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.8rem;margin-bottom:1.2rem}
+.kpi{background:var(--d2);border:1px solid rgba(201,168,76,.18);padding:.9rem 1rem;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.kpi-lbl{font-size:.65rem;color:var(--wh3);letter-spacing:.1em;margin-bottom:.3rem}
+.kpi-val{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;color:var(--gold-l);letter-spacing:.05em;line-height:1}
+.kpi-sub{font-size:.62rem;color:var(--wh3);margin-top:.2rem}
+.kv-r{color:var(--red)}.kv-gr{color:var(--grn)}.kv-b{color:var(--blu)}.kv-o{color:var(--org)}.kv-p{color:var(--pur)}
+
+.master-tabs{display:flex;gap:2px;background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:3px;margin-bottom:1.2rem;overflow-x:auto}
+.mtab{flex:1;min-width:120px;padding:.7rem .8rem;cursor:pointer;font-size:.78rem;color:var(--wh2);background:transparent;border:none;transition:all .2s;letter-spacing:.05em;display:flex;align-items:center;justify-content:center;gap:.4rem;font-family:'Noto Sans JP',sans-serif;font-weight:500;white-space:nowrap}
+.mtab:hover:not(.active){background:rgba(201,168,76,.05);color:var(--wh)}
+.mtab.active{background:linear-gradient(180deg,rgba(201,168,76,.2),rgba(201,168,76,.1));color:var(--gold-l);box-shadow:inset 0 -2px 0 var(--gold)}
+.mtab-ic{font-size:1rem}
+.mcon{display:none}.mcon.active{display:block}
+
+.fp{background:var(--d2);border:1px solid rgba(201,168,76,.15);padding:.7rem .9rem;margin-bottom:1rem}
+.frow{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.6rem}
+.fg{display:flex;flex-direction:column;gap:.25rem}
+.fg label{font-size:.65rem;letter-spacing:.08em;color:var(--wh2)}
+.fg label .req{color:var(--red)}
+.fc{background:var(--d3);border:1px solid rgba(201,168,76,.22);color:var(--wh);padding:.42rem .65rem;font-family:'Noto Sans JP',sans-serif;font-size:.8rem;outline:none;transition:border-color .2s;width:100%}
+.fc:focus{border-color:var(--gold)}
+select.fc option{background:var(--d3)}
+textarea.fc{resize:vertical}
+
+.tw{background:var(--d2);border:1px solid rgba(201,168,76,.15);overflow-x:auto;margin-bottom:1rem}
+.th-area{padding:.7rem .9rem;border-bottom:1px solid rgba(201,168,76,.15);display:flex;justify-content:space-between;align-items:center}
+.th-area h3{font-size:.85rem;color:var(--gold-l);font-weight:500;letter-spacing:.05em}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+th{background:var(--d3);padding:.5rem .7rem;text-align:left;font-size:.7rem;color:var(--gold-d);letter-spacing:.05em;font-weight:500;border-bottom:1px solid rgba(201,168,76,.2);white-space:nowrap}
+td{padding:.45rem .7rem;border-bottom:1px solid rgba(255,255,255,.04)}
+tr:hover td{background:rgba(201,168,76,.03)}
+tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
+.col-amt{text-align:right;font-variant-numeric:tabular-nums}
+.col-qty{text-align:center;font-variant-numeric:tabular-nums}
+
+.faction{display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap}
+.btn{padding:.5rem 1.4rem;border:1px solid;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:.82rem;letter-spacing:.05em;transition:all .2s;font-weight:500}
+.btn-p{background:var(--gold);border-color:var(--gold);color:var(--bk)}
+.btn-p:hover{background:var(--gold-l)}
+.btn-g{background:transparent;border-color:rgba(201,168,76,.4);color:var(--wh2)}
+.btn-g:hover{border-color:var(--gold);color:var(--wh)}
+
+.act-btn{background:transparent;border:1px solid rgba(201,168,76,.3);color:var(--gold-l);padding:.2rem .5rem;font-size:.7rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-right:.2rem}
+.act-btn:hover{background:var(--gold);color:var(--bk)}
+.act-btn.dn{border-color:rgba(224,82,82,.3);color:var(--red)}
+.act-btn.dn:hover{background:var(--red);color:#fff}
+
+.hint-box{background:rgba(82,153,224,.06);border:1px solid rgba(82,153,224,.2);padding:.7rem .9rem;margin-bottom:1rem;font-size:.72rem;color:var(--wh2);line-height:1.6}
+.hint-box strong{color:var(--blu);font-weight:500}
+
+.empty{text-align:center;padding:3rem 1rem;color:var(--wh3)}
+.empty-icon{font-size:3rem;margin-bottom:.8rem;opacity:.4}
+
+.form-section{background:var(--d1);border:1px solid rgba(255,255,255,.04);padding:1rem;margin-bottom:1rem;border-left:2px solid var(--gold-d)}
+.form-section-title{font-size:.72rem;color:var(--gold-d);letter-spacing:.15em;margin-bottom:.7rem;font-weight:500}
+
+#toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#161616;border:1px solid rgba(201,168,76,.4);color:#E8C97A;padding:.8rem 1.5rem;font-size:.85rem;z-index:9999;opacity:0;transition:opacity .2s;letter-spacing:.05em;pointer-events:none}
+
+/* P&Lテーブル */
+.pl-table th{background:var(--d3)}
+.pl-table tr.subtotal td{background:rgba(201,168,76,.05);font-weight:600;color:var(--gold-l)}
+.pl-table tr.profit td{background:rgba(82,183,136,.08);font-weight:700;color:var(--grn)}
+.pl-table tr.cost td{color:var(--red)}
+.pl-table tr.indent td:first-child{padding-left:1.5rem;color:var(--wh2)}
+
+/* 棒グラフ風セル */
+.bar-cell{position:relative;height:18px;background:rgba(255,255,255,.04);border-radius:2px;overflow:hidden}
+.bar-fill{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,var(--gold-d),var(--gold));border-radius:2px}
+.bar-label{position:absolute;left:6px;top:1px;font-size:.7rem;color:var(--wh);font-family:'Bebas Neue',sans-serif;letter-spacing:.05em;text-shadow:0 0 4px rgba(0,0,0,.6);z-index:2}
+
+/* 月セル */
+.month-cell{padding:.4rem .5rem;text-align:right;font-variant-numeric:tabular-nums;font-size:.72rem}
+.month-cell.zero{color:var(--wh3)}
+.month-cell.high{color:var(--gold-l);font-weight:600}
+
+/* 日報カード */
+.dr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:.8rem}
+.dr-card{background:var(--d2);border:1px solid rgba(201,168,76,.18);padding:.9rem 1.1rem;position:relative;overflow:hidden}
+.dr-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.dr-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem;padding-bottom:.4rem;border-bottom:1px solid rgba(255,255,255,.05)}
+.dr-date{font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold-l);letter-spacing:.05em}
+.dr-staff{font-size:.7rem;color:var(--wh2)}
+.dr-body{font-size:.75rem;color:var(--wh);line-height:1.5;white-space:pre-wrap;margin-bottom:.5rem}
+.dr-meta{display:flex;flex-wrap:wrap;gap:.4rem;font-size:.65rem;color:var(--wh3)}
+.dr-meta-chip{background:var(--d3);padding:.15rem .5rem;border-radius:2px}
+
+@media print{
+  header,.master-tabs,.faction,.fp,.btn,.act-btn{display:none !important}
+  body{background:#fff;color:#000}
+  .kpi,.tw,.dr-card,.fp{background:#fff;border:1px solid #888;color:#000}
+  .kpi-val,.kpi-lbl,.dr-date,.th-area h3{color:#000 !important}
+  th{background:#eee;color:#000}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark"><span>L</span></div>
+  <div>
+    <span class="sys-name">ANALYTICS</span>
+    <span class="sys-sub">分析・日報</span>
+  </div>
+  <div class="hdr-right">
+    <a class="back-btn" href="portal.html">← ポータルへ戻る</a>
+    <button class="btn-s" onclick="window.print()">🖨 印刷</button>
+    <div style="display:flex;align-items:center;gap:.5rem;padding-left:.8rem;margin-left:.3rem;border-left:1px solid rgba(201,168,76,.2)">
+      <span id="user-badge" style="font-size:.7rem;color:var(--gold-l)">—</span>
+      <button onclick="doLogout()" style="background:transparent;border:1px solid rgba(201,168,76,.25);color:var(--wh2);padding:.2rem .6rem;font-size:.65rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif">ログアウト</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="ptitle">
+    分析・日報システム <small>月次P&L・年次推移・地域分析・営業日報</small>
+  </div>
+
+  <!-- ═══ 親タブ ═══ -->
+  <div class="master-tabs">
+    <button class="mtab active" onclick="switchModule('monthly',this)"><span class="mtab-ic">📈</span>月次P&L</button>
+    <button class="mtab" onclick="switchModule('annual',this)"><span class="mtab-ic">📅</span>年次管理</button>
+    <button class="mtab" onclick="switchModule('regional',this)"><span class="mtab-ic">🗾</span>地域分析</button>
+    <button class="mtab" onclick="switchModule('product',this)"><span class="mtab-ic">🍾</span>商品分析</button>
+    <button class="mtab" onclick="switchModule('dailyrep',this)"><span class="mtab-ic">📝</span>営業日報</button>
+  </div>
+
+  <!-- ════════ 月次P&L ════════ -->
+  <div id="m-monthly" class="mcon active">
+    <div class="hint-box">
+      <strong>📈 月次P&L</strong><br>
+      売上・原価・粗利を月別に集計します。拠点別・全体の表示切替が可能。
+    </div>
+    <div class="fp">
+      <div class="frow">
+        <div class="fg"><label>年</label><select class="fc" id="mn-year" onchange="renderMonthly()"></select></div>
+        <div class="fg"><label>月</label><select class="fc" id="mn-month" onchange="renderMonthly()"></select></div>
+        <div class="fg"><label>拠点</label><select class="fc" id="mn-branch" onchange="renderMonthly()"><option value="both">全拠点</option><option>仙台</option><option>京都</option></select></div>
+        <div class="fg"><label></label><button class="btn btn-g" onclick="exportMonthlyCSV()">📥 CSV出力</button></div>
+      </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpi-row" id="mn-kpi"></div>
+
+    <!-- P&L表 -->
+    <div class="tw">
+      <div class="th-area"><h3 id="mn-title">月次P&L</h3></div>
+      <table class="pl-table">
+        <tbody id="mn-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- 商品別売上 -->
+    <div class="tw">
+      <div class="th-area"><h3>商品別売上明細</h3></div>
+      <table>
+        <thead>
+          <tr><th>商品</th><th class="col-qty">本数</th><th class="col-amt">売上</th><th class="col-amt">原価</th><th class="col-amt">粗利</th><th>シェア</th></tr>
+        </thead>
+        <tbody id="mn-prod-tbody"></tbody>
+        <tfoot id="mn-prod-tfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════ 年次管理 ════════ -->
+  <div id="m-annual" class="mcon">
+    <div class="hint-box">
+      <strong>📅 年次管理</strong><br>
+      1年間の月次推移を表で確認。前年比較・累計表示が可能。
+    </div>
+    <div class="fp">
+      <div class="frow">
+        <div class="fg"><label>年</label><select class="fc" id="an-year" onchange="renderAnnual()"></select></div>
+        <div class="fg"><label>拠点</label><select class="fc" id="an-branch" onchange="renderAnnual()"><option value="both">全拠点</option><option>仙台</option><option>京都</option></select></div>
+        <div class="fg"><label>表示</label><select class="fc" id="an-mode" onchange="renderAnnual()"><option value="amount">売上金額</option><option value="qty">販売本数</option><option value="orders">注文件数</option><option value="profit">粗利</option></select></div>
+        <div class="fg"><label></label><button class="btn btn-g" onclick="exportAnnualCSV()">📥 CSV出力</button></div>
+      </div>
+    </div>
+
+    <div class="kpi-row" id="an-kpi"></div>
+
+    <div class="tw">
+      <div class="th-area"><h3 id="an-title">年間月次推移</h3></div>
+      <table>
+        <thead>
+          <tr id="an-thead">
+            <th>項目</th>
+            <th class="col-amt">1月</th><th class="col-amt">2月</th><th class="col-amt">3月</th>
+            <th class="col-amt">4月</th><th class="col-amt">5月</th><th class="col-amt">6月</th>
+            <th class="col-amt">7月</th><th class="col-amt">8月</th><th class="col-amt">9月</th>
+            <th class="col-amt">10月</th><th class="col-amt">11月</th><th class="col-amt">12月</th>
+            <th class="col-amt">合計</th>
+          </tr>
+        </thead>
+        <tbody id="an-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════ 地域分析 ════════ -->
+  <div id="m-regional" class="mcon">
+    <div class="hint-box">
+      <strong>🗾 地域分析</strong><br>
+      地域・拠点別の売上シェアと取引先ランキングを確認。
+    </div>
+    <div class="fp">
+      <div class="frow">
+        <div class="fg"><label>期間</label><select class="fc" id="rg-period" onchange="renderRegional()">
+          <option value="month">今月</option>
+          <option value="last">先月</option>
+          <option value="3m">直近3ヶ月</option>
+          <option value="ytd">年初来</option>
+          <option value="all">全期間</option>
+        </select></div>
+        <div class="fg"><label>表示モード</label><select class="fc" id="rg-mode" onchange="renderRegional()">
+          <option value="branch">拠点別</option>
+          <option value="store">取引先別TOP20</option>
+          <option value="staff">担当者別</option>
+        </select></div>
+      </div>
+    </div>
+
+    <div class="kpi-row" id="rg-kpi"></div>
+
+    <div class="tw">
+      <div class="th-area"><h3 id="rg-title">拠点別実績</h3></div>
+      <table>
+        <thead id="rg-thead"></thead>
+        <tbody id="rg-tbody"></tbody>
+        <tfoot id="rg-tfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════ 商品分析 ════════ -->
+  <div id="m-product" class="mcon">
+    <div class="hint-box">
+      <strong>🍾 商品分析</strong><br>
+      商品ごとの販売実績・粗利率・回転率を分析。売れ筋・不振商品を一目で確認。
+    </div>
+    <div class="fp">
+      <div class="frow">
+        <div class="fg"><label>期間</label><select class="fc" id="pr-period" onchange="renderProduct()">
+          <option value="month">今月</option>
+          <option value="last">先月</option>
+          <option value="3m">直近3ヶ月</option>
+          <option value="ytd">年初来</option>
+          <option value="all">全期間</option>
+        </select></div>
+        <div class="fg"><label>並び替え</label><select class="fc" id="pr-sort" onchange="renderProduct()">
+          <option value="amount">売上順</option>
+          <option value="qty">本数順</option>
+          <option value="profit">粗利順</option>
+          <option value="margin">粗利率順</option>
+        </select></div>
+        <div class="fg"><label>拠点</label><select class="fc" id="pr-branch" onchange="renderProduct()"><option value="both">全拠点</option><option>仙台</option><option>京都</option></select></div>
+      </div>
+    </div>
+
+    <div class="kpi-row" id="pr-kpi"></div>
+
+    <div class="tw">
+      <div class="th-area"><h3>商品別実績</h3></div>
+      <table>
+        <thead>
+          <tr>
+            <th>順位</th><th>商品</th><th class="col-qty">本数</th>
+            <th class="col-amt">売上</th><th class="col-amt">原価</th>
+            <th class="col-amt">粗利</th><th>粗利率</th><th>シェア</th>
+          </tr>
+        </thead>
+        <tbody id="pr-tbody"></tbody>
+        <tfoot id="pr-tfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════ 営業日報 ════════ -->
+  <div id="m-dailyrep" class="mcon">
+    <div class="hint-box">
+      <strong>📝 営業日報</strong><br>
+      担当者の活動報告を記録します。受注件数・訪問先・気付き事項などを共有。
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">▸ 日報入力</div>
+      <div class="frow">
+        <div class="fg"><label>日付 <span class="req">*</span></label><input class="fc" id="dr-date" type="date"></div>
+        <div class="fg"><label>担当者</label><input class="fc" id="dr-staff" readonly></div>
+        <div class="fg"><label>拠点</label><select class="fc" id="dr-branch"><option>仙台</option><option>京都</option><option>両拠点</option></select></div>
+        <div class="fg"><label>訪問件数</label><input class="fc" id="dr-visits" type="number" min="0" step="1" value="0"></div>
+      </div>
+      <div class="frow" style="margin-top:.5rem">
+        <div class="fg"><label>新規開拓数</label><input class="fc" id="dr-new" type="number" min="0" step="1" value="0"></div>
+        <div class="fg"><label>受注件数</label><input class="fc" id="dr-orders" type="number" min="0" step="1" value="0"></div>
+        <div class="fg"><label>受注金額</label><input class="fc" id="dr-amount" type="number" min="0" step="100" value="0"></div>
+        <div class="fg"><label>翌日予定</label><input class="fc" id="dr-next" placeholder="例：A社訪問・B社見積"></div>
+      </div>
+      <div class="fg" style="margin-top:.5rem">
+        <label>本日の活動報告 <span class="req">*</span></label>
+        <textarea class="fc" id="dr-body" rows="4" placeholder="訪問先・商談内容・気付き事項などを記入..."></textarea>
+      </div>
+      <div class="faction">
+        <button class="btn btn-p" onclick="submitDailyRep()">日報を投稿</button>
+        <button class="btn btn-g" onclick="clearDailyRep()">クリア</button>
+      </div>
+    </div>
+
+    <div class="fp">
+      <div class="frow">
+        <div class="fg"><label>絞り込み: 担当者</label><select class="fc" id="dr-fstaff" onchange="renderDailyRep()"><option value="">全員</option></select></div>
+        <div class="fg"><label>期間</label><select class="fc" id="dr-fperiod" onchange="renderDailyRep()">
+          <option value="7">直近1週間</option>
+          <option value="30">直近1ヶ月</option>
+          <option value="90">直近3ヶ月</option>
+          <option value="all">全期間</option>
+        </select></div>
+        <div class="fg"><label>拠点</label><select class="fc" id="dr-fbranch" onchange="renderDailyRep()"><option value="">全拠点</option><option>仙台</option><option>京都</option><option>両拠点</option></select></div>
+      </div>
+    </div>
+
+    <div class="dr-grid" id="dr-grid"></div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<!-- ═══ shared.js ═══ -->
+<script>
+const PROD_LIST = [
+  {key:'イエロー', name:'イエロー', cost:5000, price:10500, reorder:10},
+  {key:'オレンジ', name:'オレンジ', cost:10000, price:21000, reorder:10},
+  {key:'ブルー', name:'ブルー', cost:10000, price:21000, reorder:10},
+  {key:'ブラック', name:'ブラック', cost:10000, price:21000, reorder:10},
+  {key:'プラチナ', name:'プラチナ', cost:15000, price:33000, reorder:6},
+  {key:'ゴールド', name:'ゴールド', cost:20000, price:44000, reorder:6},
+  {key:'ルミナス', name:'ルミナス', cost:25000, price:55000, reorder:6},
+  {key:'レジェンド', name:'レジェンド', cost:25000, price:55000, reorder:6},
+  {key:'さくら', name:'さくら', cost:12000, price:25000, reorder:6},
+  {key:'チェングレット', name:'チェングレット', cost:3000, price:6800, reorder:12},
+  {key:'チェングロッソ', name:'チェングロッソ', cost:3000, price:6800, reorder:12},
+  {key:'トレスコーネ', name:'トレスコーネ', cost:3500, price:7800, reorder:12},
+  {key:'エラ', name:'エラ', cost:4500, price:10000, reorder:10},
+  {key:'トラミ', name:'トラミ', cost:6000, price:13000, reorder:10},
+  {key:'カンポレオーネ', name:'カンポレオーネ', cost:4500, price:10000, reorder:10},
+  {key:'GIFTBOX', name:'GIFTBOX', cost:9000, price:20000, reorder:5},
+  {key:'コラチョロサ', name:'コラチョロサ', cost:8000, price:17000, reorder:6},
+];
+const PRODS = PROD_LIST.map(p => p.key);
+const PRICE = Object.fromEntries(PROD_LIST.map(p => [p.key, p.price]));
+const COST  = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
+
+const S = {
+  branch:'both', orders:[], customers:[], staff:[],
+  stock:{仙台:{}, 京都:{}}, slog:[], invoices:[],
+  dailyReps:[], gasUrl: localStorage.getItem('gasUrl') || '',
+};
+
+function today(){ return new Date().toISOString().slice(0,10); }
+function fmt(n){ return (Number(n)||0).toLocaleString('ja-JP'); }
+function yen(n){ return '¥' + fmt(n); }
+
+function calcAmt(o){
+  const tax = o.tax === 'taxあり' ? 1.1 : 1;
+  const cond = (o.condition || 10) / 10;
+  let total = 0;
+  Object.entries(o.items || {}).forEach(([p,q]) => {
+    total += Math.round((PRICE[p] || 0) * cond) * tax * (q || 0);
+  });
+  return Math.round(total);
+}
+
+// 原価合計（粗利計算用）
+function calcCost(o){
+  let total = 0;
+  Object.entries(o.items || {}).forEach(([p,q]) => {
+    total += (COST[p] || 0) * (q || 0);
+  });
+  return total;
+}
+
+function loadState(){
+  try {
+    const keys = ['orders','customers','staff','stock','slog','invoices','dailyReps'];
+    keys.forEach(k => {
+      const v = localStorage.getItem('lmb_' + k);
+      if (v) try { S[k] = JSON.parse(v); } catch(e){}
+    });
+  } catch(e){ console.warn('loadState error', e); }
+}
+
+function saveState(){
+  try {
+    const keys = ['orders','customers','staff','stock','slog','invoices','dailyReps'];
+    keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
+  } catch(e){ console.warn('saveState error', e); }
+}
+
+function toast(msg, type){
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.borderColor = type === 'error' ? 'rgba(224,82,82,.5)' : 'rgba(201,168,76,.4)';
+  setTimeout(() => { t.style.opacity = '0'; }, 2500);
+}
+
+window.S = S; window.PROD_LIST = PROD_LIST; window.PRODS = PRODS;
+window.PRICE = PRICE; window.COST = COST;
+window.calcAmt = calcAmt; window.calcCost = calcCost;
+window.today = today; window.fmt = fmt; window.yen = yen;
+window.toast = toast; window.saveState = saveState; window.loadState = loadState;
+
+loadState();
+</script>
+
+<!-- ═══ 共通 ═══ -->
+<script>
+const currentUser = JSON.parse(sessionStorage.getItem('lmb_current_user') || 'null') || {
+  id: 'dev-admin', name: '開発者', email: 'admin@sclass.jp',
+  role: 'admin', branch: '両拠点', active: true, isDev: true,
+};
+
+function updateUserBadge(){
+  const badge = document.getElementById('user-badge');
+  if (!badge) return;
+  const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁'};
+  badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name} (${currentUser.role})`;
+}
+
+function doLogout(){
+  if (confirm('ログアウトしますか？')) {
+    sessionStorage.removeItem('lmb_current_user');
+    location.href = 'login.html';
+  }
+}
+
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function canEdit(){ return currentUser && ['admin','manager','staff'].includes(currentUser.role); }
+function canDelete(){ return currentUser && ['admin','manager'].includes(currentUser.role); }
+
+function switchModule(name, el){
+  document.querySelectorAll('.mtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.mcon').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('m-' + name).classList.add('active');
+
+  if (name === 'monthly')  renderMonthly();
+  if (name === 'annual')   renderAnnual();
+  if (name === 'regional') renderRegional();
+  if (name === 'product')  renderProduct();
+  if (name === 'dailyrep') initDailyRep();
+}
+
+// 期間でフィルタするユーティリティ
+function filterByPeriod(orders, period){
+  const now = new Date();
+  if (period === 'month'){
+    const m = now.toISOString().slice(0,7);
+    return orders.filter(o => (o.date || '').slice(0,7) === m);
+  }
+  if (period === 'last'){
+    const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const m = d.toISOString().slice(0,7);
+    return orders.filter(o => (o.date || '').slice(0,7) === m);
+  }
+  if (period === '3m'){
+    const cutoff = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()).toISOString().slice(0,10);
+    return orders.filter(o => (o.date || '') >= cutoff);
+  }
+  if (period === 'ytd'){
+    const yr = now.getFullYear() + '-01-01';
+    return orders.filter(o => (o.date || '') >= yr);
+  }
+  return orders;
+}
+</script>
+
+<!-- ═══ 月次P&L ═══ -->
+<script>
+function initMonthlySelectors(){
+  const ySel = document.getElementById('mn-year');
+  const mSel = document.getElementById('mn-month');
+  if (ySel.options.length > 0) return;
+
+  const cy = new Date().getFullYear();
+  for (let y = cy + 1; y >= cy - 3; y--){
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y + '年';
+    if (y === cy) opt.selected = true;
+    ySel.appendChild(opt);
+  }
+  for (let m = 1; m <= 12; m++){
+    const opt = document.createElement('option');
+    opt.value = m; opt.textContent = m + '月';
+    if (m === new Date().getMonth() + 1) opt.selected = true;
+    mSel.appendChild(opt);
+  }
+
+  // Annual
+  const aySel = document.getElementById('an-year');
+  if (aySel && aySel.options.length === 0){
+    for (let y = cy + 1; y >= cy - 3; y--){
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y + '年';
+      if (y === cy) opt.selected = true;
+      aySel.appendChild(opt);
+    }
+  }
+}
+
+function renderMonthly(){
+  initMonthlySelectors();
+  const yr = parseInt(document.getElementById('mn-year').value);
+  const mo = parseInt(document.getElementById('mn-month').value);
+  const br = document.getElementById('mn-branch').value;
+  const mStr = `${yr}-${String(mo).padStart(2,'0')}`;
+  document.getElementById('mn-title').textContent = `${yr}年${mo}月 月次P&L${br !== 'both' ? ' / ' + br : ''}`;
+
+  let orders = (S.orders || []).filter(o => (o.date || '').slice(0,7) === mStr);
+  if (br !== 'both') orders = orders.filter(o => o.branch === br);
+
+  // 集計
+  const sales = orders.reduce((s,o) => s + calcAmt(o), 0);
+  const cost  = orders.reduce((s,o) => s + calcCost(o), 0);
+  const taxIn = Math.round(sales * 10 / 110); // 仮受消費税
+  const salesEx = sales - taxIn; // 税抜売上
+  const profit = salesEx - cost;
+  const margin = salesEx > 0 ? (profit / salesEx * 100) : 0;
+  const totalQty = orders.reduce((s,o) => s + Object.values(o.items || {}).reduce((a,b) => a + b, 0), 0);
+  const ordersCnt = orders.length;
+  const avgOrd = ordersCnt > 0 ? Math.round(sales / ordersCnt) : 0;
+
+  // KPI
+  document.getElementById('mn-kpi').innerHTML = `
+    <div class="kpi"><div class="kpi-lbl">売上（税込）</div><div class="kpi-val">¥${fmt(sales)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">原価合計</div><div class="kpi-val kv-r">¥${fmt(cost)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">粗利</div><div class="kpi-val kv-gr">¥${fmt(profit)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">粗利率</div><div class="kpi-val kv-b">${margin.toFixed(1)}%</div></div>
+    <div class="kpi"><div class="kpi-lbl">注文件数</div><div class="kpi-val kv-o">${ordersCnt}</div></div>
+    <div class="kpi"><div class="kpi-lbl">客単価</div><div class="kpi-val kv-p">¥${fmt(avgOrd)}</div></div>
+  `;
+
+  // P&L表
+  document.getElementById('mn-tbody').innerHTML = `
+    <tr><td>売上高（税込）</td><td class="col-amt">¥${fmt(sales)}</td></tr>
+    <tr class="indent"><td>　うち仮受消費税</td><td class="col-amt" style="color:var(--wh3)">¥${fmt(taxIn)}</td></tr>
+    <tr class="subtotal"><td>売上高（税抜）</td><td class="col-amt">¥${fmt(salesEx)}</td></tr>
+    <tr class="cost"><td>売上原価</td><td class="col-amt">¥${fmt(cost)}</td></tr>
+    <tr class="profit"><td>売上総利益（粗利）</td><td class="col-amt">¥${fmt(profit)}</td></tr>
+    <tr><td>粗利率</td><td class="col-amt">${margin.toFixed(1)}%</td></tr>
+    <tr><td>販売本数</td><td class="col-amt">${fmt(totalQty)} 本</td></tr>
+    <tr><td>注文件数</td><td class="col-amt">${ordersCnt} 件</td></tr>
+  `;
+
+  // 商品別
+  const byProd = {};
+  orders.forEach(o => {
+    const taxRate = o.tax === 'taxあり' ? 1.1 : 1;
+    const cond = (o.condition || 10) / 10;
+    Object.entries(o.items || {}).forEach(([p,q]) => {
+      if (!byProd[p]) byProd[p] = { qty: 0, sales: 0, cost: 0 };
+      byProd[p].qty += q;
+      byProd[p].sales += Math.round((PRICE[p] || 0) * cond) * taxRate * q;
+      byProd[p].cost += (COST[p] || 0) * q;
+    });
+  });
+
+  const sorted = Object.entries(byProd).sort((a,b) => b[1].sales - a[1].sales);
+  const totalSales = sorted.reduce((s,[,v]) => s + v.sales, 0);
+
+  document.getElementById('mn-prod-tbody').innerHTML = sorted.length === 0
+    ? `<tr><td colspan="6"><div class="empty"><div class="empty-icon">📈</div>当月のデータがありません</div></td></tr>`
+    : sorted.map(([p, v]) => {
+      const profit = v.sales - v.cost - Math.round(v.sales * 10 / 110); // 税抜粗利
+      const share = totalSales > 0 ? (v.sales / totalSales * 100) : 0;
+      return `
+        <tr>
+          <td><strong>${p}</strong></td>
+          <td class="col-qty">${v.qty}</td>
+          <td class="col-amt">¥${fmt(v.sales)}</td>
+          <td class="col-amt" style="color:var(--red)">¥${fmt(v.cost)}</td>
+          <td class="col-amt" style="color:var(--grn)">¥${fmt(profit)}</td>
+          <td>
+            <div class="bar-cell" style="width:120px">
+              <div class="bar-fill" style="width:${share}%"></div>
+              <span class="bar-label">${share.toFixed(1)}%</span>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+  if (sorted.length > 0){
+    const tQty = sorted.reduce((s,[,v]) => s + v.qty, 0);
+    const tCost = sorted.reduce((s,[,v]) => s + v.cost, 0);
+    const tProfit = sorted.reduce((s,[,v]) => s + (v.sales - v.cost - Math.round(v.sales * 10 / 110)), 0);
+    document.getElementById('mn-prod-tfoot').innerHTML = `
+      <tr>
+        <td>合　計</td>
+        <td class="col-qty">${tQty}</td>
+        <td class="col-amt">¥${fmt(totalSales)}</td>
+        <td class="col-amt" style="color:var(--red)">¥${fmt(tCost)}</td>
+        <td class="col-amt" style="color:var(--grn)">¥${fmt(tProfit)}</td>
+        <td></td>
+      </tr>`;
+  } else {
+    document.getElementById('mn-prod-tfoot').innerHTML = '';
+  }
+}
+
+function exportMonthlyCSV(){
+  const yr = document.getElementById('mn-year').value;
+  const mo = document.getElementById('mn-month').value;
+  const mStr = `${yr}-${String(mo).padStart(2,'0')}`;
+  const br = document.getElementById('mn-branch').value;
+
+  let orders = (S.orders || []).filter(o => (o.date || '').slice(0,7) === mStr);
+  if (br !== 'both') orders = orders.filter(o => o.branch === br);
+
+  let csv = '日付,拠点,店舗名,商品,本数,単価,金額,原価,粗利\n';
+  orders.forEach(o => {
+    const cond = (o.condition || 10) / 10;
+    const taxRate = o.tax === 'taxあり' ? 1.1 : 1;
+    Object.entries(o.items || {}).forEach(([p, q]) => {
+      const unitPrice = Math.round((PRICE[p] || 0) * cond) * taxRate;
+      const amt = unitPrice * q;
+      const cost = (COST[p] || 0) * q;
+      const profit = Math.round(amt / taxRate) - cost;
+      csv += `${o.date},${o.branch || ''},${o.store || ''},${p},${q},${unitPrice},${amt},${cost},${profit}\n`;
+    });
+  });
+  const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `月次PL_${mStr}.csv`;
+  a.click();
+  toast('✓ CSV出力完了');
+}
+</script>
+
+<!-- ═══ 年次管理 ═══ -->
+<script>
+function renderAnnual(){
+  initMonthlySelectors();
+  const yr = parseInt(document.getElementById('an-year').value);
+  const br = document.getElementById('an-branch').value;
+  const mode = document.getElementById('an-mode').value;
+  document.getElementById('an-title').textContent =
+    `${yr}年 月次推移（${mode === 'amount' ? '売上' : mode === 'qty' ? '本数' : mode === 'orders' ? '注文件数' : '粗利'}）${br !== 'both' ? ' / ' + br : ''}`;
+
+  let orders = (S.orders || []).filter(o => (o.date || '').slice(0,4) === String(yr));
+  if (br !== 'both') orders = orders.filter(o => o.branch === br);
+
+  // 月別集計
+  const byMonth = Array(12).fill(null).map(() => ({sales: 0, qty: 0, orders: 0, cost: 0}));
+  orders.forEach(o => {
+    const m = parseInt((o.date || '').slice(5, 7)) - 1;
+    if (m < 0 || m > 11) return;
+    byMonth[m].sales += calcAmt(o);
+    byMonth[m].cost  += calcCost(o);
+    byMonth[m].orders++;
+    byMonth[m].qty += Object.values(o.items || {}).reduce((a,b) => a + b, 0);
+  });
+
+  // KPI
+  const totalSales = byMonth.reduce((s,m) => s + m.sales, 0);
+  const totalCost = byMonth.reduce((s,m) => s + m.cost, 0);
+  const totalQty = byMonth.reduce((s,m) => s + m.qty, 0);
+  const totalOrders = byMonth.reduce((s,m) => s + m.orders, 0);
+  const totalProfit = totalSales - totalCost - Math.round(totalSales * 10 / 110);
+  const avgMonth = orders.length > 0 ? Math.round(totalSales / 12) : 0;
+  const peakMonthIdx = byMonth.reduce((maxI, m, i) => m.sales > byMonth[maxI].sales ? i : maxI, 0);
+
+  document.getElementById('an-kpi').innerHTML = `
+    <div class="kpi"><div class="kpi-lbl">年間売上</div><div class="kpi-val">¥${fmt(totalSales)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">年間粗利</div><div class="kpi-val kv-gr">¥${fmt(totalProfit)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">年間販売本数</div><div class="kpi-val kv-b">${fmt(totalQty)}</div><div class="kpi-sub">本</div></div>
+    <div class="kpi"><div class="kpi-lbl">年間注文件数</div><div class="kpi-val kv-o">${totalOrders}</div></div>
+    <div class="kpi"><div class="kpi-lbl">月平均</div><div class="kpi-val kv-p">¥${fmt(avgMonth)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">最高月</div><div class="kpi-val" style="font-size:1.2rem">${peakMonthIdx + 1}月<br><span style="font-size:.7rem;color:var(--wh3)">¥${fmt(byMonth[peakMonthIdx].sales)}</span></div></div>
+  `;
+
+  // 表
+  const valOf = m => mode === 'amount' ? m.sales : mode === 'qty' ? m.qty : mode === 'orders' ? m.orders : (m.sales - m.cost - Math.round(m.sales * 10 / 110));
+  const total = byMonth.reduce((s,m) => s + valOf(m), 0);
+  const max = Math.max(...byMonth.map(valOf), 1);
+
+  document.getElementById('an-tbody').innerHTML = `
+    <tr>
+      <td>${mode === 'amount' ? '売上' : mode === 'qty' ? '本数' : mode === 'orders' ? '件数' : '粗利'}</td>
+      ${byMonth.map(m => {
+        const v = valOf(m);
+        const high = v >= max * 0.7 ? 'high' : (v === 0 ? 'zero' : '');
+        const display = mode === 'amount' || mode === 'profit' ? '¥' + fmt(v) : fmt(v);
+        return `<td class="month-cell ${high}">${v === 0 ? '—' : display}</td>`;
+      }).join('')}
+      <td class="col-amt" style="background:rgba(201,168,76,.08);color:var(--gold-l);font-weight:600">${mode === 'amount' || mode === 'profit' ? '¥' + fmt(total) : fmt(total)}</td>
+    </tr>
+    <tr>
+      <td style="color:var(--wh3);font-size:.7rem">推移</td>
+      ${byMonth.map(m => {
+        const v = valOf(m);
+        const ratio = max > 0 ? (v / max * 100) : 0;
+        return `<td><div class="bar-cell" style="height:14px"><div class="bar-fill" style="width:${ratio}%"></div></div></td>`;
+      }).join('')}
+      <td></td>
+    </tr>
+  `;
+}
+
+function exportAnnualCSV(){
+  const yr = document.getElementById('an-year').value;
+  const br = document.getElementById('an-branch').value;
+
+  let orders = (S.orders || []).filter(o => (o.date || '').slice(0,4) === yr);
+  if (br !== 'both') orders = orders.filter(o => o.branch === br);
+
+  const byMonth = Array(12).fill(null).map(() => ({sales: 0, qty: 0, orders: 0, cost: 0}));
+  orders.forEach(o => {
+    const m = parseInt((o.date || '').slice(5, 7)) - 1;
+    if (m < 0 || m > 11) return;
+    byMonth[m].sales += calcAmt(o);
+    byMonth[m].cost  += calcCost(o);
+    byMonth[m].orders++;
+    byMonth[m].qty += Object.values(o.items || {}).reduce((a,b) => a + b, 0);
+  });
+
+  let csv = '月,売上,原価,粗利,販売本数,注文件数\n';
+  byMonth.forEach((m, i) => {
+    const profit = m.sales - m.cost - Math.round(m.sales * 10 / 110);
+    csv += `${i+1}月,${m.sales},${m.cost},${profit},${m.qty},${m.orders}\n`;
+  });
+  const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `年次推移_${yr}.csv`;
+  a.click();
+  toast('✓ CSV出力完了');
+}
+</script>
+
+<!-- ═══ 地域分析 ═══ -->
+<script>
+function renderRegional(){
+  const period = document.getElementById('rg-period').value;
+  const mode = document.getElementById('rg-mode').value;
+
+  let orders = filterByPeriod(S.orders || [], period);
+
+  // KPI
+  const totalSales = orders.reduce((s,o) => s + calcAmt(o), 0);
+  const totalOrders = orders.length;
+  const stores = new Set(orders.map(o => o.store).filter(Boolean)).size;
+  const branches = new Set(orders.map(o => o.branch).filter(Boolean)).size;
+
+  document.getElementById('rg-kpi').innerHTML = `
+    <div class="kpi"><div class="kpi-lbl">対象期間 売上</div><div class="kpi-val">¥${fmt(totalSales)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">注文件数</div><div class="kpi-val kv-o">${totalOrders}</div></div>
+    <div class="kpi"><div class="kpi-lbl">取引先数</div><div class="kpi-val kv-b">${stores}</div></div>
+    <div class="kpi"><div class="kpi-lbl">アクティブ拠点</div><div class="kpi-val kv-p">${branches}</div></div>
+  `;
+
+  // モード別表示
+  if (mode === 'branch'){
+    document.getElementById('rg-title').textContent = '拠点別実績';
+    const byBranch = {};
+    orders.forEach(o => {
+      const b = o.branch || '不明';
+      if (!byBranch[b]) byBranch[b] = { sales: 0, orders: 0, qty: 0, cost: 0, stores: new Set() };
+      byBranch[b].sales += calcAmt(o);
+      byBranch[b].cost += calcCost(o);
+      byBranch[b].orders++;
+      byBranch[b].qty += Object.values(o.items || {}).reduce((a,b) => a + b, 0);
+      if (o.store) byBranch[b].stores.add(o.store);
+    });
+    const list = Object.entries(byBranch).sort((a,b) => b[1].sales - a[1].sales);
+
+    document.getElementById('rg-thead').innerHTML = `<tr>
+      <th>拠点</th><th class="col-amt">売上</th><th class="col-amt">原価</th><th class="col-amt">粗利</th>
+      <th class="col-qty">注文件数</th><th class="col-qty">本数</th><th class="col-qty">取引先数</th><th>シェア</th>
+    </tr>`;
+
+    document.getElementById('rg-tbody').innerHTML = list.length === 0
+      ? `<tr><td colspan="8"><div class="empty"><div class="empty-icon">🗾</div>データがありません</div></td></tr>`
+      : list.map(([b, v]) => {
+        const profit = v.sales - v.cost - Math.round(v.sales * 10 / 110);
+        const share = totalSales > 0 ? (v.sales / totalSales * 100) : 0;
+        return `<tr>
+          <td><strong>${escapeHtml(b)}</strong></td>
+          <td class="col-amt">¥${fmt(v.sales)}</td>
+          <td class="col-amt" style="color:var(--red)">¥${fmt(v.cost)}</td>
+          <td class="col-amt" style="color:var(--grn)">¥${fmt(profit)}</td>
+          <td class="col-qty">${v.orders}</td>
+          <td class="col-qty">${v.qty}</td>
+          <td class="col-qty">${v.stores.size}</td>
+          <td><div class="bar-cell" style="width:130px"><div class="bar-fill" style="width:${share}%"></div><span class="bar-label">${share.toFixed(1)}%</span></div></td>
+        </tr>`;
+      }).join('');
+
+    document.getElementById('rg-tfoot').innerHTML = list.length > 0 ? `<tr>
+      <td>合　計</td>
+      <td class="col-amt">¥${fmt(totalSales)}</td>
+      <td class="col-amt" style="color:var(--red)">¥${fmt(list.reduce((s,[,v]) => s + v.cost, 0))}</td>
+      <td class="col-amt" style="color:var(--grn)">¥${fmt(list.reduce((s,[,v]) => s + (v.sales - v.cost - Math.round(v.sales * 10 / 110)), 0))}</td>
+      <td class="col-qty">${totalOrders}</td>
+      <td class="col-qty">${list.reduce((s,[,v]) => s + v.qty, 0)}</td>
+      <td class="col-qty">${stores}</td><td></td>
+    </tr>` : '';
+
+  } else if (mode === 'store'){
+    document.getElementById('rg-title').textContent = '取引先別 売上TOP20';
+    const byStore = {};
+    orders.forEach(o => {
+      const k = o.store || '不明';
+      if (!byStore[k]) byStore[k] = { sales: 0, orders: 0, qty: 0, branch: o.branch };
+      byStore[k].sales += calcAmt(o);
+      byStore[k].orders++;
+      byStore[k].qty += Object.values(o.items || {}).reduce((a,b) => a + b, 0);
+    });
+    const list = Object.entries(byStore).sort((a,b) => b[1].sales - a[1].sales).slice(0, 20);
+
+    document.getElementById('rg-thead').innerHTML = `<tr>
+      <th style="width:50px">順位</th><th>店舗名</th><th>拠点</th>
+      <th class="col-amt">売上</th><th class="col-qty">注文件数</th><th class="col-qty">本数</th>
+      <th class="col-amt">客単価</th><th>シェア</th>
+    </tr>`;
+
+    document.getElementById('rg-tbody').innerHTML = list.length === 0
+      ? `<tr><td colspan="8"><div class="empty"><div class="empty-icon">🏪</div>データがありません</div></td></tr>`
+      : list.map(([n, v], i) => {
+        const share = totalSales > 0 ? (v.sales / totalSales * 100) : 0;
+        const avg = v.orders > 0 ? Math.round(v.sales / v.orders) : 0;
+        return `<tr>
+          <td style="text-align:center;color:var(--gold-l);font-family:'Bebas Neue',sans-serif">${i+1}</td>
+          <td><strong>${escapeHtml(n)}</strong></td>
+          <td style="font-size:.7rem">${escapeHtml(v.branch || '')}</td>
+          <td class="col-amt">¥${fmt(v.sales)}</td>
+          <td class="col-qty">${v.orders}</td>
+          <td class="col-qty">${v.qty}</td>
+          <td class="col-amt" style="color:var(--blu)">¥${fmt(avg)}</td>
+          <td><div class="bar-cell" style="width:130px"><div class="bar-fill" style="width:${share*3}%"></div><span class="bar-label">${share.toFixed(1)}%</span></div></td>
+        </tr>`;
+      }).join('');
+    document.getElementById('rg-tfoot').innerHTML = '';
+
+  } else if (mode === 'staff'){
+    document.getElementById('rg-title').textContent = '担当者別実績';
+    const byStaff = {};
+    orders.forEach(o => {
+      const k = o.staff || '未設定';
+      if (!byStaff[k]) byStaff[k] = { sales: 0, orders: 0, qty: 0, stores: new Set() };
+      byStaff[k].sales += calcAmt(o);
+      byStaff[k].orders++;
+      byStaff[k].qty += Object.values(o.items || {}).reduce((a,b) => a + b, 0);
+      if (o.store) byStaff[k].stores.add(o.store);
+    });
+    const list = Object.entries(byStaff).sort((a,b) => b[1].sales - a[1].sales);
+
+    document.getElementById('rg-thead').innerHTML = `<tr>
+      <th>担当者</th><th class="col-amt">売上</th><th class="col-qty">注文件数</th>
+      <th class="col-qty">本数</th><th class="col-qty">担当先数</th>
+      <th class="col-amt">客単価</th><th>シェア</th>
+    </tr>`;
+
+    document.getElementById('rg-tbody').innerHTML = list.length === 0
+      ? `<tr><td colspan="7"><div class="empty"><div class="empty-icon">👥</div>担当者データがありません</div></td></tr>`
+      : list.map(([n, v]) => {
+        const share = totalSales > 0 ? (v.sales / totalSales * 100) : 0;
+        const avg = v.orders > 0 ? Math.round(v.sales / v.orders) : 0;
+        return `<tr>
+          <td><strong>${escapeHtml(n)}</strong></td>
+          <td class="col-amt">¥${fmt(v.sales)}</td>
+          <td class="col-qty">${v.orders}</td>
+          <td class="col-qty">${v.qty}</td>
+          <td class="col-qty">${v.stores.size}</td>
+          <td class="col-amt" style="color:var(--blu)">¥${fmt(avg)}</td>
+          <td><div class="bar-cell" style="width:130px"><div class="bar-fill" style="width:${share}%"></div><span class="bar-label">${share.toFixed(1)}%</span></div></td>
+        </tr>`;
+      }).join('');
+    document.getElementById('rg-tfoot').innerHTML = '';
+  }
+}
+</script>
+
+<!-- ═══ 商品分析 ═══ -->
+<script>
+function renderProduct(){
+  const period = document.getElementById('pr-period').value;
+  const sortKey = document.getElementById('pr-sort').value;
+  const br = document.getElementById('pr-branch').value;
+
+  let orders = filterByPeriod(S.orders || [], period);
+  if (br !== 'both') orders = orders.filter(o => o.branch === br);
+
+  // 商品別集計
+  const byProd = {};
+  orders.forEach(o => {
+    const cond = (o.condition || 10) / 10;
+    const taxRate = o.tax === 'taxあり' ? 1.1 : 1;
+    Object.entries(o.items || {}).forEach(([p, q]) => {
+      if (!byProd[p]) byProd[p] = { qty: 0, sales: 0, cost: 0 };
+      byProd[p].qty += q;
+      byProd[p].sales += Math.round((PRICE[p] || 0) * cond) * taxRate * q;
+      byProd[p].cost += (COST[p] || 0) * q;
+    });
+  });
+
+  // KPI
+  const totalSales = Object.values(byProd).reduce((s,v) => s + v.sales, 0);
+  const totalQty = Object.values(byProd).reduce((s,v) => s + v.qty, 0);
+  const totalCost = Object.values(byProd).reduce((s,v) => s + v.cost, 0);
+  const totalProfit = totalSales - totalCost - Math.round(totalSales * 10 / 110);
+  const margin = totalSales > 0 ? (totalProfit / Math.round(totalSales / 1.1) * 100) : 0;
+  const itemCount = Object.keys(byProd).length;
+
+  document.getElementById('pr-kpi').innerHTML = `
+    <div class="kpi"><div class="kpi-lbl">対象売上</div><div class="kpi-val">¥${fmt(totalSales)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">販売本数</div><div class="kpi-val kv-b">${fmt(totalQty)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">粗利</div><div class="kpi-val kv-gr">¥${fmt(totalProfit)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">粗利率</div><div class="kpi-val kv-o">${margin.toFixed(1)}%</div></div>
+    <div class="kpi"><div class="kpi-lbl">取扱商品</div><div class="kpi-val kv-p">${itemCount}/${PRODS.length}</div></div>
+  `;
+
+  // 並び替え
+  const list = Object.entries(byProd).map(([p, v]) => {
+    const profit = v.sales - v.cost - Math.round(v.sales * 10 / 110);
+    const profitMargin = v.sales > 0 ? (profit / Math.round(v.sales / 1.1) * 100) : 0;
+    return [p, { ...v, profit, profitMargin }];
+  }).sort((a,b) => {
+    if (sortKey === 'amount') return b[1].sales - a[1].sales;
+    if (sortKey === 'qty')    return b[1].qty - a[1].qty;
+    if (sortKey === 'profit') return b[1].profit - a[1].profit;
+    if (sortKey === 'margin') return b[1].profitMargin - a[1].profitMargin;
+    return 0;
+  });
+
+  document.getElementById('pr-tbody').innerHTML = list.length === 0
+    ? `<tr><td colspan="8"><div class="empty"><div class="empty-icon">🍾</div>該当データがありません</div></td></tr>`
+    : list.map(([p, v], i) => {
+      const share = totalSales > 0 ? (v.sales / totalSales * 100) : 0;
+      const marginColor = v.profitMargin >= 50 ? 'var(--grn)' : (v.profitMargin >= 30 ? 'var(--gold-l)' : 'var(--org)');
+      return `<tr>
+        <td style="text-align:center;color:var(--gold-l);font-family:'Bebas Neue',sans-serif">${i+1}</td>
+        <td><strong>${p}</strong></td>
+        <td class="col-qty">${v.qty}</td>
+        <td class="col-amt">¥${fmt(v.sales)}</td>
+        <td class="col-amt" style="color:var(--red)">¥${fmt(v.cost)}</td>
+        <td class="col-amt" style="color:var(--grn)">¥${fmt(v.profit)}</td>
+        <td class="col-amt" style="color:${marginColor};font-family:'Bebas Neue',sans-serif">${v.profitMargin.toFixed(1)}%</td>
+        <td><div class="bar-cell" style="width:130px"><div class="bar-fill" style="width:${share}%"></div><span class="bar-label">${share.toFixed(1)}%</span></div></td>
+      </tr>`;
+    }).join('');
+
+  document.getElementById('pr-tfoot').innerHTML = list.length > 0 ? `<tr>
+    <td colspan="2">合　計</td>
+    <td class="col-qty">${fmt(totalQty)}</td>
+    <td class="col-amt">¥${fmt(totalSales)}</td>
+    <td class="col-amt" style="color:var(--red)">¥${fmt(totalCost)}</td>
+    <td class="col-amt" style="color:var(--grn)">¥${fmt(totalProfit)}</td>
+    <td class="col-amt" style="color:var(--gold-l)">${margin.toFixed(1)}%</td>
+    <td></td>
+  </tr>` : '';
+}
+</script>
+
+<!-- ═══ 営業日報 ═══ -->
+<script>
+function initDailyRep(){
+  if (!document.getElementById('dr-date').value){
+    document.getElementById('dr-date').value = today();
+  }
+  document.getElementById('dr-staff').value = currentUser.name;
+
+  // スタッフフィルタ
+  const fSel = document.getElementById('dr-fstaff');
+  if (fSel.options.length <= 1){
+    const staffs = [...new Set((S.dailyReps || []).map(d => d.staff))].filter(Boolean);
+    staffs.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s; opt.textContent = s;
+      fSel.appendChild(opt);
+    });
+  }
+
+  renderDailyRep();
+}
+
+function submitDailyRep(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const date = document.getElementById('dr-date').value;
+  const body = document.getElementById('dr-body').value.trim();
+  if (!date || !body) return toast('日付と活動報告は必須です', 'error');
+
+  if (!S.dailyReps) S.dailyReps = [];
+  S.dailyReps.push({
+    id: 'dr-' + Date.now(),
+    date,
+    staff: currentUser.name,
+    branch: document.getElementById('dr-branch').value,
+    visits: parseInt(document.getElementById('dr-visits').value) || 0,
+    newCustomers: parseInt(document.getElementById('dr-new').value) || 0,
+    orders: parseInt(document.getElementById('dr-orders').value) || 0,
+    amount: parseInt(document.getElementById('dr-amount').value) || 0,
+    nextPlan: document.getElementById('dr-next').value,
+    body,
+    submittedAt: new Date().toISOString(),
+  });
+  saveState();
+  toast('✓ 日報を投稿しました');
+
+  ['dr-body','dr-next'].forEach(id => document.getElementById(id).value = '');
+  ['dr-visits','dr-new','dr-orders','dr-amount'].forEach(id => document.getElementById(id).value = '0');
+  renderDailyRep();
+}
+
+function clearDailyRep(){
+  ['dr-body','dr-next'].forEach(id => document.getElementById(id).value = '');
+  ['dr-visits','dr-new','dr-orders','dr-amount'].forEach(id => document.getElementById(id).value = '0');
+}
+
+function renderDailyRep(){
+  const fStaff = document.getElementById('dr-fstaff')?.value || '';
+  const fBranch = document.getElementById('dr-fbranch')?.value || '';
+  const fPeriod = document.getElementById('dr-fperiod')?.value || '7';
+
+  let list = [...(S.dailyReps || [])];
+  if (fStaff) list = list.filter(d => d.staff === fStaff);
+  if (fBranch) list = list.filter(d => d.branch === fBranch);
+  if (fPeriod !== 'all'){
+    const days = parseInt(fPeriod);
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0,10);
+    list = list.filter(d => (d.date || '') >= cutoff);
+  }
+  list.sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+
+  const grid = document.getElementById('dr-grid');
+  if (list.length === 0){
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📝</div>該当する日報がありません</div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(d => `
+    <div class="dr-card">
+      <div class="dr-head">
+        <div>
+          <div class="dr-date">${escapeHtml(d.date)}</div>
+          <div class="dr-staff">👤 ${escapeHtml(d.staff)} / ${escapeHtml(d.branch || '')}</div>
+        </div>
+        <button class="act-btn dn" onclick="deleteDailyRep('${d.id}')">削</button>
+      </div>
+      <div class="dr-body">${escapeHtml(d.body)}</div>
+      <div class="dr-meta">
+        <span class="dr-meta-chip">🏢 訪問 ${d.visits || 0}</span>
+        <span class="dr-meta-chip">🆕 新規 ${d.newCustomers || 0}</span>
+        <span class="dr-meta-chip">📦 受注 ${d.orders || 0}件</span>
+        <span class="dr-meta-chip">💴 ¥${fmt(d.amount || 0)}</span>
+      </div>
+      ${d.nextPlan ? `<div style="font-size:.7rem;color:var(--wh3);margin-top:.4rem;padding-top:.4rem;border-top:1px solid rgba(255,255,255,.05)">📅 翌日: ${escapeHtml(d.nextPlan)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function deleteDailyRep(id){
+  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
+  if (!confirm('この日報を削除しますか？')) return;
+  S.dailyReps = (S.dailyReps || []).filter(d => d.id !== id);
+  saveState();
+  toast('✓ 削除しました');
+  renderDailyRep();
+}
+</script>
+
+<!-- ═══ 初期化 ═══ -->
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  updateUserBadge();
+  renderMonthly();
+});
+</script>
+
+</body>
+</html>

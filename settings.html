@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>システム設定 | Sclassランボルギーニ</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Bebas+Neue&family=Shippori+Mincho:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mobile.css">
+<style>
+:root{
+  --gold:#C9A84C;--gold-l:#E8C97A;--gold-d:#7A5C14;
+  --bk:#080808;--d1:#0E0E0E;--d2:#161616;--d3:#1E1E1E;--d4:#282828;
+  --wh:#F0EBE0;--wh2:rgba(240,235,224,0.6);--wh3:rgba(240,235,224,0.25);
+  --red:#E05252;--grn:#52B788;--blu:#5299E0;--org:#E09052;--pur:#9B7FD4;
+  --line:#06C755;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bk);color:var(--wh);font-family:'Noto Sans JP',sans-serif;font-weight:300;min-height:100vh}
+
+header{background:linear-gradient(180deg,#0e0c06,var(--d1));border-bottom:1px solid var(--gold-d);height:56px;display:flex;align-items:center;padding:0 1.2rem;position:sticky;top:0;z-index:200;gap:1rem}
+.logo-mark{width:28px;height:28px;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold);transform:rotate(45deg);flex-shrink:0}
+.logo-mark span{transform:rotate(-45deg)}
+.sys-name{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.1em;color:var(--gold-l)}
+.sys-sub{font-size:.62rem;letter-spacing:.15em;color:var(--wh2);margin-left:.5rem}
+.back-btn{background:transparent;border:1px solid rgba(201,168,76,.4);color:var(--gold-l);padding:.3rem .8rem;font-size:.72rem;cursor:pointer;text-decoration:none;transition:all .2s;letter-spacing:.05em}
+.back-btn:hover{background:rgba(201,168,76,.15)}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:.7rem}
+.btn-s{background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);padding:.3rem .8rem;font-size:.72rem;cursor:pointer;transition:all .2s;letter-spacing:.05em;font-family:'Noto Sans JP',sans-serif}
+.btn-s:hover{background:var(--gold);color:var(--bk)}
+
+main{padding:1.5rem 2rem;max-width:1400px;margin:0 auto}
+.ptitle{font-family:'Shippori Mincho',serif;font-size:1.5rem;font-weight:400;color:var(--gold-l);margin-bottom:1rem;display:flex;align-items:baseline;gap:.7rem;border-bottom:1px solid rgba(201,168,76,.2);padding-bottom:.5rem}
+.ptitle small{font-family:'Noto Sans JP',sans-serif;font-size:.72rem;color:var(--wh2);font-weight:300}
+
+/* セットアップ進捗バー */
+.setup-progress{background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:.9rem 1.1rem;margin-bottom:1.2rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;position:relative;overflow:hidden}
+.setup-progress::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.sp-step{flex:1;min-width:100px;display:flex;flex-direction:column;align-items:center;gap:.3rem;position:relative}
+.sp-num{width:32px;height:32px;border-radius:50%;background:var(--d3);border:1.5px solid var(--gold-d);color:var(--gold-l);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1rem}
+.sp-step.done .sp-num{background:var(--grn);border-color:var(--grn);color:var(--bk)}
+.sp-step.current .sp-num{background:var(--gold);border-color:var(--gold);color:var(--bk);box-shadow:0 0 12px rgba(201,168,76,.5)}
+.sp-lbl{font-size:.7rem;color:var(--wh2);text-align:center;letter-spacing:.05em}
+.sp-step.done .sp-lbl{color:var(--grn)}
+.sp-step.current .sp-lbl{color:var(--gold-l);font-weight:500}
+.sp-line{flex:0 0 20px;height:1px;background:rgba(201,168,76,.2);align-self:flex-start;margin-top:16px}
+
+/* タブ */
+.master-tabs{display:flex;gap:2px;background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:3px;margin-bottom:1.2rem;overflow-x:auto}
+.mtab{flex:1;min-width:130px;padding:.7rem .8rem;cursor:pointer;font-size:.78rem;color:var(--wh2);background:transparent;border:none;transition:all .2s;letter-spacing:.05em;display:flex;align-items:center;justify-content:center;gap:.4rem;font-family:'Noto Sans JP',sans-serif;font-weight:500;white-space:nowrap}
+.mtab:hover:not(.active){background:rgba(201,168,76,.05);color:var(--wh)}
+.mtab.active{background:linear-gradient(180deg,rgba(201,168,76,.2),rgba(201,168,76,.1));color:var(--gold-l);box-shadow:inset 0 -2px 0 var(--gold)}
+.mtab-ic{font-size:1rem}
+.mcon{display:none}.mcon.active{display:block}
+
+/* セクション */
+.fp{background:var(--d2);border:1px solid rgba(201,168,76,.15);padding:1rem 1.1rem;margin-bottom:1rem}
+.fp h3{font-size:.9rem;color:var(--gold-l);margin-bottom:.7rem;font-weight:500;letter-spacing:.05em;display:flex;align-items:center;gap:.5rem}
+.fp h3::before{content:'';width:3px;height:14px;background:var(--gold)}
+
+.fg{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.7rem}
+.fg label{font-size:.68rem;letter-spacing:.08em;color:var(--wh2)}
+.fg label .req{color:var(--red)}
+.fg label .hint{font-size:.55rem;color:var(--wh3);margin-left:.3rem}
+.fc{background:var(--d3);border:1px solid rgba(201,168,76,.22);color:var(--wh);padding:.5rem .7rem;font-family:'Noto Sans JP',sans-serif;font-size:.85rem;outline:none;transition:border-color .2s;width:100%}
+.fc:focus{border-color:var(--gold)}
+.fc.mono{font-family:'JetBrains Mono',monospace;font-size:.78rem}
+textarea.fc{resize:vertical}
+
+/* ガイドカード */
+.guide-card{background:var(--d2);border:1px solid rgba(201,168,76,.15);padding:1.1rem 1.2rem;margin-bottom:.9rem;position:relative}
+.guide-card h4{font-size:.92rem;color:var(--gold-l);margin-bottom:.7rem;font-weight:500;letter-spacing:.05em;display:flex;align-items:center;gap:.7rem}
+.step-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--gold);color:var(--bk);font-family:'Bebas Neue',sans-serif;font-size:.95rem;border-radius:50%;flex-shrink:0}
+.guide-body{font-size:.8rem;color:var(--wh2);line-height:1.7}
+.guide-body ul{padding-left:1.2rem;margin-top:.4rem}
+.guide-body li{margin-bottom:.3rem}
+.guide-body code{background:var(--d3);border:1px solid rgba(201,168,76,.2);padding:.1rem .35rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--gold-l)}
+.guide-body strong{color:var(--gold-l);font-weight:500}
+.guide-body a{color:var(--blu);text-decoration:none}
+.guide-body a:hover{text-decoration:underline}
+
+/* コードブロック */
+.code-block{background:var(--d1);border:1px solid rgba(201,168,76,.2);padding:.9rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--wh);line-height:1.6;overflow-x:auto;white-space:pre-wrap;max-height:480px;overflow-y:auto;margin:.6rem 0}
+.code-block .cm{color:var(--wh3);font-style:italic}
+.code-block .kw{color:#7eb8f7}
+.code-block .str{color:#9bc99b}
+.code-block .num{color:#e09052}
+
+/* ボタン */
+.faction{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.5rem}
+.btn{padding:.55rem 1.4rem;border:1px solid;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:.82rem;letter-spacing:.05em;transition:all .2s;font-weight:500}
+.btn-p{background:var(--gold);border-color:var(--gold);color:var(--bk)}
+.btn-p:hover{background:var(--gold-l)}
+.btn-g{background:transparent;border-color:rgba(201,168,76,.4);color:var(--wh2)}
+.btn-g:hover{border-color:var(--gold);color:var(--wh)}
+.btn-line{background:var(--line);border-color:var(--line);color:#fff}
+.btn-line:hover{background:#04a849}
+.btn-copy{background:transparent;border:1px solid rgba(201,168,76,.3);color:var(--gold-l);padding:.35rem .8rem;font-size:.72rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:.05em}
+.btn-copy:hover{background:var(--gold);color:var(--bk)}
+
+/* ステータス */
+.status-pill{display:inline-flex;align-items:center;gap:.4rem;background:var(--d3);border:1px solid rgba(201,168,76,.25);padding:.3rem .8rem;font-size:.72rem;color:var(--wh2)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--wh3)}
+.status-pill.connected .status-dot{background:var(--grn);box-shadow:0 0 6px var(--grn)}
+.status-pill.connected{color:var(--grn);border-color:rgba(82,183,136,.4)}
+.status-pill.error .status-dot{background:var(--red)}
+.status-pill.error{color:var(--red);border-color:rgba(224,82,82,.4)}
+
+/* チェックリスト */
+.check-list{list-style:none;padding:0;margin:.5rem 0}
+.check-list li{display:flex;align-items:flex-start;gap:.5rem;padding:.4rem 0;font-size:.78rem;color:var(--wh2);line-height:1.6}
+.check-list li::before{content:'';display:inline-block;width:14px;height:14px;border:1.5px solid var(--gold-d);margin-top:3px;flex-shrink:0}
+.check-list li.done::before{background:var(--grn);border-color:var(--grn);content:'✓';color:#fff;text-align:center;line-height:11px;font-size:.7rem;font-weight:bold}
+.check-list li.done{color:var(--wh3);text-decoration:line-through}
+
+/* テーブル風レイアウト */
+.kv-table{width:100%;border-collapse:collapse;font-size:.8rem;margin:.5rem 0}
+.kv-table th{background:var(--d3);padding:.5rem .7rem;text-align:left;font-size:.7rem;color:var(--gold-d);letter-spacing:.05em;font-weight:500;width:35%}
+.kv-table td{padding:.5rem .7rem;border-bottom:1px solid rgba(255,255,255,.05);color:var(--wh)}
+.kv-table tr:last-child td{border-bottom:none}
+
+/* リッチメニュー画像プレースホルダ */
+.rmenu-preview{background:var(--d3);border:1px solid rgba(201,168,76,.25);padding:1rem;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:6px;aspect-ratio:2500/1686;max-width:600px;margin:.5rem 0}
+.rmenu-cell{background:linear-gradient(135deg,var(--d2),var(--d4));border:1px dashed rgba(201,168,76,.4);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:.5rem;color:var(--gold-l);font-size:.72rem;text-align:center;line-height:1.3;gap:.2rem}
+.rmenu-cell .rmenu-ic{font-size:1.5rem}
+
+#toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#161616;border:1px solid rgba(201,168,76,.4);color:#E8C97A;padding:.8rem 1.5rem;font-size:.85rem;z-index:9999;opacity:0;transition:opacity .2s;letter-spacing:.05em;pointer-events:none}
+
+.warn{background:rgba(224,144,82,.08);border:1px solid rgba(224,144,82,.3);padding:.7rem .9rem;font-size:.75rem;color:var(--org);line-height:1.6;margin:.5rem 0}
+.warn strong{color:var(--org)}
+.tip{background:rgba(82,153,224,.06);border:1px solid rgba(82,153,224,.2);padding:.7rem .9rem;font-size:.75rem;color:var(--wh2);line-height:1.6;margin:.5rem 0}
+.tip strong{color:var(--blu)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark"><span>L</span></div>
+  <div>
+    <span class="sys-name">SETTINGS</span>
+    <span class="sys-sub">システム設定</span>
+  </div>
+  <div class="hdr-right">
+    <a class="back-btn" href="portal.html">← ポータルへ戻る</a>
+    <span class="status-pill" id="conn-status">
+      <span class="status-dot"></span>
+      <span id="conn-label">未接続</span>
+    </span>
+    <div style="display:flex;align-items:center;gap:.5rem;padding-left:.8rem;margin-left:.3rem;border-left:1px solid rgba(201,168,76,.2)">
+      <span id="user-badge" style="font-size:.7rem;color:var(--gold-l)">—</span>
+      <button onclick="doLogout()" style="background:transparent;border:1px solid rgba(201,168,76,.25);color:var(--wh2);padding:.2rem .6rem;font-size:.65rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif">ログアウト</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="ptitle">
+    システム設定 <small>GAS・LINE・LIFF・リッチメニューの統合設定</small>
+  </div>
+
+  <!-- セットアップ進捗 -->
+  <div class="setup-progress" id="setup-progress">
+    <div class="sp-step" data-step="1"><div class="sp-num">1</div><div class="sp-lbl">GASコード<br>コピー</div></div>
+    <div class="sp-line"></div>
+    <div class="sp-step" data-step="2"><div class="sp-num">2</div><div class="sp-lbl">GAS<br>デプロイ</div></div>
+    <div class="sp-line"></div>
+    <div class="sp-step" data-step="3"><div class="sp-num">3</div><div class="sp-lbl">URL登録<br>テスト</div></div>
+    <div class="sp-line"></div>
+    <div class="sp-step" data-step="4"><div class="sp-num">4</div><div class="sp-lbl">LINE<br>Webhook</div></div>
+    <div class="sp-line"></div>
+    <div class="sp-step" data-step="5"><div class="sp-num">5</div><div class="sp-lbl">LIFF<br>登録</div></div>
+    <div class="sp-line"></div>
+    <div class="sp-step" data-step="6"><div class="sp-num">6</div><div class="sp-lbl">リッチ<br>メニュー</div></div>
+  </div>
+
+  <!-- ═══ 親タブ ═══ -->
+  <div class="master-tabs">
+    <button class="mtab active" onclick="switchModule('gas',this)"><span class="mtab-ic">🔗</span>GAS設定</button>
+    <button class="mtab" onclick="switchModule('gascode',this)"><span class="mtab-ic">⚙️</span>GASコード</button>
+    <button class="mtab" onclick="switchModule('line',this)"><span class="mtab-ic">💬</span>LINE設定</button>
+    <button class="mtab" onclick="switchModule('liff',this)"><span class="mtab-ic">📱</span>LIFF登録</button>
+    <button class="mtab" onclick="switchModule('rmenu',this)"><span class="mtab-ic">🍱</span>リッチメニュー</button>
+    <button class="mtab" onclick="switchModule('etc',this)"><span class="mtab-ic">🔧</span>その他</button>
+  </div>
+
+  <!-- ════════ GAS設定 ════════ -->
+  <div id="m-gas" class="mcon active">
+    <div class="fp">
+      <h3>🔗 GAS WebアプリURL</h3>
+      <div class="tip">
+        <strong>このURLを設定すると：</strong>注文・顧客・在庫データがGoogleスプレッドシートと同期され、LINEからの注文も受信できるようになります。
+      </div>
+      <div class="fg">
+        <label>GAS WebアプリURL <span class="req">*</span> <span class="hint">/exec で終わるURL</span></label>
+        <input type="text" class="fc mono" id="gas-url" placeholder="https://script.google.com/macros/s/AKfy.../exec">
+      </div>
+      <div class="fg">
+        <label>スプレッドシートID <span class="hint">URLの d/ と /edit の間</span></label>
+        <input type="text" class="fc mono" id="sheet-id" placeholder="15PDRjw1QSJi0mXxpPNGHHvu--HTFJ3q-0bEsDpFLJbs">
+      </div>
+      <div class="faction">
+        <button class="btn btn-p" onclick="saveGasSettings()">保存</button>
+        <button class="btn btn-g" onclick="testGasConnection()">🔌 接続テスト</button>
+        <span id="gas-status" style="font-size:.75rem;color:var(--wh2);align-self:center">未テスト</span>
+      </div>
+    </div>
+
+    <div class="fp">
+      <h3>📋 セットアップチェックリスト</h3>
+      <ul class="check-list" id="check-list">
+        <li id="chk-1">「GASコード」タブからコードをコピーした</li>
+        <li id="chk-2">Googleスプレッドシートを作成し、Apps Scriptを開いた</li>
+        <li id="chk-3">コードを貼り付け、LINE_TOKEN・SHEET_ID・ADMIN_USER_IDを設定した</li>
+        <li id="chk-4">「デプロイ」→「ウェブアプリ」→「全員がアクセス可」で公開した</li>
+        <li id="chk-5">取得したURLを上の「GAS WebアプリURL」に貼り付けた</li>
+        <li id="chk-6">接続テストが成功した</li>
+      </ul>
+    </div>
+
+    <div class="fp">
+      <h3>📡 同期ログ</h3>
+      <div class="code-block" id="sync-log" style="max-height:200px;font-size:.7rem"><span style="color:var(--wh3)">ログなし</span></div>
+    </div>
+  </div>
+
+  <!-- ════════ GASコード ════════ -->
+  <div id="m-gascode" class="mcon">
+    <div class="guide-card">
+      <h4><span class="step-num">!</span>始める前に</h4>
+      <div class="guide-body">
+        このコードを以下の手順で使います：
+        <ul>
+          <li><a href="https://docs.google.com/spreadsheets/u/0/create" target="_blank">Googleスプレッドシートを新規作成</a></li>
+          <li>メニュー「拡張機能」→「Apps Script」を開く</li>
+          <li>下のコードを<strong>すべてコピー</strong>して貼り付け</li>
+          <li>コード冒頭の<code>LINE_TOKEN</code>・<code>SHEET_ID</code>・<code>ADMIN_USER_ID</code>を編集</li>
+          <li>右上「デプロイ」→「新しいデプロイ」→「ウェブアプリ」→ 実行ユーザー: 自分 / アクセス: 全員</li>
+        </ul>
+      </div>
+      <div class="warn">
+        <strong>⚠ 注意:</strong> LINE_TOKENは絶対にGitHubなど公開リポジトリにアップロードしないでください。
+      </div>
+      <div class="faction">
+        <button class="btn btn-p" onclick="copyGasCode()">📋 コードを全てコピー</button>
+        <button class="btn btn-g" onclick="downloadGasCode()">📥 .gs ファイルとしてダウンロード</button>
+        <button class="btn-copy" onclick="window.open('https://docs.google.com/spreadsheets/u/0/create','_blank')">📊 新しいスプレッドシートを作成</button>
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <h4><span class="step-num">📄</span>GASコード本体</h4>
+      <div class="guide-body">
+        <p style="margin-bottom:.5rem">行数: <span id="gc-lines" style="color:var(--gold-l)">—</span> / 文字数: <span id="gc-chars" style="color:var(--gold-l)">—</span></p>
+      </div>
+      <div class="code-block" id="gas-code-display">読み込み中...</div>
+    </div>
+  </div>
+
+  <!-- ════════ LINE設定 ════════ -->
+  <div id="m-line" class="mcon">
+    <div class="guide-card">
+      <h4><span class="step-num">1</span>LINE公式アカウントを作成</h4>
+      <div class="guide-body">
+        <ul>
+          <li><a href="https://www.linebiz.com/jp/entry/" target="_blank">LINE Official Account Manager</a> にアクセス</li>
+          <li>「アカウントを作成」→ メール or LINEアカウントで登録</li>
+          <li>アカウント種別：<code>一般アカウント（無料）</code> で開始</li>
+          <li>無料プランは月200通まで送信可能</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <h4><span class="step-num">2</span>Messaging APIを有効化</h4>
+      <div class="guide-body">
+        <ul>
+          <li>「設定」→「Messaging API」→「Messaging APIを利用する」をクリック</li>
+          <li>プロバイダーを選択（なければ作成）</li>
+          <li>アカウントを連携 → <strong>チャネルアクセストークン（長期）</strong> を発行・コピー</li>
+          <li><strong>チャネルシークレット</strong> もコピーして控える</li>
+        </ul>
+      </div>
+      <div class="warn">
+        <strong>⚠ 注意:</strong> チャネルアクセストークンは「再発行」すると古いトークンが即座に無効化されます。GASコードに設定済みの場合は要更新。
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <h4><span class="step-num">3</span>LINE側にWebhook URLを登録</h4>
+      <div class="guide-body">
+        <ul>
+          <li><a href="https://manager.line.biz/" target="_blank">LINE Official Account Manager</a> にログイン</li>
+          <li>「設定」→「Messaging API」→「Webhook URL」</li>
+          <li>下の入力欄からコピーして貼り付け、保存後「検証」ボタンで確認</li>
+          <li>「Webhookの利用」を <strong>ON</strong> にする</li>
+        </ul>
+      </div>
+      <div class="fg" style="margin-top:.7rem">
+        <label>登録するWebhook URL（GAS WebアプリURLと同じ）</label>
+        <div style="display:flex;gap:.5rem">
+          <input type="text" class="fc mono" id="webhook-url" readonly>
+          <button class="btn-copy" onclick="copyWebhookUrl()">📋</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <h4><span class="step-num">4</span>応答設定を変更</h4>
+      <div class="guide-body">
+        「応答設定」で以下のように設定：
+        <table class="kv-table">
+          <tr><th>応答モード</th><td>Bot</td></tr>
+          <tr><th>あいさつメッセージ</th><td>OFF（任意でON）</td></tr>
+          <tr><th>応答メッセージ</th><td><strong>OFF</strong> ← 必須</td></tr>
+          <tr><th>Webhook</th><td><strong>ON</strong> ← 必須</td></tr>
+        </table>
+        <div class="tip" style="margin-top:.5rem">
+          <strong>💡 ヒント:</strong> 応答メッセージをOFFにしないと、自動応答が優先されてしまいGASに届きません。
+        </div>
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <h4><span class="step-num">5</span>ADMIN_USER_ID と STAFF_UIDS を取得・設定</h4>
+      <div class="guide-body">
+        <ul>
+          <li>あなた（管理者）のLINEアカウントから公式アカウントに「<code>テスト</code>」と送信</li>
+          <li>GASスプレッドシートの「ログ」シートに記録された<code>userId</code>をコピー</li>
+          <li>GASコードの<code>ADMIN_USER_ID</code>に貼り付け、再デプロイ</li>
+          <li>スタッフも同様に各人のUIDを取得して<code>STAFF_UIDS</code>配列に追加</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ LIFF登録 ════════ -->
+  <div id="m-liff" class="mcon">
+    <div class="guide-card">
+      <h4><span class="step-num">1</span>LIFFアプリを2つ作成</h4>
+      <div class="guide-body">
+        <p>LIFFは <a href="https://developers.line.biz/console/" target="_blank">LINE Developers Console</a> で作成します。注文フォーム用と顧客マイページ用の2つが必要。</p>
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <h4><span class="step-num">A</span>LIFF #1: 注文フォーム</h4>
+      <div class="guide-body">
+        <table class="kv-table">
+          <tr><th>LIFFアプリ名</th><td>注文フォーム</td></tr>
+          <tr><th>サイズ</th><td><strong>Full</strong></td></tr>
+          <tr><th>エンドポイントURL</th><td><span style="font-family:monospace;color:var(--gold-l)" id="liff-url-order">https://your-domain.com/liff-order-form.html</span></td></tr>
+          <tr><th>Scope</th><td>profile, openid</td></tr>
+          <tr><th>ボットリンク機能</th><td>On (Aggressive)</td></tr>
+        </table>
+      </div>
+      <div class="fg" style="margin-top:.7rem">
+        <label>LIFF ID（注文フォーム用）<span class="req">*</span></label>
+        <input type="text" class="fc mono" id="liff-id-order" placeholder="2001234567-AbCdEfGh">
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <h4><span class="step-num">B</span>LIFF #2: 顧客マイページ</h4>
+      <div class="guide-body">
+        <table class="kv-table">
+          <tr><th>LIFFアプリ名</th><td>マイページ</td></tr>
+          <tr><th>サイズ</th><td><strong>Full</strong></td></tr>
+          <tr><th>エンドポイントURL</th><td><span style="font-family:monospace;color:var(--gold-l)" id="liff-url-portal">https://your-domain.com/customer_portal.html</span></td></tr>
+          <tr><th>Scope</th><td>profile, openid</td></tr>
+          <tr><th>ボットリンク機能</th><td>On (Aggressive)</td></tr>
+        </table>
+      </div>
+      <div class="fg" style="margin-top:.7rem">
+        <label>LIFF ID（マイページ用）<span class="req">*</span></label>
+        <input type="text" class="fc mono" id="liff-id-portal" placeholder="2001234567-XyZ12345">
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <h4><span class="step-num">2</span>HTMLにLIFF IDを埋め込む</h4>
+      <div class="guide-body">
+        <p>取得したLIFF IDを各HTMLファイルに設定する必要があります：</p>
+        <ul>
+          <li><code>liff-order-form.html</code> の <code>liff.init({liffId: '...'})</code> 部分</li>
+          <li><code>customer_portal.html</code> の同じ箇所</li>
+        </ul>
+        <div class="tip" style="margin-top:.5rem">
+          下のボタンで自動で埋め込まれた設定情報を保存できます。HTMLファイルへの直接編集は別途必要です。
+        </div>
+      </div>
+      <div class="faction">
+        <button class="btn btn-p" onclick="saveLiffSettings()">💾 LIFF IDを保存</button>
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <h4><span class="step-num">3</span>HTMLファイルを公開する</h4>
+      <div class="guide-body">
+        <p>LIFFのエンドポイントには<strong>HTTPS必須</strong>。以下のいずれかで公開：</p>
+        <table class="kv-table">
+          <tr><th>GitHub Pages</th><td>無料・簡単・カスタムドメイン可</td></tr>
+          <tr><th>Vercel / Netlify</th><td>無料・自動HTTPS・CI連携</td></tr>
+          <tr><th>レンタルサーバー</th><td>独自ドメインで運用したい場合</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ リッチメニュー ════════ -->
+  <div id="m-rmenu" class="mcon">
+    <div class="guide-card">
+      <h4><span class="step-num">1</span>リッチメニュー画像を準備</h4>
+      <div class="guide-body">
+        <table class="kv-table">
+          <tr><th>サイズ</th><td><strong>2500 × 1686 px</strong>（大）または 2500 × 843 px（小）</td></tr>
+          <tr><th>形式</th><td>JPEG または PNG</td></tr>
+          <tr><th>容量</th><td>1MB以下</td></tr>
+        </table>
+        <p style="margin-top:.5rem">推奨レイアウト（2行3列）：</p>
+        <div class="rmenu-preview">
+          <div class="rmenu-cell"><div class="rmenu-ic">📝</div>注文する</div>
+          <div class="rmenu-cell"><div class="rmenu-ic">👤</div>マイページ</div>
+          <div class="rmenu-cell"><div class="rmenu-ic">💰</div>支払確認</div>
+          <div class="rmenu-cell"><div class="rmenu-ic">📦</div>注文履歴</div>
+          <div class="rmenu-cell"><div class="rmenu-ic">🌐</div>サイト</div>
+          <div class="rmenu-cell"><div class="rmenu-ic">❓</div>ヘルプ</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <h4><span class="step-num">2</span>LINE Official Account Managerで登録</h4>
+      <div class="guide-body">
+        <ul>
+          <li><a href="https://manager.line.biz/" target="_blank">LINE Official Account Manager</a></li>
+          <li>「ホーム」→「リッチメニュー」→「作成」</li>
+          <li>テンプレートを選択（推奨：6マス）</li>
+          <li>画像をアップロード</li>
+          <li>各エリアにアクションを設定</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <h4><span class="step-num">3</span>各ボタンのアクション設定</h4>
+      <div class="guide-body">
+        <table class="kv-table">
+          <tr><th>📝 注文する</th><td>リンク → LIFF #1（注文フォーム）</td></tr>
+          <tr><th>👤 マイページ</th><td>リンク → LIFF #2（マイページ）</td></tr>
+          <tr><th>💰 支払確認</th><td>テキスト送信「支払確認」</td></tr>
+          <tr><th>📦 注文履歴</th><td>テキスト送信「注文確認」</td></tr>
+          <tr><th>🌐 サイト</th><td>リンク → 自社サイトURL</td></tr>
+          <tr><th>❓ ヘルプ</th><td>テキスト送信「ヘルプ」</td></tr>
+        </table>
+        <div class="tip" style="margin-top:.5rem">
+          GASコードで「支払確認」「注文確認」「ヘルプ」のテキストはすべて自動応答処理されます。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ その他 ════════ -->
+  <div id="m-etc" class="mcon">
+    <div class="fp">
+      <h3>🌐 公開URL設定</h3>
+      <div class="fg">
+        <label>注文フォームの公開URL</label>
+        <input type="text" class="fc mono" id="url-order-form" placeholder="https://your-domain.com/liff-order-form.html">
+      </div>
+      <div class="fg">
+        <label>マイページの公開URL</label>
+        <input type="text" class="fc mono" id="url-customer-portal" placeholder="https://your-domain.com/customer_portal.html">
+      </div>
+      <div class="fg">
+        <label>会社Webサイト</label>
+        <input type="text" class="fc mono" id="url-website" placeholder="https://www.example.com">
+      </div>
+      <div class="faction">
+        <button class="btn btn-p" onclick="saveUrls()">保存</button>
+      </div>
+    </div>
+
+    <div class="fp">
+      <h3>💾 データバックアップ</h3>
+      <div class="guide-body">全データをJSONファイルとしてエクスポート / インポートできます。</div>
+      <div class="faction">
+        <button class="btn btn-g" onclick="exportData()">📥 全データをエクスポート</button>
+        <button class="btn btn-g" onclick="document.getElementById('import-file').click()">📤 データをインポート</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+        <button class="btn btn-dn" onclick="resetAllData()" style="margin-left:auto;background:transparent;border-color:rgba(224,82,82,.4);color:var(--red)">🗑 全データを初期化</button>
+      </div>
+    </div>
+
+    <div class="fp">
+      <h3>📊 システム情報</h3>
+      <table class="kv-table" id="sys-info">
+        <tr><th>登録顧客数</th><td id="info-cust">—</td></tr>
+        <tr><th>登録スタッフ数</th><td id="info-staff">—</td></tr>
+        <tr><th>注文履歴数</th><td id="info-orders">—</td></tr>
+        <tr><th>請求書発行数</th><td id="info-invoices">—</td></tr>
+        <tr><th>ローカル保存データ容量</th><td id="info-size">—</td></tr>
+        <tr><th>最終GAS同期</th><td id="info-lastsync">—</td></tr>
+      </table>
+    </div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<!-- ═══ shared.js ═══ -->
+<script>
+const S = {
+  branch:'both', orders:[], customers:[], staff:[],
+  stock:{仙台:{}, 京都:{}}, stockDetail:{仙台:{}, 京都:{}},
+  slog:[], collections:[], invoices:[],
+  bankEntries:[], bankHistory:[], company:{}, products:null,
+  purchases:[], cashEntries:[], dailyReps:[],
+  expenses:[], pettyCash:[], amexEntries:[], billPays:[],
+  gasUrl: localStorage.getItem('gasUrl') || '',
+  sheetId: localStorage.getItem('lmb_sheetId') || '',
+  liffOrderId: localStorage.getItem('lmb_liffOrderId') || '',
+  liffPortalId: localStorage.getItem('lmb_liffPortalId') || '',
+  urlOrderForm: localStorage.getItem('lmb_urlOrderForm') || '',
+  urlCustomerPortal: localStorage.getItem('lmb_urlCustomerPortal') || '',
+  urlWebsite: localStorage.getItem('lmb_urlWebsite') || '',
+};
+
+function today(){ return new Date().toISOString().slice(0,10); }
+function fmt(n){ return (Number(n)||0).toLocaleString('ja-JP'); }
+
+function loadState(){
+  try {
+    const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
+                  'invoices','bankEntries','bankHistory','company','products','purchases',
+                  'cashEntries','dailyReps','expenses','pettyCash','amexEntries','billPays'];
+    keys.forEach(k => {
+      const v = localStorage.getItem('lmb_' + k);
+      if (v) try { S[k] = JSON.parse(v); } catch(e){}
+    });
+  } catch(e){ console.warn('loadState error', e); }
+}
+
+function toast(msg, type){
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.borderColor = type === 'error' ? 'rgba(224,82,82,.5)' : 'rgba(201,168,76,.4)';
+  setTimeout(() => { t.style.opacity = '0'; }, 2500);
+}
+
+window.S = S; window.toast = toast;
+loadState();
+</script>
+
+<!-- ═══ 共通 ═══ -->
+<script>
+const currentUser = JSON.parse(sessionStorage.getItem('lmb_current_user') || 'null') || {
+  id: 'dev-admin', name: '開発者', email: 'admin@sclass.jp',
+  role: 'admin', branch: '両拠点', active: true, isDev: true,
+};
+
+function updateUserBadge(){
+  const badge = document.getElementById('user-badge');
+  if (!badge) return;
+  const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁'};
+  badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name} (${currentUser.role})`;
+}
+
+function doLogout(){
+  if (confirm('ログアウトしますか？')) {
+    sessionStorage.removeItem('lmb_current_user');
+    location.href = 'login.html';
+  }
+}
+
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function switchModule(name, el){
+  document.querySelectorAll('.mtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.mcon').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('m-' + name).classList.add('active');
+
+  if (name === 'gascode') loadGasCode();
+  if (name === 'etc') updateSysInfo();
+}
+
+// 進捗ステップ更新
+function updateProgress(){
+  const steps = document.querySelectorAll('.sp-step');
+  steps.forEach(s => s.classList.remove('done', 'current'));
+
+  let currentStep = 1;
+  // 1. GASコードコピー（チェックリスト）
+  if (localStorage.getItem('chk_gas_copied') === '1') {
+    steps[0].classList.add('done'); currentStep = 2;
+  }
+  // 2. デプロイ
+  if (localStorage.getItem('chk_gas_deployed') === '1') {
+    steps[1].classList.add('done'); currentStep = 3;
+  }
+  // 3. URL登録 + テスト
+  if (S.gasUrl && localStorage.getItem('chk_gas_tested') === '1') {
+    steps[2].classList.add('done'); currentStep = 4;
+  }
+  // 4. LINE Webhook
+  if (localStorage.getItem('chk_line_webhook') === '1') {
+    steps[3].classList.add('done'); currentStep = 5;
+  }
+  // 5. LIFF
+  if (S.liffOrderId && S.liffPortalId) {
+    steps[4].classList.add('done'); currentStep = 6;
+  }
+  // 6. リッチメニュー
+  if (localStorage.getItem('chk_rmenu') === '1') {
+    steps[5].classList.add('done'); currentStep = 7;
+  }
+  // 現在のステップ
+  if (currentStep <= 6) steps[currentStep - 1].classList.add('current');
+
+  // ヘッダーの接続状態
+  const conn = document.getElementById('conn-status');
+  const lbl = document.getElementById('conn-label');
+  if (S.gasUrl && localStorage.getItem('chk_gas_tested') === '1'){
+    conn.classList.add('connected'); conn.classList.remove('error');
+    lbl.textContent = 'GAS接続OK';
+  } else if (S.gasUrl) {
+    conn.classList.remove('connected', 'error');
+    lbl.textContent = 'URL設定済（未テスト）';
+  } else {
+    conn.classList.remove('connected', 'error');
+    lbl.textContent = '未接続';
+  }
+
+  // チェックリストの表示更新
+  document.getElementById('chk-1')?.classList.toggle('done', localStorage.getItem('chk_gas_copied') === '1');
+  document.getElementById('chk-5')?.classList.toggle('done', !!S.gasUrl);
+  document.getElementById('chk-6')?.classList.toggle('done', localStorage.getItem('chk_gas_tested') === '1');
+}
+</script>
+
+<!-- ═══ GAS設定 ═══ -->
+<script>
+function loadGasSettings(){
+  document.getElementById('gas-url').value = S.gasUrl || '';
+  document.getElementById('sheet-id').value = S.sheetId || '';
+  document.getElementById('webhook-url').value = S.gasUrl || '';
+}
+
+function saveGasSettings(){
+  const url = document.getElementById('gas-url').value.trim();
+  const sid = document.getElementById('sheet-id').value.trim();
+
+  if (url && !url.startsWith('https://script.google.com/')){
+    return toast('GAS URLの形式が正しくありません', 'error');
+  }
+  S.gasUrl = url;
+  S.sheetId = sid;
+  localStorage.setItem('gasUrl', url);
+  localStorage.setItem('lmb_sheetId', sid);
+  document.getElementById('webhook-url').value = url;
+  toast('✓ 保存しました');
+  updateProgress();
+}
+
+async function testGasConnection(){
+  const url = document.getElementById('gas-url').value.trim();
+  if (!url) return toast('GAS URLを入力してください', 'error');
+  const status = document.getElementById('gas-status');
+  status.textContent = '接続中...';
+  status.style.color = 'var(--gold-l)';
+
+  // 同期ログ追加
+  appendSyncLog('▶ 接続テスト開始: ' + url);
+
+  try {
+    const r = await fetch(url + '?action=ping');
+    const data = await r.json();
+    if (data.status === 'ok'){
+      status.textContent = '✓ 接続成功';
+      status.style.color = 'var(--grn)';
+      localStorage.setItem('chk_gas_tested', '1');
+      appendSyncLog('✓ 接続成功');
+      toast('✓ GAS接続成功');
+      updateProgress();
+    } else {
+      status.textContent = '⚠ 応答異常';
+      status.style.color = 'var(--org)';
+      appendSyncLog('⚠ 応答が異常: ' + JSON.stringify(data));
+    }
+  } catch(e){
+    status.textContent = '✗ 接続失敗';
+    status.style.color = 'var(--red)';
+    appendSyncLog('✗ 接続失敗: ' + e.message);
+    toast('接続失敗: ' + e.message, 'error');
+  }
+}
+
+function appendSyncLog(msg){
+  const log = document.getElementById('sync-log');
+  if (!log) return;
+  if (log.textContent.includes('ログなし')) log.innerHTML = '';
+  const ts = new Date().toLocaleTimeString('ja-JP');
+  log.innerHTML += `<div>[${ts}] ${escapeHtml(msg)}</div>`;
+  log.scrollTop = log.scrollHeight;
+}
+</script>
+
+<!-- ═══ GASコード ═══ -->
+<script>
+let gasCodeCache = null;
+
+async function loadGasCode(){
+  if (gasCodeCache) return;
+  const display = document.getElementById('gas-code-display');
+  display.textContent = '読み込み中...';
+  try {
+    const r = await fetch('gas-template.gs');
+    if (!r.ok) throw new Error('ファイルが見つかりません');
+    gasCodeCache = await r.text();
+    // 表示用のシンタックスハイライト（簡易）
+    let html = gasCodeCache
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/(\/\/[^\n]*)/g, '<span class="cm">$1</span>')
+      .replace(/\b(const|let|var|function|if|else|return|forEach|try|catch|new|typeof|true|false|null)\b/g, '<span class="kw">$1</span>')
+      .replace(/('(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/g, '<span class="str">$1</span>')
+      .replace(/\b(\d+)\b/g, '<span class="num">$1</span>');
+    display.innerHTML = html;
+    document.getElementById('gc-lines').textContent = gasCodeCache.split('\n').length;
+    document.getElementById('gc-chars').textContent = gasCodeCache.length.toLocaleString();
+  } catch(e){
+    display.innerHTML = `<div style="color:var(--red)">エラー: ${escapeHtml(e.message)}</div>
+      <div style="margin-top:.5rem;color:var(--wh3);font-size:.7rem">
+        gas-template.gs ファイルが見つかりません。portal-system フォルダ内に配置してください。<br>
+        または admin-dev.html の「GASコード」タブから直接コピーできます。
+      </div>`;
+  }
+}
+
+async function copyGasCode(){
+  if (!gasCodeCache){
+    await loadGasCode();
+  }
+  if (!gasCodeCache) return toast('コードを読み込めませんでした', 'error');
+  try {
+    await navigator.clipboard.writeText(gasCodeCache);
+    toast('✓ コードをコピーしました（' + gasCodeCache.length.toLocaleString() + '文字）');
+    localStorage.setItem('chk_gas_copied', '1');
+    updateProgress();
+  } catch(e){
+    toast('コピーに失敗。手動で選択してコピーしてください', 'error');
+  }
+}
+
+function downloadGasCode(){
+  if (!gasCodeCache) return toast('まずコードを表示してください', 'error');
+  const blob = new Blob([gasCodeCache], {type: 'text/javascript'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'sclass-gas-code.gs';
+  a.click();
+  toast('✓ ダウンロードしました');
+  localStorage.setItem('chk_gas_copied', '1');
+  updateProgress();
+}
+</script>
+
+<!-- ═══ LINE & LIFF ═══ -->
+<script>
+function copyWebhookUrl(){
+  const url = document.getElementById('webhook-url').value;
+  if (!url) return toast('GAS URLを先に登録してください', 'error');
+  navigator.clipboard.writeText(url).then(() => {
+    toast('✓ Webhook URLをコピーしました');
+    localStorage.setItem('chk_line_webhook', '1');
+    updateProgress();
+  });
+}
+
+function loadLiffSettings(){
+  document.getElementById('liff-id-order').value = S.liffOrderId || '';
+  document.getElementById('liff-id-portal').value = S.liffPortalId || '';
+  document.getElementById('liff-url-order').textContent = S.urlOrderForm || 'https://your-domain.com/liff-order-form.html';
+  document.getElementById('liff-url-portal').textContent = S.urlCustomerPortal || 'https://your-domain.com/customer_portal.html';
+}
+
+function saveLiffSettings(){
+  const order  = document.getElementById('liff-id-order').value.trim();
+  const portal = document.getElementById('liff-id-portal').value.trim();
+  S.liffOrderId = order;
+  S.liffPortalId = portal;
+  localStorage.setItem('lmb_liffOrderId', order);
+  localStorage.setItem('lmb_liffPortalId', portal);
+  toast('✓ LIFF IDを保存');
+  updateProgress();
+}
+</script>
+
+<!-- ═══ その他設定 ═══ -->
+<script>
+function loadUrls(){
+  document.getElementById('url-order-form').value = S.urlOrderForm || '';
+  document.getElementById('url-customer-portal').value = S.urlCustomerPortal || '';
+  document.getElementById('url-website').value = S.urlWebsite || '';
+}
+
+function saveUrls(){
+  const o = document.getElementById('url-order-form').value.trim();
+  const c = document.getElementById('url-customer-portal').value.trim();
+  const w = document.getElementById('url-website').value.trim();
+  S.urlOrderForm = o;
+  S.urlCustomerPortal = c;
+  S.urlWebsite = w;
+  localStorage.setItem('lmb_urlOrderForm', o);
+  localStorage.setItem('lmb_urlCustomerPortal', c);
+  localStorage.setItem('lmb_urlWebsite', w);
+  toast('✓ URLを保存');
+  loadLiffSettings(); // LIFF表示も更新
+}
+
+function exportData(){
+  const data = {};
+  Object.keys(localStorage).filter(k => k.startsWith('lmb_') || k === 'gasUrl').forEach(k => {
+    data[k] = localStorage.getItem(k);
+  });
+  data._exportedAt = new Date().toISOString();
+  data._exportedBy = currentUser.name;
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `sclass-backup-${today()}.json`;
+  a.click();
+  toast('✓ エクスポート完了');
+}
+
+function importData(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!confirm('現在のデータが上書きされます。本当にインポートしますか？')) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      Object.entries(data).forEach(([k,v]) => {
+        if (k.startsWith('_')) return;
+        if (k.startsWith('lmb_') || k === 'gasUrl'){
+          localStorage.setItem(k, v);
+        }
+      });
+      toast('✓ インポート完了。リロードします...');
+      setTimeout(() => location.reload(), 1500);
+    } catch(err){
+      toast('インポート失敗: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetAllData(){
+  const confirm1 = confirm('⚠ 全データを初期化します。\nこの操作は取り消せません。続行しますか？');
+  if (!confirm1) return;
+  const text = prompt('確認のため「初期化」と入力してください:');
+  if (text !== '初期化') return toast('キャンセルしました');
+  Object.keys(localStorage).filter(k => k.startsWith('lmb_') || k === 'gasUrl' || k.startsWith('chk_')).forEach(k => localStorage.removeItem(k));
+  sessionStorage.clear();
+  toast('✓ 初期化完了。リロードします...');
+  setTimeout(() => location.reload(), 1500);
+}
+
+function updateSysInfo(){
+  document.getElementById('info-cust').textContent = (S.customers || []).length + '件';
+  document.getElementById('info-staff').textContent = (S.staff || []).length + '名';
+  document.getElementById('info-orders').textContent = (S.orders || []).length + '件';
+  document.getElementById('info-invoices').textContent = (S.invoices || []).length + '通';
+
+  let totalSize = 0;
+  Object.keys(localStorage).filter(k => k.startsWith('lmb_')).forEach(k => {
+    totalSize += (localStorage.getItem(k) || '').length;
+  });
+  document.getElementById('info-size').textContent = (totalSize / 1024).toFixed(1) + ' KB';
+
+  const lastSync = localStorage.getItem('lmb_lastSync');
+  document.getElementById('info-lastsync').textContent = lastSync ? new Date(lastSync).toLocaleString('ja-JP') : '未同期';
+}
+</script>
+
+<!-- ═══ 初期化 ═══ -->
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  updateUserBadge();
+  loadGasSettings();
+  loadLiffSettings();
+  loadUrls();
+  updateProgress();
+});
+</script>
+
+</body>
+</html>
