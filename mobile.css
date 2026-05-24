@@ -403,6 +403,40 @@ input, select, textarea {
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   スマホ向け全体の幅制御（はみ出し防止）
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@media (max-width: 768px) {
+  /* 画面外への横スクロールを完全禁止 */
+  html, body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+  /* 全ての入力欄を親に収める */
+  .fc, input.fc, select.fc, textarea.fc {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+  }
+  /* フォームセクション全体を親に収める */
+  .form-section,
+  .form-section .frow,
+  .form-section .fg,
+  .form-section details,
+  .form-section details > div {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+  }
+  /* メインコンテンツのコンテナを横にはみ出させない */
+  main, .container, .content, #m-customers {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    配達先セクション（スマホ向け調整）
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 @media (max-width: 768px) {
