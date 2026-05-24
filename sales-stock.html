@@ -308,6 +308,13 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     <div class="form-section">
       <div class="form-section-title">▸ 配送・備考</div>
       <div class="frow">
+        <div class="fg" style="grid-column:span 2">
+          <label>配達先</label>
+          <select class="fc" id="no-delivery" onchange="onDeliveryChange()">
+            <option value="main">店舗住所と同じ</option>
+          </select>
+          <div id="no-delivery-info" style="margin-top:.3rem;padding:.4rem .6rem;background:rgba(155,127,212,.05);border:1px dashed rgba(155,127,212,.2);border-radius:3px;font-size:.7rem;color:var(--wh3);display:none"></div>
+        </div>
         <div class="fg"><label>配達希望日</label><input class="fc" id="no-deldate" type="date"></div>
         <div class="fg"><label>配達時間帯</label><select class="fc" id="no-deltime"><option value="">指定なし</option><option>午前中</option><option>14-16時</option><option>16-18時</option><option>18-20時</option></select></div>
         <div class="fg" style="grid-column:span 2"><label>配達メモ</label><input class="fc" id="no-delnote" placeholder="例：夜間搬入希望"></div>
@@ -751,11 +758,66 @@ function onStoreChange(){
         if (exists) payEl.value = c.payMethod;
       }
     }
+    // 配達先プルダウンを再構築
+    rebuildDeliveryOptions(c);
     updateOrderTotal();
     updateSponsorHint(c);
   } else {
+    // 顧客未選択：配達先プルダウンを初期状態にリセット
+    rebuildDeliveryOptions(null);
     updateSponsorHint(null);
   }
+}
+
+// 配達先プルダウンを顧客の deliveries から再構築
+function rebuildDeliveryOptions(c){
+  const sel = document.getElementById('no-delivery');
+  const info = document.getElementById('no-delivery-info');
+  if (!sel) return;
+  // 既存オプションをクリア（「店舗住所と同じ」のみ残す）
+  sel.innerHTML = '<option value="main">店舗住所と同じ</option>';
+  if (info) { info.style.display = 'none'; info.textContent = ''; }
+
+  const deliveries = (c && Array.isArray(c.deliveries)) ? c.deliveries : [];
+  deliveries.forEach((d, i) => {
+    const opt = document.createElement('option');
+    opt.value = 'delivery_' + i;
+    const label = d.name || ('配達先' + (i+1));
+    opt.textContent = '配達先' + (i+1) + '：' + label;
+    sel.appendChild(opt);
+  });
+  // 既定は「店舗住所と同じ」
+  sel.value = 'main';
+}
+
+// 配達先プルダウン選択時に住所情報を表示
+function onDeliveryChange(){
+  const sel  = document.getElementById('no-delivery');
+  const info = document.getElementById('no-delivery-info');
+  if (!sel || !info) return;
+  const val = sel.value;
+  if (val === 'main' || !val) {
+    info.style.display = 'none';
+    info.textContent = '';
+    return;
+  }
+  // delivery_N から index を取り出す
+  const idx = parseInt(val.replace('delivery_', ''), 10);
+  if (isNaN(idx)) { info.style.display = 'none'; return; }
+  const name = document.getElementById('no-store').value.trim();
+  const c = (S.customers||[]).find(x => x.name === name);
+  const d = (c && c.deliveries && c.deliveries[idx]) ? c.deliveries[idx] : null;
+  if (!d) { info.style.display = 'none'; return; }
+  // 配達先情報を整形して表示
+  const addr = [d.pref, d.city, d.addr1, d.addr2].filter(Boolean).join('');
+  const lines = [];
+  if (d.name)    lines.push('📦 ' + d.name);
+  if (d.zip)     lines.push('〒' + d.zip + (addr ? ' ' + addr : ''));
+  else if (addr) lines.push('📍 ' + addr);
+  if (d.contact || d.tel) lines.push('👤 ' + [d.contact, d.tel].filter(Boolean).join(' / '));
+  if (d.memo)    lines.push('📝 ' + d.memo);
+  info.innerHTML = lines.map(l => escapeHtml(l)).join('<br>');
+  info.style.display = 'block';
 }
 
 function updateSponsorHint(c){
@@ -836,6 +898,8 @@ function clearNewOrder(){
   document.getElementById('no-date').value = today();
   document.getElementById('no-deldate').value = '';
   document.getElementById('no-deltime').value = '';
+  // 配達先プルダウンを初期化
+  rebuildDeliveryOptions(null);
   renderNewOrderProds();
   updateOrderTotal();
 }
@@ -859,6 +923,24 @@ function submitNewOrder(){
     }
   }
 
+  // 配達先情報を組み立て
+  const delSel = document.getElementById('no-delivery');
+  const delVal = delSel ? delSel.value : 'main';
+  let deliveryName = '';
+  let deliveryAddress = '';
+  if (delVal && delVal !== 'main') {
+    const idx = parseInt(delVal.replace('delivery_', ''), 10);
+    const cust = (S.customers||[]).find(x => x.name === store);
+    const d = (cust && cust.deliveries && cust.deliveries[idx]) ? cust.deliveries[idx] : null;
+    if (d) {
+      deliveryName = d.name || ('配達先' + (idx + 1));
+      const addr = [d.pref, d.city, d.addr1, d.addr2].filter(Boolean).join('');
+      const tel  = d.tel ? ' TEL:' + d.tel : '';
+      const memo = d.memo ? ' / ' + d.memo : '';
+      deliveryAddress = (d.zip ? '〒' + d.zip + ' ' : '') + addr + tel + memo;
+    }
+  }
+
   const order = {
     id: 'ord-' + Date.now(),
     date: document.getElementById('no-date').value || today(),
@@ -877,6 +959,8 @@ function submitNewOrder(){
     deliveryDate: document.getElementById('no-deldate').value,
     deliveryTime: document.getElementById('no-deltime').value,
     deliveryNote: document.getElementById('no-delnote').value,
+    deliveryName: deliveryName,       // 配達先名称（空＝店舗住所と同じ）
+    deliveryAddress: deliveryAddress, // 配達先住所（空＝店舗住所と同じ）
     note: document.getElementById('no-note').value,
     source: 'manual',
     createdAt: new Date().toISOString(),
