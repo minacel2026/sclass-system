@@ -1162,7 +1162,7 @@ function renderCustDeliveries(){
         <div class="fg fc-full"><label style="font-size:.65rem">名称</label><input class="fc" placeholder="例：○○ホール" value="${escapeHtml(d.name||'')}" oninput="custDeliveryRows[${i}].name=this.value"></div>
         <div class="fg"><label style="font-size:.65rem">郵便番号</label>
           <div style="display:flex;gap:.3rem">
-            <input class="fc" placeholder="980-0021" type="tel" maxlength="8" value="${escapeHtml(d.zip||'')}" oninput="formatZip(this);custDeliveryRows[${i}].zip=this.value" style="flex:1;min-width:0">
+            <input class="fc" placeholder="980-0021" type="tel" maxlength="8" value="${escapeHtml(d.zip||'')}" oninput="formatDeliveryZip(this, ${i})" style="flex:1;min-width:0">
             <button type="button" onclick="lookupCustDeliveryZip(${i})" style="background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);padding:0 .5rem;font-size:.65rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;border-radius:0;white-space:nowrap">🔍</button>
           </div>
         </div>
@@ -1182,6 +1182,8 @@ function renderCustDeliveries(){
     addBtn.style.opacity = addBtn.disabled ? '.4' : '1';
     addBtn.textContent = custDeliveryRows.length >= 5 ? '上限 5 件に達しました' : '＋ 配達先を追加';
   }
+  // 配達先カード内の入力欄にもキー操作（Enter/↓で次、↑で前）を bind
+  attachCustDeliveryKeydown();
 }
 function addCustDelivery(){
   if (custDeliveryRows.length >= 5) { toast('配達先は最大5件までです', 'error'); return; }
@@ -2090,81 +2092,130 @@ window.addEventListener('DOMContentLoaded', () => {
 //   Enter / ↓ で次へ進む
 //   ↑ で前へ戻る
 //   ↑↓は select / number の場合は本来の機能（選択値変更）を優先
-function initCustFormEnterNav(){
-  // 顧客フォームの入力順（フォームの表示順に合わせる）
-  const CF_FIELD_ORDER = [
-    'cf-name', 'cf-kana', 'cf-branch', 'cf-staff',
-    'cf-tel', 'cf-owner', 'cf-owner-tel',
-    'cf-zip', 'cf-pref', 'cf-city', 'cf-addr1', 'cf-addr2',
-    'cf-line-id', 'cf-line-uid',
-    'cf-inv-name', 'cf-referrer', 'cf-pay-method', 'cf-rate',
-    'cf-sponsor-trigger', 'cf-sponsor-reward', 'cf-sponsor-product',
-    // 詳細情報（分析用）
-    'cf-biz-type', 'cf-open-date', 'cf-seats', 'cf-owner-age',
-    'cf-customer-base', 'cf-product-trend', 'cf-competitor',
-    'cf-deal-start', 'cf-deal-channel', 'cf-biz-hours', 'cf-avg-spend',
-    // 最後
-    'cf-note'
-  ];
 
-  // 次に進む / 前に戻る - 共通ヘルパー
-  function moveFocus(currentIndex, direction){
-    const step = direction === 'next' ? 1 : -1;
-    for (let j = currentIndex + step; j >= 0 && j < CF_FIELD_ORDER.length; j += step){
-      const target = document.getElementById(CF_FIELD_ORDER[j]);
-      if (!target) continue;
-      if (target.disabled) continue;
-      if (target.offsetParent === null) continue;  // 非表示はスキップ
-      target.focus();
-      // text系は全選択して上書きしやすく
-      if (typeof target.select === 'function' &&
-          ['text','tel','email','search','url'].includes(target.type)) {
-        try { target.select(); } catch(e) {}
-      }
-      return;
-    }
-  }
+// 静的な顧客フォームの入力順（住所→配達先→LINE→請求→協賛→詳細→備考）
+// 配達先（cf-delivery-list内の入力欄）は動的に挿入される
+const CF_STATIC_ORDER_BEFORE_DELIVERY = [
+  'cf-name', 'cf-kana', 'cf-branch', 'cf-staff',
+  'cf-tel', 'cf-owner', 'cf-owner-tel',
+  'cf-zip', 'cf-pref', 'cf-city', 'cf-addr1', 'cf-addr2'
+];
+const CF_STATIC_ORDER_AFTER_DELIVERY = [
+  'cf-line-id', 'cf-line-uid',
+  'cf-inv-name', 'cf-referrer', 'cf-pay-method', 'cf-rate',
+  'cf-sponsor-trigger', 'cf-sponsor-reward', 'cf-sponsor-product',
+  'cf-biz-type', 'cf-open-date', 'cf-seats', 'cf-owner-age',
+  'cf-customer-base', 'cf-product-trend', 'cf-competitor',
+  'cf-deal-start', 'cf-deal-channel', 'cf-biz-hours', 'cf-avg-spend',
+  'cf-note'
+];
 
-  CF_FIELD_ORDER.forEach((id, i) => {
+// 顧客フォーム内の全入力欄を、フォーム上の表示順で取得
+function getOrderedCustFields(){
+  const fields = [];
+  CF_STATIC_ORDER_BEFORE_DELIVERY.forEach(id => {
     const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('keydown', e => {
-      // IME変換確定中は無視（誤動作防止）
-      if (e.isComposing || e.keyCode === 229) return;
-      // Shift+Enter / Shift+矢印は何もしない（誤動作防止）
-      if (e.shiftKey) return;
-
-      // Enter: 次へ進む（textareaは改行優先）
-      if (e.key === 'Enter') {
-        if (el.tagName === 'TEXTAREA') return;
-        e.preventDefault();
-        moveFocus(i, 'next');
-        return;
-      }
-
-      // ↓: 次へ進む
-      // ただし select / number / textarea では本来の機能を優先（移動しない）
-      if (e.key === 'ArrowDown') {
-        if (el.tagName === 'SELECT') return;       // 選択肢の次へ
-        if (el.tagName === 'TEXTAREA') return;     // カーソル移動
-        if (el.type === 'number') return;          // 数値増減
-        e.preventDefault();
-        moveFocus(i, 'next');
-        return;
-      }
-
-      // ↑: 前へ戻る
-      // 同じく select / number / textarea では本来の機能を優先
-      if (e.key === 'ArrowUp') {
-        if (el.tagName === 'SELECT') return;
-        if (el.tagName === 'TEXTAREA') return;
-        if (el.type === 'number') return;
-        e.preventDefault();
-        moveFocus(i, 'prev');
-        return;
-      }
-    });
+    if (el) fields.push(el);
   });
+  // 配達先（動的）— カード内の input/select を表示順に取得
+  document.querySelectorAll('#cf-delivery-list input, #cf-delivery-list select').forEach(el => {
+    fields.push(el);
+  });
+  CF_STATIC_ORDER_AFTER_DELIVERY.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) fields.push(el);
+  });
+  return fields;
+}
+
+// 次/前のフィールドにフォーカス移動
+function moveToNextField(currentEl, direction){
+  const fields = getOrderedCustFields();
+  const idx = fields.indexOf(currentEl);
+  if (idx < 0) return;
+  const step = direction === 'next' ? 1 : -1;
+  for (let j = idx + step; j >= 0 && j < fields.length; j += step){
+    const target = fields[j];
+    if (target.disabled) continue;
+    if (target.offsetParent === null) continue;  // 非表示はスキップ
+    target.focus();
+    // text系は全選択して上書きしやすく
+    if (typeof target.select === 'function' &&
+        ['text','tel','email','search','url'].includes(target.type)) {
+      try { target.select(); } catch(e) {}
+    }
+    return;
+  }
+}
+
+// 共通の keydown ハンドラ（静的・動的フィールド共通）
+function handleCustFieldKeydown(e){
+  const el = e.target;
+  // IME変換確定中は無視（誤動作防止）
+  if (e.isComposing || e.keyCode === 229) return;
+  // Shift+Enter / Shift+矢印は何もしない（誤動作防止）
+  if (e.shiftKey) return;
+
+  // Enter: 次へ進む（textareaは改行優先）
+  if (e.key === 'Enter') {
+    if (el.tagName === 'TEXTAREA') return;
+    e.preventDefault();
+    moveToNextField(el, 'next');
+    return;
+  }
+  // ↓: 次へ進む（select / number / textarea では本来の機能を優先）
+  if (e.key === 'ArrowDown') {
+    if (el.tagName === 'SELECT') return;
+    if (el.tagName === 'TEXTAREA') return;
+    if (el.type === 'number') return;
+    e.preventDefault();
+    moveToNextField(el, 'next');
+    return;
+  }
+  // ↑: 前へ戻る
+  if (e.key === 'ArrowUp') {
+    if (el.tagName === 'SELECT') return;
+    if (el.tagName === 'TEXTAREA') return;
+    if (el.type === 'number') return;
+    e.preventDefault();
+    moveToNextField(el, 'prev');
+    return;
+  }
+}
+
+// 静的フィールドに keydown を bind（DOMContentLoaded で1回だけ呼ぶ）
+function initCustFormEnterNav(){
+  const STATIC_ALL = [...CF_STATIC_ORDER_BEFORE_DELIVERY, ...CF_STATIC_ORDER_AFTER_DELIVERY];
+  STATIC_ALL.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.dataset.cfNavBound){
+      el.dataset.cfNavBound = '1';
+      el.addEventListener('keydown', handleCustFieldKeydown);
+    }
+  });
+}
+
+// 配達先カード内の入力欄に keydown を bind（renderCustDeliveries 後に呼ぶ）
+function attachCustDeliveryKeydown(){
+  document.querySelectorAll('#cf-delivery-list input, #cf-delivery-list select').forEach(el => {
+    if (el.dataset.cfNavBound) return;  // 二重 bind 防止
+    el.dataset.cfNavBound = '1';
+    el.addEventListener('keydown', handleCustFieldKeydown);
+  });
+}
+
+// 配達先の郵便番号フォーマット + 7桁で自動住所取得
+function formatDeliveryZip(input, i){
+  if (!input || !custDeliveryRows[i]) return;
+  let v = String(input.value || '').replace(/[^0-9]/g, '');
+  const digitLen = v.length;
+  if (v.length > 7) v = v.slice(0, 7);
+  if (v.length > 3) v = v.slice(0, 3) + '-' + v.slice(3);
+  input.value = v;
+  custDeliveryRows[i].zip = v;
+  if (digitLen === 7){
+    lookupCustDeliveryZip(i);
+  }
 }
 </script>
 
