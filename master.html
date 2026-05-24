@@ -323,6 +323,57 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           </div>
         </div>
         <div class="form-section">
+          <div class="form-section-title">▸ 詳細情報（分析用・任意）</div>
+          <div class="frow">
+            <div class="fg">
+              <label>業態</label>
+              <select class="fc" id="cf-biz-type">
+                <option value="">未設定</option>
+                <option>クラブ</option>
+                <option>スナック</option>
+                <option>バー</option>
+                <option>ラウンジ</option>
+                <option>レストラン</option>
+                <option>キャバクラ</option>
+                <option>ガールズバー</option>
+                <option>酒屋</option>
+                <option>その他</option>
+              </select>
+            </div>
+            <div class="fg"><label>開店年月</label><input class="fc" id="cf-open-date" type="month"></div>
+            <div class="fg"><label>席数</label><input class="fc" id="cf-seats" type="number" min="0" placeholder="例：30"></div>
+            <div class="fg">
+              <label>経営者の年代</label>
+              <select class="fc" id="cf-owner-age">
+                <option value="">未設定</option>
+                <option>20代</option>
+                <option>30代</option>
+                <option>40代</option>
+                <option>50代</option>
+                <option>60代</option>
+                <option>70代以上</option>
+                <option>不明</option>
+              </select>
+            </div>
+            <div class="fg"><label>主要客層</label><input class="fc" id="cf-customer-base" placeholder="例：30〜50代男性"></div>
+            <div class="fg"><label>主力商品の傾向</label><input class="fc" id="cf-product-trend" placeholder="例：イエロー中心"></div>
+            <div class="fg"><label>競合店との関係</label><input class="fc" id="cf-competitor" placeholder="近隣の競合・棲み分けなど"></div>
+            <div class="fg"><label>取引開始日</label><input class="fc" id="cf-deal-start" type="date"></div>
+            <div class="fg">
+              <label>取引区分</label>
+              <select class="fc" id="cf-deal-channel">
+                <option value="">未設定</option>
+                <option>直接営業</option>
+                <option>紹介</option>
+                <option>Web経由</option>
+                <option>その他</option>
+              </select>
+            </div>
+            <div class="fg"><label>営業日・時間</label><input class="fc" id="cf-biz-hours" placeholder="例：月-土 19:00-翌2:00"></div>
+            <div class="fg"><label>平均客単価</label><input class="fc" id="cf-avg-spend" type="number" min="0" placeholder="例：8000"><span style="font-size:.6rem;color:var(--wh3)">円</span></div>
+          </div>
+        </div>
+        <div class="form-section">
           <div class="form-section-title">▸ 備考</div>
           <textarea class="fc" id="cf-note" rows="3" placeholder="特記事項など"></textarea>
         </div>
@@ -991,6 +1042,18 @@ function fillCustForm(c){
   g('cf-sponsor-trigger').value=c.sponsorTrigger||'';
   g('cf-sponsor-reward').value=c.sponsorReward||'';
   g('cf-sponsor-product').value=c.sponsorProduct||'';
+  // 詳細情報（分析用）
+  g('cf-biz-type').value      = c.bizType      || '';
+  g('cf-open-date').value     = c.openDate     || '';
+  g('cf-seats').value         = c.seats        || '';
+  g('cf-owner-age').value     = c.ownerAge     || '';
+  g('cf-customer-base').value = c.customerBase || '';
+  g('cf-product-trend').value = c.productTrend || '';
+  g('cf-competitor').value    = c.competitor   || '';
+  g('cf-deal-start').value    = c.dealStart    || '';
+  g('cf-deal-channel').value  = c.dealChannel  || '';
+  g('cf-biz-hours').value     = c.bizHours     || '';
+  g('cf-avg-spend').value     = c.avgSpend     || '';
   toggleCustSponsor();
   custContactRows = (c.contacts && c.contacts.length > 0) ? [...c.contacts] : [];
   renderCustContacts();
@@ -1003,7 +1066,11 @@ function clearCustForm(){
   custEditingId = null;
   ['cf-name','cf-kana','cf-tel','cf-owner','cf-owner-tel','cf-zip','cf-pref','cf-city',
    'cf-addr1','cf-addr2','cf-line-id','cf-line-uid','cf-inv-name','cf-referrer','cf-note',
-   'cf-sponsor-trigger','cf-sponsor-reward','cf-sponsor-product'
+   'cf-sponsor-trigger','cf-sponsor-reward','cf-sponsor-product',
+   // 詳細情報（分析用）
+   'cf-biz-type','cf-open-date','cf-seats','cf-owner-age',
+   'cf-customer-base','cf-product-trend','cf-competitor',
+   'cf-deal-start','cf-deal-channel','cf-biz-hours','cf-avg-spend'
   ].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
   document.getElementById('cf-branch').value = '仙台';
   document.getElementById('cf-staff').value = '';
@@ -1098,6 +1165,18 @@ function submitCustForm(){
     sponsorTrigger: g('cf-sponsor-trigger'),
     sponsorReward:  g('cf-sponsor-reward'),
     sponsorProduct: g('cf-sponsor-product'),
+    // 詳細情報（分析用）
+    bizType:      g('cf-biz-type'),
+    openDate:     g('cf-open-date'),
+    seats:        g('cf-seats'),
+    ownerAge:     g('cf-owner-age'),
+    customerBase: g('cf-customer-base'),
+    productTrend: g('cf-product-trend'),
+    competitor:   g('cf-competitor'),
+    dealStart:    g('cf-deal-start'),
+    dealChannel:  g('cf-deal-channel'),
+    bizHours:     g('cf-biz-hours'),
+    avgSpend:     g('cf-avg-spend'),
     updatedAt: new Date().toISOString()
   };
   if (!S.customers) S.customers = [];
@@ -1903,7 +1982,10 @@ window.addEventListener('DOMContentLoaded', () => {
   initCustFormEnterNav();
 });
 
-// ─── 顧客フォーム: Enterキーで次の入力欄に移動 ─────
+// ─── 顧客フォーム: キー操作で入力欄を移動 ─────
+//   Enter / ↓ で次へ進む
+//   ↑ で前へ戻る
+//   ↑↓は select / number の場合は本来の機能（選択値変更）を優先
 function initCustFormEnterNav(){
   // 顧客フォームの入力順（フォームの表示順に合わせる）
   const CF_FIELD_ORDER = [
@@ -1913,34 +1995,68 @@ function initCustFormEnterNav(){
     'cf-line-id', 'cf-line-uid',
     'cf-inv-name', 'cf-referrer', 'cf-rate',
     'cf-sponsor-trigger', 'cf-sponsor-reward', 'cf-sponsor-product',
+    // 詳細情報（分析用）
+    'cf-biz-type', 'cf-open-date', 'cf-seats', 'cf-owner-age',
+    'cf-customer-base', 'cf-product-trend', 'cf-competitor',
+    'cf-deal-start', 'cf-deal-channel', 'cf-biz-hours', 'cf-avg-spend',
+    // 最後
     'cf-note'
   ];
+
+  // 次に進む / 前に戻る - 共通ヘルパー
+  function moveFocus(currentIndex, direction){
+    const step = direction === 'next' ? 1 : -1;
+    for (let j = currentIndex + step; j >= 0 && j < CF_FIELD_ORDER.length; j += step){
+      const target = document.getElementById(CF_FIELD_ORDER[j]);
+      if (!target) continue;
+      if (target.disabled) continue;
+      if (target.offsetParent === null) continue;  // 非表示はスキップ
+      target.focus();
+      // text系は全選択して上書きしやすく
+      if (typeof target.select === 'function' &&
+          ['text','tel','email','search','url'].includes(target.type)) {
+        try { target.select(); } catch(e) {}
+      }
+      return;
+    }
+  }
+
   CF_FIELD_ORDER.forEach((id, i) => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('keydown', e => {
-      if (e.key !== 'Enter') return;
-      // IME変換確定中のEnterは無視（誤動作防止）
+      // IME変換確定中は無視（誤動作防止）
       if (e.isComposing || e.keyCode === 229) return;
-      // textareaは改行を許可（備考など）
-      if (el.tagName === 'TEXTAREA') return;
-      // Shift+Enterは何もしない
+      // Shift+Enter / Shift+矢印は何もしない（誤動作防止）
       if (e.shiftKey) return;
 
-      e.preventDefault();
-      // 次の表示中・有効な入力欄を探す
-      for (let j = i + 1; j < CF_FIELD_ORDER.length; j++){
-        const next = document.getElementById(CF_FIELD_ORDER[j]);
-        if (!next) continue;
-        if (next.disabled) continue;
-        // 非表示（協賛OFFの時の購入条件等）はスキップ
-        if (next.offsetParent === null) continue;
-        next.focus();
-        // 入力済みの値があれば全選択して上書きしやすく
-        if (typeof next.select === 'function' &&
-            ['text','tel','number','email','search','url'].includes(next.type)) {
-          try { next.select(); } catch(e) {}
-        }
+      // Enter: 次へ進む（textareaは改行優先）
+      if (e.key === 'Enter') {
+        if (el.tagName === 'TEXTAREA') return;
+        e.preventDefault();
+        moveFocus(i, 'next');
+        return;
+      }
+
+      // ↓: 次へ進む
+      // ただし select / number / textarea では本来の機能を優先（移動しない）
+      if (e.key === 'ArrowDown') {
+        if (el.tagName === 'SELECT') return;       // 選択肢の次へ
+        if (el.tagName === 'TEXTAREA') return;     // カーソル移動
+        if (el.type === 'number') return;          // 数値増減
+        e.preventDefault();
+        moveFocus(i, 'next');
+        return;
+      }
+
+      // ↑: 前へ戻る
+      // 同じく select / number / textarea では本来の機能を優先
+      if (e.key === 'ArrowUp') {
+        if (el.tagName === 'SELECT') return;
+        if (el.tagName === 'TEXTAREA') return;
+        if (el.type === 'number') return;
+        e.preventDefault();
+        moveFocus(i, 'prev');
         return;
       }
     });
