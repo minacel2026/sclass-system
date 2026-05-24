@@ -295,7 +295,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="frow" style="margin-top:.5rem">
         <div class="fg"><label>連絡先</label><input class="fc" id="no-contact" placeholder="連絡先名"></div>
         <div class="fg"><label>電話番号</label><input class="fc" id="no-tel" type="tel" placeholder="連絡先電話番号"></div>
-        <div class="fg"><label>支払方法</label><select class="fc" id="no-pay"><option>現金</option><option>売掛(銀行)</option><option>売掛(現金)</option><option>代引き</option></select></div>
+        <div class="fg"><label>支払方法</label><select class="fc" id="no-pay"><option>現金</option><option>振込</option><option>代引</option><option>売掛</option></select></div>
         <div class="fg"><label>注文日</label><input class="fc" id="no-date" type="date"></div>
       </div>
     </div>
@@ -742,6 +742,15 @@ function onStoreChange(){
     document.getElementById('no-rate').value   = c.rate   || '7';
     document.getElementById('no-contact').value = (c.contacts && c.contacts[0]?.name) || c.owner || '';
     document.getElementById('no-tel').value     = (c.contacts && c.contacts[0]?.tel) || c.tel || '';
+    // 顧客マスターの支払方法をデフォルトとしてセット（未設定なら変更しない）
+    if (c.payMethod) {
+      const payEl = document.getElementById('no-pay');
+      if (payEl) {
+        // 選択肢に存在する値のみセット
+        const exists = Array.from(payEl.options).some(o => o.value === c.payMethod || o.text === c.payMethod);
+        if (exists) payEl.value = c.payMethod;
+      }
+    }
     updateOrderTotal();
     updateSponsorHint(c);
   } else {
