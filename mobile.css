@@ -403,6 +403,50 @@ input, select, textarea {
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   配達先セクション（スマホ向け調整）
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@media (max-width: 768px) {
+  /* details の summary 文言を折り返し可能に */
+  .form-section details > summary {
+    white-space: normal !important;
+    word-break: break-word !important;
+    line-height: 1.5 !important;
+    padding-right: 0.3rem !important;
+  }
+  /* 配達先のラッパーをコンパクトに */
+  #cf-delivery-list {
+    margin: 0 !important;
+  }
+  /* 配達先1件のカード */
+  #cf-delivery-list > div {
+    padding: 0.45rem !important;
+    margin-bottom: 0.4rem !important;
+  }
+  /* カード内の入力欄は1カラム */
+  #cf-delivery-list .frow {
+    grid-template-columns: 1fr !important;
+    gap: 0.3rem !important;
+  }
+  /* カード内の入力欄サイズを抑える */
+  #cf-delivery-list .fc {
+    padding: 0.45rem 0.6rem !important;
+    font-size: 0.78rem !important;
+  }
+  #cf-delivery-list label {
+    font-size: 0.6rem !important;
+  }
+  /* details ラッパー全体に min-width を作らない */
+  .form-section details {
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+  .form-section details > div {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    印刷時のヒント
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 @media print {
