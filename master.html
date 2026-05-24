@@ -281,6 +281,15 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           <div class="frow">
             <div class="fg"><label>請求書宛名</label><input class="fc" id="cf-inv-name" placeholder="例：○○ 御中"></div>
             <div class="fg"><label>紹介者</label><input class="fc" id="cf-referrer" placeholder="紹介者名"></div>
+            <div class="fg">
+              <label>支払方法 <span class="hint">注文時のデフォルト値</span></label>
+              <select class="fc" id="cf-pay-method">
+                <option value="">未設定</option>
+                <option>現金</option>
+                <option>振込</option>
+                <option>代引</option>
+              </select>
+            </div>
           </div>
           <div class="fg" style="margin-top:.5rem">
             <label>振込名義 <span class="hint">複数登録可</span></label>
@@ -1037,6 +1046,7 @@ function fillCustForm(c){
   g('cf-addr1').value=c.addr1||''; g('cf-addr2').value=c.addr2||'';
   g('cf-line-id').value=c.lineId||''; g('cf-line-uid').value=c.lineUid||'';
   g('cf-inv-name').value=c.invName||''; g('cf-referrer').value=c.referrer||'';
+  g('cf-pay-method').value=c.payMethod||'';
   g('cf-rate').value=c.rate||'7'; g('cf-note').value=c.note||'';
   g('cf-sponsor').checked=!!c.sponsorEnabled;
   g('cf-sponsor-trigger').value=c.sponsorTrigger||'';
@@ -1066,6 +1076,7 @@ function clearCustForm(){
   custEditingId = null;
   ['cf-name','cf-kana','cf-tel','cf-owner','cf-owner-tel','cf-zip','cf-pref','cf-city',
    'cf-addr1','cf-addr2','cf-line-id','cf-line-uid','cf-inv-name','cf-referrer','cf-note',
+   'cf-pay-method',
    'cf-sponsor-trigger','cf-sponsor-reward','cf-sponsor-product',
    // 詳細情報（分析用）
    'cf-biz-type','cf-open-date','cf-seats','cf-owner-age',
@@ -1157,6 +1168,7 @@ function submitCustForm(){
     addr1: g('cf-addr1'), addr2: g('cf-addr2'),
     lineId: g('cf-line-id'), lineUid: g('cf-line-uid').trim(),
     invName: g('cf-inv-name'), referrer: g('cf-referrer'),
+    payMethod: g('cf-pay-method'),
     bankNames: custBankRows.filter(v => v),
     rate: g('cf-rate') || '7',
     productRates: getCustProdRates(),
@@ -1993,7 +2005,7 @@ function initCustFormEnterNav(){
     'cf-tel', 'cf-owner', 'cf-owner-tel',
     'cf-zip', 'cf-pref', 'cf-city', 'cf-addr1', 'cf-addr2',
     'cf-line-id', 'cf-line-uid',
-    'cf-inv-name', 'cf-referrer', 'cf-rate',
+    'cf-inv-name', 'cf-referrer', 'cf-pay-method', 'cf-rate',
     'cf-sponsor-trigger', 'cf-sponsor-reward', 'cf-sponsor-product',
     // 詳細情報（分析用）
     'cf-biz-type', 'cf-open-date', 'cf-seats', 'cf-owner-age',
