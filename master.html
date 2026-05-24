@@ -262,7 +262,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
         <div class="form-section">
           <div class="form-section-title">▸ 住所</div>
           <div class="frow">
-            <div class="fg"><label>郵便番号</label><input class="fc" id="cf-zip" placeholder="例：9800021" type="tel" maxlength="7"></div>
+            <div class="fg"><label>郵便番号</label><div style="display:flex;gap:.3rem"><input class="fc" id="cf-zip" placeholder="例：980-0021" type="tel" maxlength="8" oninput="formatZip(this)" style="flex:1;min-width:0"><button type="button" onclick="lookupZipNow()" title="郵便番号から住所を取得" style="background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);padding:0 .7rem;font-size:.72rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;border-radius:0">🔍 住所</button></div></div>
             <div class="fg"><label>都道府県</label><input class="fc" id="cf-pref" placeholder="例：宮城県"></div>
             <div class="fg"><label>市町村郡</label><input class="fc" id="cf-city" placeholder="例:仙台市青葉区"></div>
             <div class="fg"><label>番地</label><input class="fc" id="cf-addr1" placeholder="例：中央1-2-3"></div>
@@ -888,12 +888,100 @@ function openCust(id){
   switchCustTab('new', document.querySelectorAll('#m-customers .tab')[1]);
 }
 
+// ─── 自動入力された住所を記憶（手動編集された分は保護） ─────
+let _autoFilledAddress = { pref: null, city: null, addr1: null };
+
+// ─── formatZip: 郵便番号 7桁入力で自動ハイフン挿入 ─────
+function formatZip(input){
+  if (!input) return;
+  let v = String(input.value || '').replace(/[^0-9]/g, '');
+  const digitLen = v.length;
+  if (v.length > 7) v = v.slice(0, 7);
+  if (v.length > 3) v = v.slice(0, 3) + '-' + v.slice(3);
+  input.value = v;
+
+  if (digitLen < 7){
+    // 7桁未満になったら、自動入力された住所だけクリア（手動編集分は保護）
+    clearAutoFilledAddress();
+  } else if (digitLen === 7){
+    // 7桁揃ったら：①以前の自動住所を消去 → ②新しい郵便番号で再検索
+    clearAutoFilledAddress();
+    lookupZipNow({ autoMode: true });
+  }
+}
+
+// ─── 自動入力した住所だけを消す（手動入力分は残す） ─────
+function clearAutoFilledAddress(){
+  const prefEl  = document.getElementById('cf-pref');
+  const cityEl  = document.getElementById('cf-city');
+  const addr1El = document.getElementById('cf-addr1');
+  // 「現在の値 === 自動入力した値」なら、ユーザーは触っていないと判定→クリア
+  if (prefEl  && _autoFilledAddress.pref  !== null && prefEl.value  === _autoFilledAddress.pref)  prefEl.value  = '';
+  if (cityEl  && _autoFilledAddress.city  !== null && cityEl.value  === _autoFilledAddress.city)  cityEl.value  = '';
+  if (addr1El && _autoFilledAddress.addr1 !== null && addr1El.value === _autoFilledAddress.addr1) addr1El.value = '';
+  _autoFilledAddress = { pref: null, city: null, addr1: null };
+}
+
+// ─── 郵便番号 → 住所自動入力（zipcloud API / JSONP方式） ─────
+function lookupZipNow(opts){
+  opts = opts || {};
+  const zipInput = document.getElementById('cf-zip');
+  if (!zipInput) return;
+  const digits = String(zipInput.value || '').replace(/[^0-9]/g, '');
+  if (digits.length !== 7){
+    if (!opts.autoMode) toast('7桁の郵便番号を入力してください', 'error');
+    return;
+  }
+  // JSONPコールバック生成（CORS回避）
+  const cbName = '_zipCb' + Date.now() + Math.floor(Math.random() * 1000);
+  const cleanup = () => {
+    try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
+    if (script.parentNode) script.parentNode.removeChild(script);
+  };
+  const timer = setTimeout(() => {
+    cleanup();
+    if (!opts.autoMode) toast('住所検索: 応答なし（ネット接続を確認）', 'error');
+  }, 8000);
+  window[cbName] = function(data){
+    clearTimeout(timer);
+    cleanup();
+    // 非同期競合対策：応答が返ってきた時点で郵便番号が変わっていたら中止
+    const zipNow = String(zipInput.value || '').replace(/[^0-9]/g, '');
+    if (zipNow !== digits) return;
+
+    if (data && data.status === 200 && data.results && data.results.length > 0){
+      const r = data.results[0];
+      const prefEl  = document.getElementById('cf-pref');
+      const cityEl  = document.getElementById('cf-city');
+      const addr1El = document.getElementById('cf-addr1');
+      // autoMode=空欄のみ補完 / 手動=上書き
+      // 入力した値は _autoFilledAddress に記憶し、後でzipクリア時に消せるようにする
+      if (prefEl  && (!opts.autoMode || !prefEl.value))  { prefEl.value  = r.address1 || ''; _autoFilledAddress.pref  = r.address1 || ''; }
+      if (cityEl  && (!opts.autoMode || !cityEl.value))  { cityEl.value  = r.address2 || ''; _autoFilledAddress.city  = r.address2 || ''; }
+      if (addr1El && (!opts.autoMode || !addr1El.value)) { addr1El.value = r.address3 || ''; _autoFilledAddress.addr1 = r.address3 || ''; }
+      toast('✓ 住所を自動入力（' + r.address1 + r.address2 + '）');
+    } else if (data && data.status !== 200){
+      if (!opts.autoMode) toast(data.message || '郵便番号が見つかりません', 'error');
+    } else {
+      if (!opts.autoMode) toast('該当する住所が見つかりません', 'error');
+    }
+  };
+  const script = document.createElement('script');
+  script.src = 'https://zipcloud.ibsnet.co.jp/api/search?zipcode=' + digits + '&callback=' + cbName;
+  script.onerror = function(){
+    clearTimeout(timer);
+    cleanup();
+    if (!opts.autoMode) toast('郵便番号検索に失敗（ネット接続を確認）', 'error');
+  };
+  document.head.appendChild(script);
+}
+
 function fillCustForm(c){
   const g = id => document.getElementById(id);
   g('cf-name').value=c.name||''; g('cf-kana').value=c.kana||'';
   g('cf-branch').value=c.branch||'仙台'; g('cf-staff').value=c.staff||'';
   g('cf-tel').value=c.tel||''; g('cf-owner').value=c.owner||'';
-  g('cf-owner-tel').value=c.ownerTel||''; g('cf-zip').value=c.zip||'';
+  g('cf-owner-tel').value=c.ownerTel||''; g('cf-zip').value=c.zip||''; formatZip(g('cf-zip'));
   g('cf-pref').value=c.pref||''; g('cf-city').value=c.city||'';
   g('cf-addr1').value=c.addr1||''; g('cf-addr2').value=c.addr2||'';
   g('cf-line-id').value=c.lineId||''; g('cf-line-uid').value=c.lineUid||'';
@@ -1812,7 +1900,52 @@ window.addEventListener('DOMContentLoaded', () => {
   renderCustBanks();
   renderCustProdRates([]);
   updateCustStaffOptions();
+  initCustFormEnterNav();
 });
+
+// ─── 顧客フォーム: Enterキーで次の入力欄に移動 ─────
+function initCustFormEnterNav(){
+  // 顧客フォームの入力順（フォームの表示順に合わせる）
+  const CF_FIELD_ORDER = [
+    'cf-name', 'cf-kana', 'cf-branch', 'cf-staff',
+    'cf-tel', 'cf-owner', 'cf-owner-tel',
+    'cf-zip', 'cf-pref', 'cf-city', 'cf-addr1', 'cf-addr2',
+    'cf-line-id', 'cf-line-uid',
+    'cf-inv-name', 'cf-referrer', 'cf-rate',
+    'cf-sponsor-trigger', 'cf-sponsor-reward', 'cf-sponsor-product',
+    'cf-note'
+  ];
+  CF_FIELD_ORDER.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      // IME変換確定中のEnterは無視（誤動作防止）
+      if (e.isComposing || e.keyCode === 229) return;
+      // textareaは改行を許可（備考など）
+      if (el.tagName === 'TEXTAREA') return;
+      // Shift+Enterは何もしない
+      if (e.shiftKey) return;
+
+      e.preventDefault();
+      // 次の表示中・有効な入力欄を探す
+      for (let j = i + 1; j < CF_FIELD_ORDER.length; j++){
+        const next = document.getElementById(CF_FIELD_ORDER[j]);
+        if (!next) continue;
+        if (next.disabled) continue;
+        // 非表示（協賛OFFの時の購入条件等）はスキップ
+        if (next.offsetParent === null) continue;
+        next.focus();
+        // 入力済みの値があれば全選択して上書きしやすく
+        if (typeof next.select === 'function' &&
+            ['text','tel','number','email','search','url'].includes(next.type)) {
+          try { next.select(); } catch(e) {}
+        }
+        return;
+      }
+    });
+  });
+}
 </script>
 
 </body>
