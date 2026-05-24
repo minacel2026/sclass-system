@@ -268,6 +268,19 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
             <div class="fg"><label>番地</label><input class="fc" id="cf-addr1" placeholder="例：中央1-2-3"></div>
             <div class="fg fc-full"><label>建物名</label><input class="fc" id="cf-addr2" placeholder="例：○○ビル3F"></div>
           </div>
+          <details style="margin-top:.8rem">
+            <summary style="cursor:pointer;color:var(--gold-l);font-size:.78rem;padding:.3rem 0;user-select:none">
+              📦 配達先（最大5件・任意） — クリックで開閉
+            </summary>
+            <div style="margin-top:.5rem;padding:.6rem .8rem;background:rgba(155,127,212,.04);border:1px dashed rgba(155,127,212,.25);border-radius:3px">
+              <div style="font-size:.7rem;color:var(--wh3);margin-bottom:.5rem">通常は上記住所と同じ。配達先が異なる場合のみ追加してください。</div>
+              <div id="cf-delivery-list"></div>
+              <button type="button" id="cf-delivery-add" onclick="addCustDelivery()"
+                style="background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);padding:.3rem .8rem;font-size:.7rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;border-radius:0;margin-top:.3rem">
+                ＋ 配達先を追加
+              </button>
+            </div>
+          </details>
         </div>
         <div class="form-section">
           <div class="form-section-title">▸ LINE連携（LIFF注文フォームとの連動）</div>
@@ -1069,6 +1082,8 @@ function fillCustForm(c){
   renderCustContacts();
   custBankRows = (c.bankNames && c.bankNames.length > 0) ? [...c.bankNames] : [];
   renderCustBanks();
+  custDeliveryRows = (c.deliveries && Array.isArray(c.deliveries)) ? c.deliveries.map(d => ({...d})) : [];
+  renderCustDeliveries();
   renderCustProdRates(c.productRates || []);
 }
 
@@ -1088,8 +1103,8 @@ function clearCustForm(){
   document.getElementById('cf-rate').value = '7';
   document.getElementById('cf-sponsor').checked = false;
   toggleCustSponsor();
-  custContactRows = []; custBankRows = [];
-  renderCustContacts(); renderCustBanks();
+  custContactRows = []; custBankRows = []; custDeliveryRows = [];
+  renderCustContacts(); renderCustBanks(); renderCustDeliveries();
   renderCustProdRates([]);
   document.getElementById('edit-status').textContent = '';
   document.getElementById('btn-delete').style.display = 'none';
@@ -1127,6 +1142,81 @@ function renderCustBanks(){
 }
 function addCustBank(){ custBankRows.push(''); renderCustBanks(); }
 function removeCustBank(i){ custBankRows.splice(i,1); renderCustBanks(); }
+
+// ─── 配達先（最大5件） ──────────────────────────
+let custDeliveryRows = [];
+function renderCustDeliveries(){
+  const list = document.getElementById('cf-delivery-list');
+  if (!list) return;
+  if (custDeliveryRows.length === 0){
+    list.innerHTML = '<div style="font-size:.7rem;color:var(--wh3);padding:.4rem">配達先なし（住所と同じ場所に配達）</div>';
+    return;
+  }
+  list.innerHTML = custDeliveryRows.map((d, i) => `
+    <div style="background:rgba(0,0,0,.2);border:1px solid rgba(155,127,212,.2);border-radius:3px;padding:.6rem;margin-bottom:.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+        <span style="font-size:.72rem;color:var(--gold-l);font-weight:500">配達先 ${i+1}</span>
+        <button type="button" onclick="removeCustDelivery(${i})" style="background:transparent;border:1px solid var(--red);color:var(--red);padding:.15rem .5rem;font-size:.65rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;border-radius:0">✕ 削除</button>
+      </div>
+      <div class="frow">
+        <div class="fg fc-full"><label style="font-size:.65rem">名称</label><input class="fc" placeholder="例：○○ホール" value="${escapeHtml(d.name||'')}" oninput="custDeliveryRows[${i}].name=this.value"></div>
+        <div class="fg"><label style="font-size:.65rem">郵便番号</label>
+          <div style="display:flex;gap:.3rem">
+            <input class="fc" placeholder="980-0021" type="tel" maxlength="8" value="${escapeHtml(d.zip||'')}" oninput="formatZip(this);custDeliveryRows[${i}].zip=this.value" style="flex:1;min-width:0">
+            <button type="button" onclick="lookupCustDeliveryZip(${i})" style="background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);padding:0 .5rem;font-size:.65rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;border-radius:0;white-space:nowrap">🔍</button>
+          </div>
+        </div>
+        <div class="fg"><label style="font-size:.65rem">都道府県</label><input class="fc" placeholder="宮城県" value="${escapeHtml(d.pref||'')}" oninput="custDeliveryRows[${i}].pref=this.value"></div>
+        <div class="fg"><label style="font-size:.65rem">市町村郡</label><input class="fc" placeholder="仙台市青葉区" value="${escapeHtml(d.city||'')}" oninput="custDeliveryRows[${i}].city=this.value"></div>
+        <div class="fg"><label style="font-size:.65rem">番地</label><input class="fc" placeholder="中央1-2-3" value="${escapeHtml(d.addr1||'')}" oninput="custDeliveryRows[${i}].addr1=this.value"></div>
+        <div class="fg fc-full"><label style="font-size:.65rem">建物名</label><input class="fc" placeholder="○○ビル3F" value="${escapeHtml(d.addr2||'')}" oninput="custDeliveryRows[${i}].addr2=this.value"></div>
+        <div class="fg"><label style="font-size:.65rem">担当者名</label><input class="fc" placeholder="担当者名" value="${escapeHtml(d.contact||'')}" oninput="custDeliveryRows[${i}].contact=this.value"></div>
+        <div class="fg"><label style="font-size:.65rem">電話</label><input class="fc" type="tel" placeholder="022-xxx-xxxx" value="${escapeHtml(d.tel||'')}" oninput="custDeliveryRows[${i}].tel=this.value"></div>
+        <div class="fg fc-full"><label style="font-size:.65rem">メモ</label><input class="fc" placeholder="例：裏口から / 冷蔵保管" value="${escapeHtml(d.memo||'')}" oninput="custDeliveryRows[${i}].memo=this.value"></div>
+      </div>
+    </div>`).join('');
+  // 5件到達したら追加ボタンを無効化
+  const addBtn = document.getElementById('cf-delivery-add');
+  if (addBtn) {
+    addBtn.disabled = custDeliveryRows.length >= 5;
+    addBtn.style.opacity = addBtn.disabled ? '.4' : '1';
+    addBtn.textContent = custDeliveryRows.length >= 5 ? '上限 5 件に達しました' : '＋ 配達先を追加';
+  }
+}
+function addCustDelivery(){
+  if (custDeliveryRows.length >= 5) { toast('配達先は最大5件までです', 'error'); return; }
+  custDeliveryRows.push({ name:'', zip:'', pref:'', city:'', addr1:'', addr2:'', contact:'', tel:'', memo:'' });
+  renderCustDeliveries();
+}
+function removeCustDelivery(i){
+  custDeliveryRows.splice(i, 1);
+  renderCustDeliveries();
+}
+// 配達先用の郵便番号自動入力
+function lookupCustDeliveryZip(i){
+  const d = custDeliveryRows[i];
+  if (!d || !d.zip) { toast('郵便番号を入力してください', 'error'); return; }
+  const zipDigits = String(d.zip).replace(/[^0-9]/g, '');
+  if (zipDigits.length !== 7) { toast('郵便番号は7桁で入力してください', 'error'); return; }
+  const cb = '__zipcb_del_' + i + '_' + Date.now();
+  window[cb] = function(data){
+    delete window[cb];
+    if (data && data.results && data.results[0]) {
+      const r = data.results[0];
+      custDeliveryRows[i].pref  = r.address1 || '';
+      custDeliveryRows[i].city  = r.address2 || '';
+      custDeliveryRows[i].addr1 = r.address3 || '';
+      renderCustDeliveries();
+      toast('✓ 住所を取得しました');
+    } else {
+      toast('該当する住所が見つかりませんでした', 'error');
+    }
+  };
+  const s = document.createElement('script');
+  s.src = 'https://zipcloud.ibsnet.co.jp/api/search?zipcode=' + zipDigits + '&callback=' + cb;
+  s.onerror = function(){ delete window[cb]; toast('住所取得に失敗しました', 'error'); };
+  document.body.appendChild(s);
+}
 
 function renderCustProdRates(existing){
   const grid = document.getElementById('prate-grid');
@@ -1170,6 +1260,7 @@ function submitCustForm(){
     invName: g('cf-inv-name'), referrer: g('cf-referrer'),
     payMethod: g('cf-pay-method'),
     bankNames: custBankRows.filter(v => v),
+    deliveries: custDeliveryRows.filter(d => d && (d.name || d.zip || d.addr1)).slice(0, 5),
     rate: g('cf-rate') || '7',
     productRates: getCustProdRates(),
     note: g('cf-note'),
@@ -1989,6 +2080,7 @@ window.addEventListener('DOMContentLoaded', () => {
   renderCustList();
   renderCustContacts();
   renderCustBanks();
+  renderCustDeliveries();
   renderCustProdRates([]);
   updateCustStaffOptions();
   initCustFormEnterNav();
