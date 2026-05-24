@@ -340,7 +340,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
             <div class="frow">
               <div class="fg"><label>購入条件</label><input type="number" class="fc" id="cf-sponsor-trigger" placeholder="例：6" min="1"><span style="font-size:.6rem;color:var(--wh3)">本購入で協賛発動</span></div>
               <div class="fg"><label>協賛本数</label><input type="number" class="fc" id="cf-sponsor-reward" placeholder="例：1" min="1"><span style="font-size:.6rem;color:var(--wh3)">協賛する本数</span></div>
-              <div class="fg"><label>対象商品 <span class="hint">空白＝全商品</span></label><input class="fc" id="cf-sponsor-product" placeholder="例：イエロー"></div>
+              <div class="fg"><label>対象商品 <span class="hint">空白＝全商品</span></label><select class="fc" id="cf-sponsor-product"><option value="">未設定（＝全商品）</option></select></div>
             </div>
           </div>
         </div>
@@ -1065,6 +1065,7 @@ function fillCustForm(c){
   g('cf-sponsor-trigger').value=c.sponsorTrigger||'';
   g('cf-sponsor-reward').value=c.sponsorReward||'';
   g('cf-sponsor-product').value=c.sponsorProduct||'';
+  updateSponsorProductOptions(c.sponsorProduct||'');
   // 詳細情報（分析用）
   g('cf-biz-type').value      = c.bizType      || '';
   g('cf-open-date').value     = c.openDate     || '';
@@ -1218,6 +1219,38 @@ function lookupCustDeliveryZip(i){
   s.src = 'https://zipcloud.ibsnet.co.jp/api/search?zipcode=' + zipDigits + '&callback=' + cb;
   s.onerror = function(){ delete window[cb]; toast('住所取得に失敗しました', 'error'); };
   document.body.appendChild(s);
+}
+
+// ─── 協賛対象商品プルダウン: 商品マスターから選択肢を再構築 ─────
+// currentValue を渡すと、その値を選択状態にする（廃番でも保持）
+function updateSponsorProductOptions(currentValue){
+  const sel = document.getElementById('cf-sponsor-product');
+  if (!sel) return;
+  // 商品リストを取得（S.products 優先、なければ PROD_LIST 初期値）
+  const list = (S.products && S.products.length > 0)
+    ? S.products
+    : (typeof PROD_LIST !== 'undefined' ? PROD_LIST : []);
+  // 既存値を保持（引数優先、なければ現在のセレクト値）
+  const keep = (currentValue !== undefined && currentValue !== null) ? currentValue : sel.value;
+  // 選択肢を再構築
+  sel.innerHTML = '<option value="">未設定（＝全商品）</option>';
+  list.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+  // 既存値が選択肢にあればセット、なければ「(廃番)」として末尾に追加
+  if (keep) {
+    const exists = Array.from(sel.options).some(o => o.value === keep);
+    if (!exists) {
+      const opt = document.createElement('option');
+      opt.value = keep;
+      opt.textContent = keep + ' (廃番)';
+      sel.appendChild(opt);
+    }
+    sel.value = keep;
+  }
 }
 
 function renderCustProdRates(existing){
@@ -2084,6 +2117,7 @@ window.addEventListener('DOMContentLoaded', () => {
   renderCustBanks();
   renderCustDeliveries();
   renderCustProdRates([]);
+  updateSponsorProductOptions('');
   updateCustStaffOptions();
   initCustFormEnterNav();
 });
