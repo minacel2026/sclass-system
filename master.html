@@ -1163,7 +1163,7 @@ function renderCustDeliveries(){
         <div class="fg"><label style="font-size:.65rem">郵便番号</label>
           <div style="display:flex;gap:.3rem">
             <input class="fc" placeholder="980-0021" type="tel" maxlength="8" value="${escapeHtml(d.zip||'')}" oninput="formatDeliveryZip(this, ${i})" style="flex:1;min-width:0">
-            <button type="button" onclick="lookupCustDeliveryZip(${i})" style="background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);padding:0 .5rem;font-size:.65rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;border-radius:0;white-space:nowrap">🔍</button>
+            <button type="button" class="cf-zip-btn" onclick="lookupCustDeliveryZip(${i})" style="background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);padding:0 .5rem;font-size:.65rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;border-radius:0;white-space:nowrap">🔍</button>
           </div>
         </div>
         <div class="fg"><label style="font-size:.65rem">都道府県</label><input class="fc" placeholder="宮城県" value="${escapeHtml(d.pref||'')}" oninput="custDeliveryRows[${i}].pref=this.value"></div>
@@ -2117,8 +2117,8 @@ function getOrderedCustFields(){
     const el = document.getElementById(id);
     if (el) fields.push(el);
   });
-  // 配達先（動的）— カード内の input/select を表示順に取得
-  document.querySelectorAll('#cf-delivery-list input, #cf-delivery-list select').forEach(el => {
+  // 配達先（動的）— カード内の input/select/🔍ボタン を表示順に取得
+  document.querySelectorAll('#cf-delivery-list input, #cf-delivery-list select, #cf-delivery-list .cf-zip-btn').forEach(el => {
     fields.push(el);
   });
   CF_STATIC_ORDER_AFTER_DELIVERY.forEach(id => {
@@ -2156,9 +2156,10 @@ function handleCustFieldKeydown(e){
   // Shift+Enter / Shift+矢印は何もしない（誤動作防止）
   if (e.shiftKey) return;
 
-  // Enter: 次へ進む（textareaは改行優先）
+  // Enter: 次へ進む（textareaは改行、buttonはクリックを優先）
   if (e.key === 'Enter') {
     if (el.tagName === 'TEXTAREA') return;
+    if (el.tagName === 'BUTTON') return;  // ボタンは本来のクリック動作を維持
     e.preventDefault();
     moveToNextField(el, 'next');
     return;
@@ -2197,14 +2198,15 @@ function initCustFormEnterNav(){
 
 // 配達先カード内の入力欄に keydown を bind（renderCustDeliveries 後に呼ぶ）
 function attachCustDeliveryKeydown(){
-  document.querySelectorAll('#cf-delivery-list input, #cf-delivery-list select').forEach(el => {
+  // input, select, 🔍ボタンすべてに bind（矢印キーでボタンからも隣に移動可能に）
+  document.querySelectorAll('#cf-delivery-list input, #cf-delivery-list select, #cf-delivery-list .cf-zip-btn').forEach(el => {
     if (el.dataset.cfNavBound) return;  // 二重 bind 防止
     el.dataset.cfNavBound = '1';
     el.addEventListener('keydown', handleCustFieldKeydown);
   });
 }
 
-// 配達先の郵便番号フォーマット + 7桁で自動住所取得
+// 配達先の郵便番号フォーマット + 7桁で自動住所取得 + 都道府県へフォーカス移動
 function formatDeliveryZip(input, i){
   if (!input || !custDeliveryRows[i]) return;
   let v = String(input.value || '').replace(/[^0-9]/g, '');
@@ -2215,6 +2217,21 @@ function formatDeliveryZip(input, i){
   custDeliveryRows[i].zip = v;
   if (digitLen === 7){
     lookupCustDeliveryZip(i);
+    // 7桁入力完了後、同じカード内の都道府県フィールドへフォーカス移動
+    // setTimeout で zipcloud API のレスポンス＆再描画後にフォーカス
+    setTimeout(() => {
+      const card = document.querySelectorAll('#cf-delivery-list > div')[i];
+      if (card) {
+        const inputs = card.querySelectorAll('input, select');
+        // [0]=名称, [1]=郵便, [2]=都道府県, [3]=市町村, [4]=番地, [5]=建物, [6]=担当者, [7]=電話, [8]=メモ
+        if (inputs[2]) {
+          inputs[2].focus();
+          if (typeof inputs[2].select === 'function') {
+            try { inputs[2].select(); } catch(e) {}
+          }
+        }
+      }
+    }, 350);
   }
 }
 </script>
