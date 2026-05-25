@@ -324,10 +324,25 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
                 <option value="4">4掛</option><option value="10">10掛（定価）</option>
               </select>
             </div>
+            <div class="fg">
+              <label>共通価格モード <span class="hint">商品別未指定の既定値</span></label>
+              <select class="fc" id="cf-common-price-mode">
+                <option value="新値">新値</option>
+                <option value="旧値">旧値</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>共通税 <span class="hint">商品別未指定の既定値</span></label>
+              <select class="fc" id="cf-common-tax">
+                <option value="税込">税込</option>
+                <option value="税抜">税抜</option>
+                <option value="未設定">未設定</option>
+              </select>
+            </div>
           </div>
           <div style="margin-top:.7rem">
             <label style="font-size:.65rem;color:var(--wh2);letter-spacing:.08em">
-              商品別掛率 <span class="hint">未指定商品は共通掛率を使用</span>
+              商品別掛率 <span class="hint">未指定商品は共通設定（掛率・モード・税）を使用</span>
             </label>
             <div class="product-rates" id="prate-grid"></div>
           </div>
@@ -1064,6 +1079,8 @@ function fillCustForm(c){
   g('cf-inv-name').value=c.invName||''; g('cf-referrer').value=c.referrer||'';
   g('cf-pay-method').value=c.payMethod||'';
   g('cf-rate').value=c.rate||'7'; g('cf-note').value=c.note||'';
+  g('cf-common-price-mode').value = c.commonPriceMode || '新値';
+  g('cf-common-tax').value        = c.commonTaxType   || '税込';
   g('cf-sponsor').checked=!!c.sponsorEnabled;
   g('cf-sponsor-trigger').value=c.sponsorTrigger||'';
   g('cf-sponsor-reward').value=c.sponsorReward||'';
@@ -1105,6 +1122,8 @@ function clearCustForm(){
   document.getElementById('cf-branch').value = '仙台';
   document.getElementById('cf-staff').value = '';
   document.getElementById('cf-rate').value = '7';
+  document.getElementById('cf-common-price-mode').value = '新値';
+  document.getElementById('cf-common-tax').value = '税込';
   document.getElementById('cf-sponsor').checked = false;
   toggleCustSponsor();
   custContactRows = []; custBankRows = []; custDeliveryRows = [];
@@ -1328,6 +1347,8 @@ function submitCustForm(){
     bankNames: custBankRows.filter(v => v),
     deliveries: custDeliveryRows.filter(d => d && (d.name || d.zip || d.addr1)).slice(0, 5),
     rate: g('cf-rate') || '7',
+    commonPriceMode: g('cf-common-price-mode') || '新値',
+    commonTaxType:   g('cf-common-tax')        || '税込',
     productRates: getCustProdRates(),
     note: g('cf-note'),
     sponsorEnabled: document.getElementById('cf-sponsor').checked,
@@ -2173,7 +2194,7 @@ const CF_STATIC_ORDER_BEFORE_DELIVERY = [
 ];
 const CF_STATIC_ORDER_AFTER_DELIVERY = [
   'cf-line-id', 'cf-line-uid',
-  'cf-inv-name', 'cf-referrer', 'cf-pay-method', 'cf-rate',
+  'cf-inv-name', 'cf-referrer', 'cf-pay-method', 'cf-rate', 'cf-common-price-mode', 'cf-common-tax',
   'cf-sponsor-trigger', 'cf-sponsor-reward', 'cf-sponsor-product',
   'cf-biz-type', 'cf-open-date', 'cf-seats', 'cf-owner-age',
   'cf-customer-base', 'cf-product-trend', 'cf-competitor',
