@@ -239,6 +239,9 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     <button class="mtab" onclick="switchMaster('products',this)">
       <span class="mtab-ic">🍾</span>商品マスター
     </button>
+    <button class="mtab" onclick="switchMaster('referrers',this)">
+      <span class="mtab-ic">🤝</span>紹介者マスター
+    </button>
   </div>
 
   <!-- ════════ 顧客マスター ════════ -->
@@ -742,6 +745,80 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     </div>
   </div>
 
+  <!-- ════════ 紹介者マスター ════════ -->
+  <div id="m-referrers" class="mcon">
+    <div class="tbar">
+      <div class="tab active" onclick="switchReferrerTab('list',this)">一覧</div>
+      <div class="tab" onclick="switchReferrerTab('new',this)">＋ 新規登録</div>
+    </div>
+
+    <div id="ref-list" class="tcon active">
+      <div class="filter-bar">
+        <label>検索</label>
+        <input class="fc" id="rf-kw" placeholder="名前・電話・メール..." oninput="renderReferrerList()" style="width:240px">
+        <label>計算方法</label>
+        <select class="fc" id="rf-calc" onchange="renderReferrerList()">
+          <option value="">すべて</option>
+          <option value="A">A: 売値×%</option>
+          <option value="B">B: 掛率差×消費税</option>
+        </select>
+        <span style="margin-left:auto;font-size:.72rem;color:var(--wh2)">
+          <span id="ref-count">0</span> 名
+        </span>
+      </div>
+      <div id="ref-grid" class="cust-grid"></div>
+    </div>
+
+    <div id="ref-new" class="tcon">
+      <div class="action-bar">
+        <button class="btn-s" onclick="switchReferrerTab('list',document.querySelectorAll('#m-referrers .tab')[0])">← 一覧に戻る</button>
+        <span id="ref-edit-status" style="color:var(--gold-l);font-size:.8rem"></span>
+      </div>
+      <div class="form-panel">
+        <h3>紹介者情報</h3>
+        <div class="form-section">
+          <div class="form-section-title">▸ 基本情報</div>
+          <div class="frow">
+            <div class="fg"><label>名前 <span class="req">*</span></label><input class="fc" id="rf-name" placeholder="例：山田 太郎"></div>
+            <div class="fg"><label>電話番号</label><input class="fc" id="rf-tel" type="tel" placeholder="090-XXXX-XXXX"></div>
+            <div class="fg"><label>メール</label><input class="fc" id="rf-email" type="email" placeholder="name@example.com"></div>
+            <div class="fg"><label>LINE ID</label><input class="fc" id="rf-lineid" placeholder="LINE ID"></div>
+            <div class="fg fc-full"><label>住所</label><input class="fc" id="rf-address" placeholder="例：仙台市青葉区中央1-2-3"></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ 紹介料計算</div>
+          <div class="frow">
+            <div class="fg">
+              <label>計算方法 <span class="req">*</span></label>
+              <select class="fc" id="rf-calc-type" onchange="updateReferrerParamLabel()">
+                <option value="A">A: 売値 × % × 消費税</option>
+                <option value="B">B: (顧客掛率 − 差掛率) × 売値 × 消費税</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label id="rf-param-label">パラメータ <span class="hint">A選択時：％の値（例：10 = 10%）</span></label>
+              <input class="fc" id="rf-calc-param" type="number" step="0.1" min="0" placeholder="例：10">
+            </div>
+            <div class="fg fc-full">
+              <div style="background:rgba(155,127,212,.05);border:1px dashed rgba(155,127,212,.25);border-radius:3px;padding:.6rem .8rem;font-size:.72rem;color:var(--wh2);line-height:1.6">
+                <strong style="color:var(--gold-l)">計算式の説明:</strong><br>
+                ・<strong>A方式</strong>: 紹介料 = 売値 × (パラメータ÷100) × 1.1（消費税）<br>
+                ・<strong>B方式</strong>: 紹介料 = 売値 × ((顧客掛率÷10) − (パラメータ÷10)) × 1.1（消費税）<br>
+                <span style="color:var(--wh3)">※顧客掛率は顧客マスターで設定された値を使用</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-p" onclick="submitReferrerForm()">💾 保存</button>
+          <button class="btn" onclick="clearReferrerForm()">クリア</button>
+          <button class="btn btn-d" id="ref-delete-btn" onclick="deleteReferrer()" style="display:none;margin-left:auto">🗑️ 削除</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <div id="toast"></div>
@@ -926,6 +1003,7 @@ function switchMaster(name, el){
   if (name === 'staff')     renderStaffList();
   if (name === 'company')   loadCompany();
   if (name === 'products')  renderProducts();
+  if (name === 'referrers') renderReferrerList();
 }
 
 // ─── 全同期 ─────
@@ -934,11 +1012,14 @@ async function syncAllFromGAS(){
   toast('同期中...');
   const cust = await gasGet('getCustomers');
   if (cust && cust.customers) { S.customers = cust.customers; }
+  const refs = await gasGet('getReferrers');
+  if (refs && refs.referrers) { S.referrers = refs.referrers; }
   saveState();
   localStorage.setItem('lmb_lastSync', new Date().toISOString());
   toast('✓ 同期完了');
   renderCustList();
   renderStaffList();
+  if (typeof renderReferrerList === 'function') renderReferrerList();
 }
 
 // ─── ユーティリティ ─────
@@ -1342,7 +1423,7 @@ function renderCustProdRates(existing){
       <div class="prate-name">${escapeHtml(p.name)}</div>
       <div class="prate-controls">
         <input type="number" id="pr-${p.key}" step="0.5" min="0" max="10"
-          value="${existMap[p.key]||''}" placeholder="率">
+          value="${existMap[p.key]||''}" placeholder="掛率">
         <select id="pm-${p.key}" title="価格モード">
           <option value="新値" ${mode==='新値'?'selected':''}>新値</option>
           <option value="旧値" ${mode==='旧値'?'selected':''}>旧値</option>
@@ -2216,6 +2297,154 @@ function resetProducts(){
 
 <!-- ═══ 初期化 ═══ -->
 <script>
+// ════════════════════════════════════════
+// 紹介者マスター
+// ════════════════════════════════════════
+let editingReferrerId = null;
+
+function switchReferrerTab(name, el){
+  document.querySelectorAll('#m-referrers .tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#m-referrers .tcon').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('ref-' + name).classList.add('active');
+  if (name === 'list') {
+    editingReferrerId = null;
+    clearReferrerForm();
+    renderReferrerList();
+  }
+}
+
+function renderReferrerList(){
+  const grid = document.getElementById('ref-grid');
+  if (!grid) return;
+  const kw   = (document.getElementById('rf-kw')?.value || '').toLowerCase();
+  const calc = document.getElementById('rf-calc')?.value || '';
+  const list = (S.referrers || []).filter(r => {
+    if (calc && r.calcType !== calc) return false;
+    if (kw){
+      const blob = [r.name, r.tel, r.email, r.lineId, r.address].filter(Boolean).join(' ').toLowerCase();
+      if (blob.indexOf(kw) < 0) return false;
+    }
+    return true;
+  });
+  document.getElementById('ref-count').textContent = list.length;
+  if (list.length === 0){
+    grid.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--wh3);font-size:.8rem">紹介者が登録されていません</div>';
+    return;
+  }
+  grid.innerHTML = list.map(r => {
+    const calcLabel = r.calcType === 'B' ? `B: 掛率差 ${r.calcParam}掛` : `A: 売値 ${r.calcParam}%`;
+    return `
+    <div class="cust-card" onclick="editReferrer('${escapeHtml(r.id)}')" style="cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:start;gap:.5rem">
+        <div style="flex:1;min-width:0">
+          <div style="color:var(--gold-l);font-weight:500;font-size:.95rem;margin-bottom:.3rem">${escapeHtml(r.name||'(名前なし)')}</div>
+          <div style="font-size:.7rem;color:var(--wh2);line-height:1.5">
+            ${r.tel ? '📞 ' + escapeHtml(r.tel) + '<br>' : ''}
+            ${r.email ? '✉ ' + escapeHtml(r.email) + '<br>' : ''}
+            ${r.lineId ? 'LINE: ' + escapeHtml(r.lineId) + '<br>' : ''}
+            ${r.address ? '📍 ' + escapeHtml(r.address) : ''}
+          </div>
+        </div>
+        <div style="font-size:.65rem;padding:.2rem .5rem;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);color:var(--gold-l);white-space:nowrap">${escapeHtml(calcLabel)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function clearReferrerForm(){
+  ['rf-name','rf-tel','rf-email','rf-lineid','rf-address','rf-calc-param'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.value = '';
+  });
+  document.getElementById('rf-calc-type').value = 'A';
+  updateReferrerParamLabel();
+  document.getElementById('ref-edit-status').textContent = '';
+  document.getElementById('ref-delete-btn').style.display = 'none';
+}
+
+function fillReferrerForm(r){
+  document.getElementById('rf-name').value      = r.name      || '';
+  document.getElementById('rf-tel').value       = r.tel       || '';
+  document.getElementById('rf-email').value     = r.email     || '';
+  document.getElementById('rf-lineid').value    = r.lineId    || '';
+  document.getElementById('rf-address').value   = r.address   || '';
+  document.getElementById('rf-calc-type').value = r.calcType  || 'A';
+  document.getElementById('rf-calc-param').value = (r.calcParam !== undefined && r.calcParam !== null) ? r.calcParam : '';
+  updateReferrerParamLabel();
+}
+
+function updateReferrerParamLabel(){
+  const type = document.getElementById('rf-calc-type').value;
+  const label = document.getElementById('rf-param-label');
+  const input = document.getElementById('rf-calc-param');
+  if (type === 'B') {
+    label.innerHTML = '差し引き掛率 <span class="req">*</span> <span class="hint">B方式：例 5.5（=5.5掛）</span>';
+    input.placeholder = '例：5.5';
+  } else {
+    label.innerHTML = 'パーセント <span class="req">*</span> <span class="hint">A方式：例 10（=10%）</span>';
+    input.placeholder = '例：10';
+  }
+}
+
+function editReferrer(id){
+  const r = (S.referrers || []).find(x => x.id === id);
+  if (!r) return toast('紹介者が見つかりません', 'error');
+  editingReferrerId = id;
+  fillReferrerForm(r);
+  switchReferrerTab('new', document.querySelectorAll('#m-referrers .tab')[1]);
+  document.getElementById('ref-edit-status').textContent = '編集中: ' + (r.name || '(名前なし)');
+  document.getElementById('ref-delete-btn').style.display = 'inline-block';
+}
+
+function submitReferrerForm(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const g = id => (document.getElementById(id)||{}).value || '';
+  const name = g('rf-name').trim();
+  if (!name) return toast('名前は必須です', 'error');
+  const param = parseFloat(g('rf-calc-param'));
+  if (isNaN(param)) return toast('紹介料パラメータを数値で入力してください', 'error');
+
+  const data = {
+    id:        editingReferrerId || ('ref-' + Date.now()),
+    name:      name,
+    tel:       g('rf-tel').trim(),
+    email:     g('rf-email').trim(),
+    lineId:    g('rf-lineid').trim(),
+    address:   g('rf-address').trim(),
+    calcType:  g('rf-calc-type') || 'A',
+    calcParam: param,
+    updatedAt: new Date().toISOString(),
+    updatedBy: currentUser.name
+  };
+
+  S.referrers = S.referrers || [];
+  const idx = S.referrers.findIndex(r => r.id === data.id);
+  if (idx >= 0) {
+    data.createdAt = S.referrers[idx].createdAt;
+    S.referrers[idx] = data;
+  } else {
+    data.createdAt = data.updatedAt;
+    S.referrers.push(data);
+  }
+  saveState();
+  if (S.gasUrl) gasPost({ action: 'saveReferrer', ...data });
+  toast('✓ 紹介者を保存しました');
+  switchReferrerTab('list', document.querySelectorAll('#m-referrers .tab')[0]);
+}
+
+function deleteReferrer(){
+  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
+  if (!editingReferrerId) return;
+  const r = (S.referrers || []).find(x => x.id === editingReferrerId);
+  if (!r) return;
+  if (!confirm(`紹介者「${r.name}」を削除します。この操作は元に戻せません。よろしいですか？`)) return;
+  S.referrers = (S.referrers || []).filter(x => x.id !== editingReferrerId);
+  saveState();
+  if (S.gasUrl) gasPost({ action: 'deleteReferrer', id: editingReferrerId });
+  toast('✓ 紹介者を削除しました');
+  switchReferrerTab('list', document.querySelectorAll('#m-referrers .tab')[0]);
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   updateUserBadge();
   renderCustList();
@@ -2226,6 +2455,7 @@ window.addEventListener('DOMContentLoaded', () => {
   updateSponsorProductOptions('');
   updateCustStaffOptions();
   initCustFormEnterNav();
+  if (typeof renderReferrerList === 'function') renderReferrerList();
 });
 
 // ─── 顧客フォーム: キー操作で入力欄を移動 ─────
