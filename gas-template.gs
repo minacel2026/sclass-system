@@ -43,16 +43,41 @@ function doGet(e) {
     if (rows.length === 0) return json({ ok:false });
     const hdrs = rows[0].map(String);
 
-    // 共通掛率・商品別掛率のカラム位置を動的に取得
-    // ★ Z列(index 25)から商品別掛率が始まる（スプレッドシートの実態）
-    const prodRateStartIdx = 25;  // Z列から商品別掛率開始
+    // ★ BS列(index 70)から動的列開始（詳細情報・備考・商品別掛率が混在）
+    //   支払方法は R列(index 17)、配達先は Z〜AR列(25〜69) に固定。
+    const prodRateStartIdx = 70;  // BS列から動的列開始
+    // 詳細情報・備考のヘッダー名（商品別掛率と区別するため・支払方法は固定列なので除外）
+    const DETAIL_HEADERS = ['業態','開店年月','席数','経営者年代','主要客層',
+                             '主力商品傾向','競合関係','取引開始日','取引区分',
+                             '営業日時','平均客単価','価格モード','税','備考'];
 
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][14]) !== uid) continue;      // O列: LINE UID
 
-      // ── 商品別掛率（Z列以降）────────────────────
+      // ── 配達先5件（Z〜AR列、インデックス25〜69）────
+      const deliveries = [];
+      for (let n = 0; n < 5; n++) {
+        const base = 25 + n * 9;
+        const d = {
+          name:    String(rows[i][base]   || ''),
+          zip:     String(rows[i][base+1] || ''),
+          pref:    String(rows[i][base+2] || ''),
+          city:    String(rows[i][base+3] || ''),
+          addr1:   String(rows[i][base+4] || ''),
+          addr2:   String(rows[i][base+5] || ''),
+          contact: String(rows[i][base+6] || ''),
+          tel:     String(rows[i][base+7] || ''),
+          memo:    String(rows[i][base+8] || '')
+        };
+        if (d.name || d.zip || d.addr1 || d.contact) {
+          deliveries.push(d);
+        }
+      }
+
+      // ── 商品別掛率（BS列以降、詳細情報・備考を除く）──
       const pr = [];
       for (let col = prodRateStartIdx; col < hdrs.length; col++) {
+        if (DETAIL_HEADERS.indexOf(hdrs[col]) >= 0) continue; // 詳細情報・備考はスキップ
         if (hdrs[col] && rows[i][col] !== '' && rows[i][col] !== undefined) {
           pr.push({ key: hdrs[col], rate: String(rows[i][col]) });
         }
@@ -86,8 +111,10 @@ function doGet(e) {
         lineId:     rows[i][13],  // N: LINE ID
         contact:    (()=>{ try{ const c=JSON.parse(rows[i][7]||'[]'); return c[0]?.name||''; }catch(e){return '';} })(),
         contactTel: (()=>{ try{ const c=JSON.parse(rows[i][7]||'[]'); return c[0]?.tel||''; }catch(e){return '';} })(),
-        rate:       defaultRate,     // ← 共通掛率（Z列）
-        productRates: pr,            // ← 商品別掛率（AA列以降）
+        rate:       defaultRate,
+        productRates: pr,
+        payMethod:  rows[i][17] || '',   // R列: 支払方法（固定）
+        deliveries: deliveries,          // 配達先5件（空除外）
       });
     }
     return json({ ok:false });
@@ -97,28 +124,74 @@ function doGet(e) {
     const rows = getSheet('顧客').getDataRange().getValues();
     if (rows.length === 0) return json({ customers: [] });
     const hdrs = rows[0].map(String);
+    // 詳細情報のヘッダー名 → JSプロパティ名 のマッピング（支払方法は固定列なので除外）
+    const DETAIL_KEYS = {
+      '業態':         'bizType',
+      '開店年月':     'openDate',
+      '席数':         'seats',
+      '経営者年代':   'ownerAge',
+      '主要客層':     'customerBase',
+      '主力商品傾向': 'productTrend',
+      '競合関係':     'competitor',
+      '取引開始日':   'dealStart',
+      '取引区分':     'dealChannel',
+      '営業日時':     'bizHours',
+      '平均客単価':   'avgSpend',
+      '価格モード':   'priceMode',
+      '税':           'taxType'
+    };
     return json({ customers: rows.slice(1).map(r => {
       const pr = [];
-      for (let col = 25; col < hdrs.length; col++) {
-        if (hdrs[col] && r[col] !== '' && r[col] !== undefined) {
-          pr.push({ key: hdrs[col], rate: String(r[col]) });
+      const details = {};
+      let note = '';
+      // 配達先5件をZ〜AR列（インデックス25〜69）から読み取り
+      const deliveries = [];
+      for (let n = 0; n < 5; n++) {
+        const base = 25 + n * 9;
+        const d = {
+          name:    String(r[base]   || ''),
+          zip:     String(r[base+1] || ''),
+          pref:    String(r[base+2] || ''),
+          city:    String(r[base+3] || ''),
+          addr1:   String(r[base+4] || ''),
+          addr2:   String(r[base+5] || ''),
+          contact: String(r[base+6] || ''),
+          tel:     String(r[base+7] || ''),
+          memo:    String(r[base+8] || '')
+        };
+        // いずれかのフィールドに値があれば配達先として保持
+        if (d.name || d.zip || d.addr1 || d.contact) {
+          deliveries.push(d);
         }
       }
-      return {
+      // BS列以降（インデックス70〜）を「詳細情報」「備考」「商品別掛率」に分離
+      for (let col = 70; col < hdrs.length; col++) {
+        const h = hdrs[col];
+        if (h === '備考') {
+          note = (r[col] !== undefined && r[col] !== null) ? String(r[col]) : '';
+        } else if (DETAIL_KEYS[h]) {
+          details[DETAIL_KEYS[h]] = (r[col] !== undefined && r[col] !== null) ? String(r[col]) : '';
+        } else if (h && r[col] !== '' && r[col] !== undefined) {
+          pr.push({ key: h, rate: String(r[col]) });
+        }
+      }
+      return Object.assign({
         branch:r[0], staff:r[1], name:r[2], kana:r[3], tel:r[4],
         owner:r[5], ownerTel:r[6], contacts:r[7],
         zip:r[8], pref:r[9], city:r[10], addr1:r[11], addr2:r[12],
         lineId:r[13], lineUid:r[14],
         referrer:r[15], invName:r[16],
-        bankNames:[r[17],r[18],r[19]].filter(Boolean), bankName:r[17]||'',
-        note:r[20],
+        payMethod: r[17] || '',                              // R列: 支払方法（固定）
+        bankNames:[r[18],r[19],r[20]].filter(Boolean), bankName:r[18]||'',
+        note: note,
+        deliveries: deliveries,                              // 配達先5件（空は除外）
         productRates: pr,
         rate: pr.length > 0 ? (pr[0].rate || '') : '',
-        sponsorEnabled: r[21] === 'あり',
-        sponsorTrigger: r[22] || '',
-        sponsorReward:  r[23] || '',
-        sponsorProduct: r[24] || ''
-      };
+        sponsorEnabled: r[21] === 'あり',  // V列: 協賛
+        sponsorTrigger: r[22] || '',       // W列: 購入条件
+        sponsorReward:  r[23] || '',       // X列: 協賛本数
+        sponsorProduct: r[24] || ''        // Y列: 対象商品
+      }, details);
     })});
   }
 
@@ -321,6 +394,8 @@ function saveOrderToSheet(o) {
     o.payStatus || '未収',
     o.status    || '新規',
     o.note      || '',
+    o.deliveryName    || '',  // 配達先名称（空＝店舗住所と同じ）
+    o.deliveryAddress || '',  // 配達先住所
     o.uid       || ''
   ]);
 }
@@ -340,17 +415,24 @@ function saveCustomerToSheet(c) {
   } else if (typeof c.contacts === 'string') {
     contacts = c.contacts;
   }
-  // ヘッダー（25列・フォーム順）※Z列以降は商品別掛率（スプレッドシートの実態に合わせる）
+  // ヘッダー（70列固定）= 基本25列 + 配達先45列（5件×9項目）
+  // ※BS列以降は詳細情報+備考+商品別掛率（動的追加）
   const HEADER = [
     '拠点', '弊社担当', '店舗名', 'フリガナ', '店舗電話',
     '代表者名', '代表者電話', '担当者リスト',
     '郵便番号', '都道府県', '市町村郡', '番地', '建物名',
     'LINE ID', 'LINE UID',
     '紹介者', '請求書宛名',
+    '支払方法',
     '振込名義①', '振込名義②', '振込名義③',
-    '備考',
-    '協賛', '購入条件', '協賛本数', '対象商品'
-    // Z列以降は商品別掛率（動的追加）
+    '協賛', '購入条件', '協賛本数', '対象商品',
+    // 配達先1〜5（各9項目 = 45列）
+    '配達先1_名称', '配達先1_郵便番号', '配達先1_都道府県', '配達先1_市町村郡', '配達先1_番地', '配達先1_建物名', '配達先1_担当者', '配達先1_電話', '配達先1_メモ',
+    '配達先2_名称', '配達先2_郵便番号', '配達先2_都道府県', '配達先2_市町村郡', '配達先2_番地', '配達先2_建物名', '配達先2_担当者', '配達先2_電話', '配達先2_メモ',
+    '配達先3_名称', '配達先3_郵便番号', '配達先3_都道府県', '配達先3_市町村郡', '配達先3_番地', '配達先3_建物名', '配達先3_担当者', '配達先3_電話', '配達先3_メモ',
+    '配達先4_名称', '配達先4_郵便番号', '配達先4_都道府県', '配達先4_市町村郡', '配達先4_番地', '配達先4_建物名', '配達先4_担当者', '配達先4_電話', '配達先4_メモ',
+    '配達先5_名称', '配達先5_郵便番号', '配達先5_都道府県', '配達先5_市町村郡', '配達先5_番地', '配達先5_建物名', '配達先5_担当者', '配達先5_電話', '配達先5_メモ'
+    // ↑ 25 + 45 = 70列。BS列以降は詳細情報・備考・商品別掛率（動的追加）
   ];
 
   const bankN = Array.isArray(c.bankNames) ? c.bankNames : (c.bankName ? [c.bankName] : []);
@@ -372,16 +454,33 @@ function saveCustomerToSheet(c) {
     c.lineUid  || '',   // O: LINE UID
     c.referrer || '',   // P: 紹介者
     c.invName  || '',   // Q: 請求書宛名
-    bankN[0]   || '',   // R: 振込名義①
-    bankN[1]   || '',   // S: 振込名義②
-    bankN[2]   || '',   // T: 振込名義③
-    c.note     || '',   // U: 備考
+    c.payMethod || '',  // R: 支払方法
+    bankN[0]   || '',   // S: 振込名義①
+    bankN[1]   || '',   // T: 振込名義②
+    bankN[2]   || '',   // U: 振込名義③
     c.sponsorEnabled ? 'あり' : 'なし',  // V: 協賛
     c.sponsorTrigger || '',              // W: 購入条件
     c.sponsorReward  || '',              // X: 協賛本数
     c.sponsorProduct || ''               // Y: 対象商品
-    // Z列以降は商品別掛率（下のratesMapで動的追加）
   ];
+  // 配達先5件分（各9列）を追加 — Z列以降
+  const deliveries = Array.isArray(c.deliveries) ? c.deliveries : [];
+  for (let n = 0; n < 5; n++) {
+    const d = deliveries[n] || {};
+    baseRow.push(
+      d.name    || '',  // 配達先N_名称
+      d.zip     || '',  // 配達先N_郵便番号
+      d.pref    || '',  // 配達先N_都道府県
+      d.city    || '',  // 配達先N_市町村郡
+      d.addr1   || '',  // 配達先N_番地
+      d.addr2   || '',  // 配達先N_建物名
+      d.contact || '',  // 配達先N_担当者
+      d.tel     || '',  // 配達先N_電話
+      d.memo    || ''   // 配達先N_メモ
+    );
+  }
+  // baseRow は 25 + 45 = 70要素
+  // BS列以降は詳細情報 → 商品別掛率 → 備考（動的追加）
 
   // 商品別掛率マップ
   const ratesMap = {};
@@ -389,32 +488,66 @@ function saveCustomerToSheet(c) {
     c.productRates.forEach(function(pr) { if (pr.key) ratesMap[pr.key] = pr.rate || ''; });
   }
 
-  // ヘッダー行を取得（空なら基本ヘッダーを書き込む）
-  const headerRow = (d.length === 0)
-    ? (sh.appendRow(HEADER), HEADER.slice())
-    : d[0].map(String);
+  // 詳細情報（分析用）— 動的列として扱う（支払方法は固定列に移動済み）
+  const detailFields = {
+    '業態':         c.bizType      || '',
+    '開店年月':     c.openDate     || '',
+    '席数':         c.seats        || '',
+    '経営者年代':   c.ownerAge     || '',
+    '主要客層':     c.customerBase || '',
+    '主力商品傾向': c.productTrend || '',
+    '競合関係':     c.competitor   || '',
+    '取引開始日':   c.dealStart    || '',
+    '取引区分':     c.dealChannel  || '',
+    '営業日時':     c.bizHours     || '',
+    '平均客単価':   c.avgSpend     || '',
+    '価格モード':   c.priceMode    || '新値',
+    '税':           c.taxType      || '税込'
+  };
 
-  // 新商品列があればヘッダーに追加
-  Object.keys(ratesMap).forEach(function(key) {
+  // 動的列マップ（詳細情報 → 商品別掛率 → 備考の順で最後に並ぶ）
+  // ※ Object.assignはキー追加順を保持。備考を最後に置くと一番右の列になる
+  const dynamicFields = Object.assign({}, detailFields, ratesMap, { '備考': c.note || '' });
+
+  // ヘッダー行を取得（リセット後・空シートも正しく判定）
+  // ★ A1セルが空 = リセット直後 と判定し、基本HEADERを書き込む
+  let headerRow;
+  const a1Value = (d.length > 0 && d[0].length > 0) ? String(d[0][0]).trim() : '';
+  const isResetOrEmpty = d.length === 0 || !a1Value;
+  if (isResetOrEmpty) {
+    // リセット直後 or 完全に空のシート → 全クリアして基本HEADERを書き込む
+    sh.clearContents();
+    sh.appendRow(HEADER);
+    headerRow = HEADER.slice();
+  } else {
+    // 既存ヘッダーを使用
+    headerRow = d[0].map(String);
+  }
+
+  // 動的列があればヘッダーに追加（detailFields → ratesMap → 備考の順）
+  Object.keys(dynamicFields).forEach(function(key) {
     if (headerRow.indexOf(key) < 0) {
       headerRow.push(key);
       sh.getRange(1, headerRow.length).setValue(key);
     }
   });
 
-  // 最終行 = 基本25列 + 商品別掛率
+  // 最終行 = 基本70列（25 + 配達先45） + 動的列（詳細情報 + 商品別掛率 + 備考）
   const row = baseRow.slice();
-  for (let col = 25; col < headerRow.length; col++) {
-    row.push(ratesMap[headerRow[col]] || '');
+  for (let col = 70; col < headerRow.length; col++) {
+    row.push(dynamicFields[headerRow[col]] || '');
   }
 
   // 既存行を更新（店舗名=C列=index2 で照合）
-  for (let i = 1; i < d.length; i++) {
-    if (d[i][2] === c.name) {
-      sh.getRange(i+1, 1, 1, row.length).setValues([row]);
-      sh.getRange(i+1, 5).setNumberFormat('@'); // 店舗電話(E列)：文字列
-      sh.getRange(i+1, 7).setNumberFormat('@'); // 代表者電話(G列)：文字列
-      return;
+  // ★ isResetOrEmpty なら既存行はないので走査スキップ
+  if (!isResetOrEmpty) {
+    for (let i = 1; i < d.length; i++) {
+      if (d[i][2] === c.name) {
+        sh.getRange(i+1, 1, 1, row.length).setValues([row]);
+        sh.getRange(i+1, 5).setNumberFormat('@'); // 店舗電話(E列)：文字列
+        sh.getRange(i+1, 7).setNumberFormat('@'); // 代表者電話(G列)：文字列
+        return;
+      }
     }
   }
 
