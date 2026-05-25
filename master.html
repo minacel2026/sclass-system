@@ -791,9 +791,9 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           <div class="frow">
             <div class="fg">
               <label>計算方法 <span class="req">*</span></label>
-              <select class="fc" id="rf-calc-type" onchange="updateReferrerParamLabel()">
-                <option value="A">A: 売値 × % × 消費税</option>
-                <option value="B">B: (顧客掛率 − 差掛率) × 売値 × 消費税</option>
+              <select class="fc" id="rf-calc-type" onchange="updateReferrerParamLabel()" style="white-space:nowrap;text-overflow:ellipsis;overflow:hidden">
+                <option value="A">A: 売値 × ％</option>
+                <option value="B">B: 掛率差 × 消費税</option>
               </select>
             </div>
             <div class="fg">
@@ -802,10 +802,10 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
             </div>
             <div class="fg fc-full">
               <div style="background:rgba(155,127,212,.05);border:1px dashed rgba(155,127,212,.25);border-radius:3px;padding:.6rem .8rem;font-size:.72rem;color:var(--wh2);line-height:1.6">
-                <strong style="color:var(--gold-l)">計算式の説明:</strong><br>
-                ・<strong>A方式</strong>: 紹介料 = 売値 × (パラメータ÷100) × 1.1（消費税）<br>
-                ・<strong>B方式</strong>: 紹介料 = 売値 × ((顧客掛率÷10) − (パラメータ÷10)) × 1.1（消費税）<br>
-                <span style="color:var(--wh3)">※顧客掛率は顧客マスターで設定された値を使用</span>
+                <strong style="color:var(--gold-l)">計算式（紹介料の自動算出）:</strong><br>
+                ・<strong>A方式</strong>：紹介料 = 売値 × (パラメータ ÷ 100) × 1.1<br>
+                ・<strong>B方式</strong>：紹介料 = 売値 × {(顧客掛率 ÷ 10) − (パラメータ ÷ 10)} × 1.1<br>
+                <span style="color:var(--wh3)">※消費税1.1倍 / 顧客掛率は顧客マスターの設定値を使用</span>
               </div>
             </div>
           </div>
