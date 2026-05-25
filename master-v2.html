@@ -1,0 +1,2380 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>マスター管理 | Sclassランボルギーニ</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Bebas+Neue&family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mobile.css">
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#C9A84C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sclass">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+
+<style>
+:root{
+  --gold:#C9A84C;--gold-l:#E8C97A;--gold-d:#7A5C14;
+  --bk:#080808;--d1:#0E0E0E;--d2:#161616;--d3:#1E1E1E;--d4:#282828;
+  --wh:#F0EBE0;--wh2:rgba(240,235,224,0.6);--wh3:rgba(240,235,224,0.25);
+  --red:#E05252;--grn:#52B788;--blu:#5299E0;--org:#E09052;--pur:#9B7FD4;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bk);color:var(--wh);font-family:'Noto Sans JP',sans-serif;font-weight:300;min-height:100vh}
+
+/* ─── ヘッダー ─── */
+header{background:linear-gradient(180deg,#0e0c06,var(--d1));border-bottom:1px solid var(--gold-d);height:56px;display:flex;align-items:center;padding:0 1.2rem;position:sticky;top:0;z-index:200;gap:1rem}
+.logo-mark{width:28px;height:28px;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold);transform:rotate(45deg);flex-shrink:0;cursor:pointer;transition:all .15s}
+header a:hover .logo-mark{background:rgba(201,168,76,.15);border-color:var(--gold-l)}
+header a:hover .sys-name{color:var(--gold)}
+.logo-mark span{transform:rotate(-45deg)}
+.sys-name{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.1em;color:var(--gold-l)}
+.sys-sub{font-size:.62rem;letter-spacing:.15em;color:var(--wh2);margin-left:.5rem}
+.back-btn{background:transparent;border:1px solid rgba(201,168,76,.4);color:var(--gold-l);padding:.3rem .8rem;font-size:.72rem;cursor:pointer;text-decoration:none;transition:all .2s;letter-spacing:.05em}
+.back-btn:hover{background:rgba(201,168,76,.15)}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:.7rem}
+.btn-s{background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);padding:.3rem .8rem;font-size:.72rem;cursor:pointer;transition:all .2s;letter-spacing:.05em}
+.btn-s:hover{background:var(--gold);color:var(--bk)}
+
+/* ─── メイン ─── */
+main{padding:1.5rem 2rem;max-width:1400px;margin:0 auto}
+.ptitle{font-family:'Shippori Mincho',serif;font-size:1.5rem;font-weight:400;color:var(--gold-l);margin-bottom:1rem;display:flex;align-items:baseline;gap:.7rem;border-bottom:1px solid rgba(201,168,76,.2);padding-bottom:.5rem}
+.ptitle small{font-family:'Noto Sans JP',sans-serif;font-size:.72rem;color:var(--wh2);font-weight:300}
+
+/* ─── 親タブ（4マスター切替） ─── */
+.master-tabs{display:flex;gap:2px;background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:3px;margin-bottom:1.2rem}
+.mtab{flex:1;padding:.7rem 1rem;cursor:pointer;font-size:.82rem;color:var(--wh2);background:transparent;border:none;transition:all .2s;letter-spacing:.05em;display:flex;align-items:center;justify-content:center;gap:.4rem;font-family:'Noto Sans JP',sans-serif;font-weight:500}
+.mtab:hover:not(.active){background:rgba(201,168,76,.05);color:var(--wh)}
+.mtab.active{background:linear-gradient(180deg,rgba(201,168,76,.2),rgba(201,168,76,.1));color:var(--gold-l);box-shadow:inset 0 -2px 0 var(--gold)}
+.mtab-ic{font-size:1rem}
+.mcon{display:none}.mcon.active{display:block}
+
+/* ─── 子タブ（一覧/新規/UID） ─── */
+.tbar{display:flex;border-bottom:1px solid rgba(201,168,76,.2);margin-bottom:1rem}
+.tab{padding:.5rem 1.2rem;cursor:pointer;font-size:.78rem;color:var(--wh2);border-bottom:2px solid transparent;transition:all .2s;user-select:none}
+.tab.active{color:var(--gold-l);border-bottom-color:var(--gold)}
+.tab:hover:not(.active){color:var(--wh)}
+.tcon{display:none}.tcon.active{display:block}
+
+/* ─── フィルタバー ─── */
+.filter-bar{display:flex;align-items:center;gap:.7rem;background:var(--d2);border:1px solid rgba(201,168,76,.15);padding:.7rem .9rem;margin-bottom:1rem;flex-wrap:wrap}
+.filter-bar label{font-size:.7rem;color:var(--wh2);letter-spacing:.05em}
+.fc{background:var(--d3);border:1px solid rgba(201,168,76,.22);color:var(--wh);padding:.42rem .65rem;font-family:'Noto Sans JP',sans-serif;font-size:.8rem;outline:none;transition:border-color .2s}
+.fc:focus{border-color:var(--gold)}
+select.fc option{background:var(--d3)}
+
+/* ─── カードグリッド ─── */
+.cust-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
+.cust-card{background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:1rem;cursor:pointer;transition:all .25s;position:relative;overflow:hidden}
+.cust-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.cust-card:hover{border-color:rgba(201,168,76,.5);transform:translateY(-2px);background:var(--d3)}
+.cust-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem}
+.cust-name{font-size:.92rem;font-weight:700;color:var(--gold-l);letter-spacing:.03em;flex:1}
+.cust-branch{font-size:.6rem;padding:.1rem .4rem;background:rgba(201,168,76,.15);color:var(--gold-l);border-radius:2px;letter-spacing:.05em;flex-shrink:0}
+.cust-info{font-size:.7rem;color:var(--wh2);line-height:1.6;margin-bottom:.6rem}
+.cust-info strong{color:var(--wh);font-weight:500}
+.cust-meta{display:flex;gap:.4rem;flex-wrap:wrap;padding-top:.6rem;border-top:1px solid rgba(255,255,255,.05)}
+.meta-chip{font-size:.6rem;padding:.15rem .45rem;background:var(--d3);color:var(--wh2);border-radius:2px}
+.meta-chip.rate{background:rgba(201,168,76,.15);color:var(--gold-l)}
+.meta-chip.uid{background:rgba(82,183,136,.12);color:var(--grn)}
+.meta-chip.no-uid{background:rgba(224,82,82,.12);color:var(--red)}
+.meta-chip.sponsor{background:rgba(155,127,212,.15);color:#B8A1DC}
+.meta-chip.role{background:rgba(82,153,224,.15);color:var(--blu)}
+
+/* ─── 空状態 ─── */
+.empty{text-align:center;padding:3rem 1rem;color:var(--wh3)}
+.empty-icon{font-size:3rem;margin-bottom:.8rem;opacity:.4}
+
+/* ─── フォーム ─── */
+.form-panel{background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:1.5rem;margin-bottom:1rem;position:relative;overflow:hidden}
+.form-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.form-panel h3{font-size:.92rem;color:var(--gold-l);margin-bottom:1rem;font-weight:500;letter-spacing:.05em;display:flex;align-items:center;gap:.5rem}
+.form-panel h3::before{content:'';width:3px;height:16px;background:var(--gold);display:inline-block}
+
+.form-section{background:var(--d1);border:1px solid rgba(255,255,255,.04);padding:1rem;margin-bottom:1rem;border-left:2px solid var(--gold-d)}
+.form-section-title{font-size:.72rem;color:var(--gold-d);letter-spacing:.15em;margin-bottom:.7rem;font-weight:500}
+
+.frow{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:.7rem;margin-bottom:.5rem}
+.fg{display:flex;flex-direction:column;gap:.25rem}
+.fg label{font-size:.65rem;letter-spacing:.08em;color:var(--wh2)}
+.fg label .req{color:var(--red)}
+.fg label .hint{font-size:.55rem;color:var(--wh3);margin-left:.3rem}
+.fc-full{grid-column:1/-1}
+textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
+
+/* ─── ボタン ─── */
+.faction{display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap}
+.btn{padding:.5rem 1.4rem;border:1px solid;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:.82rem;letter-spacing:.05em;transition:all .2s;font-weight:500}
+.btn-p{background:var(--gold);border-color:var(--gold);color:var(--bk)}
+.btn-p:hover{background:var(--gold-l)}
+.btn-g{background:transparent;border-color:rgba(201,168,76,.4);color:var(--wh2)}
+.btn-g:hover{border-color:var(--gold);color:var(--wh)}
+.btn-dn{background:transparent;border-color:rgba(224,82,82,.4);color:var(--red)}
+.btn-dn:hover{background:rgba(224,82,82,.15);border-color:var(--red)}
+
+/* ─── 商品別掛率 ─── */
+.product-rates{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.5rem;margin-top:.5rem}
+.prate-item{display:flex !important;flex-direction:column !important;gap:.3rem;background:var(--d3);padding:.45rem .55rem;border:1px solid rgba(255,255,255,.05);min-width:0}
+.prate-name{font-size:.72rem;color:var(--gold-l);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;writing-mode:horizontal-tb !important;text-orientation:mixed;line-height:1.3}
+.prate-item .prate-controls{display:flex;align-items:stretch;gap:.25rem;min-width:0}
+/* ─── input と select を完全に同じ見た目に統一（ブラウザ依存を排除） ─── */
+.prate-item input,
+.prate-item select{
+  height:30px !important;
+  padding:0 .3rem !important;
+  font-size:.72rem !important;
+  font-family:'Noto Sans JP',sans-serif !important;
+  letter-spacing:-.02em !important;
+  background:var(--d1) !important;
+  border:1px solid rgba(201,168,76,.25) !important;
+  color:var(--wh) !important;
+  box-sizing:border-box !important;
+  -webkit-appearance:none !important;
+  -moz-appearance:none !important;
+  appearance:none !important;
+  line-height:1 !important;
+  min-width:0 !important;
+  outline:none !important;
+}
+.prate-item input{
+  width:50px !important;
+  flex:0 0 50px !important;
+  text-align:center !important;
+  font-family:'Bebas Neue',sans-serif !important;
+  font-size:.82rem !important;
+}
+.prate-item input::placeholder{
+  font-family:'Noto Sans JP',sans-serif !important;
+  font-size:.72rem !important;
+  letter-spacing:-.02em !important;
+  color:rgba(255,255,255,.45) !important;
+  opacity:1 !important;
+}
+.prate-item select{
+  flex:1 !important;
+  color:var(--gold-l) !important;
+  border-color:var(--gold-d) !important;
+  background-color:rgba(0,0,0,.3) !important;
+  padding-right:1.1rem !important;
+  /* カスタム矢印（appearance:noneで消えたネイティブ矢印の代わり） */
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23BA9550' d='M0 0l5 6 5-6z'/></svg>") !important;
+  background-repeat:no-repeat !important;
+  background-position:right .35rem center !important;
+  background-size:.55rem !important;
+}
+.prate-item select option{font-size:.85rem !important;background:var(--d3) !important;color:var(--wh) !important;font-family:'Noto Sans JP',sans-serif !important}
+
+/* ─── 動的リスト ─── */
+.dyn-list{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem}
+.dyn-row{display:flex;gap:.4rem;align-items:center}
+.dyn-row input{flex:1}
+.dyn-del{background:transparent;border:1px solid rgba(224,82,82,.3);color:var(--red);padding:.3rem .5rem;font-size:.7rem;cursor:pointer}
+.dyn-add{background:transparent;border:1px dashed rgba(201,168,76,.4);color:var(--gold);padding:.4rem;font-size:.72rem;cursor:pointer;letter-spacing:.05em}
+
+/* ─── 協賛切替 ─── */
+.sponsor-toggle{display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem}
+.sponsor-toggle input[type=checkbox]{width:16px;height:16px;accent-color:var(--gold)}
+
+/* ─── その他 ─── */
+.action-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
+.hint-box{background:rgba(82,153,224,.06);border:1px solid rgba(82,153,224,.2);padding:.7rem .9rem;margin-bottom:1rem;font-size:.72rem;color:var(--wh2);line-height:1.6}
+.hint-box strong{color:var(--blu);font-weight:500}
+
+/* ─── 商品マスター表 ─── */
+.prod-table{width:100%;border-collapse:collapse;background:var(--d2);border:1px solid rgba(201,168,76,.15)}
+.prod-table th{background:var(--d3);padding:.6rem .8rem;text-align:left;font-size:.72rem;color:var(--gold-d);letter-spacing:.08em;font-weight:500;border-bottom:1px solid rgba(201,168,76,.2)}
+.prod-table td{padding:.5rem .8rem;border-bottom:1px solid rgba(255,255,255,.04);font-size:.82rem}
+.prod-table tr:hover td{background:rgba(201,168,76,.03)}
+.prod-table input{background:var(--d3);border:1px solid transparent;color:var(--wh);padding:.3rem;font-size:.78rem;width:100%;font-family:'Bebas Neue',sans-serif;text-align:right}
+.prod-table input:focus{border-color:var(--gold);outline:none}
+
+/* ─── 弊社情報 ─── */
+.company-card{background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:1.5rem;position:relative;overflow:hidden}
+.company-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+
+/* ─── トースト ─── */
+#toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#161616;border:1px solid rgba(201,168,76,.4);color:#E8C97A;padding:.8rem 1.5rem;font-size:.85rem;z-index:9999;opacity:0;transition:opacity .2s;letter-spacing:.05em;pointer-events:none}
+</style>
+</head>
+<body>
+
+<header>
+  <a href="portal.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:inherit" title="ポータルへ戻る">
+    <div class="logo-mark"><span>L</span></div>
+    <div>
+      <span class="sys-name">MASTER</span>
+      <span class="sys-sub">マスター管理</span>
+    </div>
+  </a>
+  <div class="hdr-right">
+    <a class="back-btn" href="portal.html">← ポータルへ戻る</a>
+    <button class="btn-s" onclick="syncAllFromGAS()">🔄 GAS同期</button>
+    <div style="display:flex;align-items:center;gap:.5rem;padding-left:.8rem;margin-left:.3rem;border-left:1px solid rgba(201,168,76,.2)">
+      <span id="user-badge" style="font-size:.7rem;color:var(--gold-l)">—</span>
+      <button onclick="doLogout()" style="background:transparent;border:1px solid rgba(201,168,76,.25);color:var(--wh2);padding:.2rem .6rem;font-size:.65rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif">ログアウト</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="ptitle">
+    マスター管理 <small>顧客・スタッフ・弊社・商品の基本情報を一元管理</small>
+  </div>
+
+  <!-- ═══ 親タブ（4マスター切替） ═══ -->
+  <div class="master-tabs">
+    <button class="mtab active" onclick="switchMaster('customers',this)">
+      <span class="mtab-ic">🏪</span>顧客マスター
+    </button>
+    <button class="mtab" onclick="switchMaster('staff',this)">
+      <span class="mtab-ic">👥</span>スタッフマスター
+    </button>
+    <button class="mtab" onclick="switchMaster('company',this)">
+      <span class="mtab-ic">🏢</span>弊社情報
+    </button>
+    <button class="mtab" onclick="switchMaster('products',this)">
+      <span class="mtab-ic">🍾</span>商品マスター
+    </button>
+  </div>
+
+  <!-- ════════ 顧客マスター ════════ -->
+  <div id="m-customers" class="mcon active">
+    <div class="tbar">
+      <div class="tab active" onclick="switchCustTab('list',this)">一覧</div>
+      <div class="tab" onclick="switchCustTab('new',this)">＋ 新規登録</div>
+      <div class="tab" onclick="switchCustTab('csv',this)">📥 CSV取込/出力</div>
+      <div class="tab" onclick="switchCustTab('uid',this)">🔗 未登録UID</div>
+    </div>
+
+    <!-- 一覧 -->
+    <div id="tab-list" class="tcon active">
+      <div class="filter-bar">
+        <label>検索</label>
+        <input class="fc" id="f-kw" placeholder="店舗名・エリア・担当者..." oninput="renderCustList()" style="width:220px">
+        <label>拠点</label>
+        <select class="fc" id="f-br" onchange="renderCustList()">
+          <option value="">全拠点</option>
+          <option>仙台</option>
+          <option>京都</option>
+        </select>
+        <label>LINE UID</label>
+        <select class="fc" id="f-uid" onchange="renderCustList()">
+          <option value="">すべて</option>
+          <option value="有">登録あり</option>
+          <option value="無">未登録</option>
+        </select>
+        <span style="margin-left:auto;font-size:.72rem;color:var(--wh2)">
+          <span id="list-count">0</span> 件
+        </span>
+      </div>
+      <div id="cust-grid" class="cust-grid"></div>
+    </div>
+
+    <!-- 新規登録 -->
+    <div id="tab-new" class="tcon">
+      <div class="action-bar">
+        <button class="btn-s" onclick="switchCustTab('list',document.querySelectorAll('#m-customers .tab')[0])">← 一覧に戻る</button>
+        <span id="edit-status" style="color:var(--gold-l);font-size:.8rem"></span>
+      </div>
+      <div class="hint-box">
+        <strong>🔗 LINE連携のしくみ</strong><br>
+        LINE UIDを登録すると、その顧客がLINEで注文フォームを開いた時に掛率が自動適用されます。
+        商品別掛率を設定した商品は共通掛率より優先されます。
+      </div>
+      <div class="form-panel">
+        <h3>顧客情報</h3>
+        <div class="form-section">
+          <div class="form-section-title">▸ 基本情報</div>
+          <div class="frow">
+            <div class="fg"><label>店舗名 <span class="req">*</span></label><input class="fc" id="cf-name" placeholder="例：Club ○○"></div>
+            <div class="fg"><label>フリガナ</label><input class="fc" id="cf-kana" placeholder="例：クラブマルマル"></div>
+            <div class="fg"><label>拠点 <span class="req">*</span></label><select class="fc" id="cf-branch"><option>仙台</option><option>京都</option></select></div>
+            <div class="fg"><label>弊社担当</label><select class="fc" id="cf-staff"><option value="">未設定</option></select></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ 連絡先</div>
+          <div class="frow">
+            <div class="fg"><label>店舗電話</label><input class="fc" id="cf-tel" placeholder="例：090-XXXX-XXXX" type="tel"></div>
+            <div class="fg"><label>代表者名</label><input class="fc" id="cf-owner" placeholder="例：○○ オーナー"></div>
+            <div class="fg"><label>代表者電話</label><input class="fc" id="cf-owner-tel" placeholder="例：080-XXXX-XXXX" type="tel"></div>
+          </div>
+          <div class="fg" style="margin-top:.5rem">
+            <label>担当者リスト <span class="hint">複数登録可</span></label>
+            <div class="dyn-list" id="contact-list"></div>
+            <button type="button" class="dyn-add" onclick="addCustContact()">＋ 担当者を追加</button>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ 住所</div>
+          <div class="frow">
+            <div class="fg"><label>郵便番号</label><div style="display:flex;gap:.3rem"><input class="fc" id="cf-zip" placeholder="例：980-0021" type="tel" maxlength="8" oninput="formatZip(this)" style="flex:1;min-width:0"><button type="button" onclick="lookupZipNow()" title="郵便番号から住所を取得" style="background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);padding:0 .7rem;font-size:.72rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;border-radius:0">🔍 住所</button></div></div>
+            <div class="fg"><label>都道府県</label><input class="fc" id="cf-pref" placeholder="例：宮城県"></div>
+            <div class="fg"><label>市町村郡</label><input class="fc" id="cf-city" placeholder="例:仙台市青葉区"></div>
+            <div class="fg"><label>番地</label><input class="fc" id="cf-addr1" placeholder="例：中央1-2-3"></div>
+            <div class="fg fc-full"><label>建物名</label><input class="fc" id="cf-addr2" placeholder="例：○○ビル3F"></div>
+          </div>
+          <details style="margin-top:.8rem">
+            <summary style="cursor:pointer;color:var(--gold-l);font-size:.78rem;padding:.3rem 0;user-select:none;line-height:1.5">
+              📦 配達先が住所と異なる場合は登録してください<span style="color:var(--wh3);font-size:.7rem">（最大5件・任意）</span>
+            </summary>
+            <div style="margin-top:.5rem;padding:.6rem .8rem;background:rgba(155,127,212,.04);border:1px dashed rgba(155,127,212,.25);border-radius:3px">
+              <div style="font-size:.7rem;color:var(--wh3);margin-bottom:.5rem">通常は上記住所と同じ。配達先が異なる場合のみ追加してください。</div>
+              <div id="cf-delivery-list"></div>
+              <button type="button" id="cf-delivery-add" onclick="addCustDelivery()"
+                style="background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);padding:.3rem .8rem;font-size:.7rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;border-radius:0;margin-top:.3rem">
+                ＋ 配達先を追加
+              </button>
+            </div>
+          </details>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ LINE連携（LIFF注文フォームとの連動）</div>
+          <div class="frow">
+            <div class="fg"><label>LINE表示名</label><input class="fc" id="cf-line-id" placeholder="LINEでの表示名"></div>
+            <div class="fg fc-full"><label>LINE UID <span class="hint">LIFF認証に必須</span></label><input class="fc" id="cf-line-uid" placeholder="U1234567890abcdef... （33文字）"></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ 請求・振込</div>
+          <div class="frow">
+            <div class="fg"><label>請求書宛名</label><input class="fc" id="cf-inv-name" placeholder="例：○○ 御中"></div>
+            <div class="fg"><label>紹介者</label><input class="fc" id="cf-referrer" placeholder="紹介者名"></div>
+            <div class="fg">
+              <label>支払方法 <span class="hint">注文時のデフォルト値</span></label>
+              <select class="fc" id="cf-pay-method">
+                <option value="">未設定</option>
+                <option>現金</option>
+                <option>振込</option>
+                <option>代引</option>
+              </select>
+            </div>
+          </div>
+          <div class="fg" style="margin-top:.5rem">
+            <label>振込名義 <span class="hint">複数登録可</span></label>
+            <div class="dyn-list" id="bank-list"></div>
+            <button type="button" class="dyn-add" onclick="addCustBank()">＋ 振込名義を追加</button>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ 掛率設定</div>
+          <div class="frow">
+            <div class="fg">
+              <label>共通掛率 <span class="req">*</span></label>
+              <select class="fc" id="cf-rate">
+                <option value="7">7掛（標準）</option><option value="6.5">6.5掛</option>
+                <option value="6">6掛</option><option value="5.5">5.5掛</option>
+                <option value="5">5掛</option><option value="4.5">4.5掛</option>
+                <option value="4">4掛</option><option value="10">10掛（定価）</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>共通価格モード <span class="hint">商品別未指定の既定値</span></label>
+              <select class="fc" id="cf-common-price-mode">
+                <option value="新値">新値</option>
+                <option value="旧値">旧値</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>共通税 <span class="hint">商品別未指定の既定値</span></label>
+              <select class="fc" id="cf-common-tax">
+                <option value="税込">税込</option>
+                <option value="税抜">税抜</option>
+                <option value="未設定">未設定</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:.7rem">
+            <label style="font-size:.65rem;color:var(--wh2);letter-spacing:.08em">
+              商品別掛率 <span class="hint">未指定商品は共通設定（掛率・モード・税）を使用</span>
+            </label>
+            <div class="product-rates" id="prate-grid"></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ 協賛設定</div>
+          <div class="sponsor-toggle">
+            <input type="checkbox" id="cf-sponsor" onchange="toggleCustSponsor()">
+            <label for="cf-sponsor" style="font-size:.78rem;color:var(--wh);cursor:pointer">この顧客は協賛対象</label>
+          </div>
+          <div id="sponsor-detail" style="display:none">
+            <div class="frow">
+              <div class="fg"><label>購入条件</label><input type="number" class="fc" id="cf-sponsor-trigger" placeholder="例：6" min="1"><span style="font-size:.6rem;color:var(--wh3)">本購入で協賛発動</span></div>
+              <div class="fg"><label>協賛本数</label><input type="number" class="fc" id="cf-sponsor-reward" placeholder="例：1" min="1"><span style="font-size:.6rem;color:var(--wh3)">協賛する本数</span></div>
+              <div class="fg"><label>対象商品 <span class="hint">空白＝全商品</span></label><select class="fc" id="cf-sponsor-product"><option value="">未設定（＝全商品）</option></select></div>
+            </div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ 詳細情報（分析用・任意）</div>
+          <div class="frow">
+            <div class="fg">
+              <label>業態</label>
+              <select class="fc" id="cf-biz-type">
+                <option value="">未設定</option>
+                <option>クラブ</option>
+                <option>スナック</option>
+                <option>バー</option>
+                <option>ラウンジ</option>
+                <option>レストラン</option>
+                <option>キャバクラ</option>
+                <option>ガールズバー</option>
+                <option>酒屋</option>
+                <option>その他</option>
+              </select>
+            </div>
+            <div class="fg"><label>開店年月</label><input class="fc" id="cf-open-date" type="month"></div>
+            <div class="fg"><label>席数</label><input class="fc" id="cf-seats" type="number" min="0" placeholder="例：30"></div>
+            <div class="fg">
+              <label>経営者の年代</label>
+              <select class="fc" id="cf-owner-age">
+                <option value="">未設定</option>
+                <option>20代</option>
+                <option>30代</option>
+                <option>40代</option>
+                <option>50代</option>
+                <option>60代</option>
+                <option>70代以上</option>
+                <option>不明</option>
+              </select>
+            </div>
+            <div class="fg"><label>主要客層</label><input class="fc" id="cf-customer-base" placeholder="例：30〜50代男性"></div>
+            <div class="fg"><label>主力商品の傾向</label><input class="fc" id="cf-product-trend" placeholder="例：イエロー中心"></div>
+            <div class="fg"><label>競合店との関係</label><input class="fc" id="cf-competitor" placeholder="近隣の競合・棲み分けなど"></div>
+            <div class="fg"><label>取引開始日</label><input class="fc" id="cf-deal-start" type="date"></div>
+            <div class="fg">
+              <label>取引区分</label>
+              <select class="fc" id="cf-deal-channel">
+                <option value="">未設定</option>
+                <option>直接営業</option>
+                <option>紹介</option>
+                <option>Web経由</option>
+                <option>その他</option>
+              </select>
+            </div>
+            <div class="fg"><label>営業日・時間</label><input class="fc" id="cf-biz-hours" placeholder="例：月-土 19:00-翌2:00"></div>
+            <div class="fg"><label>平均客単価</label><input class="fc" id="cf-avg-spend" type="number" min="0" placeholder="例：8000"><span style="font-size:.6rem;color:var(--wh3)">円</span></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ 備考</div>
+          <textarea class="fc" id="cf-note" rows="3" placeholder="特記事項など"></textarea>
+        </div>
+        <div class="faction">
+          <button class="btn btn-p" onclick="submitCustForm()">保存</button>
+          <button class="btn btn-g" onclick="clearCustForm()">クリア</button>
+          <button class="btn btn-dn" id="btn-delete" style="display:none;margin-left:auto" onclick="deleteCust()">削除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CSV取込/出力 -->
+    <div id="tab-csv" class="tcon">
+      <div class="hint-box">
+        <strong>📥 CSV取込/出力</strong><br>
+        既存の顧客リストをCSVで一括登録できます。Excelで作成したファイルもOK（UTF-8 / Shift-JIS 自動判定）。<br>
+        店舗名で重複チェック → 既存は更新・新規は追加されます。
+      </div>
+
+      <!-- ① テンプレート -->
+      <div class="form-panel">
+        <h3>① CSVテンプレートをダウンロード</h3>
+        <p style="font-size:.78rem;color:var(--wh2);line-height:1.6;margin-bottom:.5rem">
+          初めて使う場合は、テンプレートをダウンロードしてExcelで編集してください。
+        </p>
+        <div class="faction">
+          <button class="btn btn-g" onclick="downloadCustomerTemplate()">📋 テンプレートをダウンロード</button>
+          <button class="btn btn-g" onclick="exportCustomersCSV()">📤 現在の顧客一覧をCSVで出力</button>
+        </div>
+      </div>
+
+      <!-- ② インポート -->
+      <div class="form-panel">
+        <h3>② CSVファイルを読み込む</h3>
+        <div style="border:2px dashed rgba(201,168,76,.3);padding:2rem;text-align:center;background:var(--d1);margin-bottom:1rem">
+          <div style="font-size:2.5rem;margin-bottom:.5rem">📁</div>
+          <div style="font-size:.85rem;color:var(--wh);margin-bottom:.7rem">CSVファイルを選択してください</div>
+          <input type="file" id="csv-file" accept=".csv,.tsv,.txt" style="display:none" onchange="handleCsvFile(event)">
+          <button class="btn btn-p" onclick="document.getElementById('csv-file').click()">ファイルを選択</button>
+          <div style="font-size:.7rem;color:var(--wh3);margin-top:.7rem">対応形式: .csv / .tsv (カンマ・タブ区切り)</div>
+        </div>
+
+        <!-- プレビュー領域 -->
+        <div id="csv-preview" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+            <h4 style="font-size:.85rem;color:var(--gold-l);font-weight:500">📊 プレビュー</h4>
+            <span id="csv-stat" style="font-size:.72rem;color:var(--wh2)"></span>
+          </div>
+          <div style="overflow-x:auto;max-height:400px;border:1px solid rgba(201,168,76,.2);background:var(--d1);margin-bottom:.7rem">
+            <table style="width:100%;border-collapse:collapse;font-size:.72rem">
+              <thead id="csv-thead" style="position:sticky;top:0;background:var(--d3);z-index:1"></thead>
+              <tbody id="csv-tbody"></tbody>
+            </table>
+          </div>
+          <div class="hint-box" id="csv-warnings" style="display:none"></div>
+          <div class="faction">
+            <button class="btn btn-p" id="csv-confirm-btn" onclick="confirmCsvImport()">✓ この内容で登録する</button>
+            <button class="btn btn-g" onclick="cancelCsvImport()">キャンセル</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ヘルプ -->
+      <div class="form-panel">
+        <h3>📌 列の説明</h3>
+        <table style="width:100%;font-size:.74rem;border-collapse:collapse">
+          <thead>
+            <tr style="background:var(--d3)">
+              <th style="padding:.4rem;text-align:left;color:var(--gold-d);font-weight:500;border-bottom:1px solid rgba(201,168,76,.2)">列名</th>
+              <th style="padding:.4rem;text-align:left;color:var(--gold-d);font-weight:500;border-bottom:1px solid rgba(201,168,76,.2)">必須</th>
+              <th style="padding:.4rem;text-align:left;color:var(--gold-d);font-weight:500;border-bottom:1px solid rgba(201,168,76,.2)">内容</th>
+            </tr>
+          </thead>
+          <tbody style="color:var(--wh2)">
+            <tr><td style="padding:.3rem .4rem"><strong style="color:var(--gold-l)">店舗名</strong></td><td style="color:var(--red);padding:.3rem .4rem">必須</td><td style="padding:.3rem .4rem">重複チェックのキー</td></tr>
+            <tr><td style="padding:.3rem .4rem">フリガナ</td><td style="padding:.3rem .4rem">—</td><td style="padding:.3rem .4rem">カタカナ</td></tr>
+            <tr><td style="padding:.3rem .4rem"><strong style="color:var(--gold-l)">拠点</strong></td><td style="color:var(--red);padding:.3rem .4rem">必須</td><td style="padding:.3rem .4rem">仙台 または 京都</td></tr>
+            <tr><td style="padding:.3rem .4rem">担当者</td><td style="padding:.3rem .4rem">—</td><td style="padding:.3rem .4rem">弊社の営業担当者名</td></tr>
+            <tr><td style="padding:.3rem .4rem">代表者</td><td style="padding:.3rem .4rem">—</td><td style="padding:.3rem .4rem">先方の代表者名</td></tr>
+            <tr><td style="padding:.3rem .4rem">代表者TEL / 店舗TEL</td><td style="padding:.3rem .4rem">—</td><td style="padding:.3rem .4rem">電話番号</td></tr>
+            <tr><td style="padding:.3rem .4rem">郵便番号</td><td style="padding:.3rem .4rem">—</td><td style="padding:.3rem .4rem">ハイフンなし7桁</td></tr>
+            <tr><td style="padding:.3rem .4rem">都道府県 / 市町村郡 / 番地 / 建物</td><td style="padding:.3rem .4rem">—</td><td style="padding:.3rem .4rem">住所4分割</td></tr>
+            <tr><td style="padding:.3rem .4rem">LINE_UID</td><td style="padding:.3rem .4rem">—</td><td style="padding:.3rem .4rem">LIFF連携用（Uから始まる33文字）</td></tr>
+            <tr><td style="padding:.3rem .4rem"><strong style="color:var(--gold-l)">掛率</strong></td><td style="padding:.3rem .4rem">推奨</td><td style="padding:.3rem .4rem">数値（例: 7 = 7掛、空白は7に補完）</td></tr>
+            <tr><td style="padding:.3rem .4rem">協賛</td><td style="padding:.3rem .4rem">—</td><td style="padding:.3rem .4rem">「有」または空白</td></tr>
+            <tr><td style="padding:.3rem .4rem">備考</td><td style="padding:.3rem .4rem">—</td><td style="padding:.3rem .4rem">特記事項</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 未登録UID -->
+    <div id="tab-uid" class="tcon">
+      <div class="action-bar">
+        <button class="btn-s" onclick="loadCustPendingUids()">🔄 UID一覧を更新</button>
+      </div>
+      <div class="hint-box">
+        <strong>📌 未登録UIDとは</strong><br>
+        LINE公式アカウントにメッセージを送ったが、顧客マスターに登録されていないLINE UIDの一覧です。
+      </div>
+      <div id="pending-list"></div>
+    </div>
+  </div>
+
+  <!-- ════════ スタッフマスター ════════ -->
+  <div id="m-staff" class="mcon">
+    <div class="tbar">
+      <div class="tab active" onclick="switchStaffTab('list',this)">一覧</div>
+      <div class="tab" onclick="switchStaffTab('new',this)">＋ 新規登録</div>
+    </div>
+
+    <div id="staff-list" class="tcon active">
+      <div class="filter-bar">
+        <label>検索</label>
+        <input class="fc" id="sf-kw" placeholder="氏名・メール..." oninput="renderStaffList()" style="width:220px">
+        <label>拠点</label>
+        <select class="fc" id="sf-br" onchange="renderStaffList()">
+          <option value="">全拠点</option><option>仙台</option><option>京都</option><option>両拠点</option>
+        </select>
+        <label>ロール</label>
+        <select class="fc" id="sf-role" onchange="renderStaffList()">
+          <option value="">すべて</option><option>admin</option><option>manager</option><option>staff</option><option>viewer</option>
+        </select>
+        <span style="margin-left:auto;font-size:.72rem;color:var(--wh2)">
+          <span id="staff-count">0</span> 名
+        </span>
+      </div>
+      <div id="staff-grid" class="cust-grid"></div>
+    </div>
+
+    <div id="staff-new" class="tcon">
+      <div class="action-bar">
+        <button class="btn-s" onclick="switchStaffTab('list',document.querySelectorAll('#m-staff .tab')[0])">← 一覧に戻る</button>
+        <span id="staff-edit-status" style="color:var(--gold-l);font-size:.8rem"></span>
+      </div>
+      <div class="form-panel">
+        <h3>スタッフ情報</h3>
+        <div class="form-section">
+          <div class="form-section-title">▸ 基本情報</div>
+          <div class="frow">
+            <div class="fg"><label>氏名 <span class="req">*</span></label><input class="fc" id="sf-name" placeholder="例：佐々木"></div>
+            <div class="fg"><label>メールアドレス <span class="req">*</span></label><input class="fc" id="sf-email" type="email" placeholder="name@sclass.jp"></div>
+            <div class="fg"><label>拠点</label><select class="fc" id="sf-branch"><option>仙台</option><option>京都</option><option>両拠点</option></select></div>
+            <div class="fg">
+              <label>ロール <span class="req">*</span></label>
+              <select class="fc" id="sf-role-sel">
+                <option value="admin">admin（全権限）</option>
+                <option value="manager">manager（管理者）</option>
+                <option value="staff" selected>staff（営業）</option>
+                <option value="viewer">viewer（閲覧のみ）</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ 連絡先</div>
+          <div class="frow">
+            <div class="fg"><label>電話番号</label><input class="fc" id="sf-tel" placeholder="例：090-XXXX-XXXX" type="tel"></div>
+            <div class="fg fc-full"><label>LINE UID <span class="hint">スタッフ専用機能用</span></label><input class="fc" id="sf-uid" placeholder="U1234567890abcdef..."></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ その他</div>
+          <div class="frow">
+            <div class="fg">
+              <label>状態</label>
+              <select class="fc" id="sf-active">
+                <option value="true" selected>有効</option>
+                <option value="false">無効</option>
+              </select>
+            </div>
+            <div class="fg"><label>入社日</label><input class="fc" id="sf-joined" type="date"></div>
+          </div>
+          <div class="fg" style="margin-top:.5rem">
+            <label>備考</label>
+            <textarea class="fc" id="sf-note" rows="2" placeholder="担当エリア・特記事項など"></textarea>
+          </div>
+        </div>
+        <div class="faction">
+          <button class="btn btn-p" onclick="submitStaffForm()">保存</button>
+          <button class="btn btn-g" onclick="clearStaffForm()">クリア</button>
+          <button class="btn btn-dn" id="btn-staff-delete" style="display:none;margin-left:auto" onclick="deleteStaff()">削除</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 弊社情報 ════════ -->
+  <div id="m-company" class="mcon">
+    <div class="hint-box">
+      <strong>🏢 弊社情報について</strong><br>
+      ここで登録した情報は請求書・領収書・注文書などの書類に自動で反映されます。振込先情報は複数登録できます。
+    </div>
+    <div class="company-card">
+      <h3 style="font-size:1rem;color:var(--gold-l);margin-bottom:1rem;font-weight:500;letter-spacing:.05em;padding-bottom:.5rem;border-bottom:1px solid rgba(201,168,76,.15)">弊社情報</h3>
+      <div class="form-section">
+        <div class="form-section-title">▸ 会社基本情報</div>
+        <div class="frow">
+          <div class="fg"><label>会社名 <span class="req">*</span></label><input class="fc" id="co-name" placeholder="株式会社Sclass"></div>
+          <div class="fg"><label>部署名</label><input class="fc" id="co-dept" placeholder="営業部"></div>
+          <div class="fg"><label>代表者名</label><input class="fc" id="co-ceo" placeholder="代表取締役"></div>
+          <div class="fg"><label>設立日</label><input class="fc" id="co-founded" type="date"></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">▸ 本社</div>
+        <div class="frow">
+          <div class="fg"><label>郵便番号</label><input class="fc" id="co-zip" placeholder="例：1000001" maxlength="7"></div>
+          <div class="fg fc-full"><label>住所</label><input class="fc" id="co-addr" placeholder="例：東京都千代田区..."></div>
+          <div class="fg"><label>代表電話</label><input class="fc" id="co-tel" placeholder="例：03-XXXX-XXXX" type="tel"></div>
+          <div class="fg"><label>FAX</label><input class="fc" id="co-fax" placeholder="例：03-XXXX-XXXX" type="tel"></div>
+          <div class="fg"><label>メール</label><input class="fc" id="co-email" type="email" placeholder="info@sclass.jp"></div>
+          <div class="fg"><label>Webサイト</label><input class="fc" id="co-web" type="url" placeholder="https://..."></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">▸ 仙台拠点</div>
+        <div class="frow">
+          <div class="fg"><label>住所</label><input class="fc" id="co-sendai-addr" placeholder="仙台市..."></div>
+          <div class="fg"><label>電話</label><input class="fc" id="co-sendai-tel" type="tel"></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">▸ 京都拠点</div>
+        <div class="frow">
+          <div class="fg"><label>住所</label><input class="fc" id="co-kyoto-addr" placeholder="京都市..."></div>
+          <div class="fg"><label>電話</label><input class="fc" id="co-kyoto-tel" type="tel"></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">▸ 振込先（複数登録可）</div>
+        <div class="dyn-list" id="co-bank-list"></div>
+        <button type="button" class="dyn-add" onclick="addCoBank()">＋ 振込先を追加</button>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">▸ 税情報・登録番号</div>
+        <div class="frow">
+          <div class="fg"><label>法人番号</label><input class="fc" id="co-corp-num" placeholder="13桁"></div>
+          <div class="fg"><label>適格請求書番号</label><input class="fc" id="co-inv-num" placeholder="T + 13桁"></div>
+          <div class="fg"><label>酒類販売業免許番号</label><input class="fc" id="co-liquor-num" placeholder="例：仙台XX...号"></div>
+        </div>
+      </div>
+      <div class="faction">
+        <button class="btn btn-p" onclick="saveCompany()">保存</button>
+        <button class="btn btn-g" onclick="loadCompany()">リロード</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 商品マスター ════════ -->
+  <div id="m-products" class="mcon">
+    <div class="hint-box">
+      <strong>🍾 商品マスター</strong><br>
+      価格・原価・補充閾値を設定できます。ここで変更した内容は注文フォーム・在庫管理・分析に即時反映されます。
+    </div>
+    <div class="action-bar">
+      <span style="color:var(--wh2);font-size:.8rem">全<span id="prod-count">0</span>商品</span>
+      <div>
+        <button class="btn btn-g" onclick="resetProducts()">🔄 初期値に戻す</button>
+        <button class="btn btn-p" onclick="saveProducts()">保存</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="prod-table">
+        <thead>
+          <tr>
+            <th style="width:40px">#</th>
+            <th style="min-width:130px">商品名</th>
+            <th style="min-width:100px">カテゴリ</th>
+            <th style="width:110px;text-align:right">原価</th>
+            <th style="width:110px;text-align:right">新売値</th>
+            <th style="width:110px;text-align:right">旧売値</th>
+            <th style="width:90px;text-align:right">補充閾値</th>
+            <th style="width:80px">粗利率</th>
+          </tr>
+        </thead>
+        <tbody id="prod-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<!-- ═══ shared.js インライン化 ═══ -->
+<script>
+// ============================================================
+// shared.js  Sclassランボルギーニ 全システム共通データ
+// ============================================================
+const PROD_LIST = [
+  {key:'イエロー',     name:'イエロー',     fullName:'001: Extra Brut（イエロー）',     category:'スパークリング', cost:5000,  price:10500,  priceOld:10500,  reorder:10, img:''},
+  {key:'オレンジ',     name:'オレンジ',     fullName:'002: Rosé（オレンジ）',            category:'スパークリング', cost:10000, price:21000,  priceOld:21000,  reorder:10, img:''},
+  {key:'ブルー',       name:'ブルー',       fullName:'003: Blue Label',                  category:'スパークリング', cost:10000, price:21000,  priceOld:21000,  reorder:10, img:''},
+  {key:'ブラック',     name:'ブラック',     fullName:'004: Black Label',                 category:'スパークリング', cost:10000, price:21000,  priceOld:21000,  reorder:10, img:''},
+  {key:'プラチナ',     name:'プラチナ',     fullName:'005: Platinum',                    category:'スパークリング', cost:15000, price:33000,  priceOld:33000,  reorder:6,  img:''},
+  {key:'ゴールド',     name:'ゴールド',     fullName:'006: Gold',                        category:'スパークリング', cost:20000, price:44000,  priceOld:44000,  reorder:6,  img:''},
+  {key:'ルミナス',     name:'ルミナス',     fullName:'007: Luminous',                    category:'スパークリング', cost:25000, price:55000,  priceOld:55000,  reorder:6,  img:''},
+  {key:'レジェンド',   name:'レジェンド',   fullName:'008: Legend',                      category:'スパークリング', cost:25000, price:55000,  priceOld:55000,  reorder:6,  img:''},
+  {key:'さくら',       name:'さくら',       fullName:'009: Sakura',                      category:'スパークリング', cost:12000, price:25000,  priceOld:25000,  reorder:6,  img:''},
+  {key:'チェングレット', name:'チェングレット', fullName:'010: Cheng Leggero',             category:'スティルワイン', cost:3000,  price:6800,   priceOld:6800,   reorder:12, img:''},
+  {key:'チェングロッソ', name:'チェングロッソ', fullName:'011: Cheng Grosso',              category:'スティルワイン', cost:3000,  price:6800,   priceOld:6800,   reorder:12, img:''},
+  {key:'トレスコーネ', name:'トレスコーネ', fullName:'012: Trescone',                    category:'スティルワイン', cost:3500,  price:7800,   priceOld:7800,   reorder:12, img:''},
+  {key:'エラ',         name:'エラ',         fullName:'013: Ella',                        category:'スティルワイン', cost:4500,  price:10000,  priceOld:10000,  reorder:10, img:''},
+  {key:'トラミ',       name:'トラミ',       fullName:'014: Trami',                       category:'スティルワイン', cost:6000,  price:13000,  priceOld:13000,  reorder:10, img:''},
+  {key:'カンポレオーネ', name:'カンポレオーネ', fullName:'015: Campoleone',                category:'スティルワイン', cost:4500,  price:10000,  priceOld:10000,  reorder:10, img:''},
+  {key:'GIFTBOX',      name:'GIFTBOX',      fullName:'016: GIFTBOX',                     category:'ギフト',       cost:9000,  price:20000,  priceOld:20000,  reorder:5,  img:''},
+  {key:'コラチョロサ', name:'コラチョロサ', fullName:'017: Cora Chollosa',               category:'スティルワイン', cost:8000,  price:17000,  priceOld:17000,  reorder:6,  img:''},
+];
+
+const PRODS   = PROD_LIST.map(p => p.key);
+const PRICE   = Object.fromEntries(PROD_LIST.map(p => [p.key, p.price]));
+const COST    = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
+const REORDER = Object.fromEntries(PROD_LIST.map(p => [p.key, p.reorder]));
+
+const S = {
+  branch:'both',
+  orders:[], customers:[], staff:[],
+  stock:{仙台:{}, 京都:{}},
+  stockDetail:{仙台:{}, 京都:{}},
+  slog:[], collections:[], invoices:[],
+  bankEntries:[], bankHistory:[],
+  company:{}, products:null,
+  purchases:[], suppliers:['マルシェジャパン','オーク酒販'],
+  cashEntries:[], dailyReps:[],
+  gasUrl: localStorage.getItem('gasUrl') || '',
+};
+
+function today(){ return new Date().toISOString().slice(0,10); }
+function fmt(n){ return (Number(n)||0).toLocaleString('ja-JP'); }
+function yen(n){ return '¥' + fmt(n); }
+function calcAmt(o){
+  const tax = o.tax === 'taxあり' ? 1.1 : 1;
+  const cond = (o.condition || 10) / 10;
+  let total = 0;
+  Object.entries(o.items || {}).forEach(([p,q]) => {
+    total += Math.round((PRICE[p] || 0) * cond) * tax * (q || 0);
+  });
+  return Math.round(total);
+}
+
+function saveState(){
+  try {
+    const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
+                  'invoices','bankEntries','bankHistory','company','products','purchases',
+                  'cashEntries','dailyReps'];
+    keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
+  } catch(e){ console.warn('saveState error', e); }
+}
+function loadState(){
+  try {
+    const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
+                  'invoices','bankEntries','bankHistory','company','products','purchases',
+                  'cashEntries','dailyReps'];
+    keys.forEach(k => {
+      const v = localStorage.getItem('lmb_' + k);
+      if (v) try { S[k] = JSON.parse(v); } catch(e){}
+    });
+    S.gasUrl = localStorage.getItem('gasUrl') || '';
+  } catch(e){ console.warn('loadState error', e); }
+}
+
+function toast(msg, type){
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.borderColor = type === 'error' ? 'rgba(224,82,82,.5)' : 'rgba(201,168,76,.4)';
+  setTimeout(() => { t.style.opacity = '0'; }, 2500);
+}
+
+async function gasGet(action, params){
+  if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
+  const q = new URLSearchParams({ action, ...(params||{}) }).toString();
+  try {
+    const r = await fetch(S.gasUrl + '?' + q);
+    return await r.json();
+  } catch(e){
+    toast('通信エラー: ' + e.message, 'error');
+    return null;
+  }
+}
+async function gasPost(data){
+  if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
+  try {
+    await fetch(S.gasUrl, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return { ok: true };
+  } catch(e){
+    toast('送信エラー: ' + e.message, 'error');
+    return null;
+  }
+}
+
+// ─── window公開 ─────
+window.S=S; window.PROD_LIST=PROD_LIST; window.PRODS=PRODS;
+window.PRICE=PRICE; window.COST=COST; window.REORDER=REORDER;
+window.calcAmt=calcAmt; window.today=today; window.fmt=fmt; window.yen=yen;
+window.saveState=saveState; window.loadState=loadState;
+window.toast=toast; window.gasGet=gasGet; window.gasPost=gasPost;
+
+loadState();
+</script>
+
+<!-- ═══ マスター共通 + 顧客マスター ═══ -->
+<script>
+// ─── ログイン認証チェック（開発中はスキップ） ─────
+// ★ 本番運用時にコメントを外す
+/*
+const currentUser = JSON.parse(sessionStorage.getItem('lmb_current_user') || 'null');
+if (!currentUser){
+  location.href = 'login.html';
+}
+*/
+// 開発用: 管理者として自動ログイン
+const currentUser = JSON.parse(sessionStorage.getItem('lmb_current_user') || 'null') || {
+  id: 'dev-admin',
+  name: '開発者',
+  email: 'admin@sclass.jp',
+  role: 'admin',
+  branch: '両拠点',
+  active: true,
+  isDev: true,
+};
+
+// ─── ユーザーバッジ表示 ─────
+function updateUserBadge(){
+  const badge = document.getElementById('user-badge');
+  if (!badge || !currentUser) return;
+  const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁'};
+  badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name} (${currentUser.role})`;
+}
+
+// ─── ログアウト ─────
+function doLogout(){
+  if (confirm('ログアウトしますか？')) {
+    sessionStorage.removeItem('lmb_current_user');
+    location.href = 'login.html';
+  }
+}
+
+// ─── 権限チェック（ロール別） ─────
+// admin: すべて / manager: 削除以外 / staff: 自分の入力のみ / viewer: 閲覧のみ
+function canEdit(){
+  return currentUser && ['admin','manager','staff'].includes(currentUser.role);
+}
+function canDelete(){
+  return currentUser && ['admin','manager'].includes(currentUser.role);
+}
+
+// ─── 親タブ切替 ─────
+function switchMaster(name, el){
+  document.querySelectorAll('.mtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.mcon').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('m-' + name).classList.add('active');
+
+  // 初回表示時の描画
+  if (name === 'customers') renderCustList();
+  if (name === 'staff')     renderStaffList();
+  if (name === 'company')   loadCompany();
+  if (name === 'products')  renderProducts();
+}
+
+// ─── 全同期 ─────
+async function syncAllFromGAS(){
+  if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
+  toast('同期中...');
+  const cust = await gasGet('getCustomers');
+  if (cust && cust.customers) { S.customers = cust.customers; }
+  saveState();
+  localStorage.setItem('lmb_lastSync', new Date().toISOString());
+  toast('✓ 同期完了');
+  renderCustList();
+  renderStaffList();
+}
+
+// ─── ユーティリティ ─────
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ═══════════════════════════════════════
+//        顧客マスター
+// ═══════════════════════════════════════
+let custEditingId = null;
+let custContactRows = [];
+let custBankRows = [];
+
+function switchCustTab(name, el){
+  document.querySelectorAll('#m-customers .tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#m-customers .tcon').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'list') renderCustList();
+  if (name === 'uid')  loadCustPendingUids();
+}
+
+function renderCustList(){
+  const kw = (document.getElementById('f-kw')?.value || '').trim().toLowerCase();
+  const br = document.getElementById('f-br')?.value || '';
+  const uidFilter = document.getElementById('f-uid')?.value || '';
+  let filtered = (S.customers || []).filter(c => {
+    if (br && c.branch !== br) return false;
+    if (uidFilter === '有' && !c.lineUid) return false;
+    if (uidFilter === '無' && c.lineUid)  return false;
+    if (kw){
+      const hay = `${c.name||''} ${c.kana||''} ${c.staff||''} ${c.pref||''} ${c.city||''}`.toLowerCase();
+      if (!hay.includes(kw)) return false;
+    }
+    return true;
+  });
+  const cnt = document.getElementById('list-count');
+  if (cnt) cnt.textContent = filtered.length;
+  const grid = document.getElementById('cust-grid');
+  if (!grid) return;
+  if (filtered.length === 0){
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
+      <div class="empty-icon">🏪</div>
+      <div>該当する顧客がありません</div>
+      <div style="font-size:.75rem;margin-top:.5rem;color:var(--wh3)">「＋ 新規登録」から追加してください</div>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map(c => {
+    const hasRate = c.productRates && c.productRates.filter(r => r.rate).length > 0;
+    const rateCount = hasRate ? c.productRates.filter(r => r.rate).length : 0;
+    const uidClass = c.lineUid ? 'uid' : 'no-uid';
+    const uidText  = c.lineUid ? '🔗 UID登録済み' : '⚠ UID未登録';
+    return `
+    <div class="cust-card" onclick="openCust('${c.id}')">
+      <div class="cust-head">
+        <div class="cust-name">${escapeHtml(c.name || '無名')}</div>
+        <div class="cust-branch">${c.branch || '—'}</div>
+      </div>
+      <div class="cust-info">
+        ${c.owner ? `<div><strong>代表:</strong> ${escapeHtml(c.owner)}</div>` : ''}
+        ${c.tel ? `<div><strong>TEL:</strong> ${escapeHtml(c.tel)}</div>` : ''}
+        ${c.staff ? `<div><strong>担当:</strong> ${escapeHtml(c.staff)}</div>` : ''}
+        ${(c.pref||c.city) ? `<div style="color:var(--wh3);font-size:.65rem;margin-top:.2rem">${escapeHtml((c.pref||'')+(c.city||''))}</div>` : ''}
+      </div>
+      <div class="cust-meta">
+        <span class="meta-chip rate">${c.rate || '7'}掛</span>
+        ${hasRate ? `<span class="meta-chip rate">商品別 ${rateCount}</span>` : ''}
+        <span class="meta-chip ${uidClass}">${uidText}</span>
+        ${c.sponsorEnabled ? '<span class="meta-chip sponsor">協賛あり</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openCust(id){
+  const c = (S.customers || []).find(x => x.id === id);
+  if (!c) return toast('顧客が見つかりません', 'error');
+  custEditingId = id;
+  fillCustForm(c);
+  const es = document.getElementById('edit-status');
+  if (es) es.textContent = '編集中: ' + (c.name || '');
+  const bd = document.getElementById('btn-delete');
+  if (bd) bd.style.display = 'inline-block';
+  switchCustTab('new', document.querySelectorAll('#m-customers .tab')[1]);
+}
+
+// ─── 自動入力された住所を記憶（手動編集された分は保護） ─────
+let _autoFilledAddress = { pref: null, city: null, addr1: null };
+
+// ─── formatZip: 郵便番号 7桁入力で自動ハイフン挿入 ─────
+function formatZip(input){
+  if (!input) return;
+  let v = String(input.value || '').replace(/[^0-9]/g, '');
+  const digitLen = v.length;
+  if (v.length > 7) v = v.slice(0, 7);
+  if (v.length > 3) v = v.slice(0, 3) + '-' + v.slice(3);
+  input.value = v;
+
+  if (digitLen < 7){
+    // 7桁未満になったら、自動入力された住所だけクリア（手動編集分は保護）
+    clearAutoFilledAddress();
+  } else if (digitLen === 7){
+    // 7桁揃ったら：①以前の自動住所を消去 → ②新しい郵便番号で再検索
+    clearAutoFilledAddress();
+    lookupZipNow({ autoMode: true });
+  }
+}
+
+// ─── 自動入力した住所だけを消す（手動入力分は残す） ─────
+function clearAutoFilledAddress(){
+  const prefEl  = document.getElementById('cf-pref');
+  const cityEl  = document.getElementById('cf-city');
+  const addr1El = document.getElementById('cf-addr1');
+  // 「現在の値 === 自動入力した値」なら、ユーザーは触っていないと判定→クリア
+  if (prefEl  && _autoFilledAddress.pref  !== null && prefEl.value  === _autoFilledAddress.pref)  prefEl.value  = '';
+  if (cityEl  && _autoFilledAddress.city  !== null && cityEl.value  === _autoFilledAddress.city)  cityEl.value  = '';
+  if (addr1El && _autoFilledAddress.addr1 !== null && addr1El.value === _autoFilledAddress.addr1) addr1El.value = '';
+  _autoFilledAddress = { pref: null, city: null, addr1: null };
+}
+
+// ─── 郵便番号 → 住所自動入力（zipcloud API / JSONP方式） ─────
+function lookupZipNow(opts){
+  opts = opts || {};
+  const zipInput = document.getElementById('cf-zip');
+  if (!zipInput) return;
+  const digits = String(zipInput.value || '').replace(/[^0-9]/g, '');
+  if (digits.length !== 7){
+    if (!opts.autoMode) toast('7桁の郵便番号を入力してください', 'error');
+    return;
+  }
+  // JSONPコールバック生成（CORS回避）
+  const cbName = '_zipCb' + Date.now() + Math.floor(Math.random() * 1000);
+  const cleanup = () => {
+    try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
+    if (script.parentNode) script.parentNode.removeChild(script);
+  };
+  const timer = setTimeout(() => {
+    cleanup();
+    if (!opts.autoMode) toast('住所検索: 応答なし（ネット接続を確認）', 'error');
+  }, 8000);
+  window[cbName] = function(data){
+    clearTimeout(timer);
+    cleanup();
+    // 非同期競合対策：応答が返ってきた時点で郵便番号が変わっていたら中止
+    const zipNow = String(zipInput.value || '').replace(/[^0-9]/g, '');
+    if (zipNow !== digits) return;
+
+    if (data && data.status === 200 && data.results && data.results.length > 0){
+      const r = data.results[0];
+      const prefEl  = document.getElementById('cf-pref');
+      const cityEl  = document.getElementById('cf-city');
+      const addr1El = document.getElementById('cf-addr1');
+      // autoMode=空欄のみ補完 / 手動=上書き
+      // 入力した値は _autoFilledAddress に記憶し、後でzipクリア時に消せるようにする
+      if (prefEl  && (!opts.autoMode || !prefEl.value))  { prefEl.value  = r.address1 || ''; _autoFilledAddress.pref  = r.address1 || ''; }
+      if (cityEl  && (!opts.autoMode || !cityEl.value))  { cityEl.value  = r.address2 || ''; _autoFilledAddress.city  = r.address2 || ''; }
+      if (addr1El && (!opts.autoMode || !addr1El.value)) { addr1El.value = r.address3 || ''; _autoFilledAddress.addr1 = r.address3 || ''; }
+      toast('✓ 住所を自動入力（' + r.address1 + r.address2 + '）');
+    } else if (data && data.status !== 200){
+      if (!opts.autoMode) toast(data.message || '郵便番号が見つかりません', 'error');
+    } else {
+      if (!opts.autoMode) toast('該当する住所が見つかりません', 'error');
+    }
+  };
+  const script = document.createElement('script');
+  script.src = 'https://zipcloud.ibsnet.co.jp/api/search?zipcode=' + digits + '&callback=' + cbName;
+  script.onerror = function(){
+    clearTimeout(timer);
+    cleanup();
+    if (!opts.autoMode) toast('郵便番号検索に失敗（ネット接続を確認）', 'error');
+  };
+  document.head.appendChild(script);
+}
+
+function fillCustForm(c){
+  const g = id => document.getElementById(id);
+  g('cf-name').value=c.name||''; g('cf-kana').value=c.kana||'';
+  g('cf-branch').value=c.branch||'仙台'; g('cf-staff').value=c.staff||'';
+  g('cf-tel').value=c.tel||''; g('cf-owner').value=c.owner||'';
+  g('cf-owner-tel').value=c.ownerTel||''; g('cf-zip').value=c.zip||''; formatZip(g('cf-zip'));
+  g('cf-pref').value=c.pref||''; g('cf-city').value=c.city||'';
+  g('cf-addr1').value=c.addr1||''; g('cf-addr2').value=c.addr2||'';
+  g('cf-line-id').value=c.lineId||''; g('cf-line-uid').value=c.lineUid||'';
+  g('cf-inv-name').value=c.invName||''; g('cf-referrer').value=c.referrer||'';
+  g('cf-pay-method').value=c.payMethod||'';
+  g('cf-rate').value=c.rate||'7'; g('cf-note').value=c.note||'';
+  g('cf-common-price-mode').value = c.commonPriceMode || '新値';
+  g('cf-common-tax').value        = c.commonTaxType   || '税込';
+  g('cf-sponsor').checked=!!c.sponsorEnabled;
+  g('cf-sponsor-trigger').value=c.sponsorTrigger||'';
+  g('cf-sponsor-reward').value=c.sponsorReward||'';
+  g('cf-sponsor-product').value=c.sponsorProduct||'';
+  updateSponsorProductOptions(c.sponsorProduct||'');
+  // 詳細情報（分析用）
+  g('cf-biz-type').value      = c.bizType      || '';
+  g('cf-open-date').value     = c.openDate     || '';
+  g('cf-seats').value         = c.seats        || '';
+  g('cf-owner-age').value     = c.ownerAge     || '';
+  g('cf-customer-base').value = c.customerBase || '';
+  g('cf-product-trend').value = c.productTrend || '';
+  g('cf-competitor').value    = c.competitor   || '';
+  g('cf-deal-start').value    = c.dealStart    || '';
+  g('cf-deal-channel').value  = c.dealChannel  || '';
+  g('cf-biz-hours').value     = c.bizHours     || '';
+  g('cf-avg-spend').value     = c.avgSpend     || '';
+  toggleCustSponsor();
+  custContactRows = (c.contacts && c.contacts.length > 0) ? [...c.contacts] : [];
+  renderCustContacts();
+  custBankRows = (c.bankNames && c.bankNames.length > 0) ? [...c.bankNames] : [];
+  renderCustBanks();
+  custDeliveryRows = (c.deliveries && Array.isArray(c.deliveries)) ? c.deliveries.map(d => ({...d})) : [];
+  renderCustDeliveries();
+  renderCustProdRates(c.productRates || []);
+}
+
+function clearCustForm(){
+  custEditingId = null;
+  ['cf-name','cf-kana','cf-tel','cf-owner','cf-owner-tel','cf-zip','cf-pref','cf-city',
+   'cf-addr1','cf-addr2','cf-line-id','cf-line-uid','cf-inv-name','cf-referrer','cf-note',
+   'cf-pay-method',
+   'cf-sponsor-trigger','cf-sponsor-reward','cf-sponsor-product',
+   // 詳細情報（分析用）
+   'cf-biz-type','cf-open-date','cf-seats','cf-owner-age',
+   'cf-customer-base','cf-product-trend','cf-competitor',
+   'cf-deal-start','cf-deal-channel','cf-biz-hours','cf-avg-spend'
+  ].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  document.getElementById('cf-branch').value = '仙台';
+  document.getElementById('cf-staff').value = '';
+  document.getElementById('cf-rate').value = '7';
+  document.getElementById('cf-common-price-mode').value = '新値';
+  document.getElementById('cf-common-tax').value = '税込';
+  document.getElementById('cf-sponsor').checked = false;
+  toggleCustSponsor();
+  custContactRows = []; custBankRows = []; custDeliveryRows = [];
+  renderCustContacts(); renderCustBanks(); renderCustDeliveries();
+  renderCustProdRates([]);
+  document.getElementById('edit-status').textContent = '';
+  document.getElementById('btn-delete').style.display = 'none';
+}
+
+function renderCustContacts(){
+  const list = document.getElementById('contact-list');
+  if (!list) return;
+  if (custContactRows.length === 0){
+    list.innerHTML = '<div style="font-size:.7rem;color:var(--wh3);padding:.4rem">担当者なし</div>';
+    return;
+  }
+  list.innerHTML = custContactRows.map((r,i) => `
+    <div class="dyn-row">
+      <input class="fc" placeholder="担当者名" value="${escapeHtml(r.name||'')}" oninput="custContactRows[${i}].name=this.value">
+      <input class="fc" placeholder="電話番号" value="${escapeHtml(r.tel||'')}" oninput="custContactRows[${i}].tel=this.value" style="max-width:160px">
+      <button class="dyn-del" onclick="removeCustContact(${i})">✕</button>
+    </div>`).join('');
+}
+function addCustContact(){ custContactRows.push({name:'',tel:''}); renderCustContacts(); }
+function removeCustContact(i){ custContactRows.splice(i,1); renderCustContacts(); }
+
+function renderCustBanks(){
+  const list = document.getElementById('bank-list');
+  if (!list) return;
+  if (custBankRows.length === 0){
+    list.innerHTML = '<div style="font-size:.7rem;color:var(--wh3);padding:.4rem">振込名義なし</div>';
+    return;
+  }
+  list.innerHTML = custBankRows.map((v,i) => `
+    <div class="dyn-row">
+      <input class="fc" placeholder="振込名義" value="${escapeHtml(v||'')}" oninput="custBankRows[${i}]=this.value">
+      <button class="dyn-del" onclick="removeCustBank(${i})">✕</button>
+    </div>`).join('');
+}
+function addCustBank(){ custBankRows.push(''); renderCustBanks(); }
+function removeCustBank(i){ custBankRows.splice(i,1); renderCustBanks(); }
+
+// ─── 配達先（最大5件） ──────────────────────────
+let custDeliveryRows = [];
+function renderCustDeliveries(){
+  const list = document.getElementById('cf-delivery-list');
+  if (!list) return;
+  if (custDeliveryRows.length === 0){
+    list.innerHTML = '<div style="font-size:.7rem;color:var(--wh3);padding:.4rem">配達先なし（住所と同じ場所に配達）</div>';
+    return;
+  }
+  list.innerHTML = custDeliveryRows.map((d, i) => `
+    <div style="background:rgba(0,0,0,.2);border:1px solid rgba(155,127,212,.2);border-radius:3px;padding:.6rem;margin-bottom:.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+        <span style="font-size:.72rem;color:var(--gold-l);font-weight:500">配達先 ${i+1}</span>
+        <button type="button" onclick="removeCustDelivery(${i})" style="background:transparent;border:1px solid var(--red);color:var(--red);padding:.15rem .5rem;font-size:.65rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;border-radius:0">✕ 削除</button>
+      </div>
+      <div class="frow">
+        <div class="fg fc-full"><label style="font-size:.65rem">名称</label><input class="fc" placeholder="例：○○ホール" value="${escapeHtml(d.name||'')}" oninput="custDeliveryRows[${i}].name=this.value"></div>
+        <div class="fg"><label style="font-size:.65rem">郵便番号</label>
+          <div style="display:flex;gap:.3rem">
+            <input class="fc" placeholder="980-0021" type="tel" maxlength="8" value="${escapeHtml(d.zip||'')}" oninput="formatDeliveryZip(this, ${i})" style="flex:1;min-width:0">
+            <button type="button" class="cf-zip-btn" onclick="lookupCustDeliveryZip(${i})" style="background:transparent;border:1px solid var(--gold-d);color:var(--gold-l);padding:0 .5rem;font-size:.65rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif;border-radius:0;white-space:nowrap">🔍</button>
+          </div>
+        </div>
+        <div class="fg"><label style="font-size:.65rem">都道府県</label><input class="fc" placeholder="宮城県" value="${escapeHtml(d.pref||'')}" oninput="custDeliveryRows[${i}].pref=this.value"></div>
+        <div class="fg"><label style="font-size:.65rem">市町村郡</label><input class="fc" placeholder="仙台市青葉区" value="${escapeHtml(d.city||'')}" oninput="custDeliveryRows[${i}].city=this.value"></div>
+        <div class="fg"><label style="font-size:.65rem">番地</label><input class="fc" placeholder="中央1-2-3" value="${escapeHtml(d.addr1||'')}" oninput="custDeliveryRows[${i}].addr1=this.value"></div>
+        <div class="fg fc-full"><label style="font-size:.65rem">建物名</label><input class="fc" placeholder="○○ビル3F" value="${escapeHtml(d.addr2||'')}" oninput="custDeliveryRows[${i}].addr2=this.value"></div>
+        <div class="fg"><label style="font-size:.65rem">担当者名</label><input class="fc" placeholder="担当者名" value="${escapeHtml(d.contact||'')}" oninput="custDeliveryRows[${i}].contact=this.value"></div>
+        <div class="fg"><label style="font-size:.65rem">電話</label><input class="fc" type="tel" placeholder="022-xxx-xxxx" value="${escapeHtml(d.tel||'')}" oninput="custDeliveryRows[${i}].tel=this.value"></div>
+        <div class="fg fc-full"><label style="font-size:.65rem">メモ</label><input class="fc" placeholder="例：裏口から / 冷蔵保管" value="${escapeHtml(d.memo||'')}" oninput="custDeliveryRows[${i}].memo=this.value"></div>
+      </div>
+    </div>`).join('');
+  // 5件到達したら追加ボタンを無効化
+  const addBtn = document.getElementById('cf-delivery-add');
+  if (addBtn) {
+    addBtn.disabled = custDeliveryRows.length >= 5;
+    addBtn.style.opacity = addBtn.disabled ? '.4' : '1';
+    addBtn.textContent = custDeliveryRows.length >= 5 ? '上限 5 件に達しました' : '＋ 配達先を追加';
+  }
+  // 配達先カード内の入力欄にもキー操作（Enter/↓で次、↑で前）を bind
+  attachCustDeliveryKeydown();
+}
+function addCustDelivery(){
+  if (custDeliveryRows.length >= 5) { toast('配達先は最大5件までです', 'error'); return; }
+  custDeliveryRows.push({ name:'', zip:'', pref:'', city:'', addr1:'', addr2:'', contact:'', tel:'', memo:'' });
+  renderCustDeliveries();
+}
+function removeCustDelivery(i){
+  custDeliveryRows.splice(i, 1);
+  renderCustDeliveries();
+}
+// 配達先用の郵便番号自動入力
+function lookupCustDeliveryZip(i){
+  const d = custDeliveryRows[i];
+  if (!d || !d.zip) { toast('郵便番号を入力してください', 'error'); return; }
+  const zipDigits = String(d.zip).replace(/[^0-9]/g, '');
+  if (zipDigits.length !== 7) { toast('郵便番号は7桁で入力してください', 'error'); return; }
+  const cb = '__zipcb_del_' + i + '_' + Date.now();
+  window[cb] = function(data){
+    delete window[cb];
+    if (data && data.results && data.results[0]) {
+      const r = data.results[0];
+      custDeliveryRows[i].pref  = r.address1 || '';
+      custDeliveryRows[i].city  = r.address2 || '';
+      custDeliveryRows[i].addr1 = r.address3 || '';
+      renderCustDeliveries();
+      toast('✓ 住所を取得しました');
+    } else {
+      toast('該当する住所が見つかりませんでした', 'error');
+    }
+  };
+  const s = document.createElement('script');
+  s.src = 'https://zipcloud.ibsnet.co.jp/api/search?zipcode=' + zipDigits + '&callback=' + cb;
+  s.onerror = function(){ delete window[cb]; toast('住所取得に失敗しました', 'error'); };
+  document.body.appendChild(s);
+}
+
+// ─── 協賛対象商品プルダウン: 商品マスターから選択肢を再構築 ─────
+// currentValue を渡すと、その値を選択状態にする（廃番でも保持）
+function updateSponsorProductOptions(currentValue){
+  const sel = document.getElementById('cf-sponsor-product');
+  if (!sel) return;
+  // 商品リストを取得（S.products 優先、なければ PROD_LIST 初期値）
+  const list = (S.products && S.products.length > 0)
+    ? S.products
+    : (typeof PROD_LIST !== 'undefined' ? PROD_LIST : []);
+  // 既存値を保持（引数優先、なければ現在のセレクト値）
+  const keep = (currentValue !== undefined && currentValue !== null) ? currentValue : sel.value;
+  // 選択肢を再構築
+  sel.innerHTML = '<option value="">未設定（＝全商品）</option>';
+  list.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+  // 既存値が選択肢にあればセット、なければ「(廃番)」として末尾に追加
+  if (keep) {
+    const exists = Array.from(sel.options).some(o => o.value === keep);
+    if (!exists) {
+      const opt = document.createElement('option');
+      opt.value = keep;
+      opt.textContent = keep + ' (廃番)';
+      sel.appendChild(opt);
+    }
+    sel.value = keep;
+  }
+}
+
+function renderCustProdRates(existing){
+  const grid = document.getElementById('prate-grid');
+  if (!grid) return;
+  const existMap = {};       // { 商品名: 掛率 }
+  const existModeMap = {};   // { 商品名: 価格モード }
+  const existTaxMap = {};    // { 商品名: 税 }
+  (existing || []).forEach(r => {
+    existMap[r.key] = r.rate || '';
+    if (r.priceMode) existModeMap[r.key] = r.priceMode;
+    if (r.taxType)   existTaxMap[r.key]  = r.taxType;
+  });
+  grid.innerHTML = PROD_LIST.map(p => {
+    const mode = existModeMap[p.key] || '新値';
+    const tax  = existTaxMap[p.key]  || '税込';
+    return `
+    <div class="prate-item">
+      <div class="prate-name">${escapeHtml(p.name)}</div>
+      <div class="prate-controls">
+        <input type="number" id="pr-${p.key}" step="0.5" min="0" max="10"
+          value="${existMap[p.key]||''}" placeholder="掛率">
+        <select id="pm-${p.key}" title="価格モード">
+          <option value="新値" ${mode==='新値'?'selected':''}>新値</option>
+          <option value="旧値" ${mode==='旧値'?'selected':''}>旧値</option>
+        </select>
+        <select id="pt-${p.key}" title="税">
+          <option value="税込" ${tax==='税込'?'selected':''}>税込</option>
+          <option value="税抜" ${tax==='税抜'?'selected':''}>税抜</option>
+          <option value="未設定" ${tax==='未設定'?'selected':''}>未設定</option>
+        </select>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function getCustProdRates(){
+  return PROD_LIST.map(p => {
+    const rateEl = document.getElementById('pr-' + p.key);
+    const modeEl = document.getElementById('pm-' + p.key);
+    const taxEl  = document.getElementById('pt-' + p.key);
+    return {
+      key: p.key,
+      rate: rateEl ? (rateEl.value || '') : '',
+      priceMode: modeEl ? (modeEl.value || '新値') : '新値',
+      taxType:   taxEl  ? (taxEl.value  || '税込') : '税込'
+    };
+  }).filter(r => r.rate);  // 掛率が入力されている行のみ保持
+}
+
+function toggleCustSponsor(){
+  const on = document.getElementById('cf-sponsor').checked;
+  document.getElementById('sponsor-detail').style.display = on ? 'block' : 'none';
+}
+
+function submitCustForm(){
+  if (!canEdit()) return toast('🔒 編集権限がありません（viewer は閲覧のみ）', 'error');
+  const g = id => (document.getElementById(id)||{}).value || '';
+  const name = g('cf-name').trim();
+  if (!name) return toast('店舗名は必須です', 'error');
+  const data = {
+    id: custEditingId || ('cust-' + Date.now()),
+    branch: g('cf-branch'), staff: g('cf-staff'),
+    name: name, kana: g('cf-kana'),
+    tel: g('cf-tel'), owner: g('cf-owner'), ownerTel: g('cf-owner-tel'),
+    contacts: custContactRows.filter(r => r.name || r.tel),
+    zip: g('cf-zip'), pref: g('cf-pref'), city: g('cf-city'),
+    addr1: g('cf-addr1'), addr2: g('cf-addr2'),
+    lineId: g('cf-line-id'), lineUid: g('cf-line-uid').trim(),
+    invName: g('cf-inv-name'), referrer: g('cf-referrer'),
+    payMethod: g('cf-pay-method'),
+    bankNames: custBankRows.filter(v => v),
+    deliveries: custDeliveryRows.filter(d => d && (d.name || d.zip || d.addr1)).slice(0, 5),
+    rate: g('cf-rate') || '7',
+    commonPriceMode: g('cf-common-price-mode') || '新値',
+    commonTaxType:   g('cf-common-tax')        || '税込',
+    productRates: getCustProdRates(),
+    note: g('cf-note'),
+    sponsorEnabled: document.getElementById('cf-sponsor').checked,
+    sponsorTrigger: g('cf-sponsor-trigger'),
+    sponsorReward:  g('cf-sponsor-reward'),
+    sponsorProduct: g('cf-sponsor-product'),
+    // 詳細情報（分析用）
+    bizType:      g('cf-biz-type'),
+    openDate:     g('cf-open-date'),
+    seats:        g('cf-seats'),
+    ownerAge:     g('cf-owner-age'),
+    customerBase: g('cf-customer-base'),
+    productTrend: g('cf-product-trend'),
+    competitor:   g('cf-competitor'),
+    dealStart:    g('cf-deal-start'),
+    dealChannel:  g('cf-deal-channel'),
+    bizHours:     g('cf-biz-hours'),
+    avgSpend:     g('cf-avg-spend'),
+    updatedAt: new Date().toISOString()
+  };
+  if (!S.customers) S.customers = [];
+  if (custEditingId){
+    const idx = S.customers.findIndex(c => c.id === custEditingId);
+    if (idx >= 0) S.customers[idx] = data;
+  } else {
+    S.customers.push(data);
+  }
+  saveState();
+  if (S.gasUrl) gasPost({ action: 'saveCustomer', ...data });
+  toast(custEditingId ? '✓ 更新しました' : '✓ 登録しました');
+  clearCustForm();
+  switchCustTab('list', document.querySelectorAll('#m-customers .tab')[0]);
+}
+
+function deleteCust(){
+  if (!canDelete()) return toast('🔒 削除権限がありません（admin/manager のみ）', 'error');
+  if (!custEditingId) return;
+  if (!confirm('この顧客を削除しますか？\nスプレッドシートのデータは残ります。')) return;
+  S.customers = (S.customers || []).filter(c => c.id !== custEditingId);
+  saveState();
+  toast('✓ 削除しました');
+  clearCustForm();
+  switchCustTab('list', document.querySelectorAll('#m-customers .tab')[0]);
+}
+
+// ─── CSV取込/出力 ─────────────────────────────────
+const CSV_HEADERS = [
+  '店舗名','フリガナ','拠点','担当者','代表者','代表者TEL','店舗TEL',
+  '郵便番号','都道府県','市町村郡','番地','建物',
+  'LINE_UID','掛率','協賛','備考'
+];
+
+// ─── カラム別名マップ（あなたのCSV他、よくある列名に対応） ───
+const COLUMN_ALIASES = {
+  '店舗名':     ['店舗名','店名','会社名','取引先','取引先名','事業所名','法人名'],
+  'フリガナ':   ['フリガナ','ふりがな','カナ','店舗カナ','読み'],
+  '拠点':       ['拠点','エリア','営業所'],
+  '担当者':     ['担当者','弊社担当','弊社担当者'],
+  '代表者':     ['代表者','名前','オーナー','代表者名','責任者'],
+  '代表者TEL':  ['代表者TEL','代表者電話','オーナーTEL','電話番号.1'],
+  '店舗TEL':    ['店舗TEL','店舗電話','電話番号','TEL','tel'],
+  '郵便番号':   ['郵便番号','〒','zip','ZIP','postal'],
+  '住所':       ['住所','所在地'],  // ← 1カラム住所は自動分割
+  '都道府県':   ['都道府県','県'],
+  '市町村郡':   ['市町村郡','市区町村','市町村'],
+  '番地':       ['番地','番地号'],
+  '建物':       ['建物','建物名','ビル名'],
+  'LINE_UID':   ['LINE_UID','LINE UID','LINEUID','LINE','UID','line_uid'],
+  '掛率':       ['掛率','かけ率','率'],
+  '協賛':       ['協賛','スポンサー','欲しい協賛'],
+  '備考':       ['備考','メモ','コメント','摘要','note'],
+};
+
+// 備考に追記するための列（特別な処理）
+const APPEND_TO_NOTE = ['FAX','支払方法','役職','店舗ステータス','業態','グループ','酒屋',
+                        '月間本数','請求書_郵便番号','請求書_住所','誕生日','誕生月','営業担当者'];
+const INVOICE_NAME_ALIASES = ['請求書宛名','請求書_宛名','請求宛名','invoice_name'];
+
+let parsedCsvData = null;
+let parsedCsvWarnings = [];
+
+// ─── 文字コード判定（UTF-8 / Shift-JIS / CP932 / EUC-JP） ───
+function detectEncoding(buffer){
+  const arr = new Uint8Array(buffer);
+  if (arr.length >= 3 && arr[0] === 0xEF && arr[1] === 0xBB && arr[2] === 0xBF) return 'utf-8';
+  // UTF-8の有効性チェック
+  try {
+    new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+    return 'utf-8';
+  } catch(e){
+    // CP932 (Shift_JIS拡張) を優先試行
+    try {
+      const txt = new TextDecoder('cp932', { fatal: false }).decode(buffer);
+      if (txt.length > 0) return 'cp932';
+    } catch(e2){}
+    return 'shift-jis';
+  }
+}
+
+// CSVパース
+function parseCsv(text){
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  // 末尾の空行除去
+  while (lines.length > 0 && !lines[lines.length-1].trim()) lines.pop();
+  if (lines.length === 0) return { headers: [], rows: [] };
+
+  const firstLine = lines[0];
+  const sep = firstLine.includes('\t') ? '\t' : ',';
+
+  const parseLine = line => {
+    const result = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++){
+      const ch = line[i];
+      if (ch === '"'){
+        if (inQ && line[i+1] === '"'){ cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (ch === sep && !inQ){
+        result.push(cur); cur = '';
+      } else { cur += ch; }
+    }
+    result.push(cur);
+    return result.map(s => s.trim().replace(/^"|"$/g, ''));
+  };
+
+  const headers = parseLine(lines[0]);
+  const rows = lines.slice(1).filter(l => l.trim()).map(parseLine);
+  return { headers, rows };
+}
+
+// CSV列名 → 標準列名にマッピング
+function buildColumnMap(headers){
+  const map = {};
+  CSV_HEADERS.forEach(std => {
+    const aliases = COLUMN_ALIASES[std] || [std];
+    for (const alias of aliases){
+      const idx = headers.findIndex(h => h.replace(/\s+/g,'').toLowerCase() === alias.replace(/\s+/g,'').toLowerCase());
+      if (idx >= 0){ map[std] = idx; break; }
+    }
+  });
+  // 住所単一カラムの判定
+  const addrIdx = headers.findIndex(h => h.replace(/\s+/g,'') === '住所' || h.replace(/\s+/g,'') === '所在地');
+  if (addrIdx >= 0 && map['都道府県'] === undefined){
+    map['_住所単一'] = addrIdx;
+  }
+  // 請求書宛名
+  for (const alias of INVOICE_NAME_ALIASES){
+    const idx = headers.findIndex(h => h.replace(/\s+/g,'').toLowerCase() === alias.replace(/\s+/g,'').toLowerCase());
+    if (idx >= 0){ map['_請求書宛名'] = idx; break; }
+  }
+  // 備考に追加する列
+  const noteCols = [];
+  APPEND_TO_NOTE.forEach(name => {
+    const idx = headers.findIndex(h => h.replace(/\s+/g,'') === name);
+    if (idx >= 0) noteCols.push({ name, idx });
+  });
+  map['_備考追加'] = noteCols;
+  return map;
+}
+
+// 住所を都道府県・市町村郡・番地・建物に分割（簡易）
+function splitAddress(addr){
+  if (!addr) return { pref:'', city:'', addr1:'', addr2:'' };
+  let rest = addr.trim().replace(/\s+/g, ' ');
+  let pref = '', city = '', addr1 = '', addr2 = '';
+
+  // 都道府県を抽出
+  const prefMatch = rest.match(/^(北海道|東京都|京都府|大阪府|.{2,3}県)/);
+  if (prefMatch){
+    pref = prefMatch[1];
+    rest = rest.slice(pref.length).trim();
+  }
+
+  // 市区町村郡を抽出（…市、…区、…町、…村、…郡）
+  const cityMatch = rest.match(/^([^0-9０-９\s]+?[市区町村郡])/);
+  if (cityMatch){
+    city = cityMatch[1];
+    rest = rest.slice(city.length).trim();
+    // 政令指定都市の区もまとめる
+    const ward = rest.match(/^([^0-9０-９\s]+?区)/);
+    if (ward && (city.endsWith('市'))){
+      city += ward[1];
+      rest = rest.slice(ward[1].length).trim();
+    }
+  }
+
+  // スペースで番地・建物分割
+  const parts = rest.split(/[\s　]+/);
+  if (parts.length >= 2){
+    addr1 = parts[0];
+    addr2 = parts.slice(1).join(' ');
+  } else {
+    addr1 = rest;
+  }
+
+  return { pref, city, addr1, addr2 };
+}
+
+// 都道府県から拠点を推定
+function inferBranch(pref){
+  // 東北・北海道は仙台
+  const SENDAI = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','長野県','山梨県'];
+  const KYOTO = ['富山県','石川県','福井県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
+  if (SENDAI.includes(pref)) return '仙台';
+  if (KYOTO.includes(pref)) return '京都';
+  return '仙台'; // デフォルト
+}
+
+// CSV行 → 顧客オブジェクト
+function csvRowToCustomer(headers, row, colMap){
+  const get = name => colMap[name] !== undefined ? (row[colMap[name]] || '').trim() : '';
+
+  const cust = {
+    name:      get('店舗名'),
+    kana:      get('フリガナ'),
+    branch:    get('拠点'),
+    staff:     get('担当者'),
+    owner:     get('代表者'),
+    ownerTel:  get('代表者TEL'),
+    tel:       get('店舗TEL'),
+    zip:       get('郵便番号').replace(/[〒\-\s]/g, ''),
+    pref:      get('都道府県'),
+    city:      get('市町村郡'),
+    addr1:     get('番地'),
+    addr2:     get('建物'),
+    lineUid:   get('LINE_UID'),
+    rate:      get('掛率') || '7',
+    sponsorEnabled: false,
+    note:      get('備考'),
+  };
+
+  // 協賛
+  const sponsorVal = get('協賛');
+  if (sponsorVal && sponsorVal !== '' && sponsorVal !== 'なし' && sponsorVal !== '無'){
+    cust.sponsorEnabled = (sponsorVal === '有' || sponsorVal === 'あり' || sponsorVal === 'YES' || sponsorVal === 'TRUE');
+  }
+
+  // 役職を代表者に連結
+  if (colMap['_備考追加']){
+    const yakushokuCol = colMap['_備考追加'].find(c => c.name === '役職');
+    if (yakushokuCol){
+      const yakushoku = (row[yakushokuCol.idx] || '').trim();
+      if (yakushoku && cust.owner){
+        cust.owner = `${cust.owner}（${yakushoku}）`;
+      }
+    }
+  }
+
+  // 住所単一カラム → 自動分割
+  if (colMap['_住所単一'] !== undefined && !cust.pref){
+    const addr = (row[colMap['_住所単一']] || '').trim();
+    const split = splitAddress(addr);
+    cust.pref = split.pref;
+    cust.city = split.city;
+    cust.addr1 = split.addr1;
+    cust.addr2 = split.addr2;
+  }
+
+  // 拠点未指定なら推測
+  if (!cust.branch && cust.pref){
+    cust.branch = inferBranch(cust.pref);
+  }
+  if (!cust.branch) cust.branch = '仙台';
+
+  // 拠点表記揺れ修正
+  if (cust.branch !== '仙台' && cust.branch !== '京都'){
+    cust.branch = inferBranch(cust.pref) || '仙台';
+  }
+
+  // 請求書宛名
+  if (colMap['_請求書宛名'] !== undefined){
+    cust.invName = (row[colMap['_請求書宛名']] || '').trim();
+  }
+
+  // 備考に追加する列を結合
+  const noteAdditions = [];
+  (colMap['_備考追加'] || []).forEach(c => {
+    if (c.name === '役職') return; // 既に処理済
+    const val = (row[c.idx] || '').trim();
+    if (val) noteAdditions.push(`${c.name}: ${val}`);
+  });
+  if (noteAdditions.length > 0){
+    cust.note = [cust.note, noteAdditions.join(' / ')].filter(Boolean).join('\n');
+  }
+
+  return cust;
+}
+
+// ─── ファイル読込 ─────
+function handleCsvFile(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const buffer = ev.target.result;
+    const enc = detectEncoding(buffer);
+    let text = '';
+    // 試行順: 検出した値 → cp932 → shift-jis → utf-8
+    const tryEncs = [enc, 'cp932', 'shift-jis', 'utf-8'].filter((v,i,a) => a.indexOf(v) === i);
+    for (const tryEnc of tryEncs){
+      try {
+        text = new TextDecoder(tryEnc, { fatal: false }).decode(buffer);
+        if (text && !text.includes('\uFFFD')) break; // 置換文字がなければOK
+      } catch(err){ continue; }
+    }
+    if (!text) return toast('文字コードの判定に失敗しました', 'error');
+    parseAndPreview(text, enc);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// パース → プレビュー表示
+function parseAndPreview(text, encoding){
+  const { headers, rows } = parseCsv(text);
+  if (headers.length === 0 || rows.length === 0){
+    return toast('CSVが空、または読み込めませんでした', 'error');
+  }
+
+  const colMap = buildColumnMap(headers);
+  if (colMap['店舗名'] === undefined){
+    return toast('「店舗名」列が見つかりません', 'error');
+  }
+
+  const warnings = [];
+  const customers = [];
+  const seenNames = new Set();
+  let newCnt = 0, updateCnt = 0, skipCnt = 0;
+
+  rows.forEach((row, i) => {
+    const cust = csvRowToCustomer(headers, row, colMap);
+    if (!cust.name){
+      skipCnt++;
+      return;
+    }
+    if (seenNames.has(cust.name)){
+      warnings.push(`${i+2}行目: 「${cust.name}」がCSV内で重複`);
+    }
+    seenNames.add(cust.name);
+
+    const existing = (S.customers || []).find(c => c.name === cust.name);
+    if (existing){
+      cust._action = 'update';
+      cust._existingId = existing.id;
+      updateCnt++;
+    } else {
+      cust._action = 'new';
+      newCnt++;
+    }
+    customers.push(cust);
+  });
+
+  parsedCsvData = customers;
+  parsedCsvWarnings = warnings;
+
+  // ステータス
+  const mappedCols = Object.keys(colMap).filter(k => !k.startsWith('_') && colMap[k] !== undefined).length;
+  document.getElementById('csv-stat').innerHTML =
+    `<span style="color:var(--wh3)">文字コード:</span> <span style="color:var(--gold-l)">${encoding}</span> / ` +
+    `<span style="color:var(--wh3)">マッピング:</span> <span style="color:var(--gold-l)">${mappedCols}列</span> / ` +
+    `総${rows.length}行 → <span style="color:var(--grn)">新規 ${newCnt}</span> / <span style="color:var(--gold-l)">更新 ${updateCnt}</span>${skipCnt > 0 ? ` / <span style="color:var(--red)">スキップ ${skipCnt}</span>` : ''}`;
+
+  // テーブル
+  const previewCols = ['_action','店舗名','拠点','都道府県','市町村郡','店舗TEL','代表者','掛率','備考'];
+  document.getElementById('csv-thead').innerHTML = '<tr>' +
+    previewCols.map(h => {
+      const lbl = h === '_action' ? '処理' : h;
+      return `<th style="padding:.4rem .6rem;text-align:left;color:var(--gold-d);font-size:.65rem;letter-spacing:.05em">${escapeHtml(lbl)}</th>`;
+    }).join('') + '</tr>';
+
+  document.getElementById('csv-tbody').innerHTML = customers.slice(0, 50).map(c => {
+    const actBadge = c._action === 'new'
+      ? '<span style="background:rgba(82,183,136,.15);color:var(--grn);padding:.1rem .4rem;font-size:.62rem;border-radius:2px">新規</span>'
+      : '<span style="background:rgba(201,168,76,.15);color:var(--gold-l);padding:.1rem .4rem;font-size:.62rem;border-radius:2px">更新</span>';
+    return `<tr>
+      <td style="padding:.3rem .6rem;border-bottom:1px solid rgba(255,255,255,.04)">${actBadge}</td>
+      <td style="padding:.3rem .6rem;border-bottom:1px solid rgba(255,255,255,.04);color:var(--gold-l)">${escapeHtml(c.name)}</td>
+      <td style="padding:.3rem .6rem;border-bottom:1px solid rgba(255,255,255,.04)">${escapeHtml(c.branch)}</td>
+      <td style="padding:.3rem .6rem;border-bottom:1px solid rgba(255,255,255,.04)">${escapeHtml(c.pref)}</td>
+      <td style="padding:.3rem .6rem;border-bottom:1px solid rgba(255,255,255,.04);font-size:.7rem">${escapeHtml(c.city)}</td>
+      <td style="padding:.3rem .6rem;border-bottom:1px solid rgba(255,255,255,.04);font-size:.7rem">${escapeHtml(c.tel)}</td>
+      <td style="padding:.3rem .6rem;border-bottom:1px solid rgba(255,255,255,.04);font-size:.7rem">${escapeHtml(c.owner)}</td>
+      <td style="padding:.3rem .6rem;border-bottom:1px solid rgba(255,255,255,.04);text-align:center">${escapeHtml(c.rate)}掛</td>
+      <td style="padding:.3rem .6rem;border-bottom:1px solid rgba(255,255,255,.04);font-size:.65rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml((c.note||'').slice(0,60))}</td>
+    </tr>`;
+  }).join('');
+
+  if (customers.length > 50){
+    document.getElementById('csv-tbody').innerHTML += `<tr><td colspan="9" style="padding:.7rem;text-align:center;color:var(--wh3);font-size:.7rem">⋯ 他 ${customers.length - 50} 件 ⋯</td></tr>`;
+  }
+
+  const warnEl = document.getElementById('csv-warnings');
+  if (warnings.length > 0){
+    warnEl.style.display = 'block';
+    warnEl.innerHTML = '<strong>⚠ 警告（' + warnings.length + '件）</strong><br>' +
+      warnings.slice(0, 10).map(escapeHtml).join('<br>') +
+      (warnings.length > 10 ? `<br>… 他 ${warnings.length - 10} 件` : '');
+  } else {
+    warnEl.style.display = 'none';
+  }
+
+  document.getElementById('csv-preview').style.display = 'block';
+}
+
+// 確定登録
+function confirmCsvImport(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  if (!parsedCsvData) return;
+  if (!confirm(`${parsedCsvData.length}件の顧客を登録/更新します。よろしいですか？`)) return;
+
+  if (!S.customers) S.customers = [];
+  let newCnt = 0, updateCnt = 0;
+  const now = new Date().toISOString();
+
+  parsedCsvData.forEach((cust, idx) => {
+    if (cust._action === 'update'){
+      const existIdx = S.customers.findIndex(c => c.id === cust._existingId);
+      if (existIdx >= 0){
+        const existing = S.customers[existIdx];
+        const merged = { ...existing };
+        Object.keys(cust).forEach(k => {
+          if (k.startsWith('_')) return;
+          if (cust[k] !== '' && cust[k] !== undefined && cust[k] !== null){
+            merged[k] = cust[k];
+          }
+        });
+        merged.updatedAt = now;
+        S.customers[existIdx] = merged;
+        updateCnt++;
+      }
+    } else {
+      const newCust = { ...cust };
+      delete newCust._action;
+      newCust.id = 'cust-' + Date.now() + '-' + idx;
+      newCust.createdAt = now;
+      newCust.updatedAt = now;
+      S.customers.push(newCust);
+      newCnt++;
+    }
+  });
+
+  saveState();
+
+  if (S.gasUrl){
+    // バックグラウンドで非同期送信（UI ブロックしない）
+    setTimeout(() => {
+      parsedCsvData.forEach(cust => {
+        const data = { ...cust };
+        delete data._action; delete data._existingId;
+        gasPost({ action: 'saveCustomer', ...data });
+      });
+    }, 100);
+  }
+
+  toast(`✓ 登録完了: 新規 ${newCnt} / 更新 ${updateCnt}`);
+  parsedCsvData = null;
+  parsedCsvWarnings = [];
+  document.getElementById('csv-preview').style.display = 'none';
+  document.getElementById('csv-file').value = '';
+  renderCustList();
+}
+
+function cancelCsvImport(){
+  parsedCsvData = null;
+  parsedCsvWarnings = [];
+  document.getElementById('csv-preview').style.display = 'none';
+  document.getElementById('csv-file').value = '';
+  toast('インポートをキャンセル');
+}
+
+function downloadCustomerTemplate(){
+  const sample = '○○ Bar,マルマル,仙台,佐々木,山田太郎,080-1111-2222,022-XXX-XXXX,9800021,宮城県,仙台市青葉区,中央1-2-3,○○ビル3F,,7,,常連客';
+  const csv = '\uFEFF' + CSV_HEADERS.join(',') + '\n' + sample + '\n';
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '顧客マスター_テンプレート.csv';
+  a.click();
+  toast('✓ テンプレートをダウンロード');
+}
+
+function exportCustomersCSV(){
+  const customers = S.customers || [];
+  if (customers.length === 0) return toast('登録済み顧客がありません', 'error');
+
+  const escape = v => {
+    const s = String(v || '');
+    if (s.includes(',') || s.includes('"') || s.includes('\n')){
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  };
+
+  const lines = [CSV_HEADERS.join(',')];
+  customers.forEach(c => {
+    lines.push([
+      c.name, c.kana, c.branch, c.staff, c.owner, c.ownerTel, c.tel,
+      c.zip, c.pref, c.city, c.addr1, c.addr2,
+      c.lineUid, c.rate || '7',
+      c.sponsorEnabled ? '有' : '',
+      c.note,
+    ].map(escape).join(','));
+  });
+
+  const csv = '\uFEFF' + lines.join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `顧客マスター_${today()}.csv`;
+  a.click();
+  toast(`✓ ${customers.length}件をエクスポート`);
+}
+
+async function loadCustPendingUids(){
+  const list = document.getElementById('pending-list');
+  if (!list) return;
+  list.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div>読込中...</div>';
+  const data = await gasGet('getPendingUids');
+  if (!data || !data.uids){
+    list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>未登録UIDはありません<div style="font-size:.7rem;margin-top:.5rem;color:var(--wh3)">（またはGAS未接続）</div></div>';
+    return;
+  }
+  if (data.uids.length === 0){
+    list.innerHTML = '<div class="empty"><div class="empty-icon">✓</div>未登録UIDなし</div>';
+    return;
+  }
+  list.innerHTML = `<div class="cust-grid">
+    ${data.uids.map(u => `
+      <div class="cust-card">
+        <div class="cust-name" style="font-size:.8rem">${escapeHtml(u.displayName || '匿名')}</div>
+        <div class="cust-info" style="font-family:monospace;word-break:break-all;font-size:.65rem">${escapeHtml(u.uid)}</div>
+        <div class="cust-info" style="font-size:.7rem">最終メッセージ: ${escapeHtml(u.lastMessage || '—').slice(0,30)}</div>
+        <div class="faction" style="margin-top:.6rem">
+          <button class="btn-s" onclick="linkCustUid('${u.uid}')">🔗 既存顧客に紐付け</button>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function linkCustUid(uid){
+  const name = prompt('紐付けたい店舗名を入力してください:');
+  if (!name) return;
+  const found = (S.customers || []).filter(c => (c.name || '').toLowerCase().includes(name.toLowerCase()));
+  if (found.length === 0) return toast('該当する顧客が見つかりません', 'error');
+  if (found.length > 1)   return toast(`${found.length}件ヒット。もっと具体的に入力してください`, 'error');
+  const c = found[0];
+  c.lineUid = uid;
+  c.updatedAt = new Date().toISOString();
+  saveState();
+  if (S.gasUrl) gasPost({ action: 'saveCustomer', ...c });
+  toast(`✓ ${c.name} にUIDを紐付けました`);
+  loadCustPendingUids();
+  renderCustList();
+}
+</script>
+
+<!-- ═══ スタッフマスター ═══ -->
+<script>
+let staffEditingId = null;
+
+function switchStaffTab(name, el){
+  document.querySelectorAll('#m-staff .tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#m-staff .tcon').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('staff-' + name).classList.add('active');
+  if (name === 'list') renderStaffList();
+}
+
+function renderStaffList(){
+  const kw   = (document.getElementById('sf-kw')?.value || '').trim().toLowerCase();
+  const br   = document.getElementById('sf-br')?.value || '';
+  const role = document.getElementById('sf-role')?.value || '';
+  let filtered = (S.staff || []).filter(s => {
+    if (br && s.branch !== br) return false;
+    if (role && s.role !== role) return false;
+    if (kw){
+      const hay = `${s.name||''} ${s.email||''}`.toLowerCase();
+      if (!hay.includes(kw)) return false;
+    }
+    return true;
+  });
+  document.getElementById('staff-count').textContent = filtered.length;
+  const grid = document.getElementById('staff-grid');
+  if (filtered.length === 0){
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
+      <div class="empty-icon">👥</div>
+      <div>スタッフが登録されていません</div>
+      <div style="font-size:.75rem;margin-top:.5rem;color:var(--wh3)">「＋ 新規登録」から追加してください</div>
+    </div>`;
+    updateCustStaffOptions();
+    return;
+  }
+  const roleLabel = { admin:'👑 admin', manager:'📋 manager', staff:'🧑 staff', viewer:'👁 viewer' };
+  grid.innerHTML = filtered.map(s => `
+    <div class="cust-card" onclick="openStaff('${s.id}')">
+      <div class="cust-head">
+        <div class="cust-name">${escapeHtml(s.name || '無名')}</div>
+        <div class="cust-branch">${s.branch || '—'}</div>
+      </div>
+      <div class="cust-info">
+        ${s.email ? `<div><strong>@</strong> ${escapeHtml(s.email)}</div>` : ''}
+        ${s.tel ? `<div><strong>TEL:</strong> ${escapeHtml(s.tel)}</div>` : ''}
+        ${s.joined ? `<div style="color:var(--wh3);font-size:.65rem;margin-top:.2rem">入社: ${s.joined}</div>` : ''}
+      </div>
+      <div class="cust-meta">
+        <span class="meta-chip role">${roleLabel[s.role] || s.role}</span>
+        ${s.active === false ? '<span class="meta-chip no-uid">無効</span>' : ''}
+        ${s.lineUid ? '<span class="meta-chip uid">LINE UID</span>' : ''}
+      </div>
+    </div>`).join('');
+  updateCustStaffOptions();
+}
+
+function updateCustStaffOptions(){
+  const sel = document.getElementById('cf-staff');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">未設定</option>' +
+    (S.staff || []).filter(s => s.active !== false).map(s => `<option value="${escapeHtml(s.name)}"${current===s.name?' selected':''}>${escapeHtml(s.name)}</option>`).join('');
+}
+
+function openStaff(id){
+  const s = (S.staff || []).find(x => x.id === id);
+  if (!s) return toast('スタッフが見つかりません', 'error');
+  staffEditingId = id;
+  const g = document.getElementById.bind(document);
+  g('sf-name').value=s.name||''; g('sf-email').value=s.email||'';
+  g('sf-branch').value=s.branch||'仙台'; g('sf-role-sel').value=s.role||'staff';
+  g('sf-tel').value=s.tel||''; g('sf-uid').value=s.lineUid||'';
+  g('sf-active').value=String(s.active !== false);
+  g('sf-joined').value=s.joined||''; g('sf-note').value=s.note||'';
+  document.getElementById('staff-edit-status').textContent = '編集中: ' + (s.name || '');
+  document.getElementById('btn-staff-delete').style.display = 'inline-block';
+  switchStaffTab('new', document.querySelectorAll('#m-staff .tab')[1]);
+}
+
+function clearStaffForm(){
+  staffEditingId = null;
+  ['sf-name','sf-email','sf-tel','sf-uid','sf-joined','sf-note'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.value = '';
+  });
+  document.getElementById('sf-branch').value = '仙台';
+  document.getElementById('sf-role-sel').value = 'staff';
+  document.getElementById('sf-active').value = 'true';
+  document.getElementById('staff-edit-status').textContent = '';
+  document.getElementById('btn-staff-delete').style.display = 'none';
+}
+
+function submitStaffForm(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  // スタッフマスターは admin のみ編集可
+  if (currentUser.role !== 'admin') return toast('🔒 スタッフ管理は admin のみ操作できます', 'error');
+  const g = id => (document.getElementById(id)||{}).value || '';
+  const name  = g('sf-name').trim();
+  const email = g('sf-email').trim();
+  if (!name)  return toast('氏名は必須です', 'error');
+  if (!email) return toast('メールアドレスは必須です', 'error');
+  const data = {
+    id: staffEditingId || ('staff-' + Date.now()),
+    name, email,
+    branch: g('sf-branch'), role: g('sf-role-sel'),
+    tel: g('sf-tel'), lineUid: g('sf-uid').trim(),
+    active: g('sf-active') === 'true',
+    joined: g('sf-joined'), note: g('sf-note'),
+    updatedAt: new Date().toISOString()
+  };
+  if (!S.staff) S.staff = [];
+  if (staffEditingId){
+    const idx = S.staff.findIndex(s => s.id === staffEditingId);
+    if (idx >= 0) S.staff[idx] = data;
+  } else {
+    if (S.staff.find(s => s.email === email)){
+      return toast('このメールアドレスは既に登録されています', 'error');
+    }
+    S.staff.push(data);
+  }
+  saveState();
+  if (S.gasUrl) gasPost({ action: 'saveStaff', ...data });
+  toast(staffEditingId ? '✓ 更新しました' : '✓ 登録しました');
+  clearStaffForm();
+  switchStaffTab('list', document.querySelectorAll('#m-staff .tab')[0]);
+}
+
+function deleteStaff(){
+  if (currentUser.role !== 'admin') return toast('🔒 スタッフ削除は admin のみ操作できます', 'error');
+  if (!staffEditingId) return;
+  if (!confirm('このスタッフを削除しますか？')) return;
+  S.staff = (S.staff || []).filter(s => s.id !== staffEditingId);
+  saveState();
+  toast('✓ 削除しました');
+  clearStaffForm();
+  switchStaffTab('list', document.querySelectorAll('#m-staff .tab')[0]);
+}
+</script>
+
+<!-- ═══ 弊社情報 ═══ -->
+<script>
+let coBankRows = [];
+
+function loadCompany(){
+  const c = S.company || {};
+  const g = id => document.getElementById(id);
+  g('co-name').value=c.name||''; g('co-dept').value=c.dept||'';
+  g('co-ceo').value=c.ceo||''; g('co-founded').value=c.founded||'';
+  g('co-zip').value=c.zip||''; g('co-addr').value=c.addr||'';
+  g('co-tel').value=c.tel||''; g('co-fax').value=c.fax||'';
+  g('co-email').value=c.email||''; g('co-web').value=c.web||'';
+  g('co-sendai-addr').value=(c.branches && c.branches.仙台 && c.branches.仙台.addr)||'';
+  g('co-sendai-tel').value=(c.branches && c.branches.仙台 && c.branches.仙台.tel)||'';
+  g('co-kyoto-addr').value=(c.branches && c.branches.京都 && c.branches.京都.addr)||'';
+  g('co-kyoto-tel').value=(c.branches && c.branches.京都 && c.branches.京都.tel)||'';
+  g('co-corp-num').value=c.corpNum||''; g('co-inv-num').value=c.invNum||'';
+  g('co-liquor-num').value=c.liquorNum||'';
+  coBankRows = (c.banks && c.banks.length > 0) ? [...c.banks] : [];
+  renderCoBanks();
+}
+
+function renderCoBanks(){
+  const list = document.getElementById('co-bank-list');
+  if (!list) return;
+  if (coBankRows.length === 0){
+    list.innerHTML = '<div style="font-size:.7rem;color:var(--wh3);padding:.4rem">振込先なし</div>';
+    return;
+  }
+  list.innerHTML = coBankRows.map((b,i) => `
+    <div class="dyn-row" style="flex-wrap:wrap;gap:.3rem">
+      <input class="fc" placeholder="銀行名" value="${escapeHtml(b.bank||'')}" oninput="coBankRows[${i}].bank=this.value" style="flex:1 1 120px">
+      <input class="fc" placeholder="支店名" value="${escapeHtml(b.branch||'')}" oninput="coBankRows[${i}].branch=this.value" style="flex:1 1 100px">
+      <select class="fc" onchange="coBankRows[${i}].type=this.value" style="flex:0 0 80px">
+        <option value="普通"${b.type==='普通'?' selected':''}>普通</option>
+        <option value="当座"${b.type==='当座'?' selected':''}>当座</option>
+      </select>
+      <input class="fc" placeholder="口座番号" value="${escapeHtml(b.number||'')}" oninput="coBankRows[${i}].number=this.value" style="flex:0 0 110px">
+      <input class="fc" placeholder="名義" value="${escapeHtml(b.holder||'')}" oninput="coBankRows[${i}].holder=this.value" style="flex:1 1 140px">
+      <button class="dyn-del" onclick="removeCoBank(${i})">✕</button>
+    </div>`).join('');
+}
+function addCoBank(){ coBankRows.push({bank:'',branch:'',type:'普通',number:'',holder:''}); renderCoBanks(); }
+function removeCoBank(i){ coBankRows.splice(i,1); renderCoBanks(); }
+
+function saveCompany(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  if (currentUser.role === 'staff') return toast('🔒 弊社情報編集は admin/manager のみ', 'error');
+  const g = id => (document.getElementById(id)||{}).value || '';
+  S.company = {
+    name: g('co-name'), dept: g('co-dept'), ceo: g('co-ceo'),
+    founded: g('co-founded'),
+    zip: g('co-zip'), addr: g('co-addr'),
+    tel: g('co-tel'), fax: g('co-fax'),
+    email: g('co-email'), web: g('co-web'),
+    branches: {
+      仙台: { addr: g('co-sendai-addr'), tel: g('co-sendai-tel') },
+      京都: { addr: g('co-kyoto-addr'), tel: g('co-kyoto-tel') }
+    },
+    banks: coBankRows.filter(b => b.bank || b.number),
+    corpNum: g('co-corp-num'), invNum: g('co-inv-num'),
+    liquorNum: g('co-liquor-num'),
+    updatedAt: new Date().toISOString()
+  };
+  saveState();
+  if (S.gasUrl) gasPost({ action: 'saveCompany', ...S.company });
+  toast('✓ 弊社情報を保存しました');
+}
+</script>
+
+<!-- ═══ 商品マスター ═══ -->
+<script>
+function renderProducts(){
+  // S.products 優先、なければ PROD_LIST 初期値
+  const list = (S.products && S.products.length > 0) ? S.products : PROD_LIST.map(p => ({...p}));
+  // 互換性: 既存データに priceOld がない場合は補完
+  list.forEach(p => {
+    if (p.priceOld === undefined || p.priceOld === null) p.priceOld = p.price || 0;
+  });
+  document.getElementById('prod-count').textContent = list.length;
+  const tbody = document.getElementById('prod-tbody');
+  tbody.innerHTML = list.map((p,i) => {
+    const margin = p.price > 0 ? Math.round((1 - p.cost/p.price) * 100) : 0;
+    return `
+    <tr data-idx="${i}">
+      <td style="color:var(--wh3);font-family:'Bebas Neue',sans-serif;text-align:center">${i+1}</td>
+      <td style="color:var(--gold-l);font-weight:500">${escapeHtml(p.name)}</td>
+      <td style="color:var(--wh2);font-size:.72rem">${escapeHtml(p.category || '—')}</td>
+      <td><input type="number" value="${p.cost}" data-field="cost" data-idx="${i}" step="100"></td>
+      <td><input type="number" value="${p.price}" data-field="price" data-idx="${i}" step="100"></td>
+      <td><input type="number" value="${p.priceOld}" data-field="priceOld" data-idx="${i}" step="100"></td>
+      <td><input type="number" value="${p.reorder}" data-field="reorder" data-idx="${i}" min="0"></td>
+      <td style="color:${margin>=50?'var(--grn)':'var(--org)'};font-family:'Bebas Neue',sans-serif;text-align:center">${margin}%</td>
+    </tr>`;
+  }).join('');
+}
+
+function saveProducts(){
+  if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
+  const tbody = document.getElementById('prod-tbody');
+  const list = (S.products && S.products.length > 0) ? [...S.products] : PROD_LIST.map(p => ({...p}));
+  // 数値フィールド（cost / price / priceOld / reorder）
+  tbody.querySelectorAll('input').forEach(inp => {
+    const idx   = parseInt(inp.dataset.idx);
+    const field = inp.dataset.field;
+    const val   = parseFloat(inp.value) || 0;
+    if (list[idx]) list[idx][field] = val;
+  });
+  S.products = list;
+  saveState();
+  toast('✓ 商品マスターを保存しました');
+  renderProducts();
+}
+
+function resetProducts(){
+  if (!confirm('商品マスターを初期値に戻しますか？\n現在の編集内容は失われます。')) return;
+  S.products = null;
+  saveState();
+  renderProducts();
+  toast('✓ 初期値に戻しました');
+}
+</script>
+
+<!-- ═══ 初期化 ═══ -->
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  updateUserBadge();
+  renderCustList();
+  renderCustContacts();
+  renderCustBanks();
+  renderCustDeliveries();
+  renderCustProdRates([]);
+  updateSponsorProductOptions('');
+  updateCustStaffOptions();
+  initCustFormEnterNav();
+});
+
+// ─── 顧客フォーム: キー操作で入力欄を移動 ─────
+//   Enter / ↓ で次へ進む
+//   ↑ で前へ戻る
+//   ↑↓は select / number の場合は本来の機能（選択値変更）を優先
+
+// 静的な顧客フォームの入力順（住所→配達先→LINE→請求→協賛→詳細→備考）
+// 配達先（cf-delivery-list内の入力欄）は動的に挿入される
+const CF_STATIC_ORDER_BEFORE_DELIVERY = [
+  'cf-name', 'cf-kana', 'cf-branch', 'cf-staff',
+  'cf-tel', 'cf-owner', 'cf-owner-tel',
+  'cf-zip', 'cf-pref', 'cf-city', 'cf-addr1', 'cf-addr2'
+];
+const CF_STATIC_ORDER_AFTER_DELIVERY = [
+  'cf-line-id', 'cf-line-uid',
+  'cf-inv-name', 'cf-referrer', 'cf-pay-method', 'cf-rate', 'cf-common-price-mode', 'cf-common-tax',
+  'cf-sponsor-trigger', 'cf-sponsor-reward', 'cf-sponsor-product',
+  'cf-biz-type', 'cf-open-date', 'cf-seats', 'cf-owner-age',
+  'cf-customer-base', 'cf-product-trend', 'cf-competitor',
+  'cf-deal-start', 'cf-deal-channel', 'cf-biz-hours', 'cf-avg-spend',
+  'cf-note'
+];
+
+// 顧客フォーム内の全入力欄を、フォーム上の表示順で取得
+function getOrderedCustFields(){
+  const fields = [];
+  CF_STATIC_ORDER_BEFORE_DELIVERY.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) fields.push(el);
+  });
+  // 配達先（動的）— カード内の input/select/🔍ボタン を表示順に取得
+  document.querySelectorAll('#cf-delivery-list input, #cf-delivery-list select, #cf-delivery-list .cf-zip-btn').forEach(el => {
+    fields.push(el);
+  });
+  CF_STATIC_ORDER_AFTER_DELIVERY.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) fields.push(el);
+  });
+  return fields;
+}
+
+// 次/前のフィールドにフォーカス移動
+function moveToNextField(currentEl, direction){
+  const fields = getOrderedCustFields();
+  const idx = fields.indexOf(currentEl);
+  if (idx < 0) return;
+  const step = direction === 'next' ? 1 : -1;
+  for (let j = idx + step; j >= 0 && j < fields.length; j += step){
+    const target = fields[j];
+    if (target.disabled) continue;
+    if (target.offsetParent === null) continue;  // 非表示はスキップ
+    target.focus();
+    // text系は全選択して上書きしやすく
+    if (typeof target.select === 'function' &&
+        ['text','tel','email','search','url'].includes(target.type)) {
+      try { target.select(); } catch(e) {}
+    }
+    return;
+  }
+}
+
+// 共通の keydown ハンドラ（静的・動的フィールド共通）
+function handleCustFieldKeydown(e){
+  const el = e.target;
+  // IME変換確定中は無視（誤動作防止）
+  if (e.isComposing || e.keyCode === 229) return;
+  // Shift+Enter / Shift+矢印は何もしない（誤動作防止）
+  if (e.shiftKey) return;
+
+  // Enter: 次へ進む（textareaは改行、buttonはクリックを優先）
+  if (e.key === 'Enter') {
+    if (el.tagName === 'TEXTAREA') return;
+    if (el.tagName === 'BUTTON') return;  // ボタンは本来のクリック動作を維持
+    e.preventDefault();
+    moveToNextField(el, 'next');
+    return;
+  }
+  // ↓: 次へ進む（select / number / textarea では本来の機能を優先）
+  if (e.key === 'ArrowDown') {
+    if (el.tagName === 'SELECT') return;
+    if (el.tagName === 'TEXTAREA') return;
+    if (el.type === 'number') return;
+    e.preventDefault();
+    moveToNextField(el, 'next');
+    return;
+  }
+  // ↑: 前へ戻る
+  if (e.key === 'ArrowUp') {
+    if (el.tagName === 'SELECT') return;
+    if (el.tagName === 'TEXTAREA') return;
+    if (el.type === 'number') return;
+    e.preventDefault();
+    moveToNextField(el, 'prev');
+    return;
+  }
+}
+
+// 静的フィールドに keydown を bind（DOMContentLoaded で1回だけ呼ぶ）
+function initCustFormEnterNav(){
+  const STATIC_ALL = [...CF_STATIC_ORDER_BEFORE_DELIVERY, ...CF_STATIC_ORDER_AFTER_DELIVERY];
+  STATIC_ALL.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.dataset.cfNavBound){
+      el.dataset.cfNavBound = '1';
+      el.addEventListener('keydown', handleCustFieldKeydown);
+    }
+  });
+}
+
+// 配達先カード内の入力欄に keydown を bind（renderCustDeliveries 後に呼ぶ）
+function attachCustDeliveryKeydown(){
+  // input, select, 🔍ボタンすべてに bind（矢印キーでボタンからも隣に移動可能に）
+  document.querySelectorAll('#cf-delivery-list input, #cf-delivery-list select, #cf-delivery-list .cf-zip-btn').forEach(el => {
+    if (el.dataset.cfNavBound) return;  // 二重 bind 防止
+    el.dataset.cfNavBound = '1';
+    el.addEventListener('keydown', handleCustFieldKeydown);
+  });
+}
+
+// 配達先の郵便番号フォーマット + 7桁で自動住所取得 + 都道府県へフォーカス移動
+function formatDeliveryZip(input, i){
+  if (!input || !custDeliveryRows[i]) return;
+  let v = String(input.value || '').replace(/[^0-9]/g, '');
+  const digitLen = v.length;
+  if (v.length > 7) v = v.slice(0, 7);
+  if (v.length > 3) v = v.slice(0, 3) + '-' + v.slice(3);
+  input.value = v;
+  custDeliveryRows[i].zip = v;
+  if (digitLen === 7){
+    lookupCustDeliveryZip(i);
+    // 7桁入力完了後、同じカード内の都道府県フィールドへフォーカス移動
+    // setTimeout で zipcloud API のレスポンス＆再描画後にフォーカス
+    setTimeout(() => {
+      const card = document.querySelectorAll('#cf-delivery-list > div')[i];
+      if (card) {
+        const inputs = card.querySelectorAll('input, select');
+        // [0]=名称, [1]=郵便, [2]=都道府県, [3]=市町村, [4]=番地, [5]=建物, [6]=担当者, [7]=電話, [8]=メモ
+        if (inputs[2]) {
+          inputs[2].focus();
+          if (typeof inputs[2].select === 'function') {
+            try { inputs[2].select(); } catch(e) {}
+          }
+        }
+      }
+    }, 350);
+  }
+}
+</script>
+
+</body>
+</html>
