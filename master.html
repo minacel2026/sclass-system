@@ -668,7 +668,6 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
             <th style="width:110px;text-align:right">原価</th>
             <th style="width:110px;text-align:right">新売値</th>
             <th style="width:110px;text-align:right">旧売値</th>
-            <th style="width:110px">税</th>
             <th style="width:90px;text-align:right">補充閾値</th>
             <th style="width:80px">粗利率</th>
           </tr>
@@ -688,23 +687,23 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
 // shared.js  Sclassランボルギーニ 全システム共通データ
 // ============================================================
 const PROD_LIST = [
-  {key:'イエロー',     name:'イエロー',     fullName:'001: Extra Brut（イエロー）',     category:'スパークリング', cost:5000,  price:10500,  priceOld:10500,  taxType:'税込販売', reorder:10, img:''},
-  {key:'オレンジ',     name:'オレンジ',     fullName:'002: Rosé（オレンジ）',            category:'スパークリング', cost:10000, price:21000,  priceOld:21000,  taxType:'税込販売', reorder:10, img:''},
-  {key:'ブルー',       name:'ブルー',       fullName:'003: Blue Label',                  category:'スパークリング', cost:10000, price:21000,  priceOld:21000,  taxType:'税込販売', reorder:10, img:''},
-  {key:'ブラック',     name:'ブラック',     fullName:'004: Black Label',                 category:'スパークリング', cost:10000, price:21000,  priceOld:21000,  taxType:'税込販売', reorder:10, img:''},
-  {key:'プラチナ',     name:'プラチナ',     fullName:'005: Platinum',                    category:'スパークリング', cost:15000, price:33000,  priceOld:33000,  taxType:'税込販売', reorder:6,  img:''},
-  {key:'ゴールド',     name:'ゴールド',     fullName:'006: Gold',                        category:'スパークリング', cost:20000, price:44000,  priceOld:44000,  taxType:'税込販売', reorder:6,  img:''},
-  {key:'ルミナス',     name:'ルミナス',     fullName:'007: Luminous',                    category:'スパークリング', cost:25000, price:55000,  priceOld:55000,  taxType:'税込販売', reorder:6,  img:''},
-  {key:'レジェンド',   name:'レジェンド',   fullName:'008: Legend',                      category:'スパークリング', cost:25000, price:55000,  priceOld:55000,  taxType:'税込販売', reorder:6,  img:''},
-  {key:'さくら',       name:'さくら',       fullName:'009: Sakura',                      category:'スパークリング', cost:12000, price:25000,  priceOld:25000,  taxType:'税込販売', reorder:6,  img:''},
-  {key:'チェングレット', name:'チェングレット', fullName:'010: Cheng Leggero',             category:'スティルワイン', cost:3000,  price:6800,   priceOld:6800,   taxType:'税込販売', reorder:12, img:''},
-  {key:'チェングロッソ', name:'チェングロッソ', fullName:'011: Cheng Grosso',              category:'スティルワイン', cost:3000,  price:6800,   priceOld:6800,   taxType:'税込販売', reorder:12, img:''},
-  {key:'トレスコーネ', name:'トレスコーネ', fullName:'012: Trescone',                    category:'スティルワイン', cost:3500,  price:7800,   priceOld:7800,   taxType:'税込販売', reorder:12, img:''},
-  {key:'エラ',         name:'エラ',         fullName:'013: Ella',                        category:'スティルワイン', cost:4500,  price:10000,  priceOld:10000,  taxType:'税込販売', reorder:10, img:''},
-  {key:'トラミ',       name:'トラミ',       fullName:'014: Trami',                       category:'スティルワイン', cost:6000,  price:13000,  priceOld:13000,  taxType:'税込販売', reorder:10, img:''},
-  {key:'カンポレオーネ', name:'カンポレオーネ', fullName:'015: Campoleone',                category:'スティルワイン', cost:4500,  price:10000,  priceOld:10000,  taxType:'税込販売', reorder:10, img:''},
-  {key:'GIFTBOX',      name:'GIFTBOX',      fullName:'016: GIFTBOX',                     category:'ギフト',       cost:9000,  price:20000,  priceOld:20000,  taxType:'税込販売', reorder:5,  img:''},
-  {key:'コラチョロサ', name:'コラチョロサ', fullName:'017: Cora Chollosa',               category:'スティルワイン', cost:8000,  price:17000,  priceOld:17000,  taxType:'税込販売', reorder:6,  img:''},
+  {key:'イエロー',     name:'イエロー',     fullName:'001: Extra Brut（イエロー）',     category:'スパークリング', cost:5000,  price:10500,  priceOld:10500,  reorder:10, img:''},
+  {key:'オレンジ',     name:'オレンジ',     fullName:'002: Rosé（オレンジ）',            category:'スパークリング', cost:10000, price:21000,  priceOld:21000,  reorder:10, img:''},
+  {key:'ブルー',       name:'ブルー',       fullName:'003: Blue Label',                  category:'スパークリング', cost:10000, price:21000,  priceOld:21000,  reorder:10, img:''},
+  {key:'ブラック',     name:'ブラック',     fullName:'004: Black Label',                 category:'スパークリング', cost:10000, price:21000,  priceOld:21000,  reorder:10, img:''},
+  {key:'プラチナ',     name:'プラチナ',     fullName:'005: Platinum',                    category:'スパークリング', cost:15000, price:33000,  priceOld:33000,  reorder:6,  img:''},
+  {key:'ゴールド',     name:'ゴールド',     fullName:'006: Gold',                        category:'スパークリング', cost:20000, price:44000,  priceOld:44000,  reorder:6,  img:''},
+  {key:'ルミナス',     name:'ルミナス',     fullName:'007: Luminous',                    category:'スパークリング', cost:25000, price:55000,  priceOld:55000,  reorder:6,  img:''},
+  {key:'レジェンド',   name:'レジェンド',   fullName:'008: Legend',                      category:'スパークリング', cost:25000, price:55000,  priceOld:55000,  reorder:6,  img:''},
+  {key:'さくら',       name:'さくら',       fullName:'009: Sakura',                      category:'スパークリング', cost:12000, price:25000,  priceOld:25000,  reorder:6,  img:''},
+  {key:'チェングレット', name:'チェングレット', fullName:'010: Cheng Leggero',             category:'スティルワイン', cost:3000,  price:6800,   priceOld:6800,   reorder:12, img:''},
+  {key:'チェングロッソ', name:'チェングロッソ', fullName:'011: Cheng Grosso',              category:'スティルワイン', cost:3000,  price:6800,   priceOld:6800,   reorder:12, img:''},
+  {key:'トレスコーネ', name:'トレスコーネ', fullName:'012: Trescone',                    category:'スティルワイン', cost:3500,  price:7800,   priceOld:7800,   reorder:12, img:''},
+  {key:'エラ',         name:'エラ',         fullName:'013: Ella',                        category:'スティルワイン', cost:4500,  price:10000,  priceOld:10000,  reorder:10, img:''},
+  {key:'トラミ',       name:'トラミ',       fullName:'014: Trami',                       category:'スティルワイン', cost:6000,  price:13000,  priceOld:13000,  reorder:10, img:''},
+  {key:'カンポレオーネ', name:'カンポレオーネ', fullName:'015: Campoleone',                category:'スティルワイン', cost:4500,  price:10000,  priceOld:10000,  reorder:10, img:''},
+  {key:'GIFTBOX',      name:'GIFTBOX',      fullName:'016: GIFTBOX',                     category:'ギフト',       cost:9000,  price:20000,  priceOld:20000,  reorder:5,  img:''},
+  {key:'コラチョロサ', name:'コラチョロサ', fullName:'017: Cora Chollosa',               category:'スティルワイン', cost:8000,  price:17000,  priceOld:17000,  reorder:6,  img:''},
 ];
 
 const PRODS   = PROD_LIST.map(p => p.key);
@@ -2068,17 +2067,14 @@ function saveCompany(){
 function renderProducts(){
   // S.products 優先、なければ PROD_LIST 初期値
   const list = (S.products && S.products.length > 0) ? S.products : PROD_LIST.map(p => ({...p}));
-  // 互換性: 既存データに priceOld / taxType がない場合は補完
+  // 互換性: 既存データに priceOld がない場合は補完
   list.forEach(p => {
     if (p.priceOld === undefined || p.priceOld === null) p.priceOld = p.price || 0;
-    if (!p.taxType) p.taxType = '税込販売';
   });
   document.getElementById('prod-count').textContent = list.length;
   const tbody = document.getElementById('prod-tbody');
   tbody.innerHTML = list.map((p,i) => {
     const margin = p.price > 0 ? Math.round((1 - p.cost/p.price) * 100) : 0;
-    const taxOptions = ['税込販売','税抜販売','未設定']
-      .map(t => `<option value="${t}" ${p.taxType===t?'selected':''}>${t}</option>`).join('');
     return `
     <tr data-idx="${i}">
       <td style="color:var(--wh3);font-family:'Bebas Neue',sans-serif;text-align:center">${i+1}</td>
@@ -2087,7 +2083,6 @@ function renderProducts(){
       <td><input type="number" value="${p.cost}" data-field="cost" data-idx="${i}" step="100"></td>
       <td><input type="number" value="${p.price}" data-field="price" data-idx="${i}" step="100"></td>
       <td><input type="number" value="${p.priceOld}" data-field="priceOld" data-idx="${i}" step="100"></td>
-      <td><select data-field="taxType" data-idx="${i}">${taxOptions}</select></td>
       <td><input type="number" value="${p.reorder}" data-field="reorder" data-idx="${i}" min="0"></td>
       <td style="color:${margin>=50?'var(--grn)':'var(--org)'};font-family:'Bebas Neue',sans-serif;text-align:center">${margin}%</td>
     </tr>`;
@@ -2104,12 +2099,6 @@ function saveProducts(){
     const field = inp.dataset.field;
     const val   = parseFloat(inp.value) || 0;
     if (list[idx]) list[idx][field] = val;
-  });
-  // 選択フィールド（taxType）
-  tbody.querySelectorAll('select').forEach(sel => {
-    const idx   = parseInt(sel.dataset.idx);
-    const field = sel.dataset.field;
-    if (list[idx]) list[idx][field] = sel.value;
   });
   S.products = list;
   saveState();
