@@ -118,10 +118,50 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
 .product-rates{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.5rem;margin-top:.5rem}
 .prate-item{display:flex !important;flex-direction:column !important;gap:.3rem;background:var(--d3);padding:.45rem .55rem;border:1px solid rgba(255,255,255,.05);min-width:0}
 .prate-name{font-size:.72rem;color:var(--gold-l);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;writing-mode:horizontal-tb !important;text-orientation:mixed;line-height:1.3}
-.prate-item .prate-controls{display:flex;align-items:center;gap:.25rem;min-width:0}
-.prate-item input{width:48px;text-align:center;background:var(--d1);border:1px solid rgba(201,168,76,.2);color:var(--wh);padding:.3rem .15rem;font-size:.78rem;font-family:'Bebas Neue',sans-serif;flex:0 0 auto;min-width:0}
-.prate-item input::placeholder{font-family:'Noto Sans JP',sans-serif;font-size:.7rem;letter-spacing:-.02em;color:rgba(255,255,255,.45)}
-.prate-item select{flex:1;min-width:0;background:rgba(0,0,0,.3);color:var(--gold-l);border:1px solid var(--gold-d);padding:.3rem .15rem;font-size:.7rem;font-family:'Noto Sans JP',sans-serif;letter-spacing:-.02em}
+.prate-item .prate-controls{display:flex;align-items:stretch;gap:.25rem;min-width:0}
+/* ─── input と select を完全に同じ見た目に統一（ブラウザ依存を排除） ─── */
+.prate-item input,
+.prate-item select{
+  height:30px;
+  padding:0 .3rem;
+  font-size:.72rem;
+  font-family:'Noto Sans JP',sans-serif;
+  letter-spacing:-.02em;
+  background:var(--d1);
+  border:1px solid rgba(201,168,76,.25);
+  color:var(--wh);
+  box-sizing:border-box;
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  appearance:none;
+  line-height:1;
+  min-width:0;
+}
+.prate-item input{
+  width:50px;
+  flex:0 0 50px;
+  text-align:center;
+  font-family:'Bebas Neue',sans-serif;
+  font-size:.82rem;
+}
+.prate-item input::placeholder{
+  font-family:'Noto Sans JP',sans-serif;
+  font-size:.72rem;
+  letter-spacing:-.02em;
+  color:rgba(255,255,255,.45);
+}
+.prate-item select{
+  flex:1;
+  color:var(--gold-l);
+  border-color:var(--gold-d);
+  background-color:rgba(0,0,0,.3);
+  padding-right:1.1rem;
+  /* カスタム矢印（appearance:noneで消えたネイティブ矢印の代わり） */
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23BA9550' d='M0 0l5 6 5-6z'/></svg>");
+  background-repeat:no-repeat;
+  background-position:right .35rem center;
+  background-size:.55rem;
+}
 
 /* ─── 動的リスト ─── */
 .dyn-list{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem}
