@@ -28,8 +28,10 @@ body{background:var(--bk);color:var(--wh);font-family:'Noto Sans JP',sans-serif;
 
 /* ─── ヘッダー ─── */
 header{background:linear-gradient(180deg,#0e0c06,var(--d1));border-bottom:1px solid var(--gold-d);padding:1.5rem 2rem;display:flex;align-items:center;gap:1rem}
-.logo-mark{width:42px;height:42px;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--gold);transform:rotate(45deg);flex-shrink:0}
+.logo-mark{width:42px;height:42px;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--gold);transform:rotate(45deg);flex-shrink:0;cursor:pointer;transition:all .15s}
 .logo-mark span{transform:rotate(-45deg)}
+header a:hover .logo-mark{background:rgba(201,168,76,.15);border-color:var(--gold-l)}
+header a:hover .logo-text h1{color:var(--gold)}
 .logo-text h1{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:.15em;color:var(--gold-l)}
 .logo-text p{font-size:.7rem;letter-spacing:.25em;color:var(--wh2);margin-top:.2rem}
 .hdr-right{margin-left:auto;display:flex;align-items:center;gap:1rem;font-size:.72rem;color:var(--wh2)}
@@ -92,11 +94,13 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
 <body>
 
 <header>
-  <div class="logo-mark"><span>L</span></div>
-  <div class="logo-text">
-    <h1>SCLASS LAMBORGHINI</h1>
-    <p>INTEGRATED PORTAL</p>
-  </div>
+  <a href="portal.html" style="display:flex;align-items:center;gap:1rem;text-decoration:none;color:inherit" title="ポータルへ戻る">
+    <div class="logo-mark"><span>L</span></div>
+    <div class="logo-text">
+      <h1>SCLASS LAMBORGHINI</h1>
+      <p>INTEGRATED PORTAL</p>
+    </div>
+  </a>
   <div class="hdr-right">
     <span class="live-dot"></span>
     <span id="gas-status">GAS未接続</span>
