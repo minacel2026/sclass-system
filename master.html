@@ -117,6 +117,27 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
 .btn-dn:hover{background:rgba(224,82,82,.15);border-color:var(--red)}
 
 /* ─── 商品別掛率 ─── */
+/* ─── 紹介者マスター: select の初期表示でも1行に制約 ─── */
+#m-referrers .fg select,
+#m-referrers .fg input{
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  overflow:hidden;
+  height:36px;
+  box-sizing:border-box;
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23BA9550' d='M0 0l5 6 5-6z'/></svg>");
+  background-repeat:no-repeat;
+  background-position:right .6rem center;
+  background-size:.55rem;
+  padding-right:1.8rem;
+}
+#m-referrers .fg input{
+  background-image:none;
+  padding-right:.65rem;
+}
 .product-rates{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.5rem;margin-top:.5rem}
 .prate-item{display:flex !important;flex-direction:column !important;gap:.3rem;background:var(--d3);padding:.45rem .55rem;border:1px solid rgba(255,255,255,.05);min-width:0}
 .prate-name{font-size:.72rem;color:var(--gold-l);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;writing-mode:horizontal-tb !important;text-orientation:mixed;line-height:1.3}
