@@ -304,13 +304,6 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
               </select>
             </div>
             <div class="fg">
-              <label>価格モード <span class="hint">LINE注文時の表示価格</span></label>
-              <select class="fc" id="cf-price-mode">
-                <option value="新値">新値</option>
-                <option value="旧値">旧値</option>
-              </select>
-            </div>
-            <div class="fg">
               <label>税 <span class="hint">注文時の消費税</span></label>
               <select class="fc" id="cf-tax-type">
                 <option value="税込">税込</option>
@@ -1076,7 +1069,6 @@ function fillCustForm(c){
   g('cf-line-id').value=c.lineId||''; g('cf-line-uid').value=c.lineUid||'';
   g('cf-inv-name').value=c.invName||''; g('cf-referrer').value=c.referrer||'';
   g('cf-pay-method').value=c.payMethod||'';
-  g('cf-price-mode').value=c.priceMode||'新値';
   g('cf-tax-type').value=c.taxType||'税込';
   g('cf-rate').value=c.rate||'7'; g('cf-note').value=c.note||'';
   g('cf-sponsor').checked=!!c.sponsorEnabled;
@@ -1120,7 +1112,6 @@ function clearCustForm(){
   document.getElementById('cf-branch').value = '仙台';
   document.getElementById('cf-staff').value = '';
   document.getElementById('cf-rate').value = '7';
-  document.getElementById('cf-price-mode').value = '新値';
   document.getElementById('cf-tax-type').value = '税込';
   document.getElementById('cf-sponsor').checked = false;
   toggleCustSponsor();
@@ -1276,21 +1267,39 @@ function updateSponsorProductOptions(currentValue){
 function renderCustProdRates(existing){
   const grid = document.getElementById('prate-grid');
   if (!grid) return;
-  const existMap = {};
-  (existing || []).forEach(r => { existMap[r.key] = r.rate || ''; });
-  grid.innerHTML = PROD_LIST.map(p => `
+  const existMap = {};       // { 商品名: 掛率 }
+  const existModeMap = {};   // { 商品名: 価格モード }
+  (existing || []).forEach(r => {
+    existMap[r.key] = r.rate || '';
+    if (r.priceMode) existModeMap[r.key] = r.priceMode;
+  });
+  grid.innerHTML = PROD_LIST.map(p => {
+    const mode = existModeMap[p.key] || '新値';
+    return `
     <div class="prate-item">
       <label>${p.name}</label>
-      <input type="number" id="pr-${p.key}" step="0.5" min="0" max="10"
-        value="${existMap[p.key]||''}" placeholder="—">
-    </div>`).join('');
+      <div style="display:flex;gap:.3rem">
+        <input type="number" id="pr-${p.key}" step="0.5" min="0" max="10"
+          value="${existMap[p.key]||''}" placeholder="掛率" style="flex:1;min-width:0">
+        <select id="pm-${p.key}" style="background:rgba(0,0,0,.3);color:var(--gold-l);border:1px solid var(--gold-d);padding:.3rem;font-size:.7rem;font-family:'Noto Sans JP',sans-serif">
+          <option value="新値" ${mode==='新値'?'selected':''}>新値</option>
+          <option value="旧値" ${mode==='旧値'?'selected':''}>旧値</option>
+        </select>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function getCustProdRates(){
-  return PROD_LIST.map(p => ({
-    key: p.key,
-    rate: (document.getElementById('pr-' + p.key) || {}).value || ''
-  })).filter(r => r.rate);
+  return PROD_LIST.map(p => {
+    const rateEl = document.getElementById('pr-' + p.key);
+    const modeEl = document.getElementById('pm-' + p.key);
+    return {
+      key: p.key,
+      rate: rateEl ? (rateEl.value || '') : '',
+      priceMode: modeEl ? (modeEl.value || '新値') : '新値'
+    };
+  }).filter(r => r.rate);  // 掛率が入力されている行のみ保持
 }
 
 function toggleCustSponsor(){
@@ -1314,7 +1323,6 @@ function submitCustForm(){
     lineId: g('cf-line-id'), lineUid: g('cf-line-uid').trim(),
     invName: g('cf-inv-name'), referrer: g('cf-referrer'),
     payMethod: g('cf-pay-method'),
-    priceMode: g('cf-price-mode') || '新値',
     taxType:   g('cf-tax-type')   || '税込',
     bankNames: custBankRows.filter(v => v),
     deliveries: custDeliveryRows.filter(d => d && (d.name || d.zip || d.addr1)).slice(0, 5),
@@ -2164,7 +2172,7 @@ const CF_STATIC_ORDER_BEFORE_DELIVERY = [
 ];
 const CF_STATIC_ORDER_AFTER_DELIVERY = [
   'cf-line-id', 'cf-line-uid',
-  'cf-inv-name', 'cf-referrer', 'cf-pay-method', 'cf-price-mode', 'cf-tax-type', 'cf-rate',
+  'cf-inv-name', 'cf-referrer', 'cf-pay-method', 'cf-tax-type', 'cf-rate',
   'cf-sponsor-trigger', 'cf-sponsor-reward', 'cf-sponsor-product',
   'cf-biz-type', 'cf-open-date', 'cf-seats', 'cf-owner-age',
   'cf-customer-base', 'cf-product-trend', 'cf-competitor',
