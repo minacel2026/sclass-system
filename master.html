@@ -346,7 +346,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           <div class="form-section-title">▸ 請求・振込</div>
           <div class="frow">
             <div class="fg"><label>請求書宛名</label><input class="fc" id="cf-inv-name" placeholder="例：○○ 御中"></div>
-            <div class="fg"><label>紹介者</label><input class="fc" id="cf-referrer" placeholder="紹介者名"></div>
+            <div class="fg"><label>紹介者 <span class="hint">紹介者マスターから選択</span></label><select class="fc" id="cf-referrer"><option value="">未設定</option></select></div>
             <div class="fg">
               <label>支払方法 <span class="hint">注文時のデフォルト値</span></label>
               <select class="fc" id="cf-pay-method">
@@ -1205,7 +1205,8 @@ function fillCustForm(c){
   g('cf-pref').value=c.pref||''; g('cf-city').value=c.city||'';
   g('cf-addr1').value=c.addr1||''; g('cf-addr2').value=c.addr2||'';
   g('cf-line-id').value=c.lineId||''; g('cf-line-uid').value=c.lineUid||'';
-  g('cf-inv-name').value=c.invName||''; g('cf-referrer').value=c.referrer||'';
+  g('cf-inv-name').value=c.invName||'';
+  updateReferrerOptions(c.referrer||'');
   g('cf-pay-method').value=c.payMethod||'';
   g('cf-rate').value=c.rate||'7'; g('cf-note').value=c.note||'';
   g('cf-common-price-mode').value = c.commonPriceMode || '新値';
@@ -1254,6 +1255,7 @@ function clearCustForm(){
   document.getElementById('cf-common-price-mode').value = '新値';
   document.getElementById('cf-common-tax').value = '税込';
   document.getElementById('cf-sponsor').checked = false;
+  updateReferrerOptions('');
   toggleCustSponsor();
   custContactRows = []; custBankRows = []; custDeliveryRows = [];
   renderCustContacts(); renderCustBanks(); renderCustDeliveries();
@@ -1370,6 +1372,36 @@ function lookupCustDeliveryZip(i){
   s.src = 'https://zipcloud.ibsnet.co.jp/api/search?zipcode=' + zipDigits + '&callback=' + cb;
   s.onerror = function(){ delete window[cb]; toast('住所取得に失敗しました', 'error'); };
   document.body.appendChild(s);
+}
+
+// ─── 紹介者プルダウン: 紹介者マスターから選択肢を再構築 ─────
+// currentValue を渡すと、その値を選択状態にする（マスターになくても保持）
+function updateReferrerOptions(currentValue){
+  const sel = document.getElementById('cf-referrer');
+  if (!sel) return;
+  const list = S.referrers || [];
+  // 既存値を保持（引数優先、なければ現在のセレクト値）
+  const keep = (currentValue !== undefined && currentValue !== null) ? currentValue : sel.value;
+  // 選択肢を再構築
+  sel.innerHTML = '<option value="">未設定</option>';
+  list.forEach(r => {
+    if (!r.name) return;
+    const opt = document.createElement('option');
+    opt.value = r.name;
+    opt.textContent = r.name;
+    sel.appendChild(opt);
+  });
+  // 既存値がマスターになければ「(未登録)」として末尾に追加（互換性保持）
+  if (keep) {
+    const exists = Array.from(sel.options).some(o => o.value === keep);
+    if (!exists) {
+      const opt = document.createElement('option');
+      opt.value = keep;
+      opt.textContent = keep + ' (未登録)';
+      sel.appendChild(opt);
+    }
+    sel.value = keep;
+  }
 }
 
 // ─── 協賛対象商品プルダウン: 商品マスターから選択肢を再構築 ─────
@@ -2453,6 +2485,7 @@ window.addEventListener('DOMContentLoaded', () => {
   renderCustDeliveries();
   renderCustProdRates([]);
   updateSponsorProductOptions('');
+  updateReferrerOptions('');
   updateCustStaffOptions();
   initCustFormEnterNav();
   if (typeof renderReferrerList === 'function') renderReferrerList();
