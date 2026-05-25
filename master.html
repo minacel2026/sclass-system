@@ -28,7 +28,9 @@ body{background:var(--bk);color:var(--wh);font-family:'Noto Sans JP',sans-serif;
 
 /* ─── ヘッダー ─── */
 header{background:linear-gradient(180deg,#0e0c06,var(--d1));border-bottom:1px solid var(--gold-d);height:56px;display:flex;align-items:center;padding:0 1.2rem;position:sticky;top:0;z-index:200;gap:1rem}
-.logo-mark{width:28px;height:28px;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold);transform:rotate(45deg);flex-shrink:0}
+.logo-mark{width:28px;height:28px;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold);transform:rotate(45deg);flex-shrink:0;cursor:pointer;transition:all .15s}
+header a:hover .logo-mark{background:rgba(201,168,76,.15);border-color:var(--gold-l)}
+header a:hover .sys-name{color:var(--gold)}
 .logo-mark span{transform:rotate(-45deg)}
 .sys-name{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.1em;color:var(--gold-l)}
 .sys-sub{font-size:.62rem;letter-spacing:.15em;color:var(--wh2);margin-left:.5rem}
@@ -122,46 +124,49 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
 /* ─── input と select を完全に同じ見た目に統一（ブラウザ依存を排除） ─── */
 .prate-item input,
 .prate-item select{
-  height:30px;
-  padding:0 .3rem;
-  font-size:.72rem;
-  font-family:'Noto Sans JP',sans-serif;
-  letter-spacing:-.02em;
-  background:var(--d1);
-  border:1px solid rgba(201,168,76,.25);
-  color:var(--wh);
-  box-sizing:border-box;
-  -webkit-appearance:none;
-  -moz-appearance:none;
-  appearance:none;
-  line-height:1;
-  min-width:0;
+  height:30px !important;
+  padding:0 .3rem !important;
+  font-size:.72rem !important;
+  font-family:'Noto Sans JP',sans-serif !important;
+  letter-spacing:-.02em !important;
+  background:var(--d1) !important;
+  border:1px solid rgba(201,168,76,.25) !important;
+  color:var(--wh) !important;
+  box-sizing:border-box !important;
+  -webkit-appearance:none !important;
+  -moz-appearance:none !important;
+  appearance:none !important;
+  line-height:1 !important;
+  min-width:0 !important;
+  outline:none !important;
 }
 .prate-item input{
-  width:50px;
-  flex:0 0 50px;
-  text-align:center;
-  font-family:'Bebas Neue',sans-serif;
-  font-size:.82rem;
+  width:50px !important;
+  flex:0 0 50px !important;
+  text-align:center !important;
+  font-family:'Bebas Neue',sans-serif !important;
+  font-size:.82rem !important;
 }
 .prate-item input::placeholder{
-  font-family:'Noto Sans JP',sans-serif;
-  font-size:.72rem;
-  letter-spacing:-.02em;
-  color:rgba(255,255,255,.45);
+  font-family:'Noto Sans JP',sans-serif !important;
+  font-size:.72rem !important;
+  letter-spacing:-.02em !important;
+  color:rgba(255,255,255,.45) !important;
+  opacity:1 !important;
 }
 .prate-item select{
-  flex:1;
-  color:var(--gold-l);
-  border-color:var(--gold-d);
-  background-color:rgba(0,0,0,.3);
-  padding-right:1.1rem;
+  flex:1 !important;
+  color:var(--gold-l) !important;
+  border-color:var(--gold-d) !important;
+  background-color:rgba(0,0,0,.3) !important;
+  padding-right:1.1rem !important;
   /* カスタム矢印（appearance:noneで消えたネイティブ矢印の代わり） */
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23BA9550' d='M0 0l5 6 5-6z'/></svg>");
-  background-repeat:no-repeat;
-  background-position:right .35rem center;
-  background-size:.55rem;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23BA9550' d='M0 0l5 6 5-6z'/></svg>") !important;
+  background-repeat:no-repeat !important;
+  background-position:right .35rem center !important;
+  background-size:.55rem !important;
 }
+.prate-item select option{font-size:.85rem !important;background:var(--d3) !important;color:var(--wh) !important;font-family:'Noto Sans JP',sans-serif !important}
 
 /* ─── 動的リスト ─── */
 .dyn-list{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem}
@@ -198,11 +203,13 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
 <body>
 
 <header>
-  <div class="logo-mark"><span>L</span></div>
-  <div>
-    <span class="sys-name">MASTER</span>
-    <span class="sys-sub">マスター管理</span>
-  </div>
+  <a href="portal.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:inherit" title="ポータルへ戻る">
+    <div class="logo-mark"><span>L</span></div>
+    <div>
+      <span class="sys-name">MASTER</span>
+      <span class="sys-sub">マスター管理</span>
+    </div>
+  </a>
   <div class="hdr-right">
     <a class="back-btn" href="portal.html">← ポータルへ戻る</a>
     <button class="btn-s" onclick="syncAllFromGAS()">🔄 GAS同期</button>
