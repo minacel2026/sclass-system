@@ -457,7 +457,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           <div id="sponsor-rules" style="display:none;margin-top:.7rem">
             <label style="font-size:.7rem;color:var(--wh2);letter-spacing:.05em">適用協賛ルール <span class="hint">協賛マスターの有効なルールから複数選択</span></label>
             <div style="display:flex;gap:.5rem;margin-top:.4rem;align-items:center">
-              <select class="fc" id="cf-sponsor-rule-sel" style="flex:1"><option value="">ルールを選択...</option></select>
+              <select class="fc" id="cf-sponsor-rule-sel" style="flex:1" onchange="addCustSponsor()"><option value="">ルールを選択...</option></select>
               <button type="button" class="btn-s" onclick="addCustSponsor()" style="white-space:nowrap">＋ 追加</button>
             </div>
             <div id="cf-sponsor-rule-list" style="margin-top:.6rem;display:flex;flex-direction:column;gap:.4rem"></div>
@@ -1702,12 +1702,15 @@ function renderCustSponsors(){
   }).join('');
 }
 
-// プルダウンから選択したルールを追加
+// プルダウンから選択したルールを追加（onchange自動追加 + 追加ボタン両対応）
 function addCustSponsor(){
   const sel = document.getElementById('cf-sponsor-rule-sel');
   const id = sel.value;
-  if (!id) return toast('追加するルールを選択してください', 'error');
-  if (custSponsorIds.indexOf(id) >= 0) return toast('既に追加済みです', 'error');
+  if (!id) return;  // 「ルールを選択...」の時は静かに無視（onchange対応）
+  if (custSponsorIds.indexOf(id) >= 0){
+    sel.value = '';
+    return toast('既に追加済みです', 'error');
+  }
   custSponsorIds.push(id);
   rebuildCustSponsorOptions();
   renderCustSponsors();
