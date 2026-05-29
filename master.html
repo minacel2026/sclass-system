@@ -445,12 +445,22 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
             <input type="checkbox" id="cf-sponsor" onchange="toggleCustSponsor()">
             <label for="cf-sponsor" style="font-size:.78rem;color:var(--wh);cursor:pointer">この顧客は協賛対象</label>
           </div>
+          <!-- 旧・協賛詳細（購入条件/本数/対象商品）— 非表示で保持（互換性のため削除しない） -->
           <div id="sponsor-detail" style="display:none">
             <div class="frow">
               <div class="fg"><label>購入条件</label><input type="number" class="fc" id="cf-sponsor-trigger" placeholder="例：6" min="1"><span style="font-size:.6rem;color:var(--wh3)">本購入で協賛発動</span></div>
               <div class="fg"><label>協賛本数</label><input type="number" class="fc" id="cf-sponsor-reward" placeholder="例：1" min="1"><span style="font-size:.6rem;color:var(--wh3)">協賛する本数</span></div>
               <div class="fg"><label>対象商品 <span class="hint">空白＝全商品</span></label><select class="fc" id="cf-sponsor-product"><option value="">未設定（＝全商品）</option></select></div>
             </div>
+          </div>
+          <!-- 新・適用協賛ルール（協賛マスターから複数選択） -->
+          <div id="sponsor-rules" style="display:none;margin-top:.7rem">
+            <label style="font-size:.7rem;color:var(--wh2);letter-spacing:.05em">適用協賛ルール <span class="hint">協賛マスターの有効なルールから複数選択</span></label>
+            <div style="display:flex;gap:.5rem;margin-top:.4rem;align-items:center">
+              <select class="fc" id="cf-sponsor-rule-sel" style="flex:1"><option value="">ルールを選択...</option></select>
+              <button type="button" class="btn-s" onclick="addCustSponsor()" style="white-space:nowrap">＋ 追加</button>
+            </div>
+            <div id="cf-sponsor-rule-list" style="margin-top:.6rem;display:flex;flex-direction:column;gap:.4rem"></div>
           </div>
         </div>
         <div class="form-section">
@@ -1352,6 +1362,11 @@ function fillCustForm(c){
   g('cf-sponsor-reward').value=c.sponsorReward||'';
   g('cf-sponsor-product').value=c.sponsorProduct||'';
   updateSponsorProductOptions(c.sponsorProduct||'');
+  // 適用協賛ルール（新方式）
+  custSponsorIds = Array.isArray(c.sponsorIds) ? c.sponsorIds.slice() : [];
+  document.getElementById('sponsor-rules').style.display = c.sponsorEnabled ? 'block' : 'none';
+  rebuildCustSponsorOptions();
+  renderCustSponsors();
   // 詳細情報（分析用）
   g('cf-biz-type').value      = c.bizType      || '';
   g('cf-open-date').value     = c.openDate     || '';
@@ -1392,6 +1407,9 @@ function clearCustForm(){
   document.getElementById('cf-common-tax').value = '税込';
   document.getElementById('cf-sponsor').checked = false;
   updateReferrerOptions('');
+  custSponsorIds = [];
+  document.getElementById('sponsor-rules').style.display = 'none';
+  renderCustSponsors();
   toggleCustSponsor();
   custContactRows = []; custBankRows = []; custDeliveryRows = [];
   renderCustContacts(); renderCustBanks(); renderCustDeliveries();
@@ -1622,7 +1640,72 @@ function getCustProdRates(){
 
 function toggleCustSponsor(){
   const on = document.getElementById('cf-sponsor').checked;
-  document.getElementById('sponsor-detail').style.display = on ? 'block' : 'none';
+  // 旧詳細は常に非表示のまま（互換保持）。新ルール選択UIを表示
+  document.getElementById('sponsor-rules').style.display = on ? 'block' : 'none';
+  if (on) rebuildCustSponsorOptions();
+}
+
+// ─── 顧客の適用協賛ルール ─────
+// 現在編集中の顧客に紐づく協賛IDの作業用配列
+let custSponsorIds = [];
+
+// プルダウンを「有効な協賛ルール」で再構築（既に追加済みは除外）
+function rebuildCustSponsorOptions(){
+  const sel = document.getElementById('cf-sponsor-rule-sel');
+  if (!sel) return;
+  const all = S.sponsors || [];
+  // 有効なルールのみ（無効・期限切れは除外）
+  const available = all.filter(s =>
+    (typeof isSponsorActive === 'function' ? isSponsorActive(s) : s.enabled === '有効')
+    && custSponsorIds.indexOf(s.id) < 0
+  );
+  sel.innerHTML = '<option value="">ルールを選択...</option>';
+  available.forEach(s => {
+    const target = (s.targetProduct === 'all') ? '全商品' : s.targetProduct;
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = `${s.name}（${target} ${s.triggerQty}${s.triggerUnit}→${s.rewardQty}本）`;
+    sel.appendChild(opt);
+  });
+}
+
+// 選択中の協賛ルールをリスト表示
+function renderCustSponsors(){
+  const box = document.getElementById('cf-sponsor-rule-list');
+  if (!box) return;
+  if (custSponsorIds.length === 0){
+    box.innerHTML = '<div style="font-size:.7rem;color:var(--wh3);padding:.3rem 0">まだ協賛ルールが追加されていません</div>';
+    return;
+  }
+  box.innerHTML = custSponsorIds.map(id => {
+    const s = (S.sponsors || []).find(x => x.id === id);
+    const label = s ? s.name : id + ' (削除済み)';
+    const expired = s && typeof isSponsorExpired === 'function' && isSponsorExpired(s);
+    const note = expired ? ' <span style="color:var(--org);font-size:.6rem">期限切れ</span>' : '';
+    return `
+      <div style="display:flex;align-items:center;gap:.5rem;background:rgba(155,127,212,.08);border:1px solid rgba(155,127,212,.25);padding:.35rem .6rem;font-size:.72rem">
+        <span style="flex:1;color:var(--gold-l)">🎁 ${escapeHtml(label)}${note}</span>
+        <button type="button" onclick="removeCustSponsor('${escapeHtml(id)}')" style="background:transparent;border:none;color:#e05252;cursor:pointer;font-size:.85rem;padding:0 .2rem">✕</button>
+      </div>`;
+  }).join('');
+}
+
+// プルダウンから選択したルールを追加
+function addCustSponsor(){
+  const sel = document.getElementById('cf-sponsor-rule-sel');
+  const id = sel.value;
+  if (!id) return toast('追加するルールを選択してください', 'error');
+  if (custSponsorIds.indexOf(id) >= 0) return toast('既に追加済みです', 'error');
+  custSponsorIds.push(id);
+  rebuildCustSponsorOptions();
+  renderCustSponsors();
+}
+
+// ルールを削除
+function removeCustSponsor(id){
+  custSponsorIds = custSponsorIds.filter(x => x !== id);
+  rebuildCustSponsorOptions();
+  renderCustSponsors();
 }
 
 function submitCustForm(){
@@ -1652,6 +1735,7 @@ function submitCustForm(){
     sponsorTrigger: g('cf-sponsor-trigger'),
     sponsorReward:  g('cf-sponsor-reward'),
     sponsorProduct: g('cf-sponsor-product'),
+    sponsorIds:     custSponsorIds.slice(),
     // 詳細情報（分析用）
     bizType:      g('cf-biz-type'),
     openDate:     g('cf-open-date'),
