@@ -70,6 +70,23 @@ select.fc option{background:var(--d3)}
 /* ─── カードグリッド ─── */
 .cust-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
 .cust-card{background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:1rem;cursor:pointer;transition:all .25s;position:relative;overflow:hidden}
+/* ─── 顧客一覧テーブル（1行表示・横スクロール対応） ─── */
+.cust-table-wrap{width:100%;overflow-x:auto;border:1px solid rgba(201,168,76,.15);background:var(--d2)}
+.cust-table{width:100%;min-width:780px;border-collapse:collapse;font-size:.78rem}
+.cust-table thead th{position:sticky;top:0;background:var(--d1);color:var(--gold-l);font-weight:500;text-align:left;padding:.6rem .7rem;border-bottom:1px solid rgba(201,168,76,.3);white-space:nowrap;letter-spacing:.03em;font-size:.72rem}
+.cust-table tbody tr{cursor:pointer;transition:background .15s;border-bottom:1px solid rgba(255,255,255,.04)}
+.cust-table tbody tr:hover{background:var(--d3)}
+.cust-table td{padding:.55rem .7rem;color:var(--wh2);white-space:nowrap}
+.cust-table td.ct-name{color:var(--gold-l);font-weight:500}
+.ct-spo{font-size:.6rem;padding:.1rem .35rem;background:rgba(155,127,212,.2);color:#b89fdc;border-radius:2px;margin-left:.3rem}
+.ct-uid.ok{color:var(--grn)}
+.ct-uid.no{color:var(--org)}
+.ct-actions{white-space:nowrap}
+.ct-btn{font-size:.68rem;padding:.25rem .6rem;border:1px solid;background:transparent;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-right:.3rem;transition:all .15s}
+.ct-btn.edit{border-color:rgba(201,168,76,.4);color:var(--gold-l)}
+.ct-btn.edit:hover{background:rgba(201,168,76,.15)}
+.ct-btn.del{border-color:rgba(224,82,82,.4);color:#e05252}
+.ct-btn.del:hover{background:rgba(224,82,82,.15)}
 .cust-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
 .cust-card:hover{border-color:rgba(201,168,76,.5);transform:translateY(-2px);background:var(--d3)}
 .cust-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem}
@@ -1161,39 +1178,58 @@ function renderCustList(){
   if (cnt) cnt.textContent = filtered.length;
   const grid = document.getElementById('cust-grid');
   if (!grid) return;
+  grid.style.display = 'block';
   if (filtered.length === 0){
-    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
+    grid.innerHTML = `<div class="empty">
       <div class="empty-icon">🏪</div>
       <div>該当する顧客がありません</div>
       <div style="font-size:.75rem;margin-top:.5rem;color:var(--wh3)">「＋ 新規登録」から追加してください</div>
     </div>`;
     return;
   }
-  grid.innerHTML = filtered.map(c => {
-    const hasRate = c.productRates && c.productRates.filter(r => r.rate).length > 0;
-    const rateCount = hasRate ? c.productRates.filter(r => r.rate).length : 0;
-    const uidClass = c.lineUid ? 'uid' : 'no-uid';
-    const uidText  = c.lineUid ? '🔗 UID登録済み' : '⚠ UID未登録';
-    return `
-    <div class="cust-card" onclick="openCust('${c.id}')">
-      <div class="cust-head">
-        <div class="cust-name">${escapeHtml(c.name || '無名')}</div>
-        <div class="cust-branch">${c.branch || '—'}</div>
-      </div>
-      <div class="cust-info">
-        ${c.owner ? `<div><strong>代表:</strong> ${escapeHtml(c.owner)}</div>` : ''}
-        ${c.tel ? `<div><strong>TEL:</strong> ${escapeHtml(c.tel)}</div>` : ''}
-        ${c.staff ? `<div><strong>担当:</strong> ${escapeHtml(c.staff)}</div>` : ''}
-        ${(c.pref||c.city) ? `<div style="color:var(--wh3);font-size:.65rem;margin-top:.2rem">${escapeHtml((c.pref||'')+(c.city||''))}</div>` : ''}
-      </div>
-      <div class="cust-meta">
-        <span class="meta-chip rate">${c.rate || '7'}掛</span>
-        ${hasRate ? `<span class="meta-chip rate">商品別 ${rateCount}</span>` : ''}
-        <span class="meta-chip ${uidClass}">${uidText}</span>
-        ${c.sponsorEnabled ? '<span class="meta-chip sponsor">協賛あり</span>' : ''}
-      </div>
+  grid.innerHTML = `
+    <div class="cust-table-wrap">
+      <table class="cust-table">
+        <thead>
+          <tr>
+            <th>拠点</th>
+            <th>店舗名</th>
+            <th>店舗電話</th>
+            <th>代表者</th>
+            <th>弊社担当</th>
+            <th>紹介者</th>
+            <th>掛率</th>
+            <th>UID</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered.map(c => {
+            const hasRate = c.productRates && c.productRates.filter(r => r.rate).length > 0;
+            const rateCount = hasRate ? c.productRates.filter(r => r.rate).length : 0;
+            const rateLabel = (c.rate || '7') + '掛' + (hasRate ? ` +${rateCount}` : '');
+            const uidBadge = c.lineUid
+              ? '<span class="ct-uid ok">🔗</span>'
+              : '<span class="ct-uid no">⚠</span>';
+            return `
+            <tr onclick="openCust('${c.id}')">
+              <td>${escapeHtml(c.branch || '—')}</td>
+              <td class="ct-name">${escapeHtml(c.name || '無名')}${c.sponsorEnabled ? ' <span class="ct-spo">協賛</span>' : ''}</td>
+              <td>${escapeHtml(c.tel || '—')}</td>
+              <td>${escapeHtml(c.owner || '—')}</td>
+              <td>${escapeHtml(c.staff || '—')}</td>
+              <td>${escapeHtml(c.referrer || '—')}</td>
+              <td>${escapeHtml(rateLabel)}</td>
+              <td style="text-align:center">${uidBadge}</td>
+              <td class="ct-actions" onclick="event.stopPropagation()">
+                <button class="ct-btn edit" onclick="openCust('${c.id}')">編集</button>
+                <button class="ct-btn del" onclick="deleteCustById('${c.id}')">削除</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
     </div>`;
-  }).join('');
 }
 
 function openCust(id){
@@ -1653,6 +1689,18 @@ function deleteCust(){
   toast('✓ 削除しました');
   clearCustForm();
   switchCustTab('list', document.querySelectorAll('#m-customers .tab')[0]);
+}
+
+// ─── 一覧の行から直接削除 ─────
+function deleteCustById(id){
+  if (!canDelete()) return toast('🔒 削除権限がありません（admin/manager のみ）', 'error');
+  const c = (S.customers || []).find(x => x.id === id);
+  if (!c) return;
+  if (!confirm(`顧客「${c.name || '無名'}」を削除しますか？\nスプレッドシートのデータは残ります。`)) return;
+  S.customers = (S.customers || []).filter(x => x.id !== id);
+  saveState();
+  toast('✓ 削除しました');
+  renderCustList();
 }
 
 // ─── CSV取込/出力 ─────────────────────────────────
