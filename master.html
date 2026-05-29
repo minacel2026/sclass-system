@@ -1135,7 +1135,18 @@ async function syncAllFromGAS(){
   if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
   toast('同期中...');
   const cust = await gasGet('getCustomers');
-  if (cust && cust.customers) { S.customers = cust.customers; }
+  if (cust && cust.customers) {
+    // 安全策: id がない顧客には店舗名ベースの安定IDを補完（openCustが動くように）
+    S.customers = cust.customers.map(c => {
+      if (!c.id) {
+        const nm = String(c.name || '');
+        let h = 0;
+        for (let i = 0; i < nm.length; i++) { h = ((h << 5) - h + nm.charCodeAt(i)) | 0; }
+        c.id = 'cust-sync-' + Math.abs(h).toString(36);
+      }
+      return c;
+    });
+  }
   const refs = await gasGet('getReferrers');
   if (refs && refs.referrers) { S.referrers = refs.referrers; }
   const sps = await gasGet('getSponsors');
