@@ -271,9 +271,6 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     <button class="mtab" onclick="switchMaster('staff',this)">
       <span class="mtab-ic">👥</span>スタッフマスター
     </button>
-    <button class="mtab" onclick="switchMaster('company',this)">
-      <span class="mtab-ic">🏢</span>弊社情報
-    </button>
     <button class="mtab" onclick="switchMaster('products',this)">
       <span class="mtab-ic">🍾</span>商品マスター
     </button>
@@ -282,6 +279,9 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     </button>
     <button class="mtab" onclick="switchMaster('sponsors',this)">
       <span class="mtab-ic">🎁</span>協賛マスター
+    </button>
+    <button class="mtab" onclick="switchMaster('company',this)">
+      <span class="mtab-ic">🏢</span>弊社情報
     </button>
   </div>
 
@@ -2240,8 +2240,9 @@ function renderStaffList(){
   });
   document.getElementById('staff-count').textContent = filtered.length;
   const grid = document.getElementById('staff-grid');
+  grid.style.display = 'block';
   if (filtered.length === 0){
-    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
+    grid.innerHTML = `<div class="empty">
       <div class="empty-icon">👥</div>
       <div>スタッフが登録されていません</div>
       <div style="font-size:.75rem;margin-top:.5rem;color:var(--wh3)">「＋ 新規登録」から追加してください</div>
@@ -2250,23 +2251,33 @@ function renderStaffList(){
     return;
   }
   const roleLabel = { admin:'👑 admin', manager:'📋 manager', staff:'🧑 staff', viewer:'👁 viewer' };
-  grid.innerHTML = filtered.map(s => `
-    <div class="cust-card" onclick="openStaff('${s.id}')">
-      <div class="cust-head">
-        <div class="cust-name">${escapeHtml(s.name || '無名')}</div>
-        <div class="cust-branch">${s.branch || '—'}</div>
-      </div>
-      <div class="cust-info">
-        ${s.email ? `<div><strong>@</strong> ${escapeHtml(s.email)}</div>` : ''}
-        ${s.tel ? `<div><strong>TEL:</strong> ${escapeHtml(s.tel)}</div>` : ''}
-        ${s.joined ? `<div style="color:var(--wh3);font-size:.65rem;margin-top:.2rem">入社: ${s.joined}</div>` : ''}
-      </div>
-      <div class="cust-meta">
-        <span class="meta-chip role">${roleLabel[s.role] || s.role}</span>
-        ${s.active === false ? '<span class="meta-chip no-uid">無効</span>' : ''}
-        ${s.lineUid ? '<span class="meta-chip uid">LINE UID</span>' : ''}
-      </div>
-    </div>`).join('');
+  grid.innerHTML = `
+    <div class="cust-table-wrap">
+      <table class="cust-table">
+        <thead>
+          <tr>
+            <th>拠点</th><th>名前</th><th>メール</th><th>電話</th>
+            <th>ロール</th><th>入社日</th><th>状態</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered.map(s => `
+            <tr onclick="openStaff('${s.id}')">
+              <td>${escapeHtml(s.branch || '—')}</td>
+              <td class="ct-name">${escapeHtml(s.name || '無名')}${s.lineUid ? ' <span class="ct-spo">LINE</span>' : ''}</td>
+              <td>${escapeHtml(s.email || '—')}</td>
+              <td>${escapeHtml(s.tel || '—')}</td>
+              <td>${escapeHtml(roleLabel[s.role] || s.role || '—')}</td>
+              <td>${escapeHtml(s.joined || '—')}</td>
+              <td>${s.active === false ? '<span style="color:var(--org)">無効</span>' : '<span style="color:var(--grn)">有効</span>'}</td>
+              <td class="ct-actions" onclick="event.stopPropagation()">
+                <button class="ct-btn edit" onclick="openStaff('${s.id}')">編集</button>
+                <button class="ct-btn del" onclick="deleteStaffById('${s.id}')">削除</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
   updateCustStaffOptions();
 }
 
@@ -2349,6 +2360,18 @@ function deleteStaff(){
   toast('✓ 削除しました');
   clearStaffForm();
   switchStaffTab('list', document.querySelectorAll('#m-staff .tab')[0]);
+}
+
+// ─── 一覧の行から直接削除 ─────
+function deleteStaffById(id){
+  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
+  const s = (S.staff || []).find(x => x.id === id);
+  if (!s) return;
+  if (!confirm(`スタッフ「${s.name || '無名'}」を削除しますか？`)) return;
+  S.staff = (S.staff || []).filter(x => x.id !== id);
+  saveState();
+  toast('✓ 削除しました');
+  renderStaffList();
 }
 </script>
 
@@ -2508,28 +2531,40 @@ function renderReferrerList(){
     return true;
   });
   document.getElementById('ref-count').textContent = list.length;
+  grid.style.display = 'block';
   if (list.length === 0){
     grid.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--wh3);font-size:.8rem">紹介者が登録されていません</div>';
     return;
   }
-  grid.innerHTML = list.map(r => {
-    const calcLabel = r.calcType === 'B' ? `B: 掛率差 ${r.calcParam}掛` : `A: 売値 ${r.calcParam}%`;
-    return `
-    <div class="cust-card" onclick="editReferrer('${escapeHtml(r.id)}')" style="cursor:pointer">
-      <div style="display:flex;justify-content:space-between;align-items:start;gap:.5rem">
-        <div style="flex:1;min-width:0">
-          <div style="color:var(--gold-l);font-weight:500;font-size:.95rem;margin-bottom:.3rem">${escapeHtml(r.name||'(名前なし)')}</div>
-          <div style="font-size:.7rem;color:var(--wh2);line-height:1.5">
-            ${r.tel ? '📞 ' + escapeHtml(r.tel) + '<br>' : ''}
-            ${r.email ? '✉ ' + escapeHtml(r.email) + '<br>' : ''}
-            ${r.lineId ? 'LINE: ' + escapeHtml(r.lineId) + '<br>' : ''}
-            ${r.address ? '📍 ' + escapeHtml(r.address) : ''}
-          </div>
-        </div>
-        <div style="font-size:.65rem;padding:.2rem .5rem;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);color:var(--gold-l);white-space:nowrap">${escapeHtml(calcLabel)}</div>
-      </div>
+  grid.innerHTML = `
+    <div class="cust-table-wrap">
+      <table class="cust-table">
+        <thead>
+          <tr>
+            <th>名前</th><th>電話番号</th><th>メール</th><th>LINE ID</th>
+            <th>住所</th><th>計算方法</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${list.map(r => {
+            const calcLabel = r.calcType === 'B' ? `B: 掛率差 ${r.calcParam}掛` : `A: 売値 ${r.calcParam}%`;
+            return `
+            <tr onclick="editReferrer('${escapeHtml(r.id)}')">
+              <td class="ct-name">${escapeHtml(r.name || '(名前なし)')}</td>
+              <td>${escapeHtml(r.tel || '—')}</td>
+              <td>${escapeHtml(r.email || '—')}</td>
+              <td>${escapeHtml(r.lineId || '—')}</td>
+              <td>${escapeHtml(r.address || '—')}</td>
+              <td>${escapeHtml(calcLabel)}</td>
+              <td class="ct-actions" onclick="event.stopPropagation()">
+                <button class="ct-btn edit" onclick="editReferrer('${escapeHtml(r.id)}')">編集</button>
+                <button class="ct-btn del" onclick="deleteReferrerById('${escapeHtml(r.id)}')">削除</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
     </div>`;
-  }).join('');
 }
 
 function clearReferrerForm(){
@@ -2625,6 +2660,19 @@ function deleteReferrer(){
   switchReferrerTab('list', document.querySelectorAll('#m-referrers .tab')[0]);
 }
 
+// ─── 一覧の行から直接削除 ─────
+function deleteReferrerById(id){
+  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
+  const r = (S.referrers || []).find(x => x.id === id);
+  if (!r) return;
+  if (!confirm(`紹介者「${r.name}」を削除しますか？`)) return;
+  S.referrers = (S.referrers || []).filter(x => x.id !== id);
+  saveState();
+  if (S.gasUrl) gasPost({ action: 'deleteReferrer', id: id });
+  toast('✓ 紹介者を削除しました');
+  renderReferrerList();
+}
+
 // ════════════════════════════════════════
 // 協賛マスター
 // ════════════════════════════════════════
@@ -2699,32 +2747,46 @@ function renderSponsorList(){
     return true;
   });
   document.getElementById('spo-count').textContent = list.length;
+  grid.style.display = 'block';
   if (list.length === 0){
     grid.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--wh3);font-size:.8rem">協賛ルールが登録されていません</div>';
     return;
   }
-  grid.innerHTML = list.map(s => {
-    const expired = isSponsorExpired(s);
-    const disabled = s.enabled === '無効';
-    const badgeColor = expired ? 'var(--org)' : (disabled ? 'var(--wh3)' : 'var(--grn)');
-    const badgeText  = expired ? '期限切れ'   : (disabled ? '無効'       : '有効');
-    const reward = (s.rewardProduct === 'same') ? s.targetProduct : s.rewardProduct;
-    const target = (s.targetProduct === 'all') ? '全商品' : s.targetProduct;
-    const period = (s.startDate || s.endDate) ? `${s.startDate||'∞'} 〜 ${s.endDate||'∞'}` : '期間無制限';
-    return `
-    <div class="cust-card" onclick="editSponsor('${escapeHtml(s.id)}')" style="cursor:pointer">
-      <div style="display:flex;justify-content:space-between;align-items:start;gap:.5rem;margin-bottom:.4rem">
-        <div style="flex:1;min-width:0;color:var(--gold-l);font-weight:500;font-size:.9rem">${escapeHtml(s.name||'(無題)')}</div>
-        <div style="font-size:.65rem;padding:.2rem .5rem;background:rgba(0,0,0,.3);border:1px solid ${badgeColor};color:${badgeColor};white-space:nowrap">${badgeText}</div>
-      </div>
-      <div style="font-size:.72rem;color:var(--wh2);line-height:1.6">
-        🎁 <strong>${escapeHtml(target)}</strong> ${s.triggerQty||0}${escapeHtml(s.triggerUnit||'')}
-        → <strong>${escapeHtml(reward)}</strong> ${s.rewardQty||0}本サービス<br>
-        📅 ${escapeHtml(period)}
-        ${s.memo ? '<br>📝 ' + escapeHtml(s.memo) : ''}
-      </div>
+  grid.innerHTML = `
+    <div class="cust-table-wrap">
+      <table class="cust-table">
+        <thead>
+          <tr>
+            <th>ルール名</th><th>対象商品</th><th>条件</th><th>報酬</th>
+            <th>期間</th><th>状態</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${list.map(s => {
+            const expired = isSponsorExpired(s);
+            const disabled = s.enabled === '無効';
+            const badgeColor = expired ? 'var(--org)' : (disabled ? 'var(--wh3)' : 'var(--grn)');
+            const badgeText  = expired ? '期限切れ'   : (disabled ? '無効'       : '有効');
+            const reward = (s.rewardProduct === 'same') ? s.targetProduct : s.rewardProduct;
+            const target = (s.targetProduct === 'all') ? '全商品' : s.targetProduct;
+            const period = (s.startDate || s.endDate) ? `${s.startDate||'∞'}〜${s.endDate||'∞'}` : '無期限';
+            return `
+            <tr onclick="editSponsor('${escapeHtml(s.id)}')">
+              <td class="ct-name">${escapeHtml(s.name || '(無題)')}</td>
+              <td>${escapeHtml(target)}</td>
+              <td>${s.triggerQty||0}${escapeHtml(s.triggerUnit||'')}</td>
+              <td>${escapeHtml(reward)} ${s.rewardQty||0}本</td>
+              <td>${escapeHtml(period)}</td>
+              <td><span style="color:${badgeColor}">${badgeText}</span></td>
+              <td class="ct-actions" onclick="event.stopPropagation()">
+                <button class="ct-btn edit" onclick="editSponsor('${escapeHtml(s.id)}')">編集</button>
+                <button class="ct-btn del" onclick="deleteSponsorById('${escapeHtml(s.id)}')">削除</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
     </div>`;
-  }).join('');
 }
 
 function clearSponsorForm(){
@@ -2819,6 +2881,19 @@ function deleteSponsorRule(){
   if (S.gasUrl) gasPost({ action: 'deleteSponsor', id: editingSponsorId });
   toast('✓ 協賛ルールを削除しました');
   switchSponsorTab('list', document.querySelectorAll('#m-sponsors .tab')[0]);
+}
+
+// ─── 一覧の行から直接削除 ─────
+function deleteSponsorById(id){
+  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
+  const s = (S.sponsors || []).find(x => x.id === id);
+  if (!s) return;
+  if (!confirm(`協賛ルール「${s.name}」を削除しますか？`)) return;
+  S.sponsors = (S.sponsors || []).filter(x => x.id !== id);
+  saveState();
+  if (S.gasUrl) gasPost({ action: 'deleteSponsor', id: id });
+  toast('✓ 協賛ルールを削除しました');
+  renderSponsorList();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
