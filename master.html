@@ -1232,8 +1232,9 @@ function renderCustList(){
             const uidBadge = c.lineUid
               ? '<span class="ct-uid ok">🔗</span>'
               : '<span class="ct-uid no">⚠</span>';
+            const realIdx = S.customers.indexOf(c);
             return `
-            <tr onclick="openCust('${c.id}')">
+            <tr onclick="openCustRow(${realIdx})">
               <td>${escapeHtml(c.branch || '—')}</td>
               <td class="ct-name">${escapeHtml(c.name || '無名')}${c.sponsorEnabled ? ' <span class="ct-spo">協賛</span>' : ''}</td>
               <td>${escapeHtml(c.tel || '—')}</td>
@@ -1243,8 +1244,8 @@ function renderCustList(){
               <td>${escapeHtml(rateLabel)}</td>
               <td style="text-align:center">${uidBadge}</td>
               <td class="ct-actions" onclick="event.stopPropagation()">
-                <button class="ct-btn edit" onclick="openCust('${c.id}')">編集</button>
-                <button class="ct-btn del" onclick="deleteCustById('${c.id}')">削除</button>
+                <button class="ct-btn edit" onclick="openCustRow(${realIdx})">編集</button>
+                <button class="ct-btn del" onclick="deleteCustRow(${realIdx})">削除</button>
               </td>
             </tr>`;
           }).join('')}
@@ -1793,6 +1794,38 @@ function deleteCustById(id){
   if (!c) return;
   if (!confirm(`顧客「${c.name || '無名'}」を削除しますか？\nスプレッドシートのデータは残ります。`)) return;
   S.customers = (S.customers || []).filter(x => x.id !== id);
+  saveState();
+  toast('✓ 削除しました');
+  renderCustList();
+}
+
+// ─── 行インデックスで開く（id非依存・同期で id がずれても確実に動く） ─────
+function openCustRow(idx){
+  const c = (S.customers || [])[idx];
+  if (!c) return toast('顧客が見つかりません', 'error');
+  // id がなければ補完（古い同期データ対策）
+  if (!c.id) {
+    const nm = String(c.name || '');
+    let h = 0;
+    for (let i = 0; i < nm.length; i++) { h = ((h << 5) - h + nm.charCodeAt(i)) | 0; }
+    c.id = 'cust-sync-' + Math.abs(h).toString(36);
+  }
+  custEditingId = c.id;
+  fillCustForm(c);
+  const es = document.getElementById('edit-status');
+  if (es) es.textContent = '編集中: ' + (c.name || '');
+  const bd = document.getElementById('btn-delete');
+  if (bd) bd.style.display = 'inline-block';
+  switchCustTab('new', document.querySelectorAll('#m-customers .tab')[1]);
+}
+
+// ─── 行インデックスで削除（id非依存・絶対に削除できる） ─────
+function deleteCustRow(idx){
+  if (!canDelete()) return toast('🔒 削除権限がありません（admin/manager のみ）', 'error');
+  const c = (S.customers || [])[idx];
+  if (!c) return toast('顧客が見つかりません', 'error');
+  if (!confirm(`顧客「${c.name || '無名'}」を削除しますか？\nスプレッドシートのデータは残ります。`)) return;
+  S.customers.splice(idx, 1);
   saveState();
   toast('✓ 削除しました');
   renderCustList();
