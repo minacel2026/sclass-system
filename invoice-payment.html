@@ -452,6 +452,7 @@ const S = {
   slog:[], collections:[], invoices:[],
   bankEntries:[], bankHistory:[], company:{}, products:null,
   purchases:[], cashEntries:[], dailyReps:[],
+  referrers:[], sponsors:[],
   gasUrl: localStorage.getItem('gasUrl') || '',
 };
 
@@ -472,7 +473,7 @@ function saveState(){
   try {
     const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
-                  'cashEntries','dailyReps','sponsorLogs'];
+                  'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
   } catch(e){ console.warn('saveState error', e); }
 }
@@ -480,7 +481,7 @@ function loadState(){
   try {
     const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
-                  'cashEntries','dailyReps','sponsorLogs'];
+                  'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
     keys.forEach(k => {
       const v = localStorage.getItem('lmb_' + k);
       if (v) try { S[k] = JSON.parse(v); } catch(e){}

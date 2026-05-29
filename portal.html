@@ -328,6 +328,8 @@ function saveState() {
     localStorage.setItem('lmb_purchases',   JSON.stringify(S.purchases));
     localStorage.setItem('lmb_cashEntries', JSON.stringify(S.cashEntries));
     localStorage.setItem('lmb_dailyReps',   JSON.stringify(S.dailyReps));
+    localStorage.setItem('lmb_referrers',   JSON.stringify(S.referrers || []));
+    localStorage.setItem('lmb_sponsors',    JSON.stringify(S.sponsors  || []));
   } catch(e) { console.warn('saveState error', e); }
 }
 
@@ -335,7 +337,7 @@ function loadState() {
   try {
     const keys = ['orders','customers','stock','stockDetail','slog','collections',
                   'invoices','bankEntries','bankHistory','company','purchases',
-                  'cashEntries','dailyReps'];
+                  'cashEntries','dailyReps','referrers','sponsors'];
     keys.forEach(k => {
       const v = localStorage.getItem('lmb_' + k);
       if (v) {

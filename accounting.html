@@ -499,7 +499,7 @@ function saveState(){
     const keys = ['orders','customers','staff','stock','slog','collections',
                   'invoices','bankEntries','company','products','purchases',
                   'cashEntries','expenses','pettyEntries','amexEntries','payables',
-                  'dailyReps'];
+                  'dailyReps','referrers','sponsors'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
   } catch(e){ console.warn('saveState error', e); }
 }
@@ -508,7 +508,7 @@ function loadState(){
     const keys = ['orders','customers','staff','stock','slog','collections',
                   'invoices','bankEntries','company','products','purchases',
                   'cashEntries','expenses','pettyEntries','amexEntries','payables',
-                  'dailyReps'];
+                  'dailyReps','referrers','sponsors'];
     keys.forEach(k => {
       const v = localStorage.getItem('lmb_' + k);
       if (v) try { S[k] = JSON.parse(v); } catch(e){}
