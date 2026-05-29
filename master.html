@@ -263,6 +263,9 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     <button class="mtab" onclick="switchMaster('referrers',this)">
       <span class="mtab-ic">🤝</span>紹介者マスター
     </button>
+    <button class="mtab" onclick="switchMaster('sponsors',this)">
+      <span class="mtab-ic">🎁</span>協賛マスター
+    </button>
   </div>
 
   <!-- ════════ 顧客マスター ════════ -->
@@ -840,6 +843,77 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     </div>
   </div>
 
+  <!-- ════════ 協賛マスター ════════ -->
+  <div id="m-sponsors" class="mcon">
+    <div class="tbar">
+      <div class="tab active" onclick="switchSponsorTab('list',this)">一覧</div>
+      <div class="tab" onclick="switchSponsorTab('new',this)">＋ 新規登録</div>
+    </div>
+
+    <div id="spo-list" class="tcon active">
+      <div class="filter-bar">
+        <label>検索</label>
+        <input class="fc" id="sp-kw" placeholder="ルール名・商品..." oninput="renderSponsorList()" style="width:240px">
+        <label>状態</label>
+        <select class="fc" id="sp-status" onchange="renderSponsorList()">
+          <option value="">すべて</option>
+          <option value="active">有効</option>
+          <option value="disabled">無効</option>
+          <option value="expired">期限切れ</option>
+        </select>
+        <span style="margin-left:auto;font-size:.72rem;color:var(--wh2)">
+          <span id="spo-count">0</span> 件
+        </span>
+      </div>
+      <div id="spo-grid" class="cust-grid"></div>
+    </div>
+
+    <div id="spo-new" class="tcon">
+      <div class="action-bar">
+        <button class="btn-s" onclick="switchSponsorTab('list',document.querySelectorAll('#m-sponsors .tab')[0])">← 一覧に戻る</button>
+        <span id="spo-edit-status" style="color:var(--gold-l);font-size:.8rem"></span>
+      </div>
+      <div class="form-panel">
+        <h3>協賛ルール</h3>
+        <div class="form-section">
+          <div class="form-section-title">▸ 基本情報</div>
+          <div class="frow">
+            <div class="fg fc-full"><label>ルール名 <span class="req">*</span></label><input class="fc" id="sp-name" placeholder="例：イエロー10ケース1本協賛"></div>
+            <div class="fg"><label>対象商品 <span class="req">*</span></label><select class="fc" id="sp-target"><option value="all">全商品</option></select></div>
+            <div class="fg fc-full"><label>メモ</label><input class="fc" id="sp-memo" placeholder="任意"></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ 条件と報酬</div>
+          <div class="frow">
+            <div class="fg"><label>購入条件数量 <span class="req">*</span></label><input class="fc" type="number" id="sp-trigger-qty" min="0" step="1" placeholder="例：10"></div>
+            <div class="fg"><label>購入単位 <span class="req">*</span></label><select class="fc" id="sp-trigger-unit"><option value="ケース">ケース</option><option value="本">本</option></select></div>
+            <div class="fg"><label>報酬数量 <span class="req">*</span></label><input class="fc" type="number" id="sp-reward-qty" min="0" step="1" placeholder="例：1"></div>
+            <div class="fg"><label>報酬商品 <span class="req">*</span></label><select class="fc" id="sp-reward-product"><option value="same">対象商品と同じ</option></select></div>
+            <div class="fg fc-full">
+              <div style="background:rgba(155,127,212,.05);border:1px dashed rgba(155,127,212,.25);border-radius:3px;padding:.6rem .8rem;font-size:.72rem;color:var(--wh2);line-height:1.6">
+                <strong style="color:var(--gold-l)">ルール例:</strong> 「イエロー <strong>10ケース</strong> 購入で イエロー <strong>1本</strong> サービス」
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ 期間と状態</div>
+          <div class="frow">
+            <div class="fg"><label>開始日 <span class="hint">任意・空欄=無期限</span></label><input class="fc" type="date" id="sp-start"></div>
+            <div class="fg"><label>終了日 <span class="hint">任意・空欄=無期限</span></label><input class="fc" type="date" id="sp-end"></div>
+            <div class="fg"><label>状態 <span class="req">*</span></label><select class="fc" id="sp-enabled"><option value="有効">有効</option><option value="無効">無効</option></select></div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-p" onclick="submitSponsorForm()">💾 保存</button>
+          <button class="btn" onclick="clearSponsorForm()">クリア</button>
+          <button class="btn btn-d" id="spo-delete-btn" onclick="deleteSponsorRule()" style="display:none;margin-left:auto">🗑️ 削除</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <div id="toast"></div>
@@ -1025,6 +1099,7 @@ function switchMaster(name, el){
   if (name === 'company')   loadCompany();
   if (name === 'products')  renderProducts();
   if (name === 'referrers') renderReferrerList();
+  if (name === 'sponsors')  renderSponsorList();
 }
 
 // ─── 全同期 ─────
@@ -1035,12 +1110,15 @@ async function syncAllFromGAS(){
   if (cust && cust.customers) { S.customers = cust.customers; }
   const refs = await gasGet('getReferrers');
   if (refs && refs.referrers) { S.referrers = refs.referrers; }
+  const sps = await gasGet('getSponsors');
+  if (sps && sps.sponsors) { S.sponsors = sps.sponsors; }
   saveState();
   localStorage.setItem('lmb_lastSync', new Date().toISOString());
   toast('✓ 同期完了');
   renderCustList();
   renderStaffList();
   if (typeof renderReferrerList === 'function') renderReferrerList();
+  if (typeof renderSponsorList === 'function') renderSponsorList();
 }
 
 // ─── ユーティリティ ─────
@@ -2498,6 +2576,202 @@ function deleteReferrer(){
   switchReferrerTab('list', document.querySelectorAll('#m-referrers .tab')[0]);
 }
 
+// ════════════════════════════════════════
+// 協賛マスター
+// ════════════════════════════════════════
+let editingSponsorId = null;
+
+function switchSponsorTab(name, el){
+  document.querySelectorAll('#m-sponsors .tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#m-sponsors .tcon').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('spo-' + name).classList.add('active');
+  if (name === 'list') {
+    editingSponsorId = null;
+    clearSponsorForm();
+    renderSponsorList();
+  } else if (name === 'new') {
+    populateSponsorProductDropdowns();
+  }
+}
+
+// 対象商品・報酬商品プルダウンを商品マスターから生成
+function populateSponsorProductDropdowns(){
+  const list = (S.products && S.products.length > 0) ? S.products
+              : (typeof PROD_LIST !== 'undefined' ? PROD_LIST : []);
+  const target = document.getElementById('sp-target');
+  const reward = document.getElementById('sp-reward-product');
+  if (target) {
+    const keepT = target.value || 'all';
+    target.innerHTML = '<option value="all">全商品</option>';
+    list.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.name; opt.textContent = p.name;
+      target.appendChild(opt);
+    });
+    target.value = keepT;
+  }
+  if (reward) {
+    const keepR = reward.value || 'same';
+    reward.innerHTML = '<option value="same">対象商品と同じ</option>';
+    list.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.name; opt.textContent = p.name;
+      reward.appendChild(opt);
+    });
+    reward.value = keepR;
+  }
+}
+
+// 協賛ルールが現在期限切れか判定
+function isSponsorExpired(s){
+  if (!s.endDate) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return s.endDate < today;
+}
+function isSponsorActive(s){
+  return s.enabled === '有効' && !isSponsorExpired(s);
+}
+
+function renderSponsorList(){
+  const grid = document.getElementById('spo-grid');
+  if (!grid) return;
+  const kw     = (document.getElementById('sp-kw')?.value || '').toLowerCase();
+  const status = document.getElementById('sp-status')?.value || '';
+  const all    = S.sponsors || [];
+  const list = all.filter(s => {
+    if (kw){
+      const blob = [s.name, s.targetProduct, s.rewardProduct, s.memo].filter(Boolean).join(' ').toLowerCase();
+      if (blob.indexOf(kw) < 0) return false;
+    }
+    if (status === 'active'   && !isSponsorActive(s)) return false;
+    if (status === 'disabled' && s.enabled !== '無効') return false;
+    if (status === 'expired'  && !isSponsorExpired(s)) return false;
+    return true;
+  });
+  document.getElementById('spo-count').textContent = list.length;
+  if (list.length === 0){
+    grid.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--wh3);font-size:.8rem">協賛ルールが登録されていません</div>';
+    return;
+  }
+  grid.innerHTML = list.map(s => {
+    const expired = isSponsorExpired(s);
+    const disabled = s.enabled === '無効';
+    const badgeColor = expired ? 'var(--org)' : (disabled ? 'var(--wh3)' : 'var(--grn)');
+    const badgeText  = expired ? '期限切れ'   : (disabled ? '無効'       : '有効');
+    const reward = (s.rewardProduct === 'same') ? s.targetProduct : s.rewardProduct;
+    const target = (s.targetProduct === 'all') ? '全商品' : s.targetProduct;
+    const period = (s.startDate || s.endDate) ? `${s.startDate||'∞'} 〜 ${s.endDate||'∞'}` : '期間無制限';
+    return `
+    <div class="cust-card" onclick="editSponsor('${escapeHtml(s.id)}')" style="cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:start;gap:.5rem;margin-bottom:.4rem">
+        <div style="flex:1;min-width:0;color:var(--gold-l);font-weight:500;font-size:.9rem">${escapeHtml(s.name||'(無題)')}</div>
+        <div style="font-size:.65rem;padding:.2rem .5rem;background:rgba(0,0,0,.3);border:1px solid ${badgeColor};color:${badgeColor};white-space:nowrap">${badgeText}</div>
+      </div>
+      <div style="font-size:.72rem;color:var(--wh2);line-height:1.6">
+        🎁 <strong>${escapeHtml(target)}</strong> ${s.triggerQty||0}${escapeHtml(s.triggerUnit||'')}
+        → <strong>${escapeHtml(reward)}</strong> ${s.rewardQty||0}本サービス<br>
+        📅 ${escapeHtml(period)}
+        ${s.memo ? '<br>📝 ' + escapeHtml(s.memo) : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function clearSponsorForm(){
+  ['sp-name','sp-trigger-qty','sp-reward-qty','sp-start','sp-end','sp-memo'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.value = '';
+  });
+  populateSponsorProductDropdowns();
+  document.getElementById('sp-target').value = 'all';
+  document.getElementById('sp-reward-product').value = 'same';
+  document.getElementById('sp-trigger-unit').value = 'ケース';
+  document.getElementById('sp-enabled').value = '有効';
+  document.getElementById('spo-edit-status').textContent = '';
+  document.getElementById('spo-delete-btn').style.display = 'none';
+}
+
+function fillSponsorForm(s){
+  populateSponsorProductDropdowns();
+  document.getElementById('sp-name').value           = s.name           || '';
+  document.getElementById('sp-target').value         = s.targetProduct  || 'all';
+  document.getElementById('sp-trigger-qty').value    = (s.triggerQty !== undefined && s.triggerQty !== null) ? s.triggerQty : '';
+  document.getElementById('sp-trigger-unit').value   = s.triggerUnit    || 'ケース';
+  document.getElementById('sp-reward-qty').value     = (s.rewardQty  !== undefined && s.rewardQty  !== null) ? s.rewardQty  : '';
+  document.getElementById('sp-reward-product').value = s.rewardProduct  || 'same';
+  document.getElementById('sp-start').value          = s.startDate      || '';
+  document.getElementById('sp-end').value            = s.endDate        || '';
+  document.getElementById('sp-enabled').value        = s.enabled        || '有効';
+  document.getElementById('sp-memo').value           = s.memo           || '';
+}
+
+function editSponsor(id){
+  const s = (S.sponsors || []).find(x => x.id === id);
+  if (!s) return toast('協賛ルールが見つかりません', 'error');
+  editingSponsorId = id;
+  switchSponsorTab('new', document.querySelectorAll('#m-sponsors .tab')[1]);
+  fillSponsorForm(s);
+  document.getElementById('spo-edit-status').textContent = '編集中: ' + (s.name || '(無題)');
+  document.getElementById('spo-delete-btn').style.display = 'inline-block';
+}
+
+function submitSponsorForm(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const g = id => (document.getElementById(id)||{}).value || '';
+  const name = g('sp-name').trim();
+  if (!name) return toast('ルール名は必須です', 'error');
+  const triggerQty = parseFloat(g('sp-trigger-qty'));
+  const rewardQty  = parseFloat(g('sp-reward-qty'));
+  if (isNaN(triggerQty) || triggerQty <= 0) return toast('購入条件数量を入力してください', 'error');
+  if (isNaN(rewardQty)  || rewardQty  <= 0) return toast('報酬数量を入力してください', 'error');
+  // 期間の整合性チェック
+  const sd = g('sp-start'), ed = g('sp-end');
+  if (sd && ed && sd > ed) return toast('開始日は終了日より前にしてください', 'error');
+
+  const data = {
+    id:            editingSponsorId || ('spo-' + Date.now()),
+    name:          name,
+    targetProduct: g('sp-target')         || 'all',
+    triggerQty:    triggerQty,
+    triggerUnit:   g('sp-trigger-unit')   || 'ケース',
+    rewardQty:     rewardQty,
+    rewardProduct: g('sp-reward-product') || 'same',
+    startDate:     sd,
+    endDate:       ed,
+    enabled:       g('sp-enabled')        || '有効',
+    memo:          g('sp-memo').trim(),
+    updatedAt:     new Date().toISOString(),
+    updatedBy:     currentUser.name
+  };
+
+  S.sponsors = S.sponsors || [];
+  const idx = S.sponsors.findIndex(s => s.id === data.id);
+  if (idx >= 0) {
+    data.createdAt = S.sponsors[idx].createdAt;
+    S.sponsors[idx] = data;
+  } else {
+    data.createdAt = data.updatedAt;
+    S.sponsors.push(data);
+  }
+  saveState();
+  if (S.gasUrl) gasPost({ action: 'saveSponsor', ...data });
+  toast('✓ 協賛ルールを保存しました');
+  switchSponsorTab('list', document.querySelectorAll('#m-sponsors .tab')[0]);
+}
+
+function deleteSponsorRule(){
+  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
+  if (!editingSponsorId) return;
+  const s = (S.sponsors || []).find(x => x.id === editingSponsorId);
+  if (!s) return;
+  if (!confirm(`協賛ルール「${s.name}」を削除します。この操作は元に戻せません。よろしいですか？`)) return;
+  S.sponsors = (S.sponsors || []).filter(x => x.id !== editingSponsorId);
+  saveState();
+  if (S.gasUrl) gasPost({ action: 'deleteSponsor', id: editingSponsorId });
+  toast('✓ 協賛ルールを削除しました');
+  switchSponsorTab('list', document.querySelectorAll('#m-sponsors .tab')[0]);
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   updateUserBadge();
   renderCustList();
@@ -2510,6 +2784,7 @@ window.addEventListener('DOMContentLoaded', () => {
   updateCustStaffOptions();
   initCustFormEnterNav();
   if (typeof renderReferrerList === 'function') renderReferrerList();
+  if (typeof renderSponsorList === 'function') renderSponsorList();
 });
 
 // ─── 顧客フォーム: キー操作で入力欄を移動 ─────
