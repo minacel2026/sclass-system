@@ -615,10 +615,19 @@ async function syncFromGAS(){
   toast('同期中...');
   const cust = await gasGet('getCustomers');
   if (cust && cust.customers) S.customers = cust.customers;
+  // 協賛ログ同期: サーバーlog + ローカル未同期分をマージ（IDで重複排除）
+  const spLogs = await gasGet('getSponsorLogs');
+  if (spLogs && Array.isArray(spLogs.logs)){
+    const serverIds = new Set(spLogs.logs.map(l => String(l.id)));
+    const localOnly = (S.sponsorLogs || []).filter(l => !serverIds.has(String(l.id)));
+    if (S.gasUrl) localOnly.forEach(function(log){ try { gasPost({ action: 'saveSponsorLog', ...log }); } catch(e){} });
+    S.sponsorLogs = spLogs.logs.concat(localOnly);
+  }
   saveState();
   toast('✓ 同期完了');
   updateKPI();
   renderPayment();
+  if (typeof renderSponsor === 'function') renderSponsor();
 }
 </script>
 
@@ -1264,6 +1273,8 @@ function confirmSponsorShip(custId){
     createdAt: new Date().toISOString(),
     createdBy: currentUser.name,
   });
+  // GAS同期（協賛ログを集約 → 複数端末で残数共有）
+  if (S.gasUrl) { try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
 
   // 在庫減算
   if (!S.stock[br]) S.stock[br] = {};
