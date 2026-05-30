@@ -95,19 +95,26 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .col-amt{text-align:right;font-variant-numeric:tabular-nums}
 .col-qty{text-align:center;font-variant-numeric:tabular-nums}
 
-/* ─── 商品グリッド（注文登録） ─── */
-.prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.6rem;margin-bottom:1rem}
-.prod-card{background:var(--d2);border:1px solid rgba(201,168,76,.18);padding:.7rem;transition:all .2s;position:relative;overflow:hidden}
-.prod-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--prod-color,var(--gold));opacity:.6}
-.prod-card.has-qty{border-color:var(--gold)}
-.prod-name{font-size:.85rem;color:var(--gold-l);font-weight:500;margin-bottom:.2rem}
-.prod-price{font-family:'Bebas Neue',sans-serif;font-size:.95rem;color:var(--wh);letter-spacing:.05em}
-.prod-stock{font-size:.6rem;color:var(--wh3);margin-top:.2rem}
-.prod-stock.low{color:var(--org)}
-.prod-qty{display:flex;align-items:center;gap:.4rem;margin-top:.4rem}
-.qty-btn{width:24px;height:24px;background:transparent;border:1px solid rgba(201,168,76,.35);color:var(--gold-l);cursor:pointer;font-size:.85rem;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center}
+/* ─── 商品テーブル（注文登録・行表示） ─── */
+.prod-table-wrap{overflow-x:auto;margin-bottom:1rem;border:1px solid rgba(201,168,76,.15)}
+.prod-table{width:100%;border-collapse:collapse;font-size:.82rem;min-width:520px}
+.prod-table th{background:var(--d3);padding:.5rem .7rem;text-align:left;font-size:.68rem;color:var(--gold-d);letter-spacing:.05em;font-weight:500;border-bottom:1px solid rgba(201,168,76,.2);white-space:nowrap;position:sticky;top:0;z-index:1}
+.prod-table th.col-num{text-align:right}
+.prod-table td{padding:.4rem .7rem;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
+.prod-table tbody tr{transition:background .15s}
+.prod-table tbody tr.has-qty{background:rgba(201,168,76,.08)}
+.prod-table tbody tr.has-qty .pr-name{color:var(--gold-l)}
+.pr-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.5rem;vertical-align:middle;flex-shrink:0}
+.pr-name{font-weight:500;color:var(--wh);white-space:nowrap}
+.pr-price{font-family:'Bebas Neue',sans-serif;color:var(--wh2);letter-spacing:.03em;white-space:nowrap;text-align:right}
+.pr-stock{font-size:.76rem;color:var(--wh3);white-space:nowrap;text-align:right}
+.pr-stock.low{color:var(--org)}
+.pr-sub{font-family:'Bebas Neue',sans-serif;color:var(--gold-l);letter-spacing:.03em;white-space:nowrap;text-align:right}
+.pr-qty-cell{display:flex;align-items:center;gap:.4rem;justify-content:center}
+.pr-qty-val{min-width:34px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--wh)}
+.qty-btn{width:26px;height:26px;background:transparent;border:1px solid rgba(201,168,76,.35);color:var(--gold-l);cursor:pointer;font-size:.85rem;font-family:'Noto Sans JP',sans-serif;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 .qty-btn:hover{background:rgba(201,168,76,.15)}
-.qty-val{flex:1;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--wh)}
+
 
 /* ─── 在庫グリッド ─── */
 .stock-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.6rem;margin-bottom:1rem}
@@ -307,7 +314,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 
     <div class="form-section">
       <div class="form-section-title">▸ 商品選択</div>
-      <div class="prod-grid" id="no-prod-grid"></div>
+      <div id="no-prod-grid"></div>
     </div>
 
     <div class="form-section">
@@ -893,21 +900,40 @@ function getSponsorBalance(custId){
 
 function renderNewOrderProds(){
   const grid = document.getElementById('no-prod-grid');
-  grid.innerHTML = PROD_LIST.map(p => {
+  const rate = parseFloat(document.getElementById('no-rate').value) || 7;
+  const rows = PROD_LIST.map(p => {
     const qty = newOrderQty[p.key] || 0;
     const totalStock = (S.stock['仙台'][p.key]||0) + (S.stock['京都'][p.key]||0);
+    const low = totalStock <= (p.reorder || 0);
+    const sub = Math.round(p.price * (rate/10) * 1.1) * qty;
     return `
-    <div class="prod-card ${qty>0?'has-qty':''}" style="--prod-color:${p.color}" id="pc-${p.key}">
-      <div class="prod-name">${p.name}</div>
-      <div class="prod-price">¥${fmt(p.price)}</div>
-      <div class="prod-stock">在庫: ${totalStock}本</div>
-      <div class="prod-qty">
-        <button class="qty-btn" onclick="changeOrderQty('${p.key}',-1)">−</button>
-        <span class="qty-val" id="qv-${p.key}">${qty}</span>
-        <button class="qty-btn" onclick="changeOrderQty('${p.key}',1)">＋</button>
-      </div>
-    </div>`;
+    <tr class="${qty>0?'has-qty':''}" id="pc-${p.key}">
+      <td><span class="pr-name"><span class="pr-dot" style="background:${p.color}"></span>${p.name}</span></td>
+      <td class="pr-price">¥${fmt(p.price)}</td>
+      <td class="pr-stock ${low?'low':''}">${totalStock}本</td>
+      <td>
+        <div class="pr-qty-cell">
+          <button class="qty-btn" onclick="changeOrderQty('${p.key}',-1)">−</button>
+          <span class="pr-qty-val" id="qv-${p.key}">${qty}</span>
+          <button class="qty-btn" onclick="changeOrderQty('${p.key}',1)">＋</button>
+        </div>
+      </td>
+      <td class="pr-sub" id="sub-${p.key}">${qty>0?'¥'+fmt(sub):'—'}</td>
+    </tr>`;
   }).join('');
+  grid.innerHTML = `
+    <div class="prod-table-wrap">
+      <table class="prod-table">
+        <thead><tr>
+          <th>商品</th>
+          <th class="col-num">単価</th>
+          <th class="col-num">在庫</th>
+          <th style="text-align:center">数量</th>
+          <th class="col-num">小計（掛率・税込）</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 function changeOrderQty(key, delta){
@@ -923,8 +949,11 @@ function updateOrderTotal(){
   let total = 0, qtyTotal = 0;
   PROD_LIST.forEach(p => {
     const q = newOrderQty[p.key] || 0;
+    const sub = q > 0 ? Math.round(p.price * (rate/10) * 1.1) * q : 0;
+    const subEl = document.getElementById('sub-' + p.key);
+    if (subEl) subEl.textContent = q > 0 ? '¥' + fmt(sub) : '—';
     if (q > 0){
-      total += Math.round(p.price * (rate/10) * 1.1) * q;
+      total += sub;
       qtyTotal += q;
     }
   });
