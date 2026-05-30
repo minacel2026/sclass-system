@@ -115,6 +115,16 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .qty-btn{width:26px;height:26px;background:transparent;border:1px solid rgba(201,168,76,.35);color:var(--gold-l);cursor:pointer;font-size:.85rem;font-family:'Noto Sans JP',sans-serif;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 .qty-btn:hover{background:rgba(201,168,76,.15)}
 
+/* ─── 店舗名 候補ドロップダウン ─── */
+.suggest-box{position:absolute;top:100%;left:0;right:0;background:var(--d2);border:1px solid rgba(201,168,76,.4);border-top:none;max-height:240px;overflow-y:auto;z-index:50;display:none;box-shadow:0 8px 20px rgba(0,0,0,.55)}
+.suggest-item{padding:.5rem .7rem;font-size:.82rem;color:var(--wh);cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.suggest-item:last-child{border-bottom:none}
+.suggest-item:hover,.suggest-item.active{background:rgba(201,168,76,.15);color:var(--gold-l)}
+.suggest-item .si-badge{font-size:.66rem;padding:.1rem .4rem;border-radius:2px;white-space:nowrap;flex-shrink:0}
+.suggest-item .si-reg{background:rgba(201,168,76,.18);color:var(--gold-l)}
+.suggest-item .si-unreg{background:rgba(255,255,255,.08);color:var(--wh3)}
+.suggest-empty{padding:.5rem .7rem;font-size:.76rem;color:var(--wh3)}
+
 
 /* ─── 在庫グリッド ─── */
 .stock-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.6rem;margin-bottom:1rem}
@@ -294,10 +304,10 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     <div class="form-section">
       <div class="form-section-title">▸ 顧客情報</div>
       <div class="frow">
-        <div class="fg">
+        <div class="fg" style="position:relative">
           <label>店舗名 <span class="req">*</span></label>
-          <input class="fc" id="no-store" list="cust-list" placeholder="店舗名を選択または入力" oninput="onStoreChange()">
-          <datalist id="cust-list"></datalist>
+          <input class="fc" id="no-store" autocomplete="off" placeholder="店舗名を入力（候補から選択）" oninput="onStoreChange()" onfocus="showStoreSuggest()" onblur="hideStoreSuggest()">
+          <div class="suggest-box" id="no-store-suggest"></div>
         </div>
         <div class="fg"><label>拠点</label><select class="fc" id="no-branch"><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>担当者</label><input class="fc" id="no-staff" placeholder="弊社担当"></div>
@@ -305,6 +315,8 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       </div>
       <div class="frow" style="margin-top:.5rem">
         <div class="fg"><label>注文種別</label><select class="fc" id="no-ordtype" onchange="onOrderTypeChange()"><option value="normal">通常注文</option><option value="sponsor">🎁 協賛注文（無料出荷）</option></select></div>
+        <div class="fg"><label>価格モード</label><select class="fc" id="no-pricemode" onchange="updateOrderTotal()"><option value="新値">新値</option><option value="旧値">旧値</option></select></div>
+        <div class="fg"><label>税</label><select class="fc" id="no-tax" onchange="updateOrderTotal()"><option value="税込">税込（合計に+10%）</option><option value="税抜">税抜</option></select></div>
         <div class="fg"><label>連絡先</label><input class="fc" id="no-contact" placeholder="連絡先名"></div>
         <div class="fg"><label>電話番号</label><input class="fc" id="no-tel" type="tel" placeholder="連絡先電話番号"></div>
         <div class="fg"><label>支払方法</label><select class="fc" id="no-pay"><option>現金</option><option>振込</option><option>代引</option><option>売掛</option></select></div>
@@ -453,23 +465,23 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 // shared.js  Sclassランボルギーニ 全システム共通データ
 // ============================================================
 const PROD_LIST = [
-  {key:'イエロー',     name:'イエロー',     color:'#f4d03f', cost:5000,  price:10500,  reorder:10},
-  {key:'オレンジ',     name:'オレンジ',     color:'#e67e22', cost:10000, price:21000,  reorder:10},
-  {key:'ブルー',       name:'ブルー',       color:'#2980b9', cost:10000, price:21000,  reorder:10},
-  {key:'ブラック',     name:'ブラック',     color:'#555555', cost:10000, price:21000,  reorder:10},
-  {key:'プラチナ',     name:'プラチナ',     color:'#bdc3c7', cost:15000, price:33000,  reorder:6},
-  {key:'ゴールド',     name:'ゴールド',     color:'#c9a84c', cost:20000, price:44000,  reorder:6},
-  {key:'ルミナス',     name:'ルミナス',     color:'#f9ca24', cost:25000, price:55000,  reorder:6},
-  {key:'レジェンド',   name:'レジェンド',   color:'#8e44ad', cost:25000, price:55000,  reorder:6},
-  {key:'さくら',       name:'さくら',       color:'#f8a5c2', cost:12000, price:25000,  reorder:6},
-  {key:'チェングレット', name:'チェングレット', color:'#27ae60', cost:3000,  price:6800,   reorder:12},
-  {key:'チェングロッソ', name:'チェングロッソ', color:'#16a085', cost:3000,  price:6800,   reorder:12},
-  {key:'トレスコーネ', name:'トレスコーネ', color:'#d35400', cost:3500,  price:7800,   reorder:12},
-  {key:'エラ',         name:'エラ',         color:'#6c5ce7', cost:4500,  price:10000,  reorder:10},
-  {key:'トラミ',       name:'トラミ',       color:'#e17055', cost:6000,  price:13000,  reorder:10},
-  {key:'カンポレオーネ', name:'カンポレオーネ', color:'#00b894', cost:4500,  price:10000,  reorder:10},
-  {key:'GIFTBOX',      name:'GIFTBOX',      color:'#c9a84c', cost:9000,  price:20000,  reorder:5},
-  {key:'コラチョロサ', name:'コラチョロサ', color:'#fd79a8', cost:8000,  price:17000,  reorder:6},
+  {key:'イエロー',     name:'イエロー',     color:'#f4d03f', cost:5000,  price:10500, priceOld:10500,  reorder:10},
+  {key:'オレンジ',     name:'オレンジ',     color:'#e67e22', cost:10000, price:21000, priceOld:21000,  reorder:10},
+  {key:'ブルー',       name:'ブルー',       color:'#2980b9', cost:10000, price:21000, priceOld:21000,  reorder:10},
+  {key:'ブラック',     name:'ブラック',     color:'#555555', cost:10000, price:21000, priceOld:21000,  reorder:10},
+  {key:'プラチナ',     name:'プラチナ',     color:'#bdc3c7', cost:15000, price:33000, priceOld:33000,  reorder:6},
+  {key:'ゴールド',     name:'ゴールド',     color:'#c9a84c', cost:20000, price:44000, priceOld:44000,  reorder:6},
+  {key:'ルミナス',     name:'ルミナス',     color:'#f9ca24', cost:25000, price:55000, priceOld:55000,  reorder:6},
+  {key:'レジェンド',   name:'レジェンド',   color:'#8e44ad', cost:25000, price:55000, priceOld:55000,  reorder:6},
+  {key:'さくら',       name:'さくら',       color:'#f8a5c2', cost:12000, price:25000, priceOld:25000,  reorder:6},
+  {key:'チェングレット', name:'チェングレット', color:'#27ae60', cost:3000,  price:6800, priceOld:6800,   reorder:12},
+  {key:'チェングロッソ', name:'チェングロッソ', color:'#16a085', cost:3000,  price:6800, priceOld:6800,   reorder:12},
+  {key:'トレスコーネ', name:'トレスコーネ', color:'#d35400', cost:3500,  price:7800, priceOld:7800,   reorder:12},
+  {key:'エラ',         name:'エラ',         color:'#6c5ce7', cost:4500,  price:10000, priceOld:10000,  reorder:10},
+  {key:'トラミ',       name:'トラミ',       color:'#e17055', cost:6000,  price:13000, priceOld:13000,  reorder:10},
+  {key:'カンポレオーネ', name:'カンポレオーネ', color:'#00b894', cost:4500,  price:10000, priceOld:10000,  reorder:10},
+  {key:'GIFTBOX',      name:'GIFTBOX',      color:'#c9a84c', cost:9000,  price:20000, priceOld:20000,  reorder:5},
+  {key:'コラチョロサ', name:'コラチョロサ', color:'#fd79a8', cost:8000,  price:17000, priceOld:17000,  reorder:6},
 ];
 
 const PRODS   = PROD_LIST.map(p => p.key);
@@ -494,6 +506,8 @@ function fmt(n){ return (Number(n)||0).toLocaleString('ja-JP'); }
 function yen(n){ return '¥' + fmt(n); }
 function calcAmt(o){
   if (o.orderType === 'sponsor') return 0;  // 協賛注文は無料出荷（売上0）
+  if (typeof o.amount === 'number') return o.amount;  // 確定金額（新方式: 価格モード・商品別掛率・税を反映済み）
+  // 旧注文の互換計算（amount未保存の注文）
   const tax = o.tax === 'taxあり' ? 1.1 : 1;
   const cond = (o.condition || 10) / 10;
   let total = 0;
@@ -749,12 +763,9 @@ function deleteOrder(id){
 <!-- ═══ 注文登録 ═══ -->
 <script>
 let newOrderQty = {};
+let currentOrderCust = null;  // 注文登録で選択中の顧客（価格設定の参照元）
 
 function initNewOrder(){
-  // 顧客リスト更新
-  const list = document.getElementById('cust-list');
-  list.innerHTML = (S.customers||[]).map(c => `<option value="${escapeHtml(c.name)}">`).join('');
-
   // 日付初期値
   if (!document.getElementById('no-date').value) {
     document.getElementById('no-date').value = today();
@@ -764,12 +775,24 @@ function initNewOrder(){
 }
 
 function onStoreChange(){
+  showStoreSuggest();
+  applyStoreInfo();
+}
+
+// 店舗名から顧客情報を反映（候補表示はしない）
+function applyStoreInfo(){
   const name = document.getElementById('no-store').value.trim();
   const c = (S.customers||[]).find(x => x.name === name);
+  currentOrderCust = c || null;
   if (c){
     document.getElementById('no-branch').value = c.branch || '仙台';
     document.getElementById('no-staff').value  = c.staff  || '';
     document.getElementById('no-rate').value   = c.rate   || '7';
+    // 顧客の共通価格モード・共通税を反映
+    const pmEl = document.getElementById('no-pricemode');
+    const txEl = document.getElementById('no-tax');
+    if (pmEl) pmEl.value = (c.commonPriceMode === '旧値') ? '旧値' : '新値';
+    if (txEl) txEl.value = (c.commonTaxType === '税抜') ? '税抜' : '税込';
     document.getElementById('no-contact').value = (c.contacts && c.contacts[0]?.name) || c.owner || '';
     document.getElementById('no-tel').value     = (c.contacts && c.contacts[0]?.tel) || c.tel || '';
     // 顧客マスターの支払方法をデフォルトとしてセット（未設定なら変更しない）
@@ -790,6 +813,64 @@ function onStoreChange(){
     rebuildDeliveryOptions(null);
     updateSponsorHint(null);
   }
+}
+
+// 店舗名の候補リスト（顧客マスター + 過去注文の店舗、重複排除）
+// フリガナ(kana)でも検索可能
+function getStoreSuggestions(kw){
+  const map = new Map();  // name -> { name, kana, branch, registered }
+  (S.customers||[]).forEach(c => {
+    if (c.name && !map.has(c.name)) map.set(c.name, { name:c.name, kana:c.kana||'', branch:c.branch||'', registered:true });
+  });
+  (S.orders||[]).forEach(o => {
+    if (o.store && !map.has(o.store)) map.set(o.store, { name:o.store, kana:'', branch:o.branch||'', registered:false });
+  });
+  let arr = [...map.values()];
+  const k = (kw||'').trim().toLowerCase();
+  if (k) arr = arr.filter(x => x.name.toLowerCase().includes(k) || (x.kana && x.kana.toLowerCase().includes(k)));
+  // 登録済みを優先、名前順
+  arr.sort((a,b) => (b.registered?1:0)-(a.registered?1:0) || a.name.localeCompare(b.name,'ja'));
+  return arr.slice(0, 30);
+}
+
+// 候補ドロップダウンを表示
+function showStoreSuggest(){
+  const inp = document.getElementById('no-store');
+  const box = document.getElementById('no-store-suggest');
+  if (!inp || !box) return;
+  const sugg = getStoreSuggestions(inp.value);
+  if (!sugg.length){
+    box.innerHTML = '<div class="suggest-empty">候補なし（このまま新規店舗として入力できます）</div>';
+    box.style.display = 'block';
+    return;
+  }
+  box.innerHTML = sugg.map(x => {
+    const badge = x.registered
+      ? `<span class="si-badge si-reg">${escapeHtml(x.branch || '登録済')}</span>`
+      : `<span class="si-badge si-unreg">未登録</span>`;
+    return `<div class="suggest-item" data-name="${escapeHtml(x.name)}"><span>${escapeHtml(x.name)}</span>${badge}</div>`;
+  }).join('');
+  box.style.display = 'block';
+  // クリック確定（mousedownでblurより先に処理）
+  box.querySelectorAll('.suggest-item').forEach(el => {
+    el.onmousedown = function(e){ e.preventDefault(); pickStore(el.dataset.name); };
+  });
+}
+
+// 候補を選択
+function pickStore(name){
+  document.getElementById('no-store').value = name;
+  const box = document.getElementById('no-store-suggest');
+  if (box) box.style.display = 'none';
+  applyStoreInfo();
+}
+
+// 候補を隠す（クリック確定を待つため少し遅延）
+function hideStoreSuggest(){
+  setTimeout(function(){
+    const box = document.getElementById('no-store-suggest');
+    if (box) box.style.display = 'none';
+  }, 150);
 }
 
 // 配達先プルダウンを顧客の deliveries から再構築
@@ -898,18 +979,41 @@ function getSponsorBalance(custId){
   return { pts: Math.max(0, earned - used), earned, used };
 }
 
+// 商品ごとの価格設定を取得（商品別掛率を優先・なければUIの共通設定）
+function getProdPricing(prodKey){
+  const commonRate = parseFloat(document.getElementById('no-rate').value) || 7;
+  const commonMode = (document.getElementById('no-pricemode')||{}).value || '新値';
+  const commonTax  = (document.getElementById('no-tax')||{}).value || '税込';
+  const pr = (currentOrderCust && Array.isArray(currentOrderCust.productRates))
+    ? currentOrderCust.productRates.find(r => r.key === prodKey && r.rate) : null;
+  return {
+    rate:      (pr && pr.rate)      ? parseFloat(pr.rate)  : commonRate,
+    priceMode: (pr && pr.priceMode) ? pr.priceMode         : commonMode,
+    taxType:   (pr && pr.taxType)   ? pr.taxType            : commonTax
+  };
+}
+
+// 1商品の価格計算: 税抜売値(単価)・税抜小計・税込小計(最終合計用)
+function calcProdLine(p, qty){
+  const pc = getProdPricing(p.key);
+  const base = (pc.priceMode === '旧値') ? (p.priceOld || p.price) : p.price;
+  const unitExcl = Math.round(base * (pc.rate / 10));               // 税抜売値
+  const subExcl  = unitExcl * qty;                                  // 税抜小計
+  const subIncl  = (pc.taxType === '税込') ? Math.round(subExcl * 1.1) : subExcl; // 最終合計用
+  return { pc, base, unitExcl, subExcl, subIncl };
+}
+
 function renderNewOrderProds(){
   const grid = document.getElementById('no-prod-grid');
-  const rate = parseFloat(document.getElementById('no-rate').value) || 7;
   const rows = PROD_LIST.map(p => {
     const qty = newOrderQty[p.key] || 0;
     const totalStock = (S.stock['仙台'][p.key]||0) + (S.stock['京都'][p.key]||0);
     const low = totalStock <= (p.reorder || 0);
-    const sub = Math.round(p.price * (rate/10) * 1.1) * qty;
+    const line = calcProdLine(p, qty);
     return `
     <tr class="${qty>0?'has-qty':''}" id="pc-${p.key}">
       <td><span class="pr-name"><span class="pr-dot" style="background:${p.color}"></span>${p.name}</span></td>
-      <td class="pr-price">¥${fmt(p.price)}</td>
+      <td class="pr-price" id="up-${p.key}">¥${fmt(line.unitExcl)}</td>
       <td class="pr-stock ${low?'low':''}">${totalStock}本</td>
       <td>
         <div class="pr-qty-cell">
@@ -918,7 +1022,7 @@ function renderNewOrderProds(){
           <button class="qty-btn" onclick="changeOrderQty('${p.key}',1)">＋</button>
         </div>
       </td>
-      <td class="pr-sub" id="sub-${p.key}">${qty>0?'¥'+fmt(sub):'—'}</td>
+      <td class="pr-sub" id="sub-${p.key}">${qty>0?'¥'+fmt(line.subExcl):'—'}</td>
     </tr>`;
   }).join('');
   grid.innerHTML = `
@@ -926,10 +1030,10 @@ function renderNewOrderProds(){
       <table class="prod-table">
         <thead><tr>
           <th>商品</th>
-          <th class="col-num">単価</th>
+          <th class="col-num">売値（税抜・掛率反映）</th>
           <th class="col-num">在庫</th>
           <th style="text-align:center">数量</th>
-          <th class="col-num">小計（掛率・税込）</th>
+          <th class="col-num">小計（税抜）</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -945,29 +1049,37 @@ function changeOrderQty(key, delta){
 
 function updateOrderTotal(){
   const isSponsor = (document.getElementById('no-ordtype') || {}).value === 'sponsor';
-  const rate = parseFloat(document.getElementById('no-rate').value) || 7;
-  let total = 0, qtyTotal = 0;
+  let totalIncl = 0, totalExcl = 0, qtyTotal = 0;
   PROD_LIST.forEach(p => {
     const q = newOrderQty[p.key] || 0;
-    const sub = q > 0 ? Math.round(p.price * (rate/10) * 1.1) * q : 0;
+    const line = calcProdLine(p, q);
+    // 単価セル（売値・税抜）を更新（価格モード/掛率変更に追従）
+    const upEl = document.getElementById('up-' + p.key);
+    if (upEl) upEl.textContent = '¥' + fmt(line.unitExcl);
+    // 小計セル（税抜）
     const subEl = document.getElementById('sub-' + p.key);
-    if (subEl) subEl.textContent = q > 0 ? '¥' + fmt(sub) : '—';
+    if (subEl) subEl.textContent = q > 0 ? '¥' + fmt(line.subExcl) : '—';
     if (q > 0){
-      total += sub;
+      totalIncl += line.subIncl;
+      totalExcl += line.subExcl;
       qtyTotal += q;
     }
   });
   document.getElementById('no-qty-total').textContent = qtyTotal;
-  document.getElementById('no-total').textContent = isSponsor ? '¥0（協賛）' : yen(total);
+  // 合計は税込（最終金額）。協賛注文は¥0
+  document.getElementById('no-total').textContent = isSponsor ? '¥0（協賛）' : yen(totalIncl);
 }
 
 function clearNewOrder(){
   newOrderQty = {};
+  currentOrderCust = null;
   ['no-store','no-staff','no-contact','no-tel','no-delnote','no-note'].forEach(id => {
     const e = document.getElementById(id); if (e) e.value = '';
   });
   document.getElementById('no-rate').value = '7';
   const ot = document.getElementById('no-ordtype'); if (ot) ot.value = 'normal';
+  const pm = document.getElementById('no-pricemode'); if (pm) pm.value = '新値';
+  const tx = document.getElementById('no-tax'); if (tx) tx.value = '税込';
   document.getElementById('no-date').value = today();
   document.getElementById('no-deldate').value = '';
   document.getElementById('no-deltime').value = '';
@@ -1025,6 +1137,15 @@ function submitNewOrder(){
     }
   }
 
+  // 確定金額（税込・商品別pricing反映）を計算して保存
+  let confirmedAmount = 0;
+  if (!isSponsor){
+    PROD_LIST.forEach(p => {
+      const q = items[p.key] || 0;
+      if (q > 0) confirmedAmount += calcProdLine(p, q).subIncl;
+    });
+  }
+
   const order = {
     id: 'ord-' + Date.now(),
     date: document.getElementById('no-date').value || today(),
@@ -1037,6 +1158,9 @@ function submitNewOrder(){
     items: items,
     orderType: isSponsor ? 'sponsor' : 'normal',
     condition: parseFloat(document.getElementById('no-rate').value) || 7,
+    priceMode: (document.getElementById('no-pricemode')||{}).value || '新値',
+    taxType: (document.getElementById('no-tax')||{}).value || '税込',
+    amount: confirmedAmount,  // 確定合計（税込）— calcAmtが優先使用
     payMethod: document.getElementById('no-pay').value,
     payStatus: '未収',
     status: '新規',
