@@ -306,7 +306,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="frow">
         <div class="fg" style="position:relative">
           <label>店舗名 <span class="req">*</span></label>
-          <input class="fc" id="no-store" autocomplete="off" placeholder="店舗名を入力（候補から選択）" oninput="onStoreChange()" onfocus="showStoreSuggest()" onblur="hideStoreSuggest()">
+          <input class="fc" id="no-store" autocomplete="off" placeholder="店舗名を入力（候補から選択）" oninput="onStoreChange()" onfocus="showStoreSuggest()" onblur="hideStoreSuggest()" onkeydown="onStoreKeydown(event)">
           <div class="suggest-box" id="no-store-suggest"></div>
         </div>
         <div class="fg"><label>拠点</label><select class="fc" id="no-branch"><option>仙台</option><option>京都</option></select></div>
@@ -764,6 +764,7 @@ function deleteOrder(id){
 <script>
 let newOrderQty = {};
 let currentOrderCust = null;  // 注文登録で選択中の顧客（価格設定の参照元）
+let storeSuggestIdx = -1;     // 店舗候補のキーボード選択位置
 
 function initNewOrder(){
   // 日付初期値
@@ -815,8 +816,19 @@ function applyStoreInfo(){
   }
 }
 
+// 日本語の表記ゆれを吸収（半角→全角・カタカナ→ひらがな・大文字小文字）
+// これで「カタカナ/半角/全角/ひらがな」どれで打ってもヒットする
+function normalizeJp(s){
+  if (!s) return '';
+  let t = String(s).normalize('NFKC');               // 半角カナ→全角カナ、全角英数→半角英数
+  t = t.replace(/[\u30A1-\u30F6]/g, function(ch){     // カタカナ→ひらがな
+    return String.fromCharCode(ch.charCodeAt(0) - 0x60);
+  });
+  return t.toLowerCase();
+}
+
 // 店舗名の候補リスト（顧客マスター + 過去注文の店舗、重複排除）
-// フリガナ(kana)でも検索可能
+// 名前・フリガナのどちらでも、表記ゆれ（ひらがな/カタカナ/半角/全角）を問わず検索可能
 function getStoreSuggestions(kw){
   const map = new Map();  // name -> { name, kana, branch, registered }
   (S.customers||[]).forEach(c => {
@@ -826,8 +838,8 @@ function getStoreSuggestions(kw){
     if (o.store && !map.has(o.store)) map.set(o.store, { name:o.store, kana:'', branch:o.branch||'', registered:false });
   });
   let arr = [...map.values()];
-  const k = (kw||'').trim().toLowerCase();
-  if (k) arr = arr.filter(x => x.name.toLowerCase().includes(k) || (x.kana && x.kana.toLowerCase().includes(k)));
+  const k = normalizeJp(kw);
+  if (k) arr = arr.filter(x => normalizeJp(x.name).includes(k) || normalizeJp(x.kana).includes(k));
   // 登録済みを優先、名前順
   arr.sort((a,b) => (b.registered?1:0)-(a.registered?1:0) || a.name.localeCompare(b.name,'ja'));
   return arr.slice(0, 30);
@@ -838,6 +850,7 @@ function showStoreSuggest(){
   const inp = document.getElementById('no-store');
   const box = document.getElementById('no-store-suggest');
   if (!inp || !box) return;
+  storeSuggestIdx = -1;  // ハイライト位置をリセット
   const sugg = getStoreSuggestions(inp.value);
   if (!sugg.length){
     box.innerHTML = '<div class="suggest-empty">候補なし（このまま新規店舗として入力できます）</div>';
@@ -851,10 +864,45 @@ function showStoreSuggest(){
     return `<div class="suggest-item" data-name="${escapeHtml(x.name)}"><span>${escapeHtml(x.name)}</span>${badge}</div>`;
   }).join('');
   box.style.display = 'block';
-  // クリック確定（mousedownでblurより先に処理）
-  box.querySelectorAll('.suggest-item').forEach(el => {
+  // クリック確定（mousedownでblurより先に処理）+ マウスホバーでハイライト同期
+  const items = box.querySelectorAll('.suggest-item');
+  items.forEach((el, i) => {
     el.onmousedown = function(e){ e.preventDefault(); pickStore(el.dataset.name); };
+    el.onmouseenter = function(){ storeSuggestIdx = i; updateStoreSuggestActive(items); };
   });
+}
+
+// 候補のハイライト表示を更新
+function updateStoreSuggestActive(items){
+  items.forEach((el, i) => el.classList.toggle('active', i === storeSuggestIdx));
+  if (storeSuggestIdx >= 0 && items[storeSuggestIdx]) {
+    items[storeSuggestIdx].scrollIntoView({ block:'nearest' });
+  }
+}
+
+// 店舗名入力欄でのキー操作（↑↓で移動・Enterで選択・Escで閉じる）
+function onStoreKeydown(e){
+  if (e.isComposing || e.keyCode === 229) return;  // IME変換中は無視
+  const box = document.getElementById('no-store-suggest');
+  if (!box || box.style.display === 'none') return;
+  const items = box.querySelectorAll('.suggest-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown'){
+    e.preventDefault();
+    storeSuggestIdx = (storeSuggestIdx + 1) % items.length;
+    updateStoreSuggestActive(items);
+  } else if (e.key === 'ArrowUp'){
+    e.preventDefault();
+    storeSuggestIdx = (storeSuggestIdx - 1 + items.length) % items.length;
+    updateStoreSuggestActive(items);
+  } else if (e.key === 'Enter'){
+    if (storeSuggestIdx >= 0 && items[storeSuggestIdx]){
+      e.preventDefault();
+      pickStore(items[storeSuggestIdx].dataset.name);
+    }
+  } else if (e.key === 'Escape'){
+    box.style.display = 'none';
+  }
 }
 
 // 候補を選択
