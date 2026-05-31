@@ -838,6 +838,9 @@ function getStoreSuggestions(kw){
     if (o.store && !map.has(o.store)) map.set(o.store, { name:o.store, kana:'', branch:o.branch||'', registered:false });
   });
   let arr = [...map.values()];
+  // 拠点名（仙台/京都）は店舗名ではないので候補から除外（過去注文の店舗名/拠点の取り違え対策）
+  const BRANCHES = ['仙台', '京都'];
+  arr = arr.filter(x => !BRANCHES.includes(x.name));
   const k = normalizeJp(kw);
   if (k) arr = arr.filter(x => normalizeJp(x.name).includes(k) || normalizeJp(x.kana).includes(k));
   // 登録済みを優先、名前順

@@ -1226,8 +1226,9 @@ function renderCustList(){
         </thead>
         <tbody>
           ${filtered.map(c => {
-            const hasRate = c.productRates && c.productRates.filter(r => r.rate).length > 0;
-            const rateCount = hasRate ? c.productRates.filter(r => r.rate).length : 0;
+            const rates = Array.isArray(c.productRates) ? c.productRates : [];
+            const rateCount = rates.filter(r => r.rate).length;
+            const hasRate = rateCount > 0;
             const rateLabel = (c.rate || '7') + '掛' + (hasRate ? ` +${rateCount}` : '');
             const uidBadge = c.lineUid
               ? '<span class="ct-uid ok">🔗</span>'
@@ -1398,7 +1399,7 @@ function fillCustForm(c){
   renderCustBanks();
   custDeliveryRows = (c.deliveries && Array.isArray(c.deliveries)) ? c.deliveries.map(d => ({...d})) : [];
   renderCustDeliveries();
-  renderCustProdRates(c.productRates || []);
+  renderCustProdRates(Array.isArray(c.productRates) ? c.productRates : []);
 }
 
 function clearCustForm(){
