@@ -751,12 +751,54 @@ function quickPaid(id){
 
 function deleteOrder(id){
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
-  if (!confirm('この注文を削除しますか？')) return;
+  const order = (S.orders || []).find(o => o.id === id);
+  if (!order) return toast('注文が見つかりません', 'error');
+
+  // 連動内容を事前に集計してメッセージに表示
+  const totalQty = Object.values(order.items || {}).reduce((s,q) => s + (q||0), 0);
+  const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === id);
+  const earnedQty = relLogs.filter(l => l.type === 'earned').reduce((s,l)=>s+(l.qty||0),0);
+  const usedQty   = relLogs.filter(l => l.type === 'used').reduce((s,l)=>s+(l.qty||0),0);
+  let msg = `この注文を削除しますか？\n・在庫を ${totalQty}本 戻します`;
+  if (earnedQty) msg += `\n・協賛付与 ${earnedQty}本 を取り消します`;
+  if (usedQty)   msg += `\n・協賛使用 ${usedQty}本 を戻します`;
+  if (!confirm(msg)) return;
+
+  const branch = order.branch || '仙台';
+
+  // 1. 在庫を戻す（注文時に減算した分を加算）+ 在庫ログに戻入記録
+  Object.entries(order.items || {}).forEach(([p, q]) => {
+    if (!S.stock[branch]) S.stock[branch] = {};
+    S.stock[branch][p] = (S.stock[branch][p] || 0) + (q || 0);
+    if (!S.slog) S.slog = [];
+    S.slog.push({
+      date: today(), time: new Date().toTimeString().slice(0,5), branch: branch,
+      type: '戻入', product: p, qty: q,
+      remaining: S.stock[branch][p],
+      orderId: id, note: `注文削除#${String(id).slice(-6)} による在庫戻し`
+    });
+  });
+
+  // 2. 協賛ログ（earned/used）を取り消す（この注文に紐づく分）
+  if (relLogs.length){
+    S.sponsorLogs = S.sponsorLogs.filter(l => l.orderId !== id);
+    if (S.gasUrl) relLogs.forEach(l => { try { gasPost({ action:'deleteSponsorLog', id:l.id }); } catch(e){} });
+  }
+
+  // 3. スプシの注文行を削除（注文ID・なければtimestamp+storeで照合）
+  if (S.gasUrl) { try { gasPost({ action:'deleteOrder', id:id, timestamp:order.timestamp, store:order.store }); } catch(e){} }
+
+  // 4. ローカルから削除
   S.orders = S.orders.filter(o => o.id !== id);
   saveState();
-  toast('✓ 削除しました');
+
+  let extra = '';
+  if (earnedQty) extra += ` / 協賛付与−${earnedQty}本`;
+  if (usedQty)   extra += ` / 協賛使用+${usedQty}本戻し`;
+  toast(`✓ 削除しました（在庫+${totalQty}本${extra}）`);
   renderOrders();
   updateKPI();
+  if (typeof renderStock === 'function') renderStock();
 }
 </script>
 
