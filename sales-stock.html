@@ -1345,19 +1345,18 @@ function calcPendingSponsorPoints(items, c){
     const rewardQty = parseInt(s.rewardQty) || 1;
     if (!trig) return;
     const targetProd = s.targetProduct || 'all';
-    let qty = 0;
-    Object.entries(items || {}).forEach(function(e){
-      const p = e[0], q = e[1];
-      if (targetProd === 'all' || p === targetProd) qty += Math.abs(q || 0);
-    });
-    if (!qty) return;
-    const pts = Math.floor(qty / trig) * rewardQty;
-    if (!pts) return;
-    const rewardProd = (s.rewardProduct === 'same')
-      ? (targetProd === 'all' ? '商品指定なし' : targetProd)
-      : (s.rewardProduct || '商品指定なし');
-    result.total += pts;
-    result.byProd[rewardProd] = (result.byProd[rewardProd] || 0) + pts;
+    const grant = function(prod, buyQty){
+      const pts = Math.floor(Math.abs(buyQty || 0) / trig) * rewardQty;
+      if (!pts) return;
+      result.total += pts;
+      result.byProd[prod] = (result.byProd[prod] || 0) + pts;  // 同じ商品で還元
+    };
+    if (targetProd === 'all'){
+      // 全商品共通: 商品ごとに判定（同じ商品で付与）
+      Object.entries(items || {}).forEach(function(e){ grant(e[0], e[1]); });
+    } else {
+      grant(targetProd, (items || {})[targetProd] || 0);
+    }
   });
   return result;
 }
@@ -1414,8 +1413,7 @@ function renderSponsor(){
         <td class="col-amt" style="color:var(--org)">${c._bal.used}</td>
         <td class="col-amt" style="${balCls}">${c._bal.pts}本</td>
         <td>
-          ${c._bal.pts > 0 ? `<button class="act-btn gr" onclick="openSponsorShip('${escapeHtml(c.id)}')">🚚 出荷</button>` : ''}
-          <button class="act-btn" onclick="viewSponsorLog('${escapeHtml(c.id)}')">📋 履歴</button>
+          <button class="act-btn" onclick="viewSponsorLog('${escapeHtml(c.id)}')">📋 詳細・履歴</button>
         </td>
       </tr>`;
     }).join('');
@@ -2008,39 +2006,34 @@ function checkAndAddSponsorPoints(order){
     if (!trig) return;
 
     const targetProd = s.targetProduct || 'all';
-    let qty = 0;
-    Object.entries(order.items || {}).forEach(function(e){
-      const p = e[0], q = e[1];
-      if (targetProd === 'all' || p === targetProd) qty += Math.abs(q || 0);
-    });
-    if (!qty) return;
 
-    const pts = Math.floor(qty / trig) * rewardQty;
-    if (!pts) return;
+    // 付与処理（商品とその購入本数から協賛本数を計算してログ追加）
+    const grant = function(prod, buyQty){
+      const pts = Math.floor(Math.abs(buyQty || 0) / trig) * rewardQty;
+      if (!pts) return;
+      totalPts += pts;
+      msgs.push(`${prod} +${pts}本`);
+      S.sponsorLogs.push({
+        id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
+        custId: cu.id, custName: cu.name,
+        type: 'earned', qty: pts,
+        date: order.date, orderId: order.id,
+        sponsorId: s.id, sponsorName: s.name,
+        product: prod,            // 報酬は購入した商品と同じ（同一商品で還元）
+        targetProduct: targetProd,
+        note: `${s.name}: ${prod} ${Math.abs(buyQty)}本購入 → 協賛+${pts}本`,
+        createdAt: new Date().toISOString(),
+        createdBy: currentUser.name,
+      });
+    };
 
-    // 報酬商品: 'same' なら対象商品（all の場合は商品指定なし）
-    const rewardProd = (s.rewardProduct === 'same')
-      ? (targetProd === 'all' ? '' : targetProd)
-      : (s.rewardProduct || '');
-
-    totalPts += pts;
-    msgs.push(`${s.name} +${pts}本`);
-    S.sponsorLogs.push({
-      id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
-      custId: cu.id,
-      custName: cu.name,
-      type: 'earned',
-      qty: pts,
-      date: order.date,
-      orderId: order.id,
-      sponsorId: s.id,
-      sponsorName: s.name,
-      product: rewardProd,
-      targetProduct: targetProd,
-      note: `${s.name}: ${qty}本購入 → 協賛+${pts}本付与`,
-      createdAt: new Date().toISOString(),
-      createdBy: currentUser.name,
-    });
+    if (targetProd === 'all'){
+      // 全商品共通ルール: 商品ごとに「trig本→rewardQty本」を判定し、同じ商品で付与
+      Object.entries(order.items || {}).forEach(function(e){ grant(e[0], e[1]); });
+    } else {
+      // 特定商品ルール
+      grant(targetProd, (order.items || {})[targetProd] || 0);
+    }
   });
   if (!totalPts) return '';
   saveState();
