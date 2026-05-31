@@ -1013,13 +1013,13 @@ function updateSponsorShipSection(c){
   const sec = document.getElementById('no-sponsor-ship');
   if (!sec) return;
   if (c && c.sponsorEnabled){
-    const bal = getSponsorBalance(c.id);
+    const bal = getSponsorBalance(c.id, editingOrderId);  // 編集中の注文自身は除外（二重計上を防ぐ）
     const pending = calcPendingSponsorPoints(newOrderQty, c);  // 今回の注文で付与される協賛
     const available = bal.pts + pending.total;
     if (available > 0){
       sec.style.display = 'block';
       // 商品別の内訳を見やすくリスト表示（過去残数＋今回付与予定）
-      const byProd = getSponsorBalanceByProduct(c.id);
+      const byProd = getSponsorBalanceByProduct(c.id, editingOrderId);
       Object.entries(pending.byProd).forEach(([p,n]) => { byProd[p] = (byProd[p]||0) + n; });
       const detailRows = Object.entries(byProd)
         .filter(([p,n]) => n > 0)
@@ -1050,7 +1050,7 @@ function addSponsorShipItem(){
   const c = currentOrderCust;
   if (!c){ return toast('協賛出荷は顧客マスター登録済みの店舗のみ可能です', 'error'); }
   // 残数（過去＋今回付与予定）と、すでに明細に入れた本数を考慮
-  const bal = getSponsorBalance(c.id);
+  const bal = getSponsorBalance(c.id, editingOrderId);  // 編集中の注文自身は除外
   const pending = calcPendingSponsorPoints(newOrderQty, c);
   const available = bal.pts + pending.total;
   const already = sponsorShipDraft.reduce((s,it) => s + (it.qty||0), 0);
@@ -1300,18 +1300,20 @@ function onOrderTypeChange(){
   updateOrderTotal();
 }
 
-function getSponsorBalance(custId){
+function getSponsorBalance(custId, excludeOrderId){
   if (!S.sponsorLogs) S.sponsorLogs = [];
-  const logs = S.sponsorLogs.filter(l => String(l.custId) === String(custId));
+  const logs = S.sponsorLogs.filter(l => String(l.custId) === String(custId)
+    && (!excludeOrderId || String(l.orderId) !== String(excludeOrderId)));
   const earned = logs.filter(l => l.type === 'earned').reduce((s,l) => s + (l.qty || 0), 0);
   const used   = logs.filter(l => l.type === 'used').reduce((s,l) => s + (l.qty || 0), 0);
   return { pts: Math.max(0, earned - used), earned, used };
 }
 
 // 協賛残数の商品別内訳（付与商品ごとに earned − used）
-function getSponsorBalanceByProduct(custId){
+function getSponsorBalanceByProduct(custId, excludeOrderId){
   if (!S.sponsorLogs) S.sponsorLogs = [];
-  const logs = S.sponsorLogs.filter(l => String(l.custId) === String(custId));
+  const logs = S.sponsorLogs.filter(l => String(l.custId) === String(custId)
+    && (!excludeOrderId || String(l.orderId) !== String(excludeOrderId)));
   const byProd = {};
   logs.forEach(l => {
     const p = l.product || '商品指定なし';
