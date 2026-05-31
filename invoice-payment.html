@@ -524,6 +524,20 @@ function switchModule(name, el){
   if (name === 'history')   renderHistory();
 }
 
+// 受発注システム（別タブ）での注文削除・変更を集金管理に自動反映
+window.addEventListener('storage', function(e){
+  if (e.key === 'lmb_orders'){
+    const pm = document.getElementById('m-payment');
+    if (pm && pm.classList.contains('active')) renderPayment();  // renderPayment冒頭でlmb_ordersを再読込
+  }
+});
+document.addEventListener('visibilitychange', function(){
+  if (!document.hidden){
+    const pm = document.getElementById('m-payment');
+    if (pm && pm.classList.contains('active')) renderPayment();
+  }
+});
+
 // 経過日数
 function daysSince(dateStr){
   if (!dateStr) return 0;
@@ -589,6 +603,8 @@ async function syncFromGAS(){
 let selectedPayments = new Set();
 
 function renderPayment(){
+  // 受発注システム（別ページ）での注文削除・変更を反映するため、最新の注文を読み込む
+  try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
   const kw    = (document.getElementById('pm-kw')?.value || '').toLowerCase();
   const br    = document.getElementById('pm-br')?.value || '';
   const state = document.getElementById('pm-state')?.value || 'unpaid';
