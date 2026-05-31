@@ -360,7 +360,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     </div>
 
     <div class="faction">
-      <button class="btn btn-p" onclick="submitNewOrder()">注文を登録</button>
+      <button class="btn btn-p" id="no-submit-btn" onclick="submitNewOrder()">注文を登録</button>
       <button class="btn btn-g" onclick="clearNewOrder()">クリア</button>
     </div>
   </div>
@@ -739,7 +739,7 @@ function renderOrders(){
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
       <td><span class="badge ${payBadge}">${escapeHtml(o.payStatus||'未収')}</span></td>
       <td><span class="badge ${stBadge}">${escapeHtml(o.status||'新規')}</span></td>
-      <td><button class="act-btn" onclick="quickPaid('${o.id}')">集金</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
+      <td><button class="act-btn" onclick="openOrderForEdit('${o.id}')">修正</button><button class="act-btn" onclick="quickPaid('${o.id}')">集金</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
     </tr>`;
   }).join('');
 }
@@ -805,12 +805,54 @@ function deleteOrder(id){
   updateKPI();
   if (typeof renderStock === 'function') renderStock();
 }
+
+// ─── 注文一覧から「修正」: 注文を登録フォームに読み込んで編集モードに ───
+function openOrderForEdit(id){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const o = (S.orders || []).find(x => x.id === id);
+  if (!o) return toast('注文が見つかりません', 'error');
+
+  // 注文登録タブへ切替（initNewOrderが走るが値は触らない）
+  const tab = document.querySelector('.mtab[onclick*="neworder"]');
+  switchModule('neworder', tab);
+
+  // フォームに注文内容を反映
+  editingOrderId = id;
+  currentOrderCust = (S.customers || []).find(x => x.name === o.store) || null;
+  document.getElementById('no-store').value     = o.store    || '';
+  document.getElementById('no-branch').value    = o.branch   || '仙台';
+  document.getElementById('no-staff').value     = o.staff    || '';
+  document.getElementById('no-contact').value   = o.contact  || '';
+  document.getElementById('no-tel').value       = o.tel      || '';
+  document.getElementById('no-rate').value      = o.condition || '7';
+  const pm = document.getElementById('no-pricemode'); if (pm) pm.value = (o.priceMode === '旧値') ? '旧値' : '新値';
+  const tx = document.getElementById('no-tax');       if (tx) tx.value = (o.taxType === '税抜') ? '税抜' : '税込';
+  const ot = document.getElementById('no-ordtype');   if (ot) ot.value = (o.orderType === 'sponsor') ? 'sponsor' : 'normal';
+  document.getElementById('no-date').value      = o.date     || today();
+  const pay = document.getElementById('no-pay'); if (pay) pay.value = o.payMethod || '現金';
+  const dd = document.getElementById('no-deldate');  if (dd) dd.value = o.deliveryDate || '';
+  const dt = document.getElementById('no-deltime');  if (dt) dt.value = o.deliveryTime || '';
+  const dn = document.getElementById('no-delnote');  if (dn) dn.value = o.deliveryNote || '';
+  const nt = document.getElementById('no-note');     if (nt) nt.value = o.note || '';
+
+  // 商品数量を復元
+  newOrderQty = Object.assign({}, o.items || {});
+  renderNewOrderProds();
+  updateOrderTotal();
+  if (typeof onOrderTypeChange === 'function') onOrderTypeChange();
+
+  // ボタン文言を「更新」に
+  const btn = document.getElementById('no-submit-btn');
+  if (btn) btn.textContent = '✏️ 注文を更新';
+  toast('注文を読み込みました。修正して「更新」を押してください');
+}
 </script>
 
 <!-- ═══ 注文登録 ═══ -->
 <script>
 let newOrderQty = {};
 let currentOrderCust = null;  // 注文登録で選択中の顧客（価格設定の参照元）
+let editingOrderId = null;    // 編集中の注文ID（null=新規登録）
 let storeSuggestIdx = -1;     // 店舗候補のキーボード選択位置
 
 function initNewOrder(){
@@ -1171,6 +1213,9 @@ function updateOrderTotal(){
 function clearNewOrder(){
   newOrderQty = {};
   currentOrderCust = null;
+  editingOrderId = null;  // 編集モード解除
+  const btn = document.getElementById('no-submit-btn');
+  if (btn) btn.textContent = '注文を登録';  // ボタン文言を戻す
   ['no-store','no-staff','no-contact','no-tel','no-delnote','no-note'].forEach(id => {
     const e = document.getElementById(id); if (e) e.value = '';
   });
@@ -1195,6 +1240,28 @@ function submitNewOrder(){
   const items = {};
   Object.entries(newOrderQty).forEach(([k,v]) => { if (v > 0) items[k] = v; });
   if (Object.keys(items).length === 0) return toast('商品を選択してください', 'error');
+
+  // 編集モードだったかを記録（メッセージ分岐用）
+  const wasEditing = !!editingOrderId;
+  // 編集モード: 旧注文を巻き戻す（在庫を戻す・協賛取消・スプシ旧行削除・ローカル削除）
+  // → この後の通常登録ロジックで、修正後の内容を在庫・協賛・スプシに反映する
+  if (editingOrderId){
+    const old = (S.orders || []).find(o => o.id === editingOrderId);
+    if (old){
+      Object.entries(old.items || {}).forEach(([p, q]) => {
+        if (!S.stock[old.branch]) S.stock[old.branch] = {};
+        S.stock[old.branch][p] = (S.stock[old.branch][p] || 0) + (q || 0);
+      });
+      const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === editingOrderId);
+      if (relLogs.length){
+        S.sponsorLogs = S.sponsorLogs.filter(l => l.orderId !== editingOrderId);
+        if (S.gasUrl) relLogs.forEach(l => { try { gasPost({ action:'deleteSponsorLog', id:l.id }); } catch(e){} });
+      }
+      if (S.gasUrl) { try { gasPost({ action:'deleteOrder', id:old.id, timestamp:old.timestamp, store:old.store, amount:old.amount }); } catch(e){} }
+      S.orders = (S.orders || []).filter(o => o.id !== editingOrderId);
+    }
+    editingOrderId = null;  // 以降は通常の新規登録ロジックで再登録
+  }
 
   const branch = document.getElementById('no-branch').value;
   const isSponsor = (document.getElementById('no-ordtype') || {}).value === 'sponsor';
@@ -1320,9 +1387,13 @@ function submitNewOrder(){
   }
 
   const amtMsg = isSponsor ? '協賛出荷（¥0）' : yen(calcAmt(order));
-  toast(`✓ 注文を登録しました（${amtMsg}）${sponsorMsg ? ' / ' + sponsorMsg : ''}`);
+  toast(`✓ 注文を${wasEditing ? '更新' : '登録'}しました（${amtMsg}）${sponsorMsg ? ' / ' + sponsorMsg : ''}`);
   clearNewOrder();
   updateKPI();
+  if (wasEditing){
+    const tab = document.querySelector('.mtab[onclick*="orders"]');
+    switchModule('orders', tab);  // 更新後は注文一覧へ戻る
+  }
 }
 
 // ─── 協賛ポイント自動付与 ─────
