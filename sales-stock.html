@@ -812,7 +812,7 @@ function renderOrders(){
     const payBadge = o.payStatus === '集金済み' ? 'bd-paid' : (o.payStatus === '売掛' ? 'bd-pending' : 'bd-unpaid');
     const stBadge  = o.status === '完了' ? 'bd-done' : (o.status === '新規' ? 'bd-new' : 'bd-pending');
     return `
-    <tr>
+    <tr onclick="openOrderForEdit('${o.id}')" style="cursor:pointer" title="クリックで修正">
       <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(o.date||'')}</td>
       <td>${escapeHtml(o.branch||'')}</td>
       <td>${escapeHtml(o.store||'')}</td>
@@ -821,7 +821,7 @@ function renderOrders(){
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
       <td><span class="badge ${payBadge}">${escapeHtml(o.payStatus||'未収')}</span></td>
       <td><span class="badge ${stBadge}">${escapeHtml(o.status||'新規')}</span></td>
-      <td><button class="act-btn" onclick="openOrderForEdit('${o.id}')">修正</button><button class="act-btn" onclick="quickPaid('${o.id}')">集金</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
+      <td onclick="event.stopPropagation()"><button class="act-btn" onclick="openOrderForEdit('${o.id}')">修正</button><button class="act-btn" onclick="quickPaid('${o.id}')">集金</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
     </tr>`;
   }).join('');
 }
@@ -1787,10 +1787,12 @@ function submitNewOrder(){
   Object.entries(newOrderQty).forEach(([k,v]) => { if (v > 0) items[k] = v; });
   if (Object.keys(items).length === 0) return toast('商品を選択してください', 'error');
 
-  // 編集モードだったかを記録（メッセージ分岐用）
+  // 編集モードだったかを記録（メッセージ分岐用）＆ 編集時は注文IDを維持する
   const wasEditing = !!editingOrderId;
-  // 編集モード: 旧注文を巻き戻す（在庫を戻す・協賛取消・スプシ旧行削除・ローカル削除）
+  const editIdForSave = editingOrderId;  // 編集時はこのIDを再登録時も維持（IDが変わると重複の原因になる）
+  // 編集モード: 旧注文を巻き戻す（在庫を戻す・協賛取消・ローカル削除）
   // → この後の通常登録ロジックで、修正後の内容を在庫・協賛・スプシに反映する
+  // ※ スプシは saveOrder のupsert（同IDは上書き）で更新するため、ここでは deleteOrder しない
   if (editingOrderId){
     const old = (S.orders || []).find(o => o.id === editingOrderId);
     if (old){
@@ -1807,7 +1809,6 @@ function submitNewOrder(){
         S.sponsorLogs = S.sponsorLogs.filter(l => l.orderId !== editingOrderId);
         if (S.gasUrl) relLogs.forEach(l => { try { gasPost({ action:'deleteSponsorLog', id:l.id }); } catch(e){} });
       }
-      if (S.gasUrl) { try { gasPost({ action:'deleteOrder', id:old.id, timestamp:old.timestamp, store:old.store, amount:old.amount }); } catch(e){} }
       S.orders = (S.orders || []).filter(o => o.id !== editingOrderId);
     }
     editingOrderId = null;  // 以降は通常の新規登録ロジックで再登録
@@ -1886,7 +1887,7 @@ function submitNewOrder(){
   }
 
   const order = {
-    id: 'ord-' + Date.now(),
+    id: editIdForSave || ('ord-' + Date.now()),  // 編集時は元IDを維持（重複防止）。新規は新ID
     timestamp: new Date().toLocaleString('ja-JP'),  // スプシA列と一致させ削除照合を確実に
     date: document.getElementById('no-date').value || today(),
     time: new Date().toTimeString().slice(0,5),
@@ -2518,8 +2519,11 @@ async function checkNewOrders(){
       data.orders.forEach(o => {
         // 商品が番号で記録されている場合は商品名に変換（在庫照合のため）
         o.items = normalizeOrderItems(o.items);
-        // 既存ローカル注文と重複チェック
-        const exists = (S.orders || []).find(x => x.id === o.id);
+        // 既存ローカル注文と重複チェック（id一致、または 日時+店舗 が一致したら同一注文とみなす）
+        const exists = (S.orders || []).find(x =>
+          String(x.id) === String(o.id) ||
+          (x.timestamp && o.timestamp && String(x.timestamp) === String(o.timestamp) && String(x.store) === String(o.store))
+        );
         if (!exists){
           if (!S.orders) S.orders = [];
           S.orders.push(o);
