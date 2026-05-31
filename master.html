@@ -1783,7 +1783,9 @@ function submitCustForm(){
 function deleteCust(){
   if (!canDelete()) return toast('🔒 削除権限がありません（admin/manager のみ）', 'error');
   if (!custEditingId) return;
-  if (!confirm('この顧客を削除しますか？\nスプレッドシートのデータは残ります。')) return;
+  if (!confirm('この顧客を削除しますか？\nスプレッドシートからも削除されます。')) return;
+  const _delC = (S.customers || []).find(x => x.id === custEditingId);
+  if (S.gasUrl && _delC) { try { gasPost({ action:'deleteCustomer', id:_delC.id, name:_delC.name }); } catch(e){} }
   S.customers = (S.customers || []).filter(c => c.id !== custEditingId);
   saveState();
   toast('✓ 削除しました');
@@ -1796,7 +1798,8 @@ function deleteCustById(id){
   if (!canDelete()) return toast('🔒 削除権限がありません（admin/manager のみ）', 'error');
   const c = (S.customers || []).find(x => x.id === id);
   if (!c) return;
-  if (!confirm(`顧客「${c.name || '無名'}」を削除しますか？\nスプレッドシートのデータは残ります。`)) return;
+  if (!confirm(`顧客「${c.name || '無名'}」を削除しますか？\nスプレッドシートからも削除されます。`)) return;
+  if (S.gasUrl) { try { gasPost({ action:'deleteCustomer', id:c.id, name:c.name }); } catch(e){} }
   S.customers = (S.customers || []).filter(x => x.id !== id);
   saveState();
   toast('✓ 削除しました');
@@ -1828,7 +1831,8 @@ function deleteCustRow(idx){
   if (!canDelete()) return toast('🔒 削除権限がありません（admin/manager のみ）', 'error');
   const c = (S.customers || [])[idx];
   if (!c) return toast('顧客が見つかりません', 'error');
-  if (!confirm(`顧客「${c.name || '無名'}」を削除しますか？\nスプレッドシートのデータは残ります。`)) return;
+  if (!confirm(`顧客「${c.name || '無名'}」を削除しますか？\nスプレッドシートからも削除されます。`)) return;
+  if (S.gasUrl) { try { gasPost({ action:'deleteCustomer', id:c.id, name:c.name }); } catch(e){} }
   S.customers.splice(idx, 1);
   saveState();
   toast('✓ 削除しました');
