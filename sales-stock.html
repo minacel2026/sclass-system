@@ -1013,22 +1013,25 @@ function updateSponsorShipSection(c){
   if (!sec) return;
   if (c && c.sponsorEnabled){
     const bal = getSponsorBalance(c.id);
-    if (bal.pts > 0){
+    const pending = calcPendingSponsorPoints(newOrderQty, c);  // 今回の注文で付与される協賛
+    const available = bal.pts + pending.total;
+    if (available > 0){
       sec.style.display = 'block';
-      // 商品別の内訳を表示（どの商品の協賛残数かが分かるように）
+      // 商品別の内訳（過去残数＋今回付与予定）
       const byProd = getSponsorBalanceByProduct(c.id);
+      Object.entries(pending.byProd).forEach(([p,n]) => { byProd[p] = (byProd[p]||0) + n; });
       const detail = Object.entries(byProd)
         .filter(([p,n]) => n > 0)
         .map(([p,n]) => `${p} ${n}本`)
         .join('、');
-      document.getElementById('no-sp-balance').textContent =
-        `${bal.pts}本` + (detail ? `（内訳：${detail}）` : '');
+      let txt = `${available}本`;
+      if (pending.total > 0) txt += `（過去${bal.pts}本＋今回付与予定${pending.total}本）`;
+      if (detail) txt += `　内訳：${detail}`;
+      document.getElementById('no-sp-balance').textContent = txt;
       const spProd = document.getElementById('no-sp-product');
       if (spProd && spProd.options.length === 0){
         spProd.innerHTML = PROD_LIST.map(p => `<option>${p.name}</option>`).join('');
       }
-      const spQty = document.getElementById('no-sp-qty');
-      if (spQty && !spQty.value) spQty.value = 0;
       return;
     }
   }
@@ -1263,6 +1266,40 @@ function getSponsorBalanceByProduct(custId){
     if (l.type === 'used')   byProd[p] -= (l.qty || 0);
   });
   return byProd;  // { 商品名: 残数 }
+}
+
+// 今回の注文（items）で付与される協賛を事前計算（記録はせず本数だけ算出）
+// checkAndAddSponsorPoints と同じ判定ロジックで、登録前に「今回付与予定」を出す
+function calcPendingSponsorPoints(items, c){
+  const result = { total: 0, byProd: {} };
+  if (!c || !c.sponsorEnabled) return result;
+  const ids = Array.isArray(c.sponsorIds) ? c.sponsorIds : [];
+  if (!ids.length) return result;
+  ids.forEach(function(id){
+    const s = (S.sponsors || []).find(function(x){ return String(x.id) === String(id); });
+    if (!s) return;
+    const active  = (typeof isSponsorActive  === 'function') ? isSponsorActive(s)  : (s.status === '有効' || s.enabled === '有効');
+    const expired = (typeof isSponsorExpired === 'function') ? isSponsorExpired(s) : false;
+    if (!active || expired) return;
+    const trig = parseInt(s.triggerQty) || 0;
+    const rewardQty = parseInt(s.rewardQty) || 1;
+    if (!trig) return;
+    const targetProd = s.targetProduct || 'all';
+    let qty = 0;
+    Object.entries(items || {}).forEach(function(e){
+      const p = e[0], q = e[1];
+      if (targetProd === 'all' || p === targetProd) qty += Math.abs(q || 0);
+    });
+    if (!qty) return;
+    const pts = Math.floor(qty / trig) * rewardQty;
+    if (!pts) return;
+    const rewardProd = (s.rewardProduct === 'same')
+      ? (targetProd === 'all' ? '商品指定なし' : targetProd)
+      : (s.rewardProduct || '商品指定なし');
+    result.total += pts;
+    result.byProd[rewardProd] = (result.byProd[rewardProd] || 0) + pts;
+  });
+  return result;
 }
 
 function renderSponsor(){
@@ -1584,6 +1621,10 @@ function updateOrderTotal(){
   document.getElementById('no-qty-total').textContent = qtyTotal;
   // 合計は税込（最終金額）。協賛注文は¥0
   document.getElementById('no-total').textContent = isSponsor ? '¥0（協賛）' : yen(totalIncl);
+  // 商品数量に応じて協賛出荷欄を更新（今回付与予定を反映）
+  if (!isSponsor && typeof updateSponsorShipSection === 'function'){
+    updateSponsorShipSection(currentOrderCust);
+  }
 }
 
 function clearNewOrder(){
@@ -1672,7 +1713,9 @@ function submitNewOrder(){
       sponsorShipCust = currentOrderCust || (S.customers || []).find(x => x.name === store);
       if (!sponsorShipCust) return toast('協賛出荷は顧客マスター登録済みの店舗のみ可能です', 'error');
       const spBal = getSponsorBalance(sponsorShipCust.id);
-      if (spQty > spBal.pts) return toast(`協賛残数（${spBal.pts}本）を超えています（協賛出荷 ${spQty}本）`, 'error');
+      const spPending = calcPendingSponsorPoints(items, sponsorShipCust);  // 今回付与予定
+      const spAvailable = spBal.pts + spPending.total;  // 過去残数＋今回付与予定
+      if (spQty > spAvailable) return toast(`協賛残数（${spAvailable}本）を超えています（協賛出荷 ${spQty}本）`, 'error');
       sponsorItems[spProduct] = spQty;
     }
   }
