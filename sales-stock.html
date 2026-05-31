@@ -391,17 +391,15 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     </div>
     <div class="form-section">
       <div class="form-section-title">▸ 新規仕入登録（複数商品をまとめて登録）</div>
-      <div class="frow">
-        <div class="fg"><label>仕入日 <span class="req">*</span></label><input class="fc" id="pu-date" type="date"></div>
-        <div class="fg"><label>仕入先</label><select class="fc" id="pu-supplier"><option>マルシェジャパン</option><option>オーク酒販</option><option>その他</option></select></div>
-        <div class="fg"><label>納品先拠点</label><select class="fc" id="pu-branch"><option>仙台</option><option>京都</option></select></div>
-        <div class="fg"><label>備考</label><input class="fc" id="pu-note"></div>
-      </div>
-      <div class="frow" style="margin-top:.5rem;align-items:flex-end">
-        <div class="fg"><label>商品 <span class="req">*</span></label><select class="fc" id="pu-product"></select></div>
-        <div class="fg"><label>本数 <span class="req">*</span></label><input class="fc" id="pu-qty" type="number" min="1" step="1"></div>
-        <div class="fg"><label>仕入単価</label><input class="fc" id="pu-cost" type="number" min="0" step="100"></div>
-        <div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-g" onclick="addPurchaseItem()" style="width:100%">＋ 明細に追加</button></div>
+      <div class="frow" style="align-items:flex-end;flex-wrap:wrap;gap:.5rem">
+        <div class="fg" style="flex:1 1 110px"><label>仕入日 <span class="req">*</span></label><input class="fc" id="pu-date" type="date"></div>
+        <div class="fg" style="flex:1 1 120px"><label>仕入先</label><select class="fc" id="pu-supplier"><option>マルシェジャパン</option><option>オーク酒販</option><option>その他</option></select></div>
+        <div class="fg" style="flex:0 1 80px"><label>拠点</label><select class="fc" id="pu-branch"><option>仙台</option><option>京都</option></select></div>
+        <div class="fg" style="flex:1 1 130px"><label>商品 <span class="req">*</span></label><select class="fc" id="pu-product"></select></div>
+        <div class="fg" style="flex:0 1 70px"><label>本数 <span class="req">*</span></label><input class="fc" id="pu-qty" type="number" min="1" step="1"></div>
+        <div class="fg" style="flex:0 1 90px"><label>仕入単価</label><input class="fc" id="pu-cost" type="number" min="0" step="100"></div>
+        <div class="fg" style="flex:1 1 110px"><label>備考</label><input class="fc" id="pu-note"></div>
+        <div class="fg" style="flex:0 1 auto"><button class="btn btn-g" onclick="addPurchaseItem()">＋ 明細に追加</button></div>
       </div>
 
       <div class="prod-table-wrap" style="margin-top:.6rem">
