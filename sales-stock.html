@@ -317,7 +317,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
           <input class="fc" id="no-store" autocomplete="off" placeholder="店舗名を入力（候補から選択）" oninput="onStoreChange()" onfocus="showStoreSuggest()" onblur="hideStoreSuggest()" onkeydown="onStoreKeydown(event)">
           <div class="suggest-box" id="no-store-suggest"></div>
         </div>
-        <div class="fg"><label>拠点</label><select class="fc" id="no-branch"><option>仙台</option><option>京都</option></select></div>
+        <div class="fg"><label>拠点</label><select class="fc" id="no-branch" onchange="renderNewOrderProds()"><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>担当者</label><input class="fc" id="no-staff" placeholder="弊社担当"></div>
         <div class="fg"><label>掛率</label><input class="fc" id="no-rate" type="number" step="0.5" min="0" max="10" value="7" oninput="updateOrderTotal()"></div>
       </div>
@@ -1429,9 +1429,10 @@ function calcProdLine(p, qty){
 
 function renderNewOrderProds(){
   const grid = document.getElementById('no-prod-grid');
+  const branch = (document.getElementById('no-branch')||{}).value || '仙台';
   const rows = PROD_LIST.map(p => {
     const qty = newOrderQty[p.key] || 0;
-    const totalStock = (S.stock['仙台'][p.key]||0) + (S.stock['京都'][p.key]||0);
+    const totalStock = S.stock[branch]?.[p.key] || 0;  // 選択中の拠点の在庫
     const low = totalStock <= (p.reorder || 0);
     const line = calcProdLine(p, qty);
     return `
@@ -1455,7 +1456,7 @@ function renderNewOrderProds(){
         <thead><tr>
           <th>商品</th>
           <th class="col-num">売値（税抜・掛率反映）</th>
-          <th class="col-num">在庫</th>
+          <th class="col-num">在庫（${branch}）</th>
           <th style="text-align:center">数量</th>
           <th class="col-num">小計（税抜）</th>
         </tr></thead>
