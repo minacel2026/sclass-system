@@ -339,7 +339,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 
     <div id="no-sponsor-ship" class="form-section" style="display:none;border:1px solid rgba(155,89,182,.45)">
       <div class="form-section-title" style="color:#c39bd3">🎁 協賛出荷（無料・協賛残数から消費）</div>
-      <div style="font-size:.82rem;color:var(--gold-l);margin-bottom:.5rem">この顧客の協賛残数：<strong id="no-sp-balance">0</strong> 本</div>
+      <div style="font-size:.82rem;color:var(--gold-l);margin-bottom:.5rem">この顧客の協賛残数：<strong id="no-sp-balance">0本</strong></div>
       <div class="frow" style="align-items:flex-end">
         <div class="fg" style="flex:1 1 160px"><label>協賛で出す商品</label><select class="fc" id="no-sp-product"></select></div>
         <div class="fg" style="flex:0 1 100px"><label>協賛本数</label><input class="fc" id="no-sp-qty" type="number" min="0" step="1" value="0" oninput="updateOrderTotal()"></div>
@@ -1015,7 +1015,14 @@ function updateSponsorShipSection(c){
     const bal = getSponsorBalance(c.id);
     if (bal.pts > 0){
       sec.style.display = 'block';
-      document.getElementById('no-sp-balance').textContent = bal.pts;
+      // 商品別の内訳を表示（どの商品の協賛残数かが分かるように）
+      const byProd = getSponsorBalanceByProduct(c.id);
+      const detail = Object.entries(byProd)
+        .filter(([p,n]) => n > 0)
+        .map(([p,n]) => `${p} ${n}本`)
+        .join('、');
+      document.getElementById('no-sp-balance').textContent =
+        `${bal.pts}本` + (detail ? `（内訳：${detail}）` : '');
       const spProd = document.getElementById('no-sp-product');
       if (spProd && spProd.options.length === 0){
         spProd.innerHTML = PROD_LIST.map(p => `<option>${p.name}</option>`).join('');
@@ -1242,6 +1249,20 @@ function getSponsorBalance(custId){
   const earned = logs.filter(l => l.type === 'earned').reduce((s,l) => s + (l.qty || 0), 0);
   const used   = logs.filter(l => l.type === 'used').reduce((s,l) => s + (l.qty || 0), 0);
   return { pts: Math.max(0, earned - used), earned, used };
+}
+
+// 協賛残数の商品別内訳（付与商品ごとに earned − used）
+function getSponsorBalanceByProduct(custId){
+  if (!S.sponsorLogs) S.sponsorLogs = [];
+  const logs = S.sponsorLogs.filter(l => String(l.custId) === String(custId));
+  const byProd = {};
+  logs.forEach(l => {
+    const p = l.product || '商品指定なし';
+    if (!(p in byProd)) byProd[p] = 0;
+    if (l.type === 'earned') byProd[p] += (l.qty || 0);
+    if (l.type === 'used')   byProd[p] -= (l.qty || 0);
+  });
+  return byProd;  // { 商品名: 残数 }
 }
 
 function renderSponsor(){
@@ -1647,7 +1668,8 @@ function submitNewOrder(){
     const spProduct = (document.getElementById('no-sp-product')||{}).value;
     const spQty = parseInt((document.getElementById('no-sp-qty')||{}).value) || 0;
     if (spQty > 0 && spProduct){
-      sponsorShipCust = (S.customers || []).find(x => x.name === store);
+      // 表示時に残数を出した顧客（currentOrderCust）を優先し、表示と登録の残数を必ず一致させる
+      sponsorShipCust = currentOrderCust || (S.customers || []).find(x => x.name === store);
       if (!sponsorShipCust) return toast('協賛出荷は顧客マスター登録済みの店舗のみ可能です', 'error');
       const spBal = getSponsorBalance(sponsorShipCust.id);
       if (spQty > spBal.pts) return toast(`協賛残数（${spBal.pts}本）を超えています（協賛出荷 ${spQty}本）`, 'error');
