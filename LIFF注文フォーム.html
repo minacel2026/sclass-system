@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lamborghini Wine Order</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html { margin:0; padding:0; background:#111; }
+  :root {
+    --gold: #C9A84C;
+    --gold-l: #E8C96A;
+    --gold-d: #8B6914;
+    --bg: #080808;
+    --bg2: #111;
+    --bg3: #1a1a1a;
+    --wh1: #f0f0f0;
+    --wh2: #aaa;
+    --wh3: #666;
+    --red: #e74c3c;
+    --green: #27ae60;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #111;
+    color: var(--wh1);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+  }
+  #app-wrapper {
+    width: 100%;
+    max-width: 420px;
+    min-height: 100vh;
+    background: var(--bg);
+    margin: 0 auto;
+    position: relative;
+    padding-bottom: 80px;
+    box-shadow: 0 0 40px rgba(0,0,0,.8);
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1200 100%);
+    border-bottom: 1px solid rgba(201,168,76,.3);
+    padding: 16px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    color: var(--gold);
+    letter-spacing: 3px;
+  }
+  .header-sub {
+    font-size: .65rem;
+    color: var(--wh3);
+    letter-spacing: 2px;
+    margin-top: 2px;
+  }
+
+  /* Steps */
+  .steps {
+    display: flex;
+    padding: 12px 16px;
+    gap: 4px;
+    background: var(--bg2);
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .step {
+    flex: 1;
+    text-align: center;
+    padding: 6px 4px;
+    border-radius: 4px;
+    font-size: .6rem;
+    color: var(--wh3);
+    border-bottom: 2px solid transparent;
+    transition: all .3s;
+  }
+  .step.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+    font-weight: 700;
+  }
+  .step.done {
+    color: var(--green);
+    border-bottom-color: var(--green);
+  }
+
+  /* Pages */
+  .page { display: none; padding: 16px; }
+  .page.active { display: block; }
+
+  /* Section */
+  .section {
+    background: var(--bg2);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-size: .65rem;
+    color: var(--gold-d);
+    letter-spacing: 1px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+
+  /* Form fields */
+  label {
+    display: block;
+    font-size: .65rem;
+    color: var(--wh3);
+    margin-bottom: 4px;
+    margin-top: 10px;
+  }
+  label:first-of-type { margin-top: 0; }
+  input, select, textarea {
+    width: 100%;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 6px;
+    color: var(--wh1);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: .85rem;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color .2s;
+    -webkit-appearance: none;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--gold);
+  }
+  select option { background: #222; }
+  textarea { resize: none; }
+
+  /* Product cards */
+  .prod-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .prod-card {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .prod-card:active { transform: scale(.97); }
+  .prod-card.selected {
+    border-color: var(--gold);
+    background: rgba(201,168,76,.1);
+  }
+  .prod-card.out-of-stock {
+    opacity: .4;
+    cursor: not-allowed;
+  }
+  .prod-name {
+    font-size: .8rem;
+    font-weight: 700;
+    color: var(--wh1);
+    margin-bottom: 2px;
+  }
+  .prod-price {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    color: var(--gold);
+  }
+  .prod-stock {
+    font-size: .6rem;
+    color: var(--wh3);
+    margin-top: 2px;
+  }
+  .prod-stock.low { color: #e74c3c; }
+  .prod-qty {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .qty-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid rgba(201,168,76,.4);
+    background: transparent;
+    color: var(--gold);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .2s;
+  }
+  .qty-btn:active { background: rgba(201,168,76,.2); }
+  .qty-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    color: var(--wh1);
+    min-width: 24px;
+    text-align: center;
+  }
+
+  /* Order summary */
+  .order-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    font-size: .82rem;
+  }
+  .order-line:last-of-type { border-bottom: none; }
+  .order-line-name { color: var(--wh2); }
+  .order-line-amount {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    color: var(--gold-l);
+  }
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0 0;
+    border-top: 1px solid rgba(201,168,76,.3);
+    margin-top: 4px;
+  }
+  .total-label { font-size: .75rem; color: var(--wh2); }
+  .total-amount {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem;
+    color: var(--gold-l);
+  }
+
+  /* Confirm items */
+  .confirm-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    font-size: .82rem;
+  }
+  .confirm-label { color: var(--wh3); }
+  .confirm-value { color: var(--wh1); font-weight: 500; text-align: right; max-width: 60%; }
+
+  /* Buttons */
+  .btn-primary {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--gold-d), var(--gold));
+    color: #000;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: .9rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: opacity .2s;
+    margin-top: 8px;
+  }
+  .btn-primary:active { opacity: .8; }
+  .btn-secondary {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    color: var(--wh2);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: .85rem;
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+
+  /* Fixed bottom bar */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 420px;
+    background: rgba(8,8,8,.95);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(201,168,76,.2);
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: center;
+    gap: 8px;
+  }
+  .bottom-back-btn {
+    background: transparent;
+    color: var(--wh2);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: .8rem;
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 12px 4px;
+    width: 100%;
+  }
+  .bottom-total {
+    text-align: center;
+  }
+  .bottom-next-btn {
+    background: linear-gradient(135deg, var(--gold-d), var(--gold));
+    color: #000;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: .8rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 12px 4px;
+    width: 100%;
+    letter-spacing: .5px;
+  }
+  .bottom-total {
+    flex: 1;
+  }
+  .bottom-total-label { font-size: .6rem; color: var(--wh3); }
+  .bottom-total-amt {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.3rem;
+    color: var(--gold);
+    line-height: 1.1;
+  }
+  .bottom-total-label {
+    font-size: .6rem;
+    color: var(--wh3);
+  }
+  .bottom-btn {
+    flex: 2;
+    padding: 12px;
+    background: linear-gradient(135deg, var(--gold-d), var(--gold));
+    color: #000;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: .9rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  /* Success */
+  .success-wrap {
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .success-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+    animation: pop .5s ease;
+  }
+  @keyframes pop {
+    0% { transform: scale(0); }
+    70% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+  .success-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem;
+    color: var(--gold);
+    letter-spacing: 3px;
+    margin-bottom: 8px;
+  }
+  .success-msg { color: var(--wh2); font-size: .85rem; line-height: 1.6; }
+
+  /* Loading */
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 40px;
+    color: var(--wh3);
+  }
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(201,168,76,.2);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .tag {
+    display: inline-block;
+    background: rgba(201,168,76,.15);
+    border: 1px solid rgba(201,168,76,.3);
+    color: var(--gold);
+    font-size: .6rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+<div id="app-wrapper">
+<div class="header">
+  <div class="header-logo">LAMBORGHINI WINE</div>
+  <div class="header-sub">ORDER FORM</div>
+</div>
+
+<div class="steps" id="steps">
+  <div class="step active" id="step1">① お客様情報</div>
+  <div class="step" id="step2">② 商品選択</div>
+  <div class="step" id="step3">③ 配送・支払</div>
+  <div class="step" id="step4">④ 確認・送信</div>
+</div>
+
+<!-- PAGE 1: 顧客情報 -->
+<div class="page active" id="page1">
+  <div class="section">
+    <div class="section-title">お客様情報</div>
+    <label>店舗名 <span style="color:var(--red)">*</span></label>
+    <input type="text" id="p1-store" placeholder="例：Club Camels">
+    <label>お届け先名 <span style="color:var(--red)">*</span></label>
+    <input type="text" id="p1-delivery" placeholder="例：田中太郎">
+    <label>郵便番号</label>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="tel" id="p1-zip" placeholder="例：983-0852" maxlength="8" style="flex:1" oninput="onZipInput(this.value)">
+      <button onclick="searchZip()" style="padding:10px 12px;background:rgba(201,168,76,.2);border:1px solid rgba(201,168,76,.4);color:var(--gold);border-radius:6px;font-size:.75rem;white-space:nowrap;cursor:pointer">🔍 検索</button>
+      <button onclick="openZipSearch()" style="padding:10px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:var(--wh2);border-radius:6px;font-size:.75rem;white-space:nowrap;cursor:pointer">わからない</button>
+    </div>
+    <div id="zip-msg" style="font-size:.65rem;margin-top:4px;min-height:14px"></div>
+    <label>お届け先住所 <span style="color:var(--red)">*</span></label>
+    <input type="text" id="p1-address1" placeholder="例：宮城県仙台市青葉区">
+    <input type="text" id="p1-address2" placeholder="番地・建物名（例：1-2-3 マンション101）" style="margin-top:6px">
+    <label>連絡先名 <span style="color:var(--red)">*</span></label>
+    <input type="text" id="p1-contact" placeholder="例：佐藤花子">
+    <label>連絡先電話番号 <span style="color:var(--red)">*</span></label>
+    <input type="tel" id="p1-tel" placeholder="例：090-1234-5678">
+  </div>
+  <button class="bottom-next-btn" onclick="goPage(2)" style="width:100%;padding:14px;font-size:.9rem;margin-top:8px">次へ　→</button>
+</div>
+
+<!-- PAGE 2: 商品選択 -->
+<div class="page" id="page2">
+  <div class="section">
+    <div class="section-title">商品を選択 <span class="tag">在庫連動</span></div>
+    <div class="prod-grid" id="prod-grid"></div>
+  </div>
+  <div class="bottom-bar">
+    <button class="bottom-back-btn" onclick="goPage(1)">← 戻る</button>
+    <div class="bottom-total">
+      <div class="bottom-total-label">合計（税込）</div>
+      <div class="bottom-total-amt" id="bottom-total">¥0</div>
+    </div>
+    <button class="bottom-next-btn" onclick="goPage(3)">次へ →</button>
+  </div>
+</div>
+
+<!-- PAGE 3: 配送・支払 -->
+<div class="page" id="page3">
+  <div class="section">
+    <div class="section-title">配送希望</div>
+    <label>希望配達日</label>
+    <input type="date" id="p3-deldate" min="">
+    <label>希望配達時間帯</label>
+    <select id="p3-deltime">
+      <option value="">指定なし</option>
+      <option>午前中（～12:00）</option>
+      <option>14:00～16:00</option>
+      <option>16:00～18:00</option>
+      <option>18:00～20:00</option>
+      <option>19:00～21:00</option>
+      <option>20:00～21:00</option>
+    </select>
+    <label>配達メモ</label>
+    <input type="text" id="p3-delnote" placeholder="例：裏口にお届けください">
+  </div>
+  <div class="section">
+    <div class="section-title">お支払い方法</div>
+    <label>支払方法 <span style="color:var(--red)">*</span></label>
+    <select id="p3-pay">
+      <option>現金</option>
+      <option>売掛(銀行)</option>
+      <option>売掛(現金)</option>
+      <option>代引き</option>
+      <option>マルシェ売掛</option>
+      <option>オーク売掛</option>
+    </select>
+    <label>備考</label>
+    <textarea id="p3-note" rows="3" placeholder="その他ご要望など"></textarea>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+    <button class="bottom-back-btn" onclick="goPage(2)">← 戻る</button>
+    <button class="bottom-next-btn" onclick="goPage(4)">確認へ →</button>
+  </div>
+</div>
+
+<!-- PAGE 4: 確認 -->
+<div class="page" id="page4">
+  <div class="section">
+    <div class="section-title">注文内容の確認</div>
+    <div id="confirm-customer"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">ご注文商品</div>
+    <div id="confirm-products"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">配送・支払</div>
+    <div id="confirm-delivery"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+    <button class="bottom-back-btn" onclick="goPage(3)">← 戻る</button>
+    <button class="bottom-next-btn" onclick="submitOrder()">✅ 注文送信</button>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div>送信中...</div>
+  </div>
+</div>
+
+<!-- PAGE 5: 完了 -->
+<div class="page" id="page5">
+  <div class="success-wrap">
+    <div class="success-icon">🍾</div>
+    <div class="success-title">ORDER COMPLETE</div>
+    <div class="success-msg">
+      ご注文を受け付けました！<br>
+      担当者よりご連絡いたします。<br><br>
+      <span style="color:var(--wh3);font-size:.75rem">このウィンドウを閉じてください</span>
+    </div>
+    <button class="btn-primary" style="margin-top:24px" onclick="closeLiff()">LINEに戻る</button>
+  </div>
+</div>
+
+<script>
+// ========== 設定 ==========
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbx_Q66tKpOikzNnVVJkpQLiC3MD9FZh2PkA1n10h1xiTrr-N0RWY9sLyCJWfFdiyVHH/exec';
+const LIFF_ID = 'YOUR_LIFF_ID'; // LIFFのIDに変更
+
+const PRODUCTS = [
+  { name: 'イエロー',       price: 10500,  color: '#f4d03f' },
+  { name: 'オレンジ',       price: 21000,  color: '#e67e22' },
+  { name: 'ブルー',         price: 21000,  color: '#3498db' },
+  { name: 'ブラック',       price: 21000,  color: '#222' },
+  { name: 'プラチナ',       price: 33000,  color: '#bdc3c7' },
+  { name: 'ゴールド',       price: 44000,  color: '#f1c40f' },
+  { name: 'ルミナス',       price: 55000,  color: '#9b59b6' },
+  { name: 'レジェンド',     price: 55000,  color: '#c0392b' },
+  { name: 'さくら',         price: 25000,  color: '#f1948a' },
+  { name: 'シコ',           price: 100000, color: '#1a1a2e' },
+  { name: 'チェングレット', price: 6800,   color: '#a8d5a2' },
+  { name: 'チェングロッソ', price: 6800,   color: '#5dbb63' },
+  { name: 'トレスコーネ',   price: 7800,   color: '#2e7d32' },
+  { name: 'エラ',           price: 10000,  color: '#80cbc4' },
+  { name: 'トラミ',         price: 13000,  color: '#4db6ac' },
+  { name: 'カンポレオーネ', price: 10000,  color: '#8d6e63' },
+  { name: 'GIFTBOX',       price: 20000,  color: '#C9A84C' },
+  { name: 'コラチョロサ',   price: 17000,  color: '#f48fb1' },
+];
+
+let quantities = {};
+let lineProfile = null;
+let stock = {};
+
+// ========== 初期化 ==========
+// ========== 郵便番号検索 ==========
+function onZipInput(val) {
+  const clean = val.replace(/-/g, "");
+  if (clean.length === 7) searchZip();
+}
+
+async function searchZip() {
+  const zip = document.getElementById("p1-zip").value.replace(/-/g, "").trim();
+  const msg = document.getElementById("zip-msg");
+  if (zip.length !== 7) { msg.style.color="#e74"; msg.textContent="7桁の郵便番号を入力してください"; return; }
+  msg.style.color="var(--wh3)"; msg.textContent="検索中...";
+  try {
+    const r = await fetch(GAS_URL + "?action=zip&zip=" + zip);
+    const d = await r.json();
+    if (d.results && d.results[0]) {
+      const res = d.results[0];
+      const addr = res.address1 + res.address2 + res.address3;
+      document.getElementById("p1-address1").value = addr;
+      msg.style.color="var(--green)"; msg.textContent="✅ 住所を自動入力しました";
+      document.getElementById("p1-address2").focus();
+    } else {
+      msg.style.color="#e74"; msg.textContent="住所が見つかりませんでした";
+    }
+  } catch(e) {
+    msg.style.color="#e74"; msg.textContent="エラーが発生しました";
+  }
+}
+
+function openZipSearch() {
+  window.open("https://www.post.japanpost.jp/zipcode/", "_blank");
+}
+
+async function init() {
+  // 明日以降の日付を最小値に設定
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  document.getElementById('p3-deldate').min = tomorrow.toISOString().split('T')[0];
+
+  // 前回情報を復元
+  try {
+    const saved = JSON.parse(localStorage.getItem('lmb_customer') || '{}');
+    if (saved.store) document.getElementById('p1-store').value = saved.store;
+    if (saved.delivery) document.getElementById('p1-delivery').value = saved.delivery;
+    if (saved.contact) document.getElementById('p1-contact').value = saved.contact;
+    if (saved.tel) document.getElementById('p1-tel').value = saved.tel;
+    if (saved.zip) document.getElementById('p1-zip').value = saved.zip;
+    if (saved.address1) document.getElementById('p1-address1').value = saved.address1;
+    if (saved.address2) document.getElementById('p1-address2').value = saved.address2;
+  } catch(e) {}
+
+  // LIFF初期化
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (liff.isLoggedIn()) {
+      // 顧客認証チェック（GAS経由）
+      const prof = await liff.getProfile();
+      lineProfile = prof;
+      const authRes = await fetch(GAS_URL + '?action=checkLineUser&uid=' + prof.userId);
+      const authData = await authRes.json();
+      if (!authData.ok) {
+        document.body.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#080808;color:#fff;text-align:center;padding:2rem">
+            <div style="font-size:3rem;margin-bottom:1rem">🔒</div>
+            <h2 style="color:#C9A84C;margin-bottom:1rem">ご利用いただけません</h2>
+            <p style="color:rgba(255,255,255,.6);line-height:1.8">このフォームはご登録済みのお客様のみご利用いただけます。<br>担当者までお問い合わせください。</p>
+          </div>`;
+        return;
+      }
+      // 登録顧客の掛け率を保存
+      if (authData.rate) window._custRate = authData.rate;
+      lineProfile = await liff.getProfile();
+    }
+  } catch(e) { console.log('LIFF init failed:', e); }
+
+  // 在庫取得
+  await loadStock();
+  renderProducts();
+}
+
+async function loadStock() {
+  try {
+    const r = await fetch(GAS_URL + '?action=getStock');
+    const d = await r.json();
+    (d.stock || []).forEach(s => {
+      if (!stock[s.branch]) stock[s.branch] = {};
+      stock[s.branch][s.product] = parseInt(s.qty) || 0;
+    });
+  } catch(e) {
+    // 在庫取得失敗時はデフォルト値
+    PRODUCTS.forEach(p => {
+      if (!stock['京都']) stock['京都'] = {};
+      stock['京都'][p.name] = 99;
+    });
+  }
+}
+
+// ========== 商品描画 ==========
+function renderProducts() {
+  const grid = document.getElementById('prod-grid');
+  // 全拠点の合計在庫
+  const totalStock = {};
+  PRODUCTS.forEach(p => {
+    let total = 0;
+    Object.values(stock).forEach(b => { total += (b[p.name] || 0); });
+    totalStock[p.name] = total;
+  });
+
+  grid.innerHTML = PRODUCTS.map(p => {
+    const qty = quantities[p.name] || 0;
+    const s = totalStock[p.name];
+    const outOfStock = s <= 0;
+    return `
+    <div class="prod-card ${qty > 0 ? 'selected' : ''} ${outOfStock ? 'out-of-stock' : ''}" id="card-${p.name}">
+      <div style="width:8px;height:8px;border-radius:50%;background:${p.color};margin-bottom:6px"></div>
+      <div class="prod-name">${p.name}</div>
+      <div class="prod-price">¥${Math.round(p.price * (parseFloat(window._custRate||'7')/10) * 1.1).toLocaleString('ja-JP', {maximumFractionDigits:0})}<span style="font-size:.6rem;color:var(--wh3)">税込</span></div>
+      <div class="prod-stock ${s <= 5 && s > 0 ? 'low' : ''}">${outOfStock ? '在庫切れ' : s <= 5 ? `残り${s}本` : `在庫あり`}</div>
+      ${!outOfStock ? `
+      <div class="prod-qty">
+        <button class="qty-btn" onclick="event.stopPropagation();changeQty('${p.name}',-1)">－</button>
+        <div class="qty-val" id="qty-${p.name}">${qty}</div>
+        <button class="qty-btn" onclick="event.stopPropagation();changeQty('${p.name}',1)">＋</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+  updateTotal();
+}
+
+function changeQty(name, delta) {
+  const prod = PRODUCTS.find(p => p.name === name);
+  const totalStock = Object.values(stock).reduce((s, b) => s + (b[name] || 0), 0);
+  const current = quantities[name] || 0;
+  const newVal = Math.max(0, Math.min(totalStock, current + delta));
+  quantities[name] = newVal;
+
+  const card = document.getElementById('card-' + name);
+  const qtyEl = document.getElementById('qty-' + name);
+  if (qtyEl) qtyEl.textContent = newVal;
+  if (card) card.classList.toggle('selected', newVal > 0);
+  updateTotal();
+}
+
+function updateTotal() {
+  // 掛け率取得（顧客登録済みなら自動、なければ7掛デフォルト）
+  const rate = parseFloat(window._custRate || '7') / 10;
+  let total = 0;
+  PRODUCTS.forEach(p => {
+    const unitPrice = Math.round(p.price * rate * 1.1); // 掛け率×税込
+    total += unitPrice * (quantities[p.name] || 0);
+  });
+  document.getElementById('bottom-total').textContent = '¥' + total.toLocaleString();
+}
+
+// ========== ページ遷移 ==========
+function goPage(n) {
+  // バリデーション
+  if (n === 2) {
+    if (!document.getElementById('p1-store').value.trim()) { alert('店舗名を入力してください'); return; }
+    if (!document.getElementById('p1-delivery').value.trim()) { alert('お届け先名を入力してください'); return; }
+  if (!document.getElementById('p1-contact').value.trim()) { alert('連絡先名を入力してください'); return; }
+  if (!document.getElementById('p1-tel').value.trim()) { alert('連絡先電話番号を入力してください'); return; }
+  if (!document.getElementById('p1-address1').value.trim()) { alert('お届け先住所を入力してください'); return; }
+    // 顧客情報保存
+    localStorage.setItem('lmb_customer', JSON.stringify({
+      store: document.getElementById('p1-store').value,
+      delivery: document.getElementById('p1-delivery').value,
+      contact: document.getElementById('p1-contact').value,
+      tel: document.getElementById('p1-tel').value,
+      zip: document.getElementById('p1-zip').value,
+      address1: document.getElementById('p1-address1').value,
+      address2: document.getElementById('p1-address2').value,
+    }));
+  }
+  if (n === 3) {
+    const items = Object.entries(quantities).filter(([,v]) => v > 0);
+    if (items.length === 0) { alert('商品を選択してください'); return; }
+  }
+  if (n === 4) { buildConfirm(); }
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page' + n).classList.add('active');
+
+  // ステップ更新
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById('step' + i);
+    if (!el) continue;
+    el.classList.remove('active', 'done');
+    if (i < n) el.classList.add('done');
+    else if (i === n) el.classList.add('active');
+  }
+  window.scrollTo(0, 0);
+}
+
+// ========== 確認画面 ==========
+function buildConfirm() {
+  // 顧客情報
+  const store = document.getElementById('p1-store').value;
+  const delivery = document.getElementById('p1-delivery').value;
+  const contact = document.getElementById('p1-contact').value;
+  const tel = document.getElementById('p1-tel').value;
+  const zip = document.getElementById('p1-zip').value;
+  const address1 = document.getElementById('p1-address1').value;
+  const address2 = document.getElementById('p1-address2').value;
+  document.getElementById('confirm-customer').innerHTML = `
+    <div class="confirm-row"><span class="confirm-label">店舗名</span><span class="confirm-value">${store}</span></div>
+    <div class="confirm-row"><span class="confirm-label">お届け先</span><span class="confirm-value">${delivery}</span></div>
+    ${contact ? `<div class="confirm-row"><span class="confirm-label">連絡先名</span><span class="confirm-value">${contact}</span></div>` : ''}
+    ${tel ? `<div class="confirm-row"><span class="confirm-label">電話番号</span><span class="confirm-value">${tel}</span></div>` : ''}
+  `;
+
+  // 商品
+  let prodHtml = '';
+  let total = 0;
+  const _rate = parseFloat(window._custRate || '7') / 10;
+  PRODUCTS.forEach(p => {
+    const q = quantities[p.name] || 0;
+    if (q > 0) {
+      const unitPrice = Math.round(p.price * _rate * 1.1);
+      const amt = unitPrice * q;
+      total += amt;
+      prodHtml += `<div class="order-line">
+        <span class="order-line-name">${p.name} × ${q}本</span>
+        <span class="order-line-amount">¥${amt.toLocaleString()}</span>
+      </div>`;
+    }
+  });
+  prodHtml += `<div class="total-row"><span class="total-label">合計（税込）</span><span class="total-amount">¥${total.toLocaleString()}</span></div>`;
+  document.getElementById('confirm-products').innerHTML = prodHtml;
+
+  // 配送・支払
+  const deldate = document.getElementById('p3-deldate').value;
+  const deltime = document.getElementById('p3-deltime').value;
+  const delnote = document.getElementById('p3-delnote').value;
+  const pay = document.getElementById('p3-pay').value;
+  const note = document.getElementById('p3-note').value;
+  document.getElementById('confirm-delivery').innerHTML = `
+    ${deldate ? `<div class="confirm-row"><span class="confirm-label">希望配達日</span><span class="confirm-value">${deldate}</span></div>` : ''}
+    ${deltime ? `<div class="confirm-row"><span class="confirm-label">時間帯</span><span class="confirm-value">${deltime}</span></div>` : ''}
+    ${delnote ? `<div class="confirm-row"><span class="confirm-label">配達メモ</span><span class="confirm-value">${delnote}</span></div>` : ''}
+    <div class="confirm-row"><span class="confirm-label">支払方法</span><span class="confirm-value">${pay}</span></div>
+    ${note ? `<div class="confirm-row"><span class="confirm-label">備考</span><span class="confirm-value">${note}</span></div>` : ''}
+  `;
+}
+
+// ========== 注文送信 ==========
+async function submitOrder() {
+  // 二重送信防止
+  if (window._submitting) return;
+  window._submitting = true;
+  document.getElementById('loading').style.display = 'block';
+  document.querySelector('#page4 .btn-primary').style.display = 'none';
+  document.querySelector('#page4 .btn-secondary').style.display = 'none';
+
+  const items = {};
+  PRODUCTS.forEach(p => { if ((quantities[p.name] || 0) > 0) items[p.name] = quantities[p.name]; });
+
+  // 金額は表示・確認画面と同じ計算（掛率×税込）にそろえる
+  const _rate = parseFloat(window._custRate || '7') / 10;
+  let total = 0;
+  PRODUCTS.forEach(p => { total += Math.round(p.price * _rate * 1.1) * (quantities[p.name] || 0); });
+
+  const orderData = {
+    action: 'saveOrder',
+    id: 'liff-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),  // 一意ID（重複排除用）
+    timestamp: new Date().toLocaleString('ja-JP'),
+    store: document.getElementById('p1-store').value,
+    delivery: document.getElementById('p1-delivery').value,
+    contact: document.getElementById('p1-contact').value,
+    tel: document.getElementById('p1-tel').value,
+    items: JSON.stringify(items),
+    amount: total,
+    payMethod: document.getElementById('p3-pay').value,
+    zip: document.getElementById('p1-zip').value,
+    address1: document.getElementById('p1-address1').value,
+    address2: document.getElementById('p1-address2').value,
+    deliveryDate: document.getElementById('p3-deldate').value,
+    deliveryTime: document.getElementById('p3-deltime').value,
+    deliveryNote: document.getElementById('p3-delnote').value,
+    note: document.getElementById('p3-note').value,
+    payStatus: '未収',
+    status: '新規',
+    lineUserId: lineProfile?.userId || '',
+    lineDisplayName: lineProfile?.displayName || '',
+    source: 'LIFF'
+  };
+
+  try {
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderData)
+    });
+  } catch(e) {
+    console.log('送信エラー:', e);
+    // 送信失敗: フラグを戻し、ボタンを復帰して再送信できるようにする
+    window._submitting = false;
+    document.getElementById('loading').style.display = 'none';
+    document.querySelector('#page4 .btn-primary').style.display = '';
+    document.querySelector('#page4 .btn-secondary').style.display = '';
+    alert('送信に失敗しました。通信環境を確認して、もう一度お試しください。');
+    return;
+  }
+
+  // 完了画面へ
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page5').classList.add('active');
+  document.getElementById('steps').style.display = 'none';
+  window.scrollTo(0, 0);
+}
+
+function closeLiff() {
+  try { liff.closeWindow(); } catch(e) { window.close(); }
+}
+
+init();
+</script>
+</div></body>
+</html>

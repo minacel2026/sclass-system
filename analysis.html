@@ -412,6 +412,9 @@ function fmt(n){ return (Number(n)||0).toLocaleString('ja-JP'); }
 function yen(n){ return '¥' + fmt(n); }
 
 function calcAmt(o){
+  if (o.orderType === 'sponsor') return 0;  // 協賛注文は無料出荷（売上0）
+  if (typeof o.amount === 'number') return o.amount;  // 確定金額（価格モード・商品別掛率・税を反映済み）
+  // 旧注文の互換計算（amount未保存の注文）
   const tax = o.tax === 'taxあり' ? 1.1 : 1;
   const cond = (o.condition || 10) / 10;
   let total = 0;
@@ -432,7 +435,7 @@ function calcCost(o){
 
 function loadState(){
   try {
-    const keys = ['orders','customers','staff','stock','slog','invoices','dailyReps'];
+    const keys = ['orders','customers','staff','stock','slog','invoices','dailyReps','referrers','sponsors'];
     keys.forEach(k => {
       const v = localStorage.getItem('lmb_' + k);
       if (v) try { S[k] = JSON.parse(v); } catch(e){}
@@ -442,7 +445,7 @@ function loadState(){
 
 function saveState(){
   try {
-    const keys = ['orders','customers','staff','stock','slog','invoices','dailyReps'];
+    const keys = ['orders','customers','staff','stock','slog','invoices','dailyReps','referrers','sponsors'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
   } catch(e){ console.warn('saveState error', e); }
 }

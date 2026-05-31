@@ -485,6 +485,9 @@ function today(){ return new Date().toISOString().slice(0,10); }
 function fmt(n){ return (Number(n)||0).toLocaleString('ja-JP'); }
 function yen(n){ return '¥' + fmt(n); }
 function calcAmt(o){
+  if (o.orderType === 'sponsor') return 0;  // 協賛注文は無料出荷（売上0）
+  if (typeof o.amount === 'number') return o.amount;  // 確定金額（価格モード・商品別掛率・税を反映済み）
+  // 旧注文の互換計算（amount未保存の注文）
   const tax = o.tax === 'taxあり' ? 1.1 : 1;
   const cond = (o.condition || 10) / 10;
   let total = 0;

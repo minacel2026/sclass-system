@@ -776,6 +776,14 @@ function shiftOrderMonth(n){ ordMonth = new Date(ordMonth.getFullYear(), ordMont
 function toggleOrderAll(){ ordShowAll = !ordShowAll; document.getElementById('ord-all-btn').textContent = ordShowAll ? '月別表示' : '全期間表示'; renderOrders(); }
 
 function renderOrders(){
+  // 別ページ（集金管理など）での支払ステータス更新・削除を反映するため最新を読み込む
+  try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
+  // 表示前に重複を排除（編集残骸・取込重複の保険）
+  if (typeof dedupeOrders === 'function'){
+    const _b = (S.orders || []).length;
+    S.orders = dedupeOrders(S.orders);
+    if (S.orders.length !== _b) saveState();
+  }
   const kw  = (document.getElementById('sk-kw')?.value || '').toLowerCase();
   const br  = document.getElementById('sk-br')?.value || '';
   const pay = document.getElementById('sk-pay')?.value || '';
@@ -883,6 +891,7 @@ function deleteOrder(id){
   // 4. ローカルから削除
   S.orders = S.orders.filter(o => o.id !== id);
   saveState();
+  syncStockToGAS();  // 在庫戻しをスプシへ反映
 
   let extra = '';
   if (earnedQty) extra += ` / 協賛付与−${earnedQty}本`;
@@ -1948,6 +1957,7 @@ function submitNewOrder(){
 
   saveState();
   if (S.gasUrl) gasPost({ action: 'saveOrder', ...order });
+  syncStockToGAS();  // 在庫減算をスプシへ反映
 
   let sponsorMsg = '';
   if (isSponsor && sponsorCust){
@@ -2134,6 +2144,7 @@ function adjustStock(product, branch){
   });
 
   saveState();
+  syncStockToGAS();  // 在庫調整をスプシへ反映
   toast(`✓ ${product}を ${delta > 0 ? '+' : ''}${delta} 本 調整`);
   inp.value = '';
   renderStock();
@@ -2265,6 +2276,7 @@ function submitPurchase(){
   });
 
   saveState();
+  syncStockToGAS();  // 仕入入庫をスプシへ反映
   toast(`✓ ${purchaseDraft.length}品目 計${totalQty}本を入庫しました`);
 
   // ドラフトとフォームをリセット
@@ -2472,6 +2484,38 @@ function normalizeOrderItems(raw){
 }
 
 // 既存の全注文の items を正規化（過去に番号で取り込まれた注文を救済）
+// 在庫の変動をスプレッドシートへ反映（同期しないとGAS同期で減算が元に戻ってしまう）
+function syncStockToGAS(){
+  if (!S.gasUrl) return;
+  const stockData = [];
+  Object.keys(S.stock || {}).forEach(branch => {
+    Object.keys(S.stock[branch] || {}).forEach(product => {
+      stockData.push({ branch: branch, product: product, qty: S.stock[branch][product] || 0 });
+    });
+  });
+  try { gasPost({ action: 'updateAllStock', stockData: stockData }); } catch(e){}
+}
+
+// 注文の重複を排除（同IDは最新を残す／別IDでも内容が同一なら統合）
+function dedupeOrders(orders){
+  if (!Array.isArray(orders)) return [];
+  const result = [];
+  const seenId = new Set();
+  const seenContent = new Set();
+  // 後ろ（新しい方）から見て最新を優先、元の並びは維持
+  for (let i = orders.length - 1; i >= 0; i--){
+    const o = orders[i] || {};
+    const id = String(o.id || '');
+    const ck = String(o.store||'') + '|' + String(o.date||'') + '|' + JSON.stringify(o.items||{}) + '|' + String(o.amount||'');
+    if (id && seenId.has(id)) continue;       // 同ID重複（編集前の残骸など）
+    if (seenContent.has(ck)) continue;          // 別IDでも内容が同一（取込重複など）
+    if (id) seenId.add(id);
+    seenContent.add(ck);
+    result.unshift(o);
+  }
+  return result;
+}
+
 function normalizeAllOrders(){
   let changed = false;
   (S.orders || []).forEach(o => {
@@ -2479,6 +2523,10 @@ function normalizeAllOrders(){
     o.items = normalizeOrderItems(o.items);
     if (JSON.stringify(o.items) !== before) changed = true;
   });
+  // 重複排除（既存データのクリーンアップ）
+  const beforeLen = (S.orders || []).length;
+  S.orders = dedupeOrders(S.orders);
+  if (S.orders.length !== beforeLen) changed = true;
   if (changed) saveState();
 }
 

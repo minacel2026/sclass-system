@@ -602,9 +602,30 @@ async function syncFromGAS(){
 <script>
 let selectedPayments = new Set();
 
+// 注文の重複を排除（同IDは最新を残す／別IDでも内容が同一なら統合）
+function dedupeOrders(orders){
+  if (!Array.isArray(orders)) return [];
+  const result = [];
+  const seenId = new Set();
+  const seenContent = new Set();
+  for (let i = orders.length - 1; i >= 0; i--){
+    const o = orders[i] || {};
+    const id = String(o.id || '');
+    const ck = String(o.store||'') + '|' + String(o.date||'') + '|' + JSON.stringify(o.items||{}) + '|' + String(o.amount||'');
+    if (id && seenId.has(id)) continue;
+    if (seenContent.has(ck)) continue;
+    if (id) seenId.add(id);
+    seenContent.add(ck);
+    result.unshift(o);
+  }
+  return result;
+}
+
 function renderPayment(){
   // 受発注システム（別ページ）での注文削除・変更を反映するため、最新の注文を読み込む
   try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
+  // 重複を排除（編集残骸・取込重複の保険）
+  S.orders = dedupeOrders(S.orders);
   const kw    = (document.getElementById('pm-kw')?.value || '').toLowerCase();
   const br    = document.getElementById('pm-br')?.value || '';
   const state = document.getElementById('pm-state')?.value || 'unpaid';
@@ -751,6 +772,9 @@ function shiftARMonth(n){ arMonth = new Date(arMonth.getFullYear(), arMonth.getM
 function toggleARAll(){ arShowAll = !arShowAll; document.getElementById('ar-all-btn').textContent = arShowAll ? '月別表示' : '全期間'; renderARSummary(); }
 
 function renderARSummary(){
+  // 最新の注文を読み込み＋重複排除
+  try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
+  S.orders = dedupeOrders(S.orders);
   const yr = arMonth.getFullYear(), mo = arMonth.getMonth();
   const mStr = `${yr}-${String(mo+1).padStart(2,'0')}`;
   document.getElementById('ar-month-disp').textContent = `${yr}年${mo+1}月`;
@@ -866,6 +890,9 @@ function onIvCustChange(){
 }
 
 function buildInvoicePreview(){
+  // 最新の注文を読み込み＋重複排除（集金管理と同じデータsoにそろえる）
+  try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
+  S.orders = dedupeOrders(S.orders);
   const custId = document.getElementById('iv-cust').value;
   const c = (S.customers || []).find(x => (x.id || x.name) === custId);
   if (!c) return toast('取引先を選択してください', 'error');
