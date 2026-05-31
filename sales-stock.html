@@ -127,20 +127,25 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 
 
 /* ─── 在庫グリッド ─── */
-.stock-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.6rem;margin-bottom:1rem}
-.stock-card{background:var(--d2);border:1px solid rgba(201,168,76,.18);padding:.7rem .9rem;position:relative}
-.stock-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--gold);opacity:.5}
-.stock-card.low::before{background:var(--org);opacity:1}
-.stock-card.out::before{background:var(--red);opacity:1}
-.stock-name{font-size:.82rem;color:var(--gold-l);font-weight:500;margin-bottom:.4rem;display:flex;justify-content:space-between;align-items:center}
-.stock-branch-row{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;border-top:1px solid rgba(255,255,255,.05)}
-.stock-branch-row:first-of-type{border-top:none}
-.stock-branch{font-size:.7rem;color:var(--wh2)}
-.stock-qty{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--wh);letter-spacing:.05em}
-.stock-qty.low{color:var(--org)}
-.stock-qty.out{color:var(--red)}
-.stock-actions{display:flex;gap:.3rem;margin-top:.5rem}
-.stock-actions input{flex:1;background:var(--d3);border:1px solid rgba(201,168,76,.2);color:var(--wh);padding:.3rem;font-size:.75rem;font-family:'Bebas Neue',sans-serif;text-align:center;width:50px}
+/* ─── 在庫テーブル（左=仙台・右=京都の2カラム） ─── */
+.stock-cols{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.stock-cols.single{grid-template-columns:1fr}
+.stock-col{border:1px solid rgba(201,168,76,.18);overflow:hidden}
+.stock-col-title{font-size:.85rem;color:var(--gold-l);font-weight:600;padding:.5rem .8rem;background:var(--d3);border-bottom:1px solid rgba(201,168,76,.25);margin:0;letter-spacing:.05em}
+.stock-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.stock-table th{background:var(--d2);padding:.4rem .6rem;text-align:left;font-size:.66rem;color:var(--gold-d);font-weight:500;border-bottom:1px solid rgba(201,168,76,.15);white-space:nowrap}
+.stock-table th.col-num{text-align:right}
+.stock-table td{padding:.35rem .6rem;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
+.stock-table tbody tr.low{background:rgba(230,126,34,.06)}
+.stock-table tbody tr.out{background:rgba(231,76,60,.08)}
+.st-pname{color:var(--wh);white-space:nowrap}
+.st-pdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:.45rem;vertical-align:middle}
+.st-qty{font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--wh);letter-spacing:.04em;text-align:right;white-space:nowrap}
+.st-qty.low{color:var(--org)}
+.st-qty.out{color:var(--red)}
+.st-adj{display:flex;gap:.25rem;align-items:center;justify-content:flex-end}
+.st-adj input{background:var(--d3);border:1px solid rgba(201,168,76,.2);color:var(--wh);padding:.25rem;font-size:.72rem;font-family:'Bebas Neue',sans-serif;text-align:center;width:44px}
+@media(max-width:640px){.stock-cols{grid-template-columns:1fr}}
 
 /* ─── ボタン ─── */
 .faction{display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap}
@@ -786,7 +791,7 @@ function deleteOrder(id){
   }
 
   // 3. スプシの注文行を削除（注文ID・なければtimestamp+storeで照合）
-  if (S.gasUrl) { try { gasPost({ action:'deleteOrder', id:id, timestamp:order.timestamp, store:order.store }); } catch(e){} }
+  if (S.gasUrl) { try { gasPost({ action:'deleteOrder', id:id, timestamp:order.timestamp, store:order.store, amount:order.amount }); } catch(e){} }
 
   // 4. ローカルから削除
   S.orders = S.orders.filter(o => o.id !== id);
@@ -1241,6 +1246,7 @@ function submitNewOrder(){
 
   const order = {
     id: 'ord-' + Date.now(),
+    timestamp: new Date().toLocaleString('ja-JP'),  // スプシA列と一致させ削除照合を確実に
     date: document.getElementById('no-date').value || today(),
     time: new Date().toTimeString().slice(0,5),
     branch: branch,
@@ -1394,47 +1400,39 @@ function checkAndAddSponsorPoints(order){
 function renderStock(){
   const br    = document.getElementById('st-br')?.value || '';
   const state = document.getElementById('st-state')?.value || '';
-
   const branches = br ? [br] : ['仙台','京都'];
   const grid = document.getElementById('stock-grid');
 
-  grid.innerHTML = PROD_LIST.map(p => {
-    const ro = REORDER[p.key];
-    let totalQty = 0;
-    branches.forEach(b => totalQty += (S.stock[b]?.[p.key] || 0));
-
-    if (state === 'low' && totalQty >= ro) return '';
-    if (state === 'low' && totalQty === 0) return '';
-    if (state === 'out' && totalQty > 0) return '';
-
-    const status = totalQty === 0 ? 'out' : (totalQty < ro ? 'low' : '');
-    const branchRows = branches.map(b => {
-      const q = S.stock[b]?.[p.key] || 0;
+  function buildTable(branch){
+    const rows = PROD_LIST.map(p => {
+      const ro = REORDER[p.key];
+      const q = S.stock[branch]?.[p.key] || 0;
+      if (state === 'low' && (q >= ro || q === 0)) return '';
+      if (state === 'out' && q > 0) return '';
       const cls = q === 0 ? 'out' : (q < ro ? 'low' : '');
       return `
-      <div class="stock-branch-row">
-        <span class="stock-branch">${b}</span>
-        <span class="stock-qty ${cls}">${q}<span style="font-size:.6rem;color:var(--wh3);margin-left:.2rem">本</span></span>
-      </div>`;
+      <tr class="${cls}">
+        <td><span class="st-pname"><span class="st-pdot" style="background:${p.color}"></span>${p.name}</span></td>
+        <td class="st-qty ${cls}">${q}本</td>
+        <td>
+          <div class="st-adj">
+            <input type="number" placeholder="±" id="adj-${p.key}-${branch}" step="1">
+            <button class="act-btn" onclick="adjustStock('${p.key}','${branch}')">調整</button>
+          </div>
+        </td>
+      </tr>`;
     }).join('');
-
-    const adjustRows = branches.map(b => `
-      <div style="display:flex;gap:.3rem;align-items:center;margin-top:.3rem">
-        <span style="font-size:.6rem;color:var(--wh3);width:30px">${b}</span>
-        <input type="number" placeholder="±" id="adj-${p.key}-${b}" step="1">
-        <button class="act-btn" onclick="adjustStock('${p.key}','${b}')">調整</button>
-      </div>`).join('');
-
     return `
-    <div class="stock-card ${status}">
-      <div class="stock-name">
-        ${p.name}
-        <span style="font-size:.6rem;color:var(--wh3)">補充閾値:${ro}</span>
-      </div>
-      ${branchRows}
-      ${adjustRows}
+    <div class="stock-col">
+      <h3 class="stock-col-title">${branch}（補充閾値以下はオレンジ／在庫切れは赤）</h3>
+      <table class="stock-table">
+        <thead><tr><th>商品</th><th class="col-num">在庫</th><th class="col-num">調整</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="3" style="text-align:center;color:var(--wh3);padding:.7rem">該当なし</td></tr>'}</tbody>
+      </table>
     </div>`;
-  }).join('');
+  }
+
+  grid.innerHTML = `<div class="stock-cols ${branches.length === 1 ? 'single' : ''}">${branches.map(buildTable).join('')}</div>`;
 }
 
 function adjustStock(product, branch){
