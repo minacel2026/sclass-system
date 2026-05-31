@@ -342,9 +342,11 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div style="font-size:.82rem;color:var(--gold-l);margin-bottom:.5rem">この顧客の協賛残数：<strong id="no-sp-balance">0本</strong></div>
       <div class="frow" style="align-items:flex-end">
         <div class="fg" style="flex:1 1 160px"><label>協賛で出す商品</label><select class="fc" id="no-sp-product"></select></div>
-        <div class="fg" style="flex:0 1 100px"><label>協賛本数</label><input class="fc" id="no-sp-qty" type="number" min="0" step="1" value="0" oninput="updateOrderTotal()"></div>
+        <div class="fg" style="flex:0 1 90px"><label>本数</label><input class="fc" id="no-sp-qty" type="number" min="1" step="1"></div>
+        <div class="fg" style="flex:0 1 auto"><button class="btn btn-g" onclick="addSponsorShipItem()">＋ 協賛に追加</button></div>
       </div>
-      <div style="font-size:.7rem;color:var(--wh3);margin-top:.4rem">※協賛分は売上0円。在庫からは出荷され、協賛残数が消費されます（通常注文と同時に登録できます）</div>
+      <div id="no-sp-draft" style="margin-top:.5rem"></div>
+      <div style="font-size:.7rem;color:var(--wh3);margin-top:.4rem">※協賛分は売上0円。複数商品を追加できます（例：イエロー1本＋オレンジ1本）。在庫から出荷され、協賛残数が消費されます</div>
     </div>
 
     <div class="form-section">
@@ -925,21 +927,18 @@ function openOrderForEdit(id){
   updateOrderTotal();
   if (typeof onOrderTypeChange === 'function') onOrderTypeChange();
 
-  // 協賛出荷分を復元（残数セクションを表示し商品・本数をセット）
+  // 協賛出荷分を復元（残数セクションを表示し明細に復元）
   updateSponsorShipSection(currentOrderCust);
-  const spItems = o.sponsorItems || {};
-  const spKey = Object.keys(spItems)[0];
-  if (spKey){
+  sponsorShipDraft = Object.entries(o.sponsorItems || {}).map(([product, qty]) => ({ product, qty }));
+  if (sponsorShipDraft.length){
     const sec = document.getElementById('no-sponsor-ship');
     if (sec) sec.style.display = 'block';
     const spProd = document.getElementById('no-sp-product');
     if (spProd && spProd.options.length === 0){
       spProd.innerHTML = PROD_LIST.map(p => `<option>${p.name}</option>`).join('');
     }
-    if (spProd) spProd.value = spKey;
-    const spQ = document.getElementById('no-sp-qty');
-    if (spQ) spQ.value = spItems[spKey];
   }
+  if (typeof renderSponsorShipDraft === 'function') renderSponsorShipDraft();
 
   // ボタン文言を「更新」に
   const btn = document.getElementById('no-submit-btn');
@@ -954,6 +953,7 @@ let newOrderQty = {};
 let currentOrderCust = null;  // 注文登録で選択中の顧客（価格設定の参照元）
 let editingOrderId = null;    // 編集中の注文ID（null=新規登録）
 let storeSuggestIdx = -1;     // 店舗候補のキーボード選択位置
+let sponsorShipDraft = [];    // 協賛出荷の明細（複数商品対応）
 
 function initNewOrder(){
   // 日付初期値
@@ -1038,6 +1038,57 @@ function updateSponsorShipSection(c){
   sec.style.display = 'none';
   const spQty = document.getElementById('no-sp-qty');
   if (spQty) spQty.value = 0;
+}
+
+// 協賛出荷の明細に商品を追加（複数商品OK・残数の範囲内）
+function addSponsorShipItem(){
+  const product = (document.getElementById('no-sp-product')||{}).value;
+  const qty = parseInt((document.getElementById('no-sp-qty')||{}).value) || 0;
+  if (!product || qty <= 0) return toast('協賛で出す商品と本数を入力してください', 'error');
+
+  const c = currentOrderCust;
+  if (!c){ return toast('協賛出荷は顧客マスター登録済みの店舗のみ可能です', 'error'); }
+  // 残数（過去＋今回付与予定）と、すでに明細に入れた本数を考慮
+  const bal = getSponsorBalance(c.id);
+  const pending = calcPendingSponsorPoints(newOrderQty, c);
+  const available = bal.pts + pending.total;
+  const already = sponsorShipDraft.reduce((s,it) => s + (it.qty||0), 0);
+  if (already + qty > available){
+    return toast(`協賛残数（${available}本）を超えます（追加済 ${already}本＋今回 ${qty}本）`, 'error');
+  }
+  // 同じ商品があれば合算
+  const ex = sponsorShipDraft.find(it => it.product === product);
+  if (ex) ex.qty += qty; else sponsorShipDraft.push({ product, qty });
+  document.getElementById('no-sp-qty').value = '';
+  renderSponsorShipDraft();
+  toast(`協賛に追加：${product} ${qty}本`);
+}
+
+// 協賛明細の描画
+function renderSponsorShipDraft(){
+  const box = document.getElementById('no-sp-draft');
+  if (!box) return;
+  if (sponsorShipDraft.length === 0){ box.innerHTML = ''; return; }
+  let total = 0;
+  const rows = sponsorShipDraft.map((it, i) => {
+    total += (it.qty || 0);
+    return `<tr>
+      <td><strong>${escapeHtml(it.product)}</strong></td>
+      <td class="col-num">${it.qty}本</td>
+      <td style="text-align:center"><button class="act-btn dn" onclick="removeSponsorShipDraftItem(${i})">削</button></td>
+    </tr>`;
+  }).join('');
+  box.innerHTML = `
+    <table class="prod-table"><thead><tr>
+      <th>協賛商品</th><th class="col-num">本数</th><th style="text-align:center">操作</th>
+    </tr></thead><tbody>${rows}
+      <tr><td style="text-align:right;color:var(--gold-d);font-size:.78rem">協賛合計</td><td class="col-num" style="color:#c39bd3">${total}本</td><td></td></tr>
+    </tbody></table>`;
+}
+
+function removeSponsorShipDraftItem(idx){
+  sponsorShipDraft.splice(idx, 1);
+  renderSponsorShipDraft();
 }
 
 // 日本語の表記ゆれを吸収（半角→全角・カタカナ→ひらがな・大文字小文字）
@@ -1650,6 +1701,8 @@ function clearNewOrder(){
   if (spSec) spSec.style.display = 'none';
   const spQty = document.getElementById('no-sp-qty');
   if (spQty) spQty.value = 0;
+  sponsorShipDraft = [];
+  if (typeof renderSponsorShipDraft === 'function') renderSponsorShipDraft();
   renderNewOrderProds();
   updateOrderTotal();
 }
@@ -1702,28 +1755,34 @@ function submitNewOrder(){
     if (totalQty > bal.pts) return toast(`協賛残数（${bal.pts}本）を超えています（注文 ${totalQty}本）`, 'error');
   }
 
-  // 協賛出荷分（通常注文に同梱する協賛・無料分）
+  // 協賛出荷分（通常注文に同梱する協賛・無料分／複数商品OK）
   let sponsorItems = {};
   let sponsorShipCust = null;
-  if (!isSponsor){
-    const spProduct = (document.getElementById('no-sp-product')||{}).value;
-    const spQty = parseInt((document.getElementById('no-sp-qty')||{}).value) || 0;
-    if (spQty > 0 && spProduct){
-      // 表示時に残数を出した顧客（currentOrderCust）を優先し、表示と登録の残数を必ず一致させる
-      sponsorShipCust = currentOrderCust || (S.customers || []).find(x => x.name === store);
-      if (!sponsorShipCust) return toast('協賛出荷は顧客マスター登録済みの店舗のみ可能です', 'error');
-      const spBal = getSponsorBalance(sponsorShipCust.id);
-      const spPending = calcPendingSponsorPoints(items, sponsorShipCust);  // 今回付与予定
-      const spAvailable = spBal.pts + spPending.total;  // 過去残数＋今回付与予定
-      if (spQty > spAvailable) return toast(`協賛残数（${spAvailable}本）を超えています（協賛出荷 ${spQty}本）`, 'error');
-      sponsorItems[spProduct] = spQty;
-    }
+  if (!isSponsor && sponsorShipDraft.length > 0){
+    // 表示時に残数を出した顧客（currentOrderCust）を優先し、表示と登録の残数を必ず一致させる
+    sponsorShipCust = currentOrderCust || (S.customers || []).find(x => x.name === store);
+    if (!sponsorShipCust) return toast('協賛出荷は顧客マスター登録済みの店舗のみ可能です', 'error');
+    const spBal = getSponsorBalance(sponsorShipCust.id);
+    const spPending = calcPendingSponsorPoints(items, sponsorShipCust);  // 今回付与予定
+    const spAvailable = spBal.pts + spPending.total;  // 過去残数＋今回付与予定
+    const spTotal = sponsorShipDraft.reduce((s,it) => s + (it.qty||0), 0);
+    if (spTotal > spAvailable) return toast(`協賛残数（${spAvailable}本）を超えています（協賛出荷 ${spTotal}本）`, 'error');
+    // 明細を sponsorItems に集約（商品ごと合算）
+    sponsorShipDraft.forEach(it => {
+      sponsorItems[it.product] = (sponsorItems[it.product] || 0) + it.qty;
+    });
   }
 
-  // 在庫チェック
+  // 在庫チェック（選択拠点の在庫。不足時は他拠点の在庫も案内）
   for (const [p, q] of Object.entries(items)){
-    if ((S.stock[branch]?.[p] || 0) < q){
-      if (!confirm(`${p} の在庫が不足しています（在庫:${S.stock[branch]?.[p]||0} / 注文:${q}）。それでも登録しますか？`)) return;
+    const cur = S.stock[branch]?.[p] || 0;
+    if (cur < q){
+      const others = Object.keys(S.stock)
+        .filter(b => b !== branch && (S.stock[b]?.[p] || 0) > 0)
+        .map(b => `${b}:${S.stock[b][p]}本`)
+        .join('、');
+      const hint = others ? `\n他拠点の在庫 → ${others}（拠点が正しいか確認してください）` : '';
+      if (!confirm(`${p} の在庫が不足しています（${branch}:${cur}本 / 注文:${q}本）${hint}\nそれでも登録しますか？`)) return;
       break;
     }
   }
@@ -1841,23 +1900,24 @@ function submitNewOrder(){
   } else {
     // 通常注文: 協賛ポイント自動付与
     sponsorMsg = checkAndAddSponsorPoints(order);
-    // 協賛出荷分（同梱）があれば used として記録し残数を消費
+    // 協賛出荷分（同梱）があれば used として記録し残数を消費（商品ごとに記録）
     if (sponsorShipCust && Object.keys(sponsorItems).length){
       const spTotal = Object.values(sponsorItems).reduce((s,q) => s + (q||0), 0);
-      const spProdList = Object.keys(sponsorItems).join('・');
       if (!S.sponsorLogs) S.sponsorLogs = [];
-      S.sponsorLogs.push({
-        id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
-        custId: sponsorShipCust.id, custName: sponsorShipCust.name,
-        type: 'used', qty: spTotal,
-        date: order.date, orderId: order.id,
-        product: spProdList, branch: branch,
-        note: `協賛出荷 ${spTotal}本（${spProdList}）通常注文に同梱`,
-        createdAt: new Date().toISOString(),
-        createdBy: currentUser.name,
+      Object.entries(sponsorItems).forEach(([prod, qty]) => {
+        S.sponsorLogs.push({
+          id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
+          custId: sponsorShipCust.id, custName: sponsorShipCust.name,
+          type: 'used', qty: qty,
+          date: order.date, orderId: order.id,
+          product: prod, branch: branch,
+          note: `協賛出荷 ${qty}本（${prod}）通常注文に同梱`,
+          createdAt: new Date().toISOString(),
+          createdBy: currentUser.name,
+        });
+        if (S.gasUrl) { try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
       });
       saveState();
-      if (S.gasUrl) { try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
       const spBal = getSponsorBalance(sponsorShipCust.id);
       sponsorMsg += (sponsorMsg ? ' / ' : '') + `🎁 協賛出荷 −${spTotal}本（残数 ${spBal.pts}本）`;
     }
