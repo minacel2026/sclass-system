@@ -369,7 +369,8 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     <div class="summary-bar">
       <div>
         <span class="sm-label">本数:</span><span id="no-qty-total" style="color:var(--gold-l);font-family:'Bebas Neue',sans-serif;font-size:1.1rem">0</span>
-        <span style="color:var(--wh3);font-size:.7rem;margin-left:.3rem">本</span>
+        <span style="color:var(--wh3);font-size:.7rem;margin-left:.3rem">本（通常）</span>
+        <span id="no-sp-qty-total" style="color:#c39bd3;font-size:.78rem;margin-left:.5rem"></span>
       </div>
       <div><span class="sm-label">合計（税込）:</span><span class="sm-total" id="no-total">¥0</span></div>
     </div>
@@ -1017,17 +1018,17 @@ function updateSponsorShipSection(c){
     const available = bal.pts + pending.total;
     if (available > 0){
       sec.style.display = 'block';
-      // 商品別の内訳（過去残数＋今回付与予定）
+      // 商品別の内訳を見やすくリスト表示（過去残数＋今回付与予定）
       const byProd = getSponsorBalanceByProduct(c.id);
       Object.entries(pending.byProd).forEach(([p,n]) => { byProd[p] = (byProd[p]||0) + n; });
-      const detail = Object.entries(byProd)
+      const detailRows = Object.entries(byProd)
         .filter(([p,n]) => n > 0)
-        .map(([p,n]) => `${p} ${n}本`)
-        .join('、');
-      let txt = `${available}本`;
-      if (pending.total > 0) txt += `（過去${bal.pts}本＋今回付与予定${pending.total}本）`;
-      if (detail) txt += `　内訳：${detail}`;
-      document.getElementById('no-sp-balance').textContent = txt;
+        .map(([p,n]) => `<div style="padding:.1rem 0">・${escapeHtml(p)}：<strong>${n}本</strong></div>`)
+        .join('');
+      let html = `合計 <strong>${available}本</strong>`;
+      if (pending.total > 0) html += `<span style="font-size:.72rem;color:var(--wh3)">（過去${bal.pts}本＋今回付与予定${pending.total}本）</span>`;
+      if (detailRows) html += `<div style="margin-top:.3rem;font-size:.8rem;color:var(--gold-l)">${detailRows}</div>`;
+      document.getElementById('no-sp-balance').innerHTML = html;
       const spProd = document.getElementById('no-sp-product');
       if (spProd && spProd.options.length === 0){
         spProd.innerHTML = PROD_LIST.map(p => `<option>${p.name}</option>`).join('');
@@ -1061,6 +1062,7 @@ function addSponsorShipItem(){
   if (ex) ex.qty += qty; else sponsorShipDraft.push({ product, qty });
   document.getElementById('no-sp-qty').value = '';
   renderSponsorShipDraft();
+  if (typeof updateOrderTotal === 'function') updateOrderTotal();
   toast(`協賛に追加：${product} ${qty}本`);
 }
 
@@ -1089,6 +1091,7 @@ function renderSponsorShipDraft(){
 function removeSponsorShipDraftItem(idx){
   sponsorShipDraft.splice(idx, 1);
   renderSponsorShipDraft();
+  if (typeof updateOrderTotal === 'function') updateOrderTotal();
 }
 
 // 日本語の表記ゆれを吸収（半角→全角・カタカナ→ひらがな・大文字小文字）
@@ -1670,6 +1673,12 @@ function updateOrderTotal(){
     }
   });
   document.getElementById('no-qty-total').textContent = qtyTotal;
+  // 協賛出荷分の本数を分けて表示（通常分と区別）
+  const spEl = document.getElementById('no-sp-qty-total');
+  if (spEl){
+    const spTotal = sponsorShipDraft.reduce((s,it) => s + (it.qty||0), 0);
+    spEl.textContent = spTotal > 0 ? `＋ 🎁協賛 ${spTotal}本（在庫から計${qtyTotal + spTotal}本出荷）` : '';
+  }
   // 合計は税込（最終金額）。協賛注文は¥0
   document.getElementById('no-total').textContent = isSponsor ? '¥0（協賛）' : yen(totalIncl);
   // 商品数量に応じて協賛出荷欄を更新（今回付与予定を反映）
