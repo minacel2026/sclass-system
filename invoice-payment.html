@@ -615,6 +615,7 @@ function renderPayment(){
 
   tbody.innerHTML = list.map(o => {
     const amt = calcAmt(o);
+    const realIdx = S.orders.indexOf(o);  // IDに依存せず確実に特定するための実インデックス
     const days = daysSince(o.date);
     const overdueClass = days > 30 ? 'bd-unpaid' : (days > 14 ? 'bd-partial' : 'bd-pending');
     const overdueText  = days > 30 ? `⚠ ${days}日経過` : `${days}日経過`;
@@ -629,7 +630,7 @@ function renderPayment(){
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
       <td><span class="badge ${o.payStatus==='売掛'?'bd-pending':'bd-unpaid'}">${escapeHtml(o.payStatus||'未収')}</span></td>
       <td><span class="badge ${overdueClass}">${overdueText}</span></td>
-      <td><button class="act-btn gr" onclick="quickPaid('${o.id}')">集金</button><button class="act-btn dn" onclick="deletePaymentOrder('${o.id}')">削</button></td>
+      <td><button class="act-btn gr" onclick="quickPaid(${realIdx})">集金</button><button class="act-btn dn" onclick="deletePaymentOrder(${realIdx})">削</button></td>
     </tr>`;
   }).join('');
 }
@@ -650,25 +651,26 @@ function toggleAllPayment(checked){
   });
 }
 
-function quickPaid(id){
+function quickPaid(idx){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
-  const o = S.orders.find(x => x.id === id);
-  if (!o) return;
+  const o = (S.orders || [])[idx];
+  if (!o) return toast('注文が見つかりません', 'error');
   o.payStatus = '集金済み';
   o.paidAt = new Date().toISOString();
   o.paidBy = currentUser.name;
   saveState();
-  if (S.gasUrl) gasPost({ action: 'updatePayStatus', orderId: id, payStatus: '集金済み' });
+  if (S.gasUrl && o.id) gasPost({ action: 'updatePayStatus', orderId: o.id, payStatus: '集金済み' });
   toast('✓ 集金済みに更新');
-  selectedPayments.delete(id);
+  if (o.id) selectedPayments.delete(o.id);
   renderPayment();
   updateKPI();
 }
 
 // 集金管理から注文を削除（在庫を戻す・協賛取消・スプシ行削除・ローカル削除）
-function deletePaymentOrder(id){
+// IDに依存せず実インデックスで特定（LINE取り込み注文の特殊IDでも確実に削除）
+function deletePaymentOrder(idx){
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
-  const o = (S.orders || []).find(x => x.id === id);
+  const o = (S.orders || [])[idx];
   if (!o) return toast('注文が見つかりません', 'error');
 
   const totalQty = Object.values(o.items || {}).reduce((s,q) => s + (q||0), 0);
@@ -681,17 +683,17 @@ function deletePaymentOrder(id){
     S.stock[branch][p] = (S.stock[branch][p] || 0) + (q || 0);
   });
   // 協賛ログ取消
-  const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === id);
+  const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === o.id);
   if (relLogs.length){
-    S.sponsorLogs = S.sponsorLogs.filter(l => l.orderId !== id);
+    S.sponsorLogs = S.sponsorLogs.filter(l => l.orderId !== o.id);
     if (S.gasUrl) relLogs.forEach(l => { try { gasPost({ action:'deleteSponsorLog', id:l.id }); } catch(e){} });
   }
   // スプシ注文行を削除
   if (S.gasUrl) { try { gasPost({ action:'deleteOrder', id:o.id, timestamp:o.timestamp, store:o.store, amount:o.amount }); } catch(e){} }
-  // ローカル削除
-  S.orders = (S.orders || []).filter(x => x.id !== id);
+  // ローカル削除（実インデックスで確実に除去）
+  S.orders.splice(idx, 1);
   saveState();
-  selectedPayments.delete(id);
+  if (o.id) selectedPayments.delete(o.id);
   toast(`✓ 削除しました（在庫+${totalQty}本）`);
   renderPayment();
   updateKPI();
