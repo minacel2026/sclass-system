@@ -493,7 +493,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 
     <div class="sponsor-cols">
     <div class="tw">
-      <div class="th-area"><h3>協賛残数一覧</h3><span id="sp-cnt" style="font-size:.72rem;color:var(--wh2)"></span></div>
+      <div class="th-area"><h3>協賛残数一覧</h3><span id="sp-cnt" style="font-size:.72rem;color:var(--wh2)"></span><button class="btn-s" style="margin-left:auto" onclick="cleanupOldSponsorLogs()">🧹 旧協賛データを整理</button></div>
       <table>
         <thead>
           <tr>
@@ -1359,6 +1359,28 @@ function calcPendingSponsorPoints(items, c){
     }
   });
   return result;
+}
+
+// 旧ロジック（全商品合計→商品指定なし）で付与された協賛データを削除
+function cleanupOldSponsorLogs(){
+  if (typeof canDelete === 'function' && !canDelete()) return toast('🔒 削除権限がありません', 'error');
+  const isOld = function(l){
+    const p = (l.product == null) ? '' : String(l.product).trim();
+    return p === '' || p === '商品指定なし';
+  };
+  const oldLogs = (S.sponsorLogs || []).filter(isOld);
+  if (oldLogs.length === 0){ toast('整理対象の旧協賛データはありません'); return; }
+  const earnedCnt = oldLogs.filter(l => l.type === 'earned').reduce((s,l) => s + (l.qty||0), 0);
+  const usedCnt   = oldLogs.filter(l => l.type === 'used').reduce((s,l) => s + (l.qty||0), 0);
+  if (!confirm(`旧ロジック（商品指定なし）の協賛データ ${oldLogs.length}件を削除します。\n（付与 ${earnedCnt}本 / 使用 ${usedCnt}本 分）\n\nこの操作は取り消せません。よろしいですか？`)) return;
+  // スプレッドシートからも削除
+  if (S.gasUrl) oldLogs.forEach(l => { try { gasPost({ action: 'deleteSponsorLog', id: l.id }); } catch(e){} });
+  // ローカルから削除
+  S.sponsorLogs = (S.sponsorLogs || []).filter(l => !isOld(l));
+  saveState();
+  toast(`✓ 旧協賛データ ${oldLogs.length}件を削除しました`);
+  renderSponsor();
+  if (typeof updateKPI === 'function') updateKPI();
 }
 
 function renderSponsor(){
