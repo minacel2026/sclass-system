@@ -78,6 +78,8 @@ textarea.fc{resize:vertical}
 
 /* テーブル */
 .tw{background:var(--d2);border:1px solid rgba(201,168,76,.15);overflow-x:auto}
+.sponsor-cols{display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start}
+@media(max-width:900px){.sponsor-cols{grid-template-columns:1fr}}
 .th-area{padding:.7rem .9rem;border-bottom:1px solid rgba(201,168,76,.15);display:flex;justify-content:space-between;align-items:center}
 .th-area h3{font-size:.85rem;color:var(--gold-l);font-weight:500;letter-spacing:.05em}
 table{width:100%;border-collapse:collapse;font-size:.78rem}
@@ -392,6 +394,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       </div>
     </div>
 
+    <div class="sponsor-cols">
     <div class="tw">
       <div class="th-area"><h3>協賛残数一覧</h3><span id="sp-cnt" style="font-size:.72rem;color:var(--wh2)"></span></div>
       <table>
@@ -405,7 +408,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       </table>
     </div>
 
-    <div class="tw" style="margin-top:1rem">
+    <div class="tw">
       <div class="th-area"><h3>協賛履歴（最新50件）</h3></div>
       <table>
         <thead>
@@ -413,6 +416,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         </thead>
         <tbody id="sp-log-tbody"></tbody>
       </table>
+    </div>
     </div>
   </div>
 
