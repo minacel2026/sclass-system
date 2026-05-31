@@ -629,7 +629,7 @@ function renderPayment(){
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
       <td><span class="badge ${o.payStatus==='売掛'?'bd-pending':'bd-unpaid'}">${escapeHtml(o.payStatus||'未収')}</span></td>
       <td><span class="badge ${overdueClass}">${overdueText}</span></td>
-      <td><button class="act-btn gr" onclick="quickPaid('${o.id}')">集金</button></td>
+      <td><button class="act-btn gr" onclick="quickPaid('${o.id}')">集金</button><button class="act-btn dn" onclick="deletePaymentOrder('${o.id}')">削</button></td>
     </tr>`;
   }).join('');
 }
@@ -661,6 +661,38 @@ function quickPaid(id){
   if (S.gasUrl) gasPost({ action: 'updatePayStatus', orderId: id, payStatus: '集金済み' });
   toast('✓ 集金済みに更新');
   selectedPayments.delete(id);
+  renderPayment();
+  updateKPI();
+}
+
+// 集金管理から注文を削除（在庫を戻す・協賛取消・スプシ行削除・ローカル削除）
+function deletePaymentOrder(id){
+  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
+  const o = (S.orders || []).find(x => x.id === id);
+  if (!o) return toast('注文が見つかりません', 'error');
+
+  const totalQty = Object.values(o.items || {}).reduce((s,q) => s + (q||0), 0);
+  if (!confirm(`注文「${o.store || ''}」を削除しますか？\n在庫を ${totalQty}本 戻し、協賛付与も取り消します。`)) return;
+
+  const branch = o.branch || '仙台';
+  // 在庫を戻す
+  Object.entries(o.items || {}).forEach(([p, q]) => {
+    if (!S.stock[branch]) S.stock[branch] = {};
+    S.stock[branch][p] = (S.stock[branch][p] || 0) + (q || 0);
+  });
+  // 協賛ログ取消
+  const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === id);
+  if (relLogs.length){
+    S.sponsorLogs = S.sponsorLogs.filter(l => l.orderId !== id);
+    if (S.gasUrl) relLogs.forEach(l => { try { gasPost({ action:'deleteSponsorLog', id:l.id }); } catch(e){} });
+  }
+  // スプシ注文行を削除
+  if (S.gasUrl) { try { gasPost({ action:'deleteOrder', id:o.id, timestamp:o.timestamp, store:o.store, amount:o.amount }); } catch(e){} }
+  // ローカル削除
+  S.orders = (S.orders || []).filter(x => x.id !== id);
+  saveState();
+  selectedPayments.delete(id);
+  toast(`✓ 削除しました（在庫+${totalQty}本）`);
   renderPayment();
   updateKPI();
 }
