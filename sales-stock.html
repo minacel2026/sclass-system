@@ -684,6 +684,11 @@ function canDelete(){ return currentUser && ['admin','manager'].includes(current
 
 // ─── 親タブ切替 ─────
 function switchModule(name, el){
+  // 注文登録タブから他のタブへ移動するときは入力途中の内容をクリア
+  const current = document.querySelector('.mcon.active');
+  if (current && current.id === 'm-neworder' && name !== 'neworder'){
+    if (typeof clearNewOrder === 'function') clearNewOrder();
+  }
   document.querySelectorAll('.mtab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.mcon').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
