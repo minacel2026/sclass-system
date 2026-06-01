@@ -282,7 +282,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>キーワード</label><input class="fc" id="sk-kw" placeholder="店舗名・担当者..." oninput="renderOrders()"></div>
         <div class="fg"><label>拠点</label><select class="fc" id="sk-br" onchange="renderOrders()"><option value="">全拠点</option><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>支払状況</label><select class="fc" id="sk-pay" onchange="renderOrders()"><option value="">すべて</option><option>未収</option><option>集金済み</option><option>売掛</option></select></div>
-        <div class="fg"><label>ステータス</label><select class="fc" id="sk-st" onchange="renderOrders()"><option value="">すべて</option><option>新規</option><option>対応中</option><option>発送</option><option>完了</option></select></div>
+        <div class="fg"><label>ステータス</label><select class="fc" id="sk-st" onchange="renderOrders()"><option value="">すべて</option><option>新規受付</option><option>対応中</option><option>出荷済</option></select></div>
       </div>
     </div>
     <div class="summary-bar">
@@ -822,7 +822,7 @@ function renderOrders(){
   if (kw)  list = list.filter(o => (`${o.store||''} ${o.staff||''} ${o.contact||''}`).toLowerCase().includes(kw));
   if (br)  list = list.filter(o => o.branch === br);
   if (pay) list = list.filter(o => o.payStatus === pay);
-  if (st)  list = list.filter(o => o.status === st);
+  if (st)  list = list.filter(o => shipStatus(o) === st);
 
   list.sort((a,b) => (b.date+b.time||'').localeCompare(a.date+a.time||''));
 
@@ -842,7 +842,7 @@ function renderOrders(){
     const totalQty = items.reduce((s,[,q]) => s + q, 0);
     const amt = calcAmt(o);
     const payBadge = o.payStatus === '集金済み' ? 'bd-paid' : (o.payStatus === '売掛' ? 'bd-pending' : 'bd-unpaid');
-    const stBadge  = o.status === '完了' ? 'bd-done' : (o.status === '新規' ? 'bd-new' : 'bd-pending');
+    const stg = shipStatus(o);
     return `
     <tr onclick="openOrderForEdit('${o.id}')" style="cursor:pointer" title="クリックで修正">
       <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(o.date||'')}</td>
@@ -852,7 +852,7 @@ function renderOrders(){
       <td class="col-qty">${totalQty}</td>
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
       <td><span class="badge ${payBadge}">${escapeHtml(o.payStatus||'未収')}</span></td>
-      <td><span class="badge ${stBadge}">${escapeHtml(o.status||'新規')}</span></td>
+      <td onclick="event.stopPropagation()"><select class="ship-sel" style="background:var(--d3);border:1px solid rgba(201,168,76,.3);color:var(--wh);font-size:.7rem;padding:.2rem .3rem;border-radius:3px" onchange="changeShipStatus('${o.id}', this.value)" title="出荷ステータス"><option${stg==='新規受付'?' selected':''}>新規受付</option><option${stg==='対応中'?' selected':''}>対応中</option><option${stg==='出荷済'?' selected':''}>出荷済</option></select></td>
       <td onclick="event.stopPropagation()"><button class="act-btn" onclick="openOrderForEdit('${o.id}')">修正</button><button class="act-btn" onclick="quickPaid('${o.id}')">集金</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
     </tr>`;
   }).join('');
@@ -866,6 +866,30 @@ function quickPaid(id){
   saveState();
   toast('✓ 集金済みに更新');
   renderOrders();
+}
+
+// 出荷ステータスを正規化（旧データの '新規'/'発送'/'完了'/空 も3段階に吸収）
+function shipStatus(o){
+  const s = (o && o.status) || '';
+  if (s === '対応中') return '対応中';
+  if (s === '出荷済' || s === '発送' || s === '完了') return '出荷済';
+  return '新規受付';
+}
+
+// 出荷ステータスを変更（注文一覧の各行セレクトから）
+function changeShipStatus(id, val){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const o = S.orders.find(x => x.id === id);
+  if (!o) return;
+  if (['新規受付','対応中','出荷済'].indexOf(val) < 0) return;
+  o.status = val;
+  if (val === '出荷済' && !o.shippedAt) o.shippedAt = new Date().toISOString();
+  saveState();
+  // スプシ「注文受付」のステータス列(J)を upsert 更新（GAS再デプロイ不要）
+  if (S.gasUrl) { try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} }
+  toast('✓ 出荷ステータス: ' + val);
+  renderOrders();
+  updateKPI();
 }
 
 function deleteOrder(id){
@@ -1938,7 +1962,7 @@ function submitNewOrder(){
     amount: confirmedAmount,  // 確定合計（税込）— calcAmtが優先使用
     payMethod: document.getElementById('no-pay').value,
     payStatus: '未収',
-    status: '新規',
+    status: '新規受付',
     tax: 'taxあり',
     deliveryDate: document.getElementById('no-deldate').value,
     deliveryTime: document.getElementById('no-deltime').value,
