@@ -742,6 +742,13 @@ function updateKPI(){
 async function syncFromGAS(){
   if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
   toast('同期中...');
+  // GASのバージョン確認（在庫同期が効く版かどうか）
+  try {
+    const pong = await gasGet('ping');
+    if (pong && !pong.updateAllStock){
+      toast('⚠️ GASが古い版です。在庫がスプシに反映されません。最新のgas-templateを貼り付けて「デプロイを管理→新バージョン」で更新してください', 'error');
+    }
+  } catch(e){}
   const cust = await gasGet('getCustomers');
   if (cust && cust.customers) S.customers = cust.customers;
   const stock = await gasGet('getStock');
@@ -2316,11 +2323,31 @@ function submitPurchase(){
 
 function deletePurchase(id){
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
-  if (!confirm('この仕入記録を削除しますか？\n※在庫は調整されません')) return;
-  S.purchases = S.purchases.filter(p => p.id !== id);
+  const p = (S.purchases || []).find(x => x.id === id);
+  if (!p) return toast('仕入記録が見つかりません', 'error');
+  if (!confirm('この仕入記録を削除しますか？')) return;
+  const restoreStock = confirm(
+    '在庫も戻しますか？\n\n' +
+    '「OK」＝在庫を戻す（間違えて登録した場合）\n' +
+    '「キャンセル」＝在庫はそのまま（記録だけ削除）'
+  );
+  if (restoreStock){
+    if (!S.stock[p.branch]) S.stock[p.branch] = {};
+    S.stock[p.branch][p.product] = (S.stock[p.branch][p.product] || 0) - (p.qty || 0);
+    if (!S.slog) S.slog = [];
+    S.slog.push({
+      date: today(), time: new Date().toTimeString().slice(0,5),
+      branch: p.branch, type: '仕入取消', product: p.product, qty: -(p.qty || 0),
+      remaining: S.stock[p.branch][p.product],
+      note: `仕入削除: ${p.supplier || ''}`, user: currentUser.name,
+    });
+  }
+  S.purchases = S.purchases.filter(x => x.id !== id);
   saveState();
-  toast('✓ 削除しました');
+  if (restoreStock) syncStockToGAS();  // 在庫変更をスプシへ反映
+  toast(restoreStock ? '✓ 削除し、在庫を戻しました' : '✓ 削除しました（在庫はそのまま）');
   renderPurchase();
+  if (typeof renderStock === 'function') renderStock();
 }
 </script>
 
