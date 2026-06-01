@@ -768,25 +768,37 @@ async function syncFromGAS(){
     if (S.gasUrl) localOnly.forEach(function(log){ try { gasPost({ action: 'saveSponsorLog', ...log }); } catch(e){} });
     S.sponsorLogs = spLogs.logs.concat(localOnly);
   }
-  // 注文受付シートの注文を取り込む（getOrdersで全件取得＝20件上限なし、漏れを補完）
-  const ord = await gasGet('getOrders');
+  // 注文受付シートの注文を取り込む。getOrders(全件)を優先し、未対応の旧GASは getNewOrders(最大20件)へ自動フォールバック
+  let ord = await gasGet('getOrders');
+  let usedFallback = false;
+  if (!ord || !Array.isArray(ord.orders)){
+    ord = await gasGet('getNewOrders', { since: '' });
+    usedFallback = true;
+  }
+  let orderMsg = '', orderErr = false;
   if (ord && Array.isArray(ord.orders)){
+    const serverCount = ord.orders.length;
     let added = 0;
     ord.orders.forEach(function(o){
       o.items = normalizeOrderItems(o.items);
-      const exists = (S.orders || []).find(x =>
-        String(x.id) === String(o.id) ||
-        (x.timestamp && o.timestamp && String(x.timestamp) === String(o.timestamp) && String(x.store) === String(o.store))
+      const oid = String(o.id || '');
+      const exists = (S.orders || []).some(x =>
+        (oid && String(x.id) === oid) ||
+        (!oid && String(x.store) === String(o.store) &&
+                 String(x.date || x.timestamp || '') === String(o.date || o.timestamp || '') &&
+                 JSON.stringify(x.items || {}) === JSON.stringify(o.items || {}))
       );
       if (!exists){ if (!S.orders) S.orders = []; S.orders.push(o); added++; }
     });
     if (typeof dedupeOrders === 'function') S.orders = dedupeOrders(S.orders);
-    if (added) { /* 取込件数はトーストで通知 */ window._syncAddedOrders = added; }
+    orderMsg = `注文 サーバー${serverCount}件/取込${added}件${usedFallback ? '（旧GAS:最大20件）' : ''}`;
+  } else {
+    orderErr = true;
+    orderMsg = '⚠️ 注文の取得に失敗（GASが getOrders / getNewOrders 未対応か通信エラー）';
   }
   saveState();
   localStorage.setItem('lmb_lastSync', new Date().toISOString());
-  toast(window._syncAddedOrders ? `✓ 同期完了（注文${window._syncAddedOrders}件を取り込み）` : '✓ 同期完了');
-  window._syncAddedOrders = 0;
+  toast((orderErr ? '⚠️ 同期: ' : '✓ 同期完了 ') + orderMsg, orderErr ? 'error' : undefined);
   updateKPI(); renderOrders(); renderStock();
 }
 </script>
