@@ -328,6 +328,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>連絡先</label><input class="fc" id="no-contact" placeholder="連絡先名"></div>
         <div class="fg"><label>電話番号</label><input class="fc" id="no-tel" type="tel" placeholder="連絡先電話番号"></div>
         <div class="fg"><label>支払方法</label><select class="fc" id="no-pay"><option>現金</option><option>振込</option><option>代引</option><option>売掛</option></select></div>
+        <div class="fg"><label>出荷ステータス</label><select class="fc" id="no-status"><option>新規受付</option><option>対応中</option><option>出荷済</option></select></div>
         <div class="fg"><label>注文日</label><input class="fc" id="no-date" type="date"></div>
       </div>
     </div>
@@ -843,6 +844,7 @@ function renderOrders(){
     const amt = calcAmt(o);
     const payBadge = o.payStatus === '集金済み' ? 'bd-paid' : (o.payStatus === '売掛' ? 'bd-pending' : 'bd-unpaid');
     const stg = shipStatus(o);
+    const stBadge = stg === '出荷済' ? 'bd-done' : (stg === '対応中' ? 'bd-pending' : 'bd-new');
     return `
     <tr onclick="openOrderForEdit('${o.id}')" style="cursor:pointer" title="クリックで修正">
       <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(o.date||'')}</td>
@@ -852,8 +854,8 @@ function renderOrders(){
       <td class="col-qty">${totalQty}</td>
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
       <td><span class="badge ${payBadge}">${escapeHtml(o.payStatus||'未収')}</span></td>
-      <td onclick="event.stopPropagation()"><select class="ship-sel" style="background:var(--d3);border:1px solid rgba(201,168,76,.3);color:var(--wh);font-size:.7rem;padding:.2rem .3rem;border-radius:3px" onchange="changeShipStatus('${o.id}', this.value)" title="出荷ステータス"><option${stg==='新規受付'?' selected':''}>新規受付</option><option${stg==='対応中'?' selected':''}>対応中</option><option${stg==='出荷済'?' selected':''}>出荷済</option></select></td>
-      <td onclick="event.stopPropagation()"><button class="act-btn" onclick="openOrderForEdit('${o.id}')">修正</button><button class="act-btn" onclick="quickPaid('${o.id}')">集金</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
+      <td><span class="badge ${stBadge}">${escapeHtml(stg)}</span></td>
+      <td onclick="event.stopPropagation()"><button class="act-btn" onclick="openOrderForEdit('${o.id}')">修正</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
     </tr>`;
   }).join('');
 }
@@ -876,21 +878,7 @@ function shipStatus(o){
   return '新規受付';
 }
 
-// 出荷ステータスを変更（注文一覧の各行セレクトから）
-function changeShipStatus(id, val){
-  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
-  const o = S.orders.find(x => x.id === id);
-  if (!o) return;
-  if (['新規受付','対応中','出荷済'].indexOf(val) < 0) return;
-  o.status = val;
-  if (val === '出荷済' && !o.shippedAt) o.shippedAt = new Date().toISOString();
-  saveState();
-  // スプシ「注文受付」のステータス列(J)を upsert 更新（GAS再デプロイ不要）
-  if (S.gasUrl) { try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} }
-  toast('✓ 出荷ステータス: ' + val);
-  renderOrders();
-  updateKPI();
-}
+// 出荷ステータスを変更（修正フォームの「出荷ステータス」欄で行う。注文保存時に反映）
 
 function deleteOrder(id){
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
@@ -974,6 +962,7 @@ function openOrderForEdit(id){
   const ot = document.getElementById('no-ordtype');   if (ot) ot.value = (o.orderType === 'sponsor') ? 'sponsor' : 'normal';
   document.getElementById('no-date').value      = o.date     || today();
   const pay = document.getElementById('no-pay'); if (pay) pay.value = o.payMethod || '現金';
+  const ss = document.getElementById('no-status'); if (ss) ss.value = shipStatus(o);
   const dd = document.getElementById('no-deldate');  if (dd) dd.value = o.deliveryDate || '';
   const dt = document.getElementById('no-deltime');  if (dt) dt.value = o.deliveryTime || '';
   const dn = document.getElementById('no-delnote');  if (dn) dn.value = o.deliveryNote || '';
@@ -1818,6 +1807,7 @@ function clearNewOrder(){
   document.getElementById('no-rate').value = '7';
   const ot = document.getElementById('no-ordtype'); if (ot) ot.value = 'normal';
   const pm = document.getElementById('no-pricemode'); if (pm) pm.value = '新値';
+  const ss = document.getElementById('no-status'); if (ss) ss.value = '新規受付';
   const tx = document.getElementById('no-tax'); if (tx) tx.value = '税込';
   document.getElementById('no-date').value = today();
   document.getElementById('no-deldate').value = '';
@@ -1962,7 +1952,7 @@ function submitNewOrder(){
     amount: confirmedAmount,  // 確定合計（税込）— calcAmtが優先使用
     payMethod: document.getElementById('no-pay').value,
     payStatus: '未収',
-    status: '新規受付',
+    status: (document.getElementById('no-status')||{}).value || '新規受付',
     tax: 'taxあり',
     deliveryDate: document.getElementById('no-deldate').value,
     deliveryTime: document.getElementById('no-deltime').value,
