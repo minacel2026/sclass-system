@@ -386,12 +386,13 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   <div id="m-stock" class="mcon">
     <div class="hint-box">
       <strong>🍾 在庫管理</strong><br>
-      入出庫を記録すると自動でログに残ります。補充閾値を下回った商品は警告表示されます。
+      在庫は「出荷済」になった時に実在庫から減算します。未出荷の注文分は「引当」として表示します（実在庫（引当 −X）→ 出荷可能Y）。
     </div>
     <div class="fp">
       <div class="frow">
         <div class="fg"><label>拠点フィルタ</label><select class="fc" id="st-br" onchange="renderStock()"><option value="">両拠点</option><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>状態</label><select class="fc" id="st-state" onchange="renderStock()"><option value="">すべて</option><option value="low">補充警告のみ</option><option value="out">在庫切れのみ</option></select></div>
+        <div class="fg" style="display:flex;align-items:flex-end"><button class="btn-s" onclick="migrateToReserve()" title="一度だけ実行：既存の未出荷注文の本数を実在庫へ戻し、引当方式へ移行します">⇄ 引当方式へ移行（初回のみ）</button></div>
       </div>
     </div>
     <div class="stock-grid" id="stock-grid"></div>
@@ -730,9 +731,9 @@ function updateKPI(){
   let warn = 0, out = 0;
   PRODS.forEach(p => {
     ['仙台','京都'].forEach(b => {
-      const q = (S.stock[b]||{})[p] || 0;
-      if (q === 0) out++;
-      else if (q < REORDER[p]) warn++;
+      const avail = availableStock(b, p);
+      if (avail <= 0) out++;
+      else if (avail < REORDER[p]) warn++;
     });
   });
   document.getElementById('kpi-stock-warn').textContent = warn;
@@ -885,54 +886,58 @@ function deleteOrder(id){
   const order = (S.orders || []).find(o => o.id === id);
   if (!order) return toast('注文が見つかりません', 'error');
 
-  // 連動内容を事前に集計してメッセージに表示
-  const totalQty = Object.values(order.items || {}).reduce((s,q) => s + (q||0), 0);
+  const wasShipped = shipStatus(order) === '出荷済';
+  const totalQty = Object.values(order.items || {}).reduce((s,q) => s + (q||0), 0)
+                 + Object.values(order.sponsorItems || {}).reduce((s,q) => s + (q||0), 0);
   const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === id);
   const earnedQty = relLogs.filter(l => l.type === 'earned').reduce((s,l)=>s+(l.qty||0),0);
   const usedQty   = relLogs.filter(l => l.type === 'used').reduce((s,l)=>s+(l.qty||0),0);
-  let msg = `この注文を削除しますか？\n・在庫を ${totalQty}本 戻します`;
+  let msg = 'この注文を削除しますか？';
+  if (wasShipped) msg += `\n・出荷済のため実在庫を ${totalQty}本 戻します`;
+  else            msg += '\n・未出荷のため実在庫は変動しません（引当が解除されます）';
   if (earnedQty) msg += `\n・協賛付与 ${earnedQty}本 を取り消します`;
   if (usedQty)   msg += `\n・協賛使用 ${usedQty}本 を戻します`;
   if (!confirm(msg)) return;
 
   const branch = order.branch || '仙台';
 
-  // 1. 在庫を戻す（注文時に減算した分を加算）+ 在庫ログに戻入記録
-  Object.entries(order.items || {}).forEach(([p, q]) => {
-    if (!S.stock[branch]) S.stock[branch] = {};
-    S.stock[branch][p] = (S.stock[branch][p] || 0) + (q || 0);
-    if (!S.slog) S.slog = [];
-    S.slog.push({
-      date: today(), time: new Date().toTimeString().slice(0,5), branch: branch,
-      type: '戻入', product: p, qty: q,
-      remaining: S.stock[branch][p],
-      orderId: id, note: `注文削除#${String(id).slice(-6)} による在庫戻し`
+  // 1. 実在庫を戻すのは「出荷済だった注文」だけ（未出荷は元々減算していない＝引当が外れるだけ）
+  if (wasShipped){
+    Object.entries(order.items || {}).forEach(([p, q]) => {
+      if (!S.stock[branch]) S.stock[branch] = {};
+      S.stock[branch][p] = (S.stock[branch][p] || 0) + (q || 0);
+      if (!S.slog) S.slog = [];
+      S.slog.push({
+        date: today(), time: new Date().toTimeString().slice(0,5), branch: branch,
+        type: '戻入', product: p, qty: q,
+        remaining: S.stock[branch][p],
+        orderId: id, note: `注文削除#${String(id).slice(-6)} による在庫戻し`
+      });
     });
-  });
-  // 協賛出荷分も在庫を戻す
-  Object.entries(order.sponsorItems || {}).forEach(([p, q]) => {
-    if (!S.stock[branch]) S.stock[branch] = {};
-    S.stock[branch][p] = (S.stock[branch][p] || 0) + (q || 0);
-  });
+    Object.entries(order.sponsorItems || {}).forEach(([p, q]) => {
+      if (!S.stock[branch]) S.stock[branch] = {};
+      S.stock[branch][p] = (S.stock[branch][p] || 0) + (q || 0);
+    });
+  }
 
-  // 2. 協賛ログ（earned/used）を取り消す（この注文に紐づく分）
+  // 2. 協賛ログを取り消す（出荷済の記録・旧モデルの前倒し記録とも）
   if (relLogs.length){
     S.sponsorLogs = S.sponsorLogs.filter(l => l.orderId !== id);
     if (S.gasUrl) relLogs.forEach(l => { try { gasPost({ action:'deleteSponsorLog', id:l.id }); } catch(e){} });
   }
 
-  // 3. スプシの注文行を削除（注文ID・なければtimestamp+storeで照合）
+  // 3. スプシの注文行を削除
   if (S.gasUrl) { try { gasPost({ action:'deleteOrder', id:id, timestamp:order.timestamp, store:order.store, amount:order.amount }); } catch(e){} }
 
   // 4. ローカルから削除
   S.orders = S.orders.filter(o => o.id !== id);
   saveState();
-  syncStockToGAS();  // 在庫戻しをスプシへ反映
+  if (wasShipped) syncStockToGAS();  // 在庫戻しをスプシへ反映
 
   let extra = '';
   if (earnedQty) extra += ` / 協賛付与−${earnedQty}本`;
   if (usedQty)   extra += ` / 協賛使用+${usedQty}本戻し`;
-  toast(`✓ 削除しました（在庫+${totalQty}本${extra}）`);
+  toast(`✓ 削除しました（${wasShipped ? '在庫+' + totalQty + '本' : '在庫変動なし'}${extra}）`);
   renderOrders();
   updateKPI();
   if (typeof renderStock === 'function') renderStock();
@@ -1467,16 +1472,27 @@ function renderSponsor(){
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">🎁</div>協賛対象顧客がありません</div></td></tr>`;
   } else {
     tbody.innerHTML = list.map(c => {
-      const trig = parseInt(c.sponsorTrigger) || 0;
-      const reward = parseInt(c.sponsorReward) || 1;
-      const prod = c.sponsorProduct || '全商品';
+      // 協賛条件・対象商品はルール(S.sponsors)から導出（c.sponsor*の旧フィールドは編集で更新されないため）
+      const rules = (Array.isArray(c.sponsorIds) ? c.sponsorIds : [])
+        .map(id => (S.sponsors || []).find(s => String(s.id) === String(id)))
+        .filter(Boolean);
+      let condDisp, prodDisp;
+      if (rules.length){
+        condDisp = rules.map(s => `${parseInt(s.triggerQty)||0}本→${parseInt(s.rewardQty)||1}本`).join(' / ');
+        prodDisp = rules.map(s => (s.targetProduct === 'all' || !s.targetProduct) ? '全商品' : s.targetProduct).join(' / ');
+      } else {
+        // 旧データ互換（sponsorIds未設定の顧客）
+        const t = parseInt(c.sponsorTrigger) || 0, r = parseInt(c.sponsorReward) || 1;
+        condDisp = t ? `${t}本→${r}本` : '—';
+        prodDisp = c.sponsorProduct || '—';
+      }
       const balCls = c._bal.pts > 0 ? 'color:var(--grn);font-weight:600' : 'color:var(--wh3)';
       return `
       <tr>
         <td><strong style="cursor:pointer;color:var(--gold-l);text-decoration:underline dotted" onclick="viewSponsorLog('${escapeHtml(c.id)}')" title="クリックで種類別残数・取引履歴">${escapeHtml(c.name)}</strong></td>
         <td>${escapeHtml(c.branch || '')}</td>
-        <td style="font-size:.7rem">${trig}本→${reward}本</td>
-        <td style="font-size:.72rem">${escapeHtml(prod)}</td>
+        <td style="font-size:.7rem">${escapeHtml(condDisp)}</td>
+        <td style="font-size:.72rem">${escapeHtml(prodDisp)}</td>
         <td class="col-amt">${c._bal.earned}</td>
         <td class="col-amt" style="color:var(--org)">${c._bal.used}</td>
         <td class="col-amt" style="${balCls}">${c._bal.pts}本</td>
@@ -1837,20 +1853,23 @@ function submitNewOrder(){
   // 編集モードだったかを記録（メッセージ分岐用）＆ 編集時は注文IDを維持する
   const wasEditing = !!editingOrderId;
   const editIdForSave = editingOrderId;  // 編集時はこのIDを再登録時も維持（IDが変わると重複の原因になる）
-  // 編集モード: 旧注文を巻き戻す（在庫を戻す・協賛取消・ローカル削除）
-  // → この後の通常登録ロジックで、修正後の内容を在庫・協賛・スプシに反映する
-  // ※ スプシは saveOrder のupsert（同IDは上書き）で更新するため、ここでは deleteOrder しない
+  let shipStockTouched = false;  // 出荷済の在庫増減が起きたらtrue（最後にGAS同期するか判定）
+  // 編集モード: 旧注文を巻き戻す。在庫は「旧注文が出荷済だった場合のみ」戻す（未出荷は元々減算していない）。
+  // 協賛ログは旧モデルの前倒し記録も掃除するため常に取消（出荷済なら後で再付与される）。
   if (editingOrderId){
     const old = (S.orders || []).find(o => o.id === editingOrderId);
     if (old){
-      Object.entries(old.items || {}).forEach(([p, q]) => {
-        if (!S.stock[old.branch]) S.stock[old.branch] = {};
-        S.stock[old.branch][p] = (S.stock[old.branch][p] || 0) + (q || 0);
-      });
-      Object.entries(old.sponsorItems || {}).forEach(([p, q]) => {
-        if (!S.stock[old.branch]) S.stock[old.branch] = {};
-        S.stock[old.branch][p] = (S.stock[old.branch][p] || 0) + (q || 0);
-      });
+      if (shipStatus(old) === '出荷済'){
+        Object.entries(old.items || {}).forEach(([p, q]) => {
+          if (!S.stock[old.branch]) S.stock[old.branch] = {};
+          S.stock[old.branch][p] = (S.stock[old.branch][p] || 0) + (q || 0);
+        });
+        Object.entries(old.sponsorItems || {}).forEach(([p, q]) => {
+          if (!S.stock[old.branch]) S.stock[old.branch] = {};
+          S.stock[old.branch][p] = (S.stock[old.branch][p] || 0) + (q || 0);
+        });
+        shipStockTouched = true;
+      }
       const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === editingOrderId);
       if (relLogs.length){
         S.sponsorLogs = S.sponsorLogs.filter(l => l.orderId !== editingOrderId);
@@ -1892,16 +1911,16 @@ function submitNewOrder(){
     });
   }
 
-  // 在庫チェック（選択拠点の在庫。不足時は他拠点の在庫も案内）
+  // 在庫チェック（出荷可能数＝実在庫−引当。不足時は他拠点も案内）
   for (const [p, q] of Object.entries(items)){
-    const cur = S.stock[branch]?.[p] || 0;
+    const cur = availableStock(branch, p, editIdForSave);
     if (cur < q){
       const others = Object.keys(S.stock)
-        .filter(b => b !== branch && (S.stock[b]?.[p] || 0) > 0)
-        .map(b => `${b}:${S.stock[b][p]}本`)
+        .filter(b => b !== branch && availableStock(b, p, editIdForSave) > 0)
+        .map(b => `${b}:${availableStock(b, p, editIdForSave)}本`)
         .join('、');
-      const hint = others ? `\n他拠点の在庫 → ${others}（拠点が正しいか確認してください）` : '';
-      if (!confirm(`${p} の在庫が不足しています（${branch}:${cur}本 / 注文:${q}本）${hint}\nそれでも登録しますか？`)) return;
+      const hint = others ? `\n他拠点の出荷可能 → ${others}（拠点が正しいか確認してください）` : '';
+      if (!confirm(`${p} の出荷可能数が不足しています（${branch}:${cur}本 / 注文:${q}本）${hint}\nそれでも登録しますか？`)) return;
       break;
     }
   }
@@ -1968,37 +1987,40 @@ function submitNewOrder(){
   if (!S.orders) S.orders = [];
   S.orders.push(order);
 
-  // 在庫減算 + ログ
-  Object.entries(items).forEach(([p, q]) => {
-    if (!S.stock[branch]) S.stock[branch] = {};
-    S.stock[branch][p] = (S.stock[branch][p] || 0) - q;
-    if (!S.slog) S.slog = [];
-    S.slog.push({
-      date: order.date, time: order.time, branch: branch,
-      type: '出庫', product: p, qty: q,
-      remaining: S.stock[branch][p],
-      orderId: order.id, note: `注文#${order.id.slice(-6)}`
+  // 在庫は「出荷済」のときだけ実在庫から減算する（未出荷は引当のみ・実在庫は動かさない）
+  const shipped = shipStatus(order) === '出荷済';
+  if (shipped){
+    Object.entries(items).forEach(([p, q]) => {
+      if (!S.stock[branch]) S.stock[branch] = {};
+      S.stock[branch][p] = (S.stock[branch][p] || 0) - q;
+      if (!S.slog) S.slog = [];
+      S.slog.push({
+        date: order.date, time: order.time, branch: branch,
+        type: '出庫', product: p, qty: q,
+        remaining: S.stock[branch][p],
+        orderId: order.id, note: `出荷#${order.id.slice(-6)}`
+      });
     });
-  });
-  // 協賛出荷分の在庫減算（無料分・売上には含めない）
-  Object.entries(sponsorItems).forEach(([p, q]) => {
-    if (!S.stock[branch]) S.stock[branch] = {};
-    S.stock[branch][p] = (S.stock[branch][p] || 0) - q;
-    if (!S.slog) S.slog = [];
-    S.slog.push({
-      date: order.date, time: order.time, branch: branch,
-      type: '協賛出庫', product: p, qty: q,
-      remaining: S.stock[branch][p],
-      orderId: order.id, note: `協賛出荷#${order.id.slice(-6)}`
+    Object.entries(sponsorItems).forEach(([p, q]) => {
+      if (!S.stock[branch]) S.stock[branch] = {};
+      S.stock[branch][p] = (S.stock[branch][p] || 0) - q;
+      if (!S.slog) S.slog = [];
+      S.slog.push({
+        date: order.date, time: order.time, branch: branch,
+        type: '協賛出庫', product: p, qty: q,
+        remaining: S.stock[branch][p],
+        orderId: order.id, note: `協賛出荷#${order.id.slice(-6)}`
+      });
     });
-  });
+    shipStockTouched = true;
+  }
 
   saveState();
   if (S.gasUrl) gasPost({ action: 'saveOrder', ...order });
-  syncStockToGAS();  // 在庫減算をスプシへ反映
+  if (shipStockTouched) syncStockToGAS();  // 実在庫が動いた時だけスプシへ反映
 
   let sponsorMsg = '';
-  if (isSponsor && sponsorCust){
+  if (shipped && isSponsor && sponsorCust){
     // 協賛注文: 協賛残数を使用(used)として記録（earned付与はしない）
     const totalQty = Object.values(items).reduce((s,q) => s + (q||0), 0);
     const prodList = Object.keys(items).join('・');
@@ -2017,7 +2039,7 @@ function submitNewOrder(){
     if (S.gasUrl) { try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
     const bal = getSponsorBalance(sponsorCust.id);
     sponsorMsg = `🎁 協賛 −${totalQty}本使用（残数 ${bal.pts}本）`;
-  } else {
+  } else if (shipped){
     // 通常注文: 協賛ポイント自動付与
     sponsorMsg = checkAndAddSponsorPoints(order);
     // 協賛出荷分（同梱）があれば used として記録し残数を消費（商品ごとに記録）
@@ -2120,6 +2142,44 @@ function checkAndAddSponsorPoints(order){
 
 <!-- ═══ 在庫管理 ═══ -->
 <script>
+// ─── 引当・出荷可能の算出 ─────
+// 引当 = まだ出荷していない注文（新規受付・対応中）の通常＋協賛同梱の本数合計
+function reservedFor(branch, product, excludeId){
+  let r = 0;
+  (S.orders || []).forEach(o => {
+    if (excludeId && String(o.id) === String(excludeId)) return;
+    if ((o.branch || '') !== branch) return;
+    if (shipStatus(o) === '出荷済') return;  // 出荷済は実在庫から引き済みなので引当に含めない
+    r += ((o.items && o.items[product]) || 0) + ((o.sponsorItems && o.sponsorItems[product]) || 0);
+  });
+  return r;
+}
+// 出荷可能 = 実在庫 − 引当
+function availableStock(branch, product, excludeId){
+  return (((S.stock[branch] || {})[product]) || 0) - reservedFor(branch, product, excludeId);
+}
+
+// ─── 一度きりの移行: 既存の未出荷注文の本数を実在庫へ戻す（→以降は引当扱い） ─────
+function migrateToReserve(){
+  if (!canEdit()) return toast('🔒 権限がありません', 'error');
+  if (localStorage.getItem('lmb_reserveMigrated') === '1') return toast('移行は既に実行済みです', 'error');
+  if (!confirm('在庫を「出荷済で減算」方式へ移行します。\n現在の未出荷注文の本数を実在庫に戻し、以降それらは引当として扱います。\n実行後は棚卸しで実数を合わせてください。\n（この操作は一度だけ実行できます）')) return;
+  let moved = 0;
+  (S.orders || []).forEach(o => {
+    if (shipStatus(o) === '出荷済') return;
+    const b = o.branch || '仙台';
+    if (!S.stock[b]) S.stock[b] = {};
+    Object.entries(o.items || {}).forEach(([p, q]) => { S.stock[b][p] = (S.stock[b][p] || 0) + (q || 0); moved += (q || 0); });
+    Object.entries(o.sponsorItems || {}).forEach(([p, q]) => { S.stock[b][p] = (S.stock[b][p] || 0) + (q || 0); moved += (q || 0); });
+  });
+  localStorage.setItem('lmb_reserveMigrated', '1');
+  saveState();
+  if (S.gasUrl) syncStockToGAS();
+  renderStock();
+  updateKPI();
+  toast(`✓ 移行完了：未出荷 ${moved}本を実在庫へ戻しました。棚卸しで実数調整してください`);
+}
+
 function renderStock(){
   const br    = document.getElementById('st-br')?.value || '';
   const state = document.getElementById('st-state')?.value || '';
@@ -2130,13 +2190,16 @@ function renderStock(){
     const rows = PROD_LIST.map(p => {
       const ro = REORDER[p.key];
       const q = S.stock[branch]?.[p.key] || 0;
-      if (state === 'low' && (q >= ro || q === 0)) return '';
-      if (state === 'out' && q > 0) return '';
-      const cls = q === 0 ? 'out' : (q < ro ? 'low' : '');
+      const rsv = reservedFor(branch, p.key);
+      const avail = q - rsv;
+      if (state === 'low' && (avail >= ro || avail <= 0)) return '';
+      if (state === 'out' && avail > 0) return '';
+      const cls = avail <= 0 ? 'out' : (avail < ro ? 'low' : '');
+      const rsvTxt = rsv > 0 ? ` <span style="color:var(--org);font-size:.85em">（引当 −${rsv}）</span>` : '';
       return `
       <tr class="${cls}">
         <td><span class="st-pname"><span class="st-pdot" style="background:${p.color}"></span>${p.name}</span></td>
-        <td class="st-qty ${cls}">${q}本</td>
+        <td class="st-qty ${cls}">${q}本${rsvTxt} → 出荷可能 ${avail}本</td>
         <td>
           <div class="st-adj">
             <input type="number" placeholder="±" id="adj-${p.key}-${branch}" step="1">
