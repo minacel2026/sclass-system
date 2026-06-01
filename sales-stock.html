@@ -408,9 +408,10 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg" style="flex:1 1 110px"><label>仕入日 <span class="req">*</span></label><input class="fc" id="pu-date" type="date"></div>
         <div class="fg" style="flex:1 1 120px"><label>仕入先</label><select class="fc" id="pu-supplier"><option>マルシェジャパン</option><option>オーク酒販</option><option>その他</option></select></div>
         <div class="fg" style="flex:0 1 80px"><label>拠点</label><select class="fc" id="pu-branch"><option>仙台</option><option>京都</option></select></div>
-        <div class="fg" style="flex:1 1 130px"><label>商品 <span class="req">*</span></label><select class="fc" id="pu-product"></select></div>
+        <div class="fg" style="flex:1 1 130px"><label>商品 <span class="req">*</span></label><select class="fc" id="pu-product" onchange="updatePuCost()"></select></div>
         <div class="fg" style="flex:0 1 70px"><label>本数 <span class="req">*</span></label><input class="fc" id="pu-qty" type="number" min="1" step="1"></div>
-        <div class="fg" style="flex:0 1 90px"><label>仕入単価</label><input class="fc" id="pu-cost" type="number" min="0" step="100"></div>
+        <div class="fg" style="flex:0 1 90px"><label>仕入値の種類</label><select class="fc" id="pu-costtier" onchange="updatePuCost()"><option value="new">新値</option><option value="old">旧値</option></select></div>
+        <div class="fg" style="flex:0 1 90px"><label>仕入単価</label><input class="fc" id="pu-cost" type="number" min="0" step="100" title="商品マスターの原価が自動入力されます（手動変更も可）"></div>
         <div class="fg" style="flex:1 1 110px"><label>備考</label><input class="fc" id="pu-note"></div>
         <div class="fg" style="flex:0 1 auto"><button class="btn btn-g" onclick="addPurchaseItem()">＋ 明細に追加</button></div>
       </div>
@@ -546,23 +547,23 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 // shared.js  Sclassランボルギーニ 全システム共通データ
 // ============================================================
 const PROD_LIST = [
-  {key:'イエロー',     name:'イエロー',     color:'#f4d03f', cost:5000,  price:10500, priceOld:10500,  reorder:10},
-  {key:'オレンジ',     name:'オレンジ',     color:'#e67e22', cost:10000, price:21000, priceOld:21000,  reorder:10},
-  {key:'ブルー',       name:'ブルー',       color:'#2980b9', cost:10000, price:21000, priceOld:21000,  reorder:10},
-  {key:'ブラック',     name:'ブラック',     color:'#555555', cost:10000, price:21000, priceOld:21000,  reorder:10},
-  {key:'プラチナ',     name:'プラチナ',     color:'#bdc3c7', cost:15000, price:33000, priceOld:33000,  reorder:6},
-  {key:'ゴールド',     name:'ゴールド',     color:'#c9a84c', cost:20000, price:44000, priceOld:44000,  reorder:6},
-  {key:'ルミナス',     name:'ルミナス',     color:'#f9ca24', cost:25000, price:55000, priceOld:55000,  reorder:6},
-  {key:'レジェンド',   name:'レジェンド',   color:'#8e44ad', cost:25000, price:55000, priceOld:55000,  reorder:6},
-  {key:'さくら',       name:'さくら',       color:'#f8a5c2', cost:12000, price:25000, priceOld:25000,  reorder:6},
-  {key:'チェングレット', name:'チェングレット', color:'#27ae60', cost:3000,  price:6800, priceOld:6800,   reorder:12},
-  {key:'チェングロッソ', name:'チェングロッソ', color:'#16a085', cost:3000,  price:6800, priceOld:6800,   reorder:12},
-  {key:'トレスコーネ', name:'トレスコーネ', color:'#d35400', cost:3500,  price:7800, priceOld:7800,   reorder:12},
-  {key:'エラ',         name:'エラ',         color:'#6c5ce7', cost:4500,  price:10000, priceOld:10000,  reorder:10},
-  {key:'トラミ',       name:'トラミ',       color:'#e17055', cost:6000,  price:13000, priceOld:13000,  reorder:10},
-  {key:'カンポレオーネ', name:'カンポレオーネ', color:'#00b894', cost:4500,  price:10000, priceOld:10000,  reorder:10},
-  {key:'GIFTBOX',      name:'GIFTBOX',      color:'#c9a84c', cost:9000,  price:20000, priceOld:20000,  reorder:5},
-  {key:'コラチョロサ', name:'コラチョロサ', color:'#fd79a8', cost:8000,  price:17000, priceOld:17000,  reorder:6},
+  {key:'イエロー',     name:'イエロー',     color:'#f4d03f', cost:5000, costOld:5000,  price:10500, priceOld:10500,  reorder:10},
+  {key:'オレンジ',     name:'オレンジ',     color:'#e67e22', cost:10000, costOld:10000, price:21000, priceOld:21000,  reorder:10},
+  {key:'ブルー',       name:'ブルー',       color:'#2980b9', cost:10000, costOld:10000, price:21000, priceOld:21000,  reorder:10},
+  {key:'ブラック',     name:'ブラック',     color:'#555555', cost:10000, costOld:10000, price:21000, priceOld:21000,  reorder:10},
+  {key:'プラチナ',     name:'プラチナ',     color:'#bdc3c7', cost:15000, costOld:15000, price:33000, priceOld:33000,  reorder:6},
+  {key:'ゴールド',     name:'ゴールド',     color:'#c9a84c', cost:20000, costOld:20000, price:44000, priceOld:44000,  reorder:6},
+  {key:'ルミナス',     name:'ルミナス',     color:'#f9ca24', cost:25000, costOld:25000, price:55000, priceOld:55000,  reorder:6},
+  {key:'レジェンド',   name:'レジェンド',   color:'#8e44ad', cost:25000, costOld:25000, price:55000, priceOld:55000,  reorder:6},
+  {key:'さくら',       name:'さくら',       color:'#f8a5c2', cost:12000, costOld:12000, price:25000, priceOld:25000,  reorder:6},
+  {key:'チェングレット', name:'チェングレット', color:'#27ae60', cost:3000, costOld:3000,  price:6800, priceOld:6800,   reorder:12},
+  {key:'チェングロッソ', name:'チェングロッソ', color:'#16a085', cost:3000, costOld:3000,  price:6800, priceOld:6800,   reorder:12},
+  {key:'トレスコーネ', name:'トレスコーネ', color:'#d35400', cost:3500, costOld:3500,  price:7800, priceOld:7800,   reorder:12},
+  {key:'エラ',         name:'エラ',         color:'#6c5ce7', cost:4500, costOld:4500,  price:10000, priceOld:10000,  reorder:10},
+  {key:'トラミ',       name:'トラミ',       color:'#e17055', cost:6000, costOld:6000,  price:13000, priceOld:13000,  reorder:10},
+  {key:'カンポレオーネ', name:'カンポレオーネ', color:'#00b894', cost:4500, costOld:4500,  price:10000, priceOld:10000,  reorder:10},
+  {key:'GIFTBOX',      name:'GIFTBOX',      color:'#c9a84c', cost:9000, costOld:9000,  price:20000, priceOld:20000,  reorder:5},
+  {key:'コラチョロサ', name:'コラチョロサ', color:'#fd79a8', cost:8000, costOld:8000,  price:17000, priceOld:17000,  reorder:6},
 ];
 
 const PRODS   = PROD_LIST.map(p => p.key);
@@ -2159,16 +2160,12 @@ function renderPurchase(){
   const sel = document.getElementById('pu-product');
   if (sel.options.length === 0){
     sel.innerHTML = PRODS.map(p => `<option>${p}</option>`).join('');
-    sel.onchange = () => {
-      const p = sel.value;
-      const cost = COST[p] || 0;
-      document.getElementById('pu-cost').value = cost;
-    };
-    sel.dispatchEvent(new Event('change'));
+    // onchange は HTML属性の updatePuCost()（新値/旧値の種類に対応）に任せる
   }
   if (!document.getElementById('pu-date').value){
     document.getElementById('pu-date').value = today();
   }
+  updatePuCost();  // 初期表示でも原価を自動入力
   renderPurchaseDraft();  // 明細テーブルを描画
 
   // 履歴
@@ -2199,6 +2196,19 @@ function renderPurchase(){
 let purchaseDraft = [];
 
 // 商品を明細に追加
+// 商品・仕入値の種類を選ぶと、商品マスターの原価を仕入単価へ自動入力（手動変更も可）
+function updatePuCost(){
+  const prodName = (document.getElementById('pu-product') || {}).value;
+  const tier = (document.getElementById('pu-costtier') || {}).value || 'new';
+  // 商品マスター(S.products)の編集を優先、なければ PROD_LIST
+  const list = (S.products && S.products.length) ? S.products : PROD_LIST;
+  const p = list.find(x => x.name === prodName || x.key === prodName);
+  if (!p) return;
+  const cost = (tier === 'old') ? (p.costOld != null ? p.costOld : p.cost) : p.cost;
+  const inp = document.getElementById('pu-cost');
+  if (inp) inp.value = cost || 0;
+}
+
 function addPurchaseItem(){
   const product = document.getElementById('pu-product').value;
   const qty  = parseInt(document.getElementById('pu-qty').value) || 0;
