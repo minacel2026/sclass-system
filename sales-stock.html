@@ -328,7 +328,6 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>連絡先</label><input class="fc" id="no-contact" placeholder="連絡先名"></div>
         <div class="fg"><label>電話番号</label><input class="fc" id="no-tel" type="tel" placeholder="連絡先電話番号"></div>
         <div class="fg"><label>支払方法</label><select class="fc" id="no-pay"><option>現金</option><option>振込</option><option>代引</option><option>売掛</option></select></div>
-        <div class="fg"><label>出荷ステータス</label><select class="fc" id="no-status"><option>新規受付</option><option>対応中</option><option>出荷済</option></select></div>
         <div class="fg"><label>注文日</label><input class="fc" id="no-date" type="date"></div>
       </div>
     </div>
@@ -855,7 +854,7 @@ function renderOrders(){
       <td class="col-qty">${totalQty}</td>
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
       <td><span class="badge ${payBadge}">${escapeHtml(o.payStatus||'未収')}</span></td>
-      <td><span class="badge ${stBadge}">${escapeHtml(stg)}</span></td>
+      <td onclick="event.stopPropagation()"><select class="ship-sel" style="background:var(--d3);border:1px solid rgba(201,168,76,.3);color:var(--wh);font-size:.7rem;padding:.2rem .3rem;border-radius:3px" onchange="changeShipStatus('${o.id}', this.value)" title="出荷ステータス（その場で変更）"><option${stg==='新規受付'?' selected':''}>新規受付</option><option${stg==='対応中'?' selected':''}>対応中</option><option${stg==='出荷済'?' selected':''}>出荷済</option></select></td>
       <td onclick="event.stopPropagation()"><button class="act-btn" onclick="openOrderForEdit('${o.id}')">修正</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
     </tr>`;
   }).join('');
@@ -879,7 +878,79 @@ function shipStatus(o){
   return '新規受付';
 }
 
-// 出荷ステータスを変更（修正フォームの「出荷ステータス」欄で行う。注文保存時に反映）
+// 出荷ステータスを変更（注文一覧のステータス列ドロップダウンから直接）
+// 出荷済への遷移時：実在庫を減算し協賛(付与/使用)を記録。出荷済からの取消時：在庫と協賛を巻き戻す。
+function applyShipEffects(order){
+  const branch = order.branch || '仙台';
+  const time = order.time || new Date().toTimeString().slice(0,5);
+  if (!S.slog) S.slog = [];
+  Object.entries(order.items || {}).forEach(([p, q]) => {
+    if (!S.stock[branch]) S.stock[branch] = {};
+    S.stock[branch][p] = (S.stock[branch][p] || 0) - (q || 0);
+    S.slog.push({ date: order.date, time, branch, type: '出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `出荷#${String(order.id).slice(-6)}` });
+  });
+  Object.entries(order.sponsorItems || {}).forEach(([p, q]) => {
+    if (!S.stock[branch]) S.stock[branch] = {};
+    S.stock[branch][p] = (S.stock[branch][p] || 0) - (q || 0);
+    S.slog.push({ date: order.date, time, branch, type: '協賛出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `協賛出荷#${String(order.id).slice(-6)}` });
+  });
+  const cust = (S.customers || []).find(x => x.name === order.store);
+  if (!S.sponsorLogs) S.sponsorLogs = [];
+  if (order.orderType === 'sponsor' && cust){
+    const totalQty = Object.values(order.items || {}).reduce((s, q) => s + (q || 0), 0);
+    const prodList = Object.keys(order.items || {}).join('・');
+    S.sponsorLogs.push({ id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), custId: cust.id, custName: cust.name, type: 'used', qty: totalQty, date: order.date, orderId: order.id, product: prodList, branch, note: `協賛注文 ${totalQty}本出荷（${prodList}）`, createdAt: new Date().toISOString(), createdBy: currentUser.name });
+    if (S.gasUrl){ try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
+  } else {
+    checkAndAddSponsorPoints(order);  // 通常注文の協賛付与(earned)
+    if (cust && order.sponsorItems && Object.keys(order.sponsorItems).length){
+      Object.entries(order.sponsorItems).forEach(([prod, qty]) => {
+        S.sponsorLogs.push({ id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), custId: cust.id, custName: cust.name, type: 'used', qty, date: order.date, orderId: order.id, product: prod, branch, note: `協賛出荷 ${qty}本（${prod}）`, createdAt: new Date().toISOString(), createdBy: currentUser.name });
+        if (S.gasUrl){ try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
+      });
+    }
+  }
+  saveState();
+  if (S.gasUrl) syncStockToGAS();
+}
+
+function reverseShipEffects(order){
+  const branch = order.branch || '仙台';
+  ['items','sponsorItems'].forEach(k => {
+    Object.entries(order[k] || {}).forEach(([p, q]) => {
+      if (!S.stock[branch]) S.stock[branch] = {};
+      S.stock[branch][p] = (S.stock[branch][p] || 0) + (q || 0);
+    });
+  });
+  const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === order.id);
+  if (relLogs.length){
+    S.sponsorLogs = S.sponsorLogs.filter(l => l.orderId !== order.id);
+    if (S.gasUrl) relLogs.forEach(l => { try { gasPost({ action: 'deleteSponsorLog', id: l.id }); } catch(e){} });
+  }
+  saveState();
+  if (S.gasUrl) syncStockToGAS();
+}
+
+function changeShipStatus(id, val){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  if (['新規受付','対応中','出荷済'].indexOf(val) < 0) return;
+  const o = (S.orders || []).find(x => String(x.id) === String(id));
+  if (!o) return;
+  const prev = shipStatus(o);
+  if (prev === val){ renderOrders(); return; }
+  const wasShipped = prev === '出荷済';
+  const willShip = val === '出荷済';
+  if (willShip && !wasShipped) applyShipEffects(o);
+  else if (wasShipped && !willShip) reverseShipEffects(o);
+  o.status = val;
+  if (willShip && !o.shippedAt) o.shippedAt = new Date().toISOString();
+  saveState();
+  if (S.gasUrl){ try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} }
+  toast('✓ 出荷ステータス: ' + val);
+  renderOrders();
+  updateKPI();
+  if (typeof renderStock === 'function') renderStock();
+}
 
 function deleteOrder(id){
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
@@ -967,7 +1038,6 @@ function openOrderForEdit(id){
   const ot = document.getElementById('no-ordtype');   if (ot) ot.value = (o.orderType === 'sponsor') ? 'sponsor' : 'normal';
   document.getElementById('no-date').value      = o.date     || today();
   const pay = document.getElementById('no-pay'); if (pay) pay.value = o.payMethod || '現金';
-  const ss = document.getElementById('no-status'); if (ss) ss.value = shipStatus(o);
   const dd = document.getElementById('no-deldate');  if (dd) dd.value = o.deliveryDate || '';
   const dt = document.getElementById('no-deltime');  if (dt) dt.value = o.deliveryTime || '';
   const dn = document.getElementById('no-delnote');  if (dn) dn.value = o.deliveryNote || '';
@@ -1823,7 +1893,6 @@ function clearNewOrder(){
   document.getElementById('no-rate').value = '7';
   const ot = document.getElementById('no-ordtype'); if (ot) ot.value = 'normal';
   const pm = document.getElementById('no-pricemode'); if (pm) pm.value = '新値';
-  const ss = document.getElementById('no-status'); if (ss) ss.value = '新規受付';
   const tx = document.getElementById('no-tax'); if (tx) tx.value = '税込';
   document.getElementById('no-date').value = today();
   document.getElementById('no-deldate').value = '';
@@ -1854,11 +1923,13 @@ function submitNewOrder(){
   const wasEditing = !!editingOrderId;
   const editIdForSave = editingOrderId;  // 編集時はこのIDを再登録時も維持（IDが変わると重複の原因になる）
   let shipStockTouched = false;  // 出荷済の在庫増減が起きたらtrue（最後にGAS同期するか判定）
+  let editPrevStatus = null;  // 編集時：既存注文の出荷ステータスを維持（ステータス変更は一覧で行う）
   // 編集モード: 旧注文を巻き戻す。在庫は「旧注文が出荷済だった場合のみ」戻す（未出荷は元々減算していない）。
   // 協賛ログは旧モデルの前倒し記録も掃除するため常に取消（出荷済なら後で再付与される）。
   if (editingOrderId){
     const old = (S.orders || []).find(o => o.id === editingOrderId);
     if (old){
+      editPrevStatus = old.status || null;
       if (shipStatus(old) === '出荷済'){
         Object.entries(old.items || {}).forEach(([p, q]) => {
           if (!S.stock[old.branch]) S.stock[old.branch] = {};
@@ -1971,7 +2042,7 @@ function submitNewOrder(){
     amount: confirmedAmount,  // 確定合計（税込）— calcAmtが優先使用
     payMethod: document.getElementById('no-pay').value,
     payStatus: '未収',
-    status: (document.getElementById('no-status')||{}).value || '新規受付',
+    status: editIdForSave ? (editPrevStatus || '新規受付') : '新規受付',
     tax: 'taxあり',
     deliveryDate: document.getElementById('no-deldate').value,
     deliveryTime: document.getElementById('no-deltime').value,
