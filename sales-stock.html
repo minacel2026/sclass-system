@@ -760,9 +760,25 @@ async function syncFromGAS(){
     if (S.gasUrl) localOnly.forEach(function(log){ try { gasPost({ action: 'saveSponsorLog', ...log }); } catch(e){} });
     S.sponsorLogs = spLogs.logs.concat(localOnly);
   }
+  // 注文受付シートの注文を取り込む（手動同期では since を無視して全件、漏れを補完）
+  const ord = await gasGet('getNewOrders', { since: '' });
+  if (ord && Array.isArray(ord.orders)){
+    let added = 0;
+    ord.orders.forEach(function(o){
+      o.items = normalizeOrderItems(o.items);
+      const exists = (S.orders || []).find(x =>
+        String(x.id) === String(o.id) ||
+        (x.timestamp && o.timestamp && String(x.timestamp) === String(o.timestamp) && String(x.store) === String(o.store))
+      );
+      if (!exists){ if (!S.orders) S.orders = []; S.orders.push(o); added++; }
+    });
+    if (typeof dedupeOrders === 'function') S.orders = dedupeOrders(S.orders);
+    if (added) { /* 取込件数はトーストで通知 */ window._syncAddedOrders = added; }
+  }
   saveState();
   localStorage.setItem('lmb_lastSync', new Date().toISOString());
-  toast('✓ 同期完了');
+  toast(window._syncAddedOrders ? `✓ 同期完了（注文${window._syncAddedOrders}件を取り込み）` : '✓ 同期完了');
+  window._syncAddedOrders = 0;
   updateKPI(); renderOrders(); renderStock();
 }
 </script>
