@@ -768,8 +768,8 @@ async function syncFromGAS(){
     if (S.gasUrl) localOnly.forEach(function(log){ try { gasPost({ action: 'saveSponsorLog', ...log }); } catch(e){} });
     S.sponsorLogs = spLogs.logs.concat(localOnly);
   }
-  // 注文受付シートの注文を取り込む（手動同期では since を無視して全件、漏れを補完）
-  const ord = await gasGet('getNewOrders', { since: '' });
+  // 注文受付シートの注文を取り込む（getOrdersで全件取得＝20件上限なし、漏れを補完）
+  const ord = await gasGet('getOrders');
   if (ord && Array.isArray(ord.orders)){
     let added = 0;
     ord.orders.forEach(function(o){
@@ -2697,21 +2697,25 @@ function syncStockToGAS(){
   try { gasPost({ action: 'updateAllStock', stockData: stockData }); } catch(e){}
 }
 
-// 注文の重複を排除（同IDは最新を残す／別IDでも内容が同一なら統合）
+// 注文の重複を排除（同IDのみ統合。IDが無い旧データだけ内容で重複判定）
 function dedupeOrders(orders){
   if (!Array.isArray(orders)) return [];
   const result = [];
   const seenId = new Set();
-  const seenContent = new Set();
+  const seenContentNoId = new Set();  // ID欠落の旧データ同士のみ内容で重複排除
   // 後ろ（新しい方）から見て最新を優先、元の並びは維持
   for (let i = orders.length - 1; i >= 0; i--){
     const o = orders[i] || {};
     const id = String(o.id || '');
-    const ck = String(o.store||'') + '|' + String(o.date||'') + '|' + JSON.stringify(o.items||{}) + '|' + String(o.amount||'');
-    if (id && seenId.has(id)) continue;       // 同ID重複（編集前の残骸など）
-    if (seenContent.has(ck)) continue;          // 別IDでも内容が同一（取込重複など）
-    if (id) seenId.add(id);
-    seenContent.add(ck);
+    if (id){
+      if (seenId.has(id)) continue;   // 同ID重複（編集前の残骸など）だけ除外
+      seenId.add(id);
+    } else {
+      // IDが無い注文に限り、内容が完全一致する取込重複のみ除外
+      const ck = String(o.store||'') + '|' + String(o.date||'') + '|' + JSON.stringify(o.items||{}) + '|' + String(o.amount||'');
+      if (seenContentNoId.has(ck)) continue;
+      seenContentNoId.add(ck);
+    }
     result.unshift(o);
   }
   return result;
