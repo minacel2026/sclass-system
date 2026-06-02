@@ -655,7 +655,6 @@ function renderPayment(){
 
   tbody.innerHTML = list.map(o => {
     const amt = calcAmt(o);
-    const realIdx = S.orders.indexOf(o);  // IDに依存せず確実に特定するための実インデックス
     const days = daysSince(o.date);
     const overdueClass = days > 30 ? 'bd-unpaid' : (days > 14 ? 'bd-partial' : 'bd-pending');
     const overdueText  = days > 30 ? `⚠ ${days}日経過` : `${days}日経過`;
@@ -668,9 +667,12 @@ function renderPayment(){
       <td>${escapeHtml(o.store||'')}</td>
       <td style="font-size:.72rem">${escapeHtml(o.payMethod||'未設定')}</td>
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
-      <td><span class="badge ${o.payStatus==='売掛'?'bd-pending':'bd-unpaid'}">${escapeHtml(o.payStatus||'未収')}</span></td>
+      <td><span class="badge ${o.payStatus==='集金済み'?'bd-paid':(o.payStatus==='売掛'?'bd-pending':'bd-unpaid')}">${escapeHtml(o.payStatus||'未収')}</span>${o.payStatus==='集金済み'?`<div style="font-size:.6rem;color:var(--wh2);margin-top:.15rem">${escapeHtml((o.paidAt||'').slice(0,10))}${o.paidMethod?(' / '+escapeHtml(o.paidMethod)):''}</div>`:''}</td>
       <td><span class="badge ${overdueClass}">${overdueText}</span></td>
-      <td><button class="act-btn gr" onclick="quickPaid(${realIdx})">集金</button><button class="act-btn dn" onclick="deletePaymentOrder(${realIdx})">削</button></td>
+      <td>${o.payStatus==='集金済み'
+        ? `<button class="act-btn" onclick="openCollectModal('${escapeHtml(String(o.id||''))}')">修正</button><button class="act-btn" onclick="revertCollect('${escapeHtml(String(o.id||''))}')">差戻</button>`
+        : `<button class="act-btn gr" onclick="openCollectModal('${escapeHtml(String(o.id||''))}')">集金</button>`
+      }<button class="act-btn dn" onclick="deletePaymentOrder('${escapeHtml(String(o.id||''))}')">削</button></td>
     </tr>`;
   }).join('');
 }
@@ -691,9 +693,9 @@ function toggleAllPayment(checked){
   });
 }
 
-function quickPaid(idx){
+function quickPaid(id){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
-  const o = (S.orders || [])[idx];
+  const o = (S.orders || []).find(x => String(x.id || '') === String(id));
   if (!o) return toast('注文が見つかりません', 'error');
   o.payStatus = '集金済み';
   o.paidAt = new Date().toISOString();
@@ -706,11 +708,74 @@ function quickPaid(idx){
   updateKPI();
 }
 
+// ===== 集金タスク：集金日・集金方法の記録／修正／差戻 =====
+let _collectTargetId = null;
+function ensureCollectModal(){
+  if (document.getElementById('collect-modal')) return;
+  const m = document.createElement('div');
+  m.id = 'collect-modal';
+  m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;align-items:center;justify-content:center';
+  m.innerHTML = `
+    <div style="background:var(--d2,#161616);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:1.2rem;width:90%;max-width:320px">
+      <div style="color:var(--gold-l,#E8C97A);font-size:.95rem;margin-bottom:.9rem" id="cm-title">集金の記録</div>
+      <div style="margin-bottom:.7rem"><label style="display:block;font-size:.7rem;color:var(--wh2,#9a9486);margin-bottom:.25rem">集金日</label><input type="date" id="cm-date" class="fc" style="width:100%"></div>
+      <div style="margin-bottom:1.1rem"><label style="display:block;font-size:.7rem;color:var(--wh2,#9a9486);margin-bottom:.25rem">集金方法</label><select id="cm-method" class="fc" style="width:100%"><option>現金</option><option>振込</option><option>代引</option></select></div>
+      <div style="display:flex;gap:.5rem;justify-content:flex-end">
+        <button class="btn-s" onclick="closeCollectModal()">キャンセル</button>
+        <button class="btn btn-p" onclick="confirmCollect()">確定</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+}
+function openCollectModal(id){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const o = (S.orders || []).find(x => String(x.id || '') === String(id));
+  if (!o) return toast('注文が見つかりません', 'error');
+  ensureCollectModal();
+  _collectTargetId = id;
+  document.getElementById('cm-date').value = (o.paidAt ? String(o.paidAt).slice(0,10) : '') || today();
+  document.getElementById('cm-method').value = (['現金','振込','代引'].indexOf(o.paidMethod) >= 0) ? o.paidMethod : '現金';
+  document.getElementById('cm-title').textContent = (o.payStatus === '集金済み') ? '集金内容の修正' : '集金の記録';
+  document.getElementById('collect-modal').style.display = 'flex';
+}
+function closeCollectModal(){
+  const m = document.getElementById('collect-modal'); if (m) m.style.display = 'none';
+  _collectTargetId = null;
+}
+function confirmCollect(){
+  const o = (S.orders || []).find(x => String(x.id || '') === String(_collectTargetId));
+  if (!o){ closeCollectModal(); return; }
+  const dateStr = document.getElementById('cm-date').value || today();
+  const method  = document.getElementById('cm-method').value || '現金';
+  o.payStatus  = '集金済み';
+  o.paidAt     = new Date(dateStr + 'T12:00:00').toISOString();
+  o.paidMethod = method;
+  o.paidBy     = currentUser.name;
+  saveState();
+  if (S.gasUrl && o.id) gasPost({ action: 'updatePayStatus', orderId: o.id, payStatus: '集金済み' });
+  if (o.id) selectedPayments.delete(o.id);
+  closeCollectModal();
+  toast(`✓ 集金記録（${dateStr} / ${method}）`);
+  renderPayment(); updateKPI();
+}
+function revertCollect(id){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const o = (S.orders || []).find(x => String(x.id || '') === String(id));
+  if (!o) return toast('注文が見つかりません', 'error');
+  if (!confirm(`「${o.store || ''}」の集金を取り消して未収に戻しますか？`)) return;
+  o.payStatus = '未収';
+  delete o.paidAt; delete o.paidMethod; delete o.paidBy;
+  saveState();
+  if (S.gasUrl && o.id) gasPost({ action: 'updatePayStatus', orderId: o.id, payStatus: '未収' });
+  toast('✓ 未収に差し戻しました');
+  renderPayment(); updateKPI();
+}
+
 // 集金管理から注文を削除（在庫を戻す・協賛取消・スプシ行削除・ローカル削除）
-// IDに依存せず実インデックスで特定（LINE取り込み注文の特殊IDでも確実に削除）
-function deletePaymentOrder(idx){
+// 描画時インデックスに依存せず、削除時点の最新S.ordersからIDで特定→参照で1件だけ除去
+function deletePaymentOrder(id){
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
-  const o = (S.orders || [])[idx];
+  const o = (S.orders || []).find(x => String(x.id || '') === String(id));
   if (!o) return toast('注文が見つかりません', 'error');
 
   const totalQty = Object.values(o.items || {}).reduce((s,q) => s + (q||0), 0);
@@ -730,8 +795,8 @@ function deletePaymentOrder(idx){
   }
   // スプシ注文行を削除
   if (S.gasUrl) { try { gasPost({ action:'deleteOrder', id:o.id, timestamp:o.timestamp, store:o.store, amount:o.amount }); } catch(e){} }
-  // ローカル削除（実インデックスで確実に除去）
-  S.orders.splice(idx, 1);
+  // ローカル削除（参照で確実に1件だけ除去。インデックスのズレや別タブ更新の影響を受けない）
+  S.orders = (S.orders || []).filter(x => x !== o);
   saveState();
   if (o.id) selectedPayments.delete(o.id);
   toast(`✓ 削除しました（在庫+${totalQty}本）`);
@@ -1137,7 +1202,7 @@ function renderHistory(){
       <td>${escapeHtml((o.paidAt || '').slice(0,10))}</td>
       <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(o.date || '')}</td>
       <td>${escapeHtml(o.store || '')}</td>
-      <td style="font-size:.72rem">${escapeHtml(o.payMethod || '')}</td>
+      <td style="font-size:.72rem">${escapeHtml(o.paidMethod || o.payMethod || '')}</td>
       <td class="col-amt" style="color:var(--grn)">¥${fmt(calcAmt(o))}</td>
     </tr>
   `).join('');
