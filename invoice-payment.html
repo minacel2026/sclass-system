@@ -318,10 +318,10 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     </div>
     <div class="form-section">
       <div class="form-section-title">▸ 明細書の作成</div>
-      <div class="fgrid">
-        <div class="fg"><label>紹介者 <span class="req">*</span></label><select class="fc" id="rp-ref"></select></div>
-        <div class="fg"><label>対象月 <span class="req">*</span></label><input class="fc" id="rp-month" type="month"></div>
-        <div class="fg"><label>作成日</label><input class="fc" id="rp-date" type="date"></div>
+      <div style="display:flex;gap:.8rem;align-items:flex-end;flex-wrap:wrap">
+        <div class="fg" style="flex:2;min-width:200px"><label>紹介者 <span class="req">*</span></label><select class="fc" id="rp-ref" style="width:100%"></select></div>
+        <div class="fg" style="flex:1;min-width:130px"><label>対象月 <span class="req">*</span></label><input class="fc" id="rp-month" type="month" style="width:100%"></div>
+        <div class="fg" style="flex:1;min-width:130px"><label>作成日</label><input class="fc" id="rp-date" type="date" style="width:100%"></div>
       </div>
       <div style="display:flex;align-items:center;gap:.6rem;margin-top:.9rem;flex-wrap:wrap">
         <button class="btn btn-p" onclick="buildReferralPreview()">📄 プレビュー作成</button>
