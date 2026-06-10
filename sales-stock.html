@@ -2871,6 +2871,12 @@ window.addEventListener('DOMContentLoaded', () => {
   updateUserBadge();
   updateKPI();
   renderOrders();
+  // URLハッシュで初期タブを指定可能（ポータルのチップから直行）例: sales-stock.html#stock
+  const _mods = ['orders','neworder','stock','purchase','inventory','sponsor'];
+  const _h = (location.hash || '').replace('#','');
+  if (_mods.indexOf(_h) >= 0 && _h !== 'orders'){
+    switchModule(_h, document.querySelectorAll('.mtab')[_mods.indexOf(_h)]);
+  }
 });
 </script>
 

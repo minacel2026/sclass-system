@@ -67,6 +67,8 @@ main{max-width:1200px;margin:0 auto;padding:3rem 2rem}
 .tile-icon svg{width:30px;height:30px;stroke:var(--gold-l);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:block}
 .tile-name{font-size:.95rem;font-weight:700;color:var(--gold-l);margin-bottom:.3rem;letter-spacing:.05em}
 .tile-desc{font-size:.72rem;color:var(--wh2);line-height:1.6;flex:1;display:none}
+.tile-chip{font-size:.6rem;padding:.18rem .55rem;background:rgba(201,168,76,.15);color:var(--gold-l);border-radius:2px;cursor:pointer;letter-spacing:.03em;transition:background .15s}
+.tile-chip:hover{background:rgba(201,168,76,.35)}
 .tile-foot{margin-top:.8rem;padding-top:.6rem;border-top:1px solid rgba(255,255,255,.05);font-size:.62rem;color:var(--wh3);font-family:monospace}
 
 /* ─── カラー別 ─── */
@@ -185,6 +187,14 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
         <div class="tile-icon"><svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></div>
         <div class="tile-name">受発注・在庫</div>
         <div class="tile-desc">LINE受注・注文登録・在庫管理・仕入・棚卸</div>
+        <div style="display:flex;gap:.4rem;margin-top:.6rem;flex-wrap:wrap">
+          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='sales-stock.html#orders'">📋 注文一覧</span>
+          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='sales-stock.html#neworder'">➕ 注文登録</span>
+          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='sales-stock.html#stock'">🍾 在庫管理</span>
+          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='sales-stock.html#purchase'">🚚 仕入管理</span>
+          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='sales-stock.html#inventory'">📦 棚卸計算</span>
+          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='sales-stock.html#sponsor'">🎁 協賛管理</span>
+        </div>
         <div class="tile-foot">sales-stock.html</div>
       </a>
       <a class="tile purple" href="invoice-payment.html">

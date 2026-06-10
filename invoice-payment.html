@@ -859,40 +859,81 @@ function buildReferralPreview(){
       if (!qty) return;
       const unit = referralUnit(r, cust, prod);
       const amt = unit * qty;
-      const row = { store: o.store, date: oDate, prod, qty, unit, amt, paid: paidInM ? paid : (paid && paid < mStart ? '' : paid) };
+      const row = { store: o.store, date: oDate.replace(/-/g,'/'), prod, qty, unit, amt, rate: (r.calcType==='B' ? (parseFloat(cust.rate||'7')||7) : ''), paid: paidInM ? paid.replace(/-/g,'/') : (paid && paid < mStart ? '' : (paid||'').replace(/-/g,'/')) };
       if (isCur){ rows.cur.push(row); curSum += amt; } else { rows.carry.push(row); carrySum += amt; }
       if (paidInM) paidSum += amt;
     });
   });
   const tax = paidSum * 0.1;
-  const tbl = (list) => list.length === 0
-    ? '<div style="color:#999;padding:.6rem;font-size:.8rem">該当なし</div>'
-    : `<table style="width:100%;border-collapse:collapse;font-size:.78rem"><thead><tr>
-        <th>店舗名</th><th>日付</th><th>商品名</th><th style="text-align:right">数量</th><th style="text-align:right">単価</th><th style="text-align:right">金額</th><th>入金日</th>
-       </tr></thead><tbody>${list.map(x => `<tr${x.paid ? ' style="background:#f5fbf5"' : ''}>
-        <td>${escapeHtml(x.store)}</td><td>${escapeHtml(x.date)}</td><td>${escapeHtml(x.prod)}</td>
-        <td style="text-align:right">${x.qty}本</td><td style="text-align:right">¥${fmt(Math.round(x.unit))}</td>
-        <td style="text-align:right">¥${fmt(Math.round(x.amt))}</td><td>${escapeHtml(x.paid || '')}</td>
-       </tr>`).join('')}</tbody></table>`;
+  const co = S.company || {};
+  const now = new Date();
+  const wareki = `令和${now.getFullYear()-2018}年 ${now.getMonth()+1}月 ${now.getDate()}日`;
+  const yen = v => v ? '¥' + fmt(Math.round(v)) + '-' : '¥　　-';
+  const G = '#4e7d3a';                       // 緑（PDF書式）
+  const th = `background:${G};color:#fff;border:1px solid ${G};padding:.25rem .3rem;font-size:.62rem;font-weight:700;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact`;
+  const td = 'border:1px solid #bbb;padding:.22rem .3rem;font-size:.66rem;color:#000;background:#fff';
+  const tdR = td + ';text-align:right';
+  // 前月繰越と当月実績を左右に並べる（行数はPDF同様に最低14行で揃える）
+  const n = Math.max(rows.carry.length, rows.cur.length, 14);
+  let body = '';
+  for (let i = 0; i < n; i++){
+    const L = rows.carry[i], Rr = rows.cur[i];
+    const payAmt = (L && L.paid ? L.amt : 0) + (Rr && Rr.paid ? Rr.amt : 0);
+    const cell = (x) => x
+      ? `<td style="${td}">${escapeHtml(x.store)}</td><td style="${td};font-size:.58rem">${escapeHtml(x.date)}</td><td style="${td}">${escapeHtml(x.prod)}</td><td style="${tdR}">${x.qty}本</td><td style="${tdR}">${x.rate!==''?x.rate:''}</td><td style="${tdR}">${fmt(Math.round(x.unit))}</td><td style="${tdR}">${fmt(Math.round(x.amt))}</td><td style="${td};font-size:.58rem">${escapeHtml(x.paid||'')}</td>`
+      : `<td style="${td}">&nbsp;</td>`.repeat(8);
+    body += `<tr>${cell(L)}${cell(Rr)}<td style="${tdR};background:#eef1f8">${payAmt ? fmt(Math.round(payAmt)) : '-'}</td></tr>`;
+  }
   box.innerHTML = `
-    <div style="text-align:center;font-size:1.3rem;letter-spacing:.5em;margin-bottom:1rem;color:#000">支 払 明 細 書</div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:.8rem">
-      <div style="font-size:1.05rem;border-bottom:2px solid #333;padding:0 1rem .2rem .2rem;color:#000">${escapeHtml(r.name)} 様</div>
-      <div style="font-size:.75rem;color:#444;text-align:right">対象月：${escapeHtml(month)}<br>支払予定日：${payDate}</div>
+  <div style="font-family:'Yu Gothic','Meiryo',sans-serif;color:#000">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.6rem">
+      <div style="flex:1"></div>
+      <div style="background:${G};color:#fff;padding:.45rem 3rem;font-size:1rem;letter-spacing:.6em;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact">支 払 明 細 書</div>
+      <div style="flex:1;text-align:right;font-size:.66rem;color:#333;padding-top:.3rem">作成日：　${wareki}　　1/1</div>
     </div>
-    <div style="font-size:.8rem;color:#333;margin-bottom:.6rem">下記の通りお支払いさせていただきます。</div>
-    <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem">
-      <div style="flex:1;min-width:130px;border:1px solid #bbb;padding:.5rem"><div style="font-size:.65rem;color:#666">お支払金額(税込)</div><div style="font-size:1.15rem;font-weight:700;color:#000">¥${fmt(Math.round(paidSum + tax))}</div></div>
-      <div style="flex:1;min-width:110px;border:1px solid #ddd;padding:.5rem"><div style="font-size:.65rem;color:#666">前月繰越額(税抜)</div><div style="color:#000">¥${fmt(Math.round(carrySum))}</div></div>
-      <div style="flex:1;min-width:110px;border:1px solid #ddd;padding:.5rem"><div style="font-size:.65rem;color:#666">当月実績額(税抜)</div><div style="color:#000">¥${fmt(Math.round(curSum))}</div></div>
-      <div style="flex:1;min-width:110px;border:1px solid #ddd;padding:.5rem"><div style="font-size:.65rem;color:#666">当月入金額(税抜)</div><div style="color:#000">¥${fmt(Math.round(paidSum))}</div></div>
-      <div style="flex:1;min-width:110px;border:1px solid #ddd;padding:.5rem"><div style="font-size:.65rem;color:#666">消費税額(10%)</div><div style="color:#000">¥${fmt(Math.round(tax))}</div></div>
+    <div style="display:flex;justify-content:space-between;gap:1rem;margin-bottom:.7rem">
+      <div style="padding-top:.6rem">
+        <div style="font-size:.95rem;border-bottom:1px solid #333;padding:0 2rem .15rem .5rem;display:inline-block">${escapeHtml(r.name)}　　御中</div>
+        <div style="font-size:.68rem;margin-top:.25rem">下記の通りお支払いさせていただきます。</div>
+      </div>
+      <div style="font-size:.66rem;line-height:1.55;text-align:left;min-width:230px">
+        <div style="font-size:.95rem;font-weight:700">${escapeHtml(co.name || '株式会社 Sclass')}</div>
+        ${co.invNum ? `<div>登録番号：${escapeHtml(co.invNum)}</div>` : ''}
+        ${co.zip ? `<div>〒 ${escapeHtml(co.zip)}</div>` : ''}
+        ${co.addr ? `<div>${escapeHtml(co.addr)}</div>` : ''}
+        <div>${co.tel ? '☎ ' + escapeHtml(co.tel) : ''}　${co.email ? '✉ ' + escapeHtml(co.email) : ''}</div>
+        <div>部署：${escapeHtml(co.dept || '営業部')}　　担当：${escapeHtml((typeof currentUser!=='undefined' && currentUser.name) || '')}</div>
+      </div>
     </div>
-    <div style="font-weight:700;font-size:.85rem;margin:.6rem 0 .3rem;color:#000">前　月　繰　越　額</div>
-    ${tbl(rows.carry)}
-    <div style="font-weight:700;font-size:.85rem;margin:1rem 0 .3rem;color:#000">当　月　実　績　高</div>
-    ${tbl(rows.cur)}
-    <div style="font-size:.7rem;color:#555;margin-top:.8rem">※ 緑色の行＝対象月内に入金済み（支払対象）。単価は${r.calcType==='B' ? `B方式：売値×(顧客掛率−${r.calcParam})÷10` : `A方式：売値×${r.calcParam}%`}（税抜）。消費税10%は合計に加算。</div>`;
+    <table style="border-collapse:collapse;margin-bottom:.6rem"><tr>
+      <td style="${th};padding:.35rem 1.2rem">お支払金額(税込)</td>
+      <td style="${td};background:#eef1f8;font-size:1.05rem;font-weight:700;padding:.3rem 3rem;text-align:center">${yen(paidSum + tax)}</td>
+    </tr></table>
+    <table style="border-collapse:collapse;width:100%;margin-bottom:.8rem"><tr>
+      <td style="${th}">前月繰越額(税抜)</td><td style="${th}">当月実績額(税抜)</td><td style="${th}">当月入金額(税抜)</td><td style="${th}">消費税額(10％)</td>
+    </tr><tr>
+      <td style="${tdR};background:#eef1f8;font-weight:700">${yen(carrySum)}</td>
+      <td style="${tdR};background:#eef1f8;font-weight:700">${yen(curSum)}</td>
+      <td style="${tdR};background:#eef1f8;font-weight:700">${yen(paidSum)}</td>
+      <td style="${tdR};background:#eef1f8;font-weight:700">${yen(tax)}</td>
+    </tr></table>
+    <table style="border-collapse:collapse;width:100%">
+      <tr><td colspan="8" style="${th};letter-spacing:.4em">前　月　繰　越　額</td><td colspan="8" style="${th};letter-spacing:.4em">当　月　実　績　高</td><td style="${th}">支払金額</td></tr>
+      <tr>${['店舗名','日付','商品名','数量','掛率','単価','金額','入金日','店舗名','日付','商品名','数量','掛率','単価','金額','入金日'].map(h=>`<td style="${th};font-size:.56rem">${h}</td>`).join('')}<td style="${th};font-size:.56rem"></td></tr>
+      ${body}
+      <tr>
+        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700">${yen(carrySum)}</td>
+        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700">${yen(curSum)}</td>
+        <td style="${tdR};background:#eef1f8;font-weight:700">${yen(paidSum)}</td>
+      </tr>
+      <tr>
+        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700">${yen(carrySum)}</td>
+        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700">${yen(curSum)}</td>
+        <td style="${tdR};background:#eef1f8;font-weight:700">${yen(paidSum)}</td>
+      </tr>
+    </table>
+    <div style="font-size:.62rem;color:#444;margin-top:.5rem">対象月：${escapeHtml(month)}　／　お支払予定日：${payDate}　（当月末までに入金された分を翌月10日にお支払い）</div>
+  </div>`;
 }
 
 // 集金管理から注文を削除（在庫を戻す・協賛取消・スプシ行削除・ローカル削除）
