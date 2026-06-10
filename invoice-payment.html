@@ -159,6 +159,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 
 #toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#161616;border:1px solid rgba(201,168,76,.4);color:#E8C97A;padding:.8rem 1.5rem;font-size:.85rem;z-index:9999;opacity:0;transition:opacity .2s;letter-spacing:.05em;pointer-events:none}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -321,15 +322,13 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>紹介者 <span class="req">*</span></label><select class="fc" id="rp-ref"></select></div>
         <div class="fg"><label>対象月 <span class="req">*</span></label><input class="fc" id="rp-month" type="month"></div>
         <div class="fg"><label>作成日</label><input class="fc" id="rp-date" type="date"></div>
-        <div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-p" onclick="buildReferralPreview()">📄 プレビュー作成</button></div>
       </div>
-    </div>
-    <div class="form-section">
-      <div style="display:flex;align-items:center;gap:.8rem">
-        <button class="btn-s" id="rp-co-toggle" onclick="toggleCoEdit()">🏢 弊社情報を編集</button>
-        <span class="hint" style="font-size:.68rem;color:var(--wh2)">普段は編集不要です。マスター管理→弊社情報から自動で明細書に入ります</span>
+      <div style="display:flex;align-items:center;gap:.6rem;margin-top:.9rem;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="buildReferralPreview()">📄 プレビュー作成</button>
+        <button class="btn btn-g" id="rp-co-toggle" onclick="toggleCoEdit()">🏢 弊社情報を編集</button>
+        <span class="hint" style="font-size:.66rem;color:var(--wh2)">弊社情報は普段編集不要（マスター管理から自動反映）</span>
       </div>
-      <div id="rp-co-box" style="display:none;margin-top:.8rem">
+      <div id="rp-co-box" style="display:none;margin-top:.9rem;border-top:1px solid rgba(201,168,76,.2);padding-top:.9rem">
         <div class="fgrid">
           <div class="fg"><label>会社名</label><input class="fc" id="rp-co-name" placeholder="株式会社 Sclass"></div>
           <div class="fg"><label>登録番号（適格請求書）</label><input class="fc" id="rp-co-inv" placeholder="T1370003005017"></div>
@@ -352,6 +351,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       </div>
       <div class="faction">
         <button class="btn btn-g" onclick="window.print()">🖨 印刷 / PDFで保存</button>
+        <button class="btn btn-g" onclick="exportReferralXlsx()">📥 Excelで出力（直接編集用）</button>
       </div>
     </div>
   </div>
@@ -852,6 +852,60 @@ function initReferral(){
   set('rp-co-dept',  saved.dept  || co.dept  || '営業部');
   set('rp-co-staff', saved.staff || ((typeof currentUser !== 'undefined' && currentUser.name) || ''));
 }
+// Excel出力（直接編集用）。プレビューと同じ計算（computeReferralData）でブックを作る
+function exportReferralXlsx(){
+  if (typeof XLSX === 'undefined'){ toast('Excelライブラリの読込待ちです。通信環境を確認して再度押してください', 'error'); return; }
+  loadState();
+  const r = (S.referrers || []).find(x => x.id === document.getElementById('rp-ref').value);
+  const month = document.getElementById('rp-month').value;
+  if (!r || !month){ toast('紹介者と対象月を選択してください', 'error'); return; }
+  const D = computeReferralData(r, month);
+  const gv = id => (document.getElementById(id) || {}).value || '';
+  const co = { name: gv('rp-co-name'), inv: gv('rp-co-inv'), zip: gv('rp-co-zip'), addr: gv('rp-co-addr'),
+               tel: gv('rp-co-tel'), email: gv('rp-co-email'), dept: gv('rp-co-dept'), staff: gv('rp-co-staff') };
+  const dval = gv('rp-date') || today();
+  const dd = new Date(dval + 'T12:00:00');
+  const wareki = `令和${dd.getFullYear()-2018}年 ${dd.getMonth()+1}月 ${dd.getDate()}日`;
+  const n = Math.max(D.rows.carry.length, D.rows.cur.length, 14);
+  const aoa = [];
+  aoa.push(['', '', '', '', '支　払　明　細　書', '', '', '', '', '', '', '', '', '', '', '作成日：' + wareki]);   // 1
+  aoa.push([r.name + '　御中', '', '', '', '', '', '', '', '', '', '', co.name, '', '', '', '']);                   // 2
+  aoa.push(['下記の通りお支払いさせていただきます。', '', '', '', '', '', '', '', '', '', '', co.inv ? '登録番号：' + co.inv : '', '', '', '', '']); // 3
+  aoa.push(['', '', '', '', '', '', '', '', '', '', '', co.zip ? '〒 ' + co.zip : '', '', '', '', '']);             // 4
+  aoa.push(['お支払金額(税込)', Math.round(D.paidSum + D.tax), '', '', '', '', '', '', '', '', '', co.addr || '', '', '', '', '']); // 5
+  aoa.push(['', '', '', '', '', '', '', '', '', '', '', (co.tel ? 'TEL ' + co.tel : '') + (co.email ? '　' + co.email : ''), '', '', '', '']); // 6
+  aoa.push(['前月繰越額(税抜)', Math.round(D.carrySum), '当月実績額(税抜)', Math.round(D.curSum), '当月入金額(税抜)', Math.round(D.paidSum), '消費税額(10%)', Math.round(D.tax), '', '', '', '部署：' + (co.dept||'') + '　担当：' + (co.staff||''), '', '', '', '']); // 7
+  aoa.push([]);                                                                                                       // 8
+  aoa.push(['前月繰越額', '', '', '', '', '', '', '', '当月実績高', '', '', '', '', '', '', '', '支払金額']);          // 9
+  aoa.push(['店舗名','日付','商品名','数量','掛率','単価','金額','入金日','店舗名','日付','商品名','数量','掛率','単価','金額','入金日','']); // 10
+  for (let i = 0; i < n; i++){
+    const L = D.rows.carry[i], Rr = D.rows.cur[i];
+    const payAmt = (L && L.paid ? L.amt : 0) + (Rr && Rr.paid ? Rr.amt : 0);
+    const side = x => x ? [x.store, x.date, x.prod, x.qty, x.rate !== '' ? x.rate : '', Math.round(x.unit), Math.round(x.amt), x.paid || ''] : ['','','','','','','',''];
+    aoa.push([...side(L), ...side(Rr), payAmt ? Math.round(payAmt) : '']);
+  }
+  aoa.push(['合計','','','','','', Math.round(D.carrySum), '', '合計','','','','','', Math.round(D.curSum), '', Math.round(D.paidSum)]);
+  aoa.push(['対象月：' + month + '　／　お支払予定日：' + D.payDate + '（当月末までに入金された分を翌月10日にお支払い）']);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [ {wch:16},{wch:10},{wch:30},{wch:6},{wch:5},{wch:8},{wch:10},{wch:10},
+                  {wch:16},{wch:10},{wch:30},{wch:6},{wch:5},{wch:8},{wch:10},{wch:10},{wch:11} ];
+  ws['!merges'] = [
+    XLSX.utils.decode_range('E1:L1'),   // タイトル
+    XLSX.utils.decode_range('A2:E2'),   // 御中
+    XLSX.utils.decode_range('L2:Q2'), XLSX.utils.decode_range('L3:Q3'), XLSX.utils.decode_range('L4:Q4'),
+    XLSX.utils.decode_range('L5:Q5'), XLSX.utils.decode_range('L6:Q6'), XLSX.utils.decode_range('L7:Q7'),
+    XLSX.utils.decode_range('A9:H9'), XLSX.utils.decode_range('I9:P9'),
+    XLSX.utils.decode_range('A' + (11 + n + 1) + ':Q' + (11 + n + 1)),  // 末尾の注記
+  ];
+  // 金額セルに桁区切り書式
+  ['B5','B7','D7','F7','H7'].forEach(a => { if (ws[a]) ws[a].z = '#,##0'; });
+  for (let rI = 11; rI <= 11 + n; rI++){ ['F','G','N','O','Q'].forEach(c => { const cell = ws[c + rI]; if (cell && typeof cell.v === 'number') cell.z = '#,##0'; }); }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '支払明細書');
+  const fname = `支払明細書_${r.name}_${month}.xlsx`.replace(/[\\/:*?"<>|]/g, '_');
+  XLSX.writeFile(wb, fname);
+  toast('✓ Excelを出力しました: ' + fname);
+}
 function toggleCoEdit(){
   const box = document.getElementById('rp-co-box');
   const btn = document.getElementById('rp-co-toggle');
@@ -870,17 +924,9 @@ function referralUnit(r, cust, prodKey){
   }
   return base * param / 100;                          // A方式
 }
-function buildReferralPreview(){
-  loadState();
-  const r = (S.referrers || []).find(x => x.id === document.getElementById('rp-ref').value);
-  const month = document.getElementById('rp-month').value;   // YYYY-MM
-  const box = document.getElementById('rp-preview');
-  if (!r || !month){ toast('紹介者と対象月を選択してください', 'error'); return; }
+// 集計の共通化（プレビューとExcel出力で同じ計算を使う）
+function computeReferralData(r, month){
   const custs = (S.customers || []).filter(c => (c.referrer || '') === r.name);
-  if (custs.length === 0){
-    box.innerHTML = `<div style="text-align:center;color:#888;padding:3rem">紹介者「${escapeHtml(r.name)}」が紹介者に設定された顧客がいません。<br>マスター管理 → 顧客の「紹介者」欄をご確認ください。</div>`;
-    return;
-  }
   const custByStore = Object.fromEntries(custs.map(c => [c.name, c]));
   const mStart = month + '-01';
   const nextM = (() => { const d = new Date(month + '-01T12:00:00'); d.setMonth(d.getMonth()+1); return d; })();
@@ -906,6 +952,20 @@ function buildReferralPreview(){
       if (paidInM) paidSum += amt;
     });
   });
+  return { custCount: custs.length, rows, carrySum, curSum, paidSum, tax: paidSum * 0.1, payDate };
+}
+function buildReferralPreview(){
+  loadState();
+  const r = (S.referrers || []).find(x => x.id === document.getElementById('rp-ref').value);
+  const month = document.getElementById('rp-month').value;   // YYYY-MM
+  const box = document.getElementById('rp-preview');
+  if (!r || !month){ toast('紹介者と対象月を選択してください', 'error'); return; }
+  const D = computeReferralData(r, month);
+  if (D.custCount === 0){
+    box.innerHTML = `<div style="text-align:center;color:#888;padding:3rem">紹介者「${escapeHtml(r.name)}」が紹介者に設定された顧客がいません。<br>マスター管理 → 顧客の「紹介者」欄をご確認ください。</div>`;
+    return;
+  }
+  const rows = D.rows, carrySum = D.carrySum, curSum = D.curSum, paidSum = D.paidSum, payDate = D.payDate;
   const tax = paidSum * 0.1;
   // 発行情報は画面の入力欄から（修正可能・次回も保持）
   const gv = id => (document.getElementById(id) || {}).value || '';
@@ -931,7 +991,7 @@ function buildReferralPreview(){
     const cell = (x, sep) => x
       ? `<td style="${td};${sep?SEP:''}">${escapeHtml(x.store)}</td><td style="${td};font-size:.58rem">${escapeHtml(x.date)}</td><td style="${td}">${escapeHtml(x.prod)}</td><td style="${tdR}">${x.qty}本</td><td style="${tdR}">${x.rate!==''?x.rate:''}</td><td style="${tdR}">${fmt(Math.round(x.unit))}</td><td style="${tdR}">${fmt(Math.round(x.amt))}</td><td style="${td};font-size:.58rem">${escapeHtml(x.paid||'')}</td>`
       : `<td style="${td};${sep?SEP:''}">&nbsp;</td>` + `<td style="${td}">&nbsp;</td>`.repeat(7);
-    body += `<tr>${cell(L,false)}${cell(Rr,true)}<td style="${tdR};${SEP};background:#eef1f8;${pca}">${payAmt ? fmt(Math.round(payAmt)) : '-'}</td></tr>`;
+    body += `<tr style="page-break-inside:avoid">${cell(L,false)}${cell(Rr,true)}<td style="${tdR};${SEP};background:#eef1f8;${pca}">${payAmt ? fmt(Math.round(payAmt)) : '-'}</td></tr>`;
   }
   box.innerHTML = `
   <div style="font-family:'Yu Gothic','Meiryo',sans-serif;color:#000;max-width:1100px;margin:0 auto">
@@ -957,7 +1017,7 @@ function buildReferralPreview(){
           <td style="${tdR};background:#eef1f8;font-weight:700;${SEP};${pca}">${yen(tax)}</td>
         </tr></table>
       </div>
-      <div style="width:30%;font-size:.66rem;line-height:1.6;border-left:1px solid #ccc;padding-left:.8rem">
+      <div style="width:30%;font-size:.66rem;line-height:1.6;padding-left:.8rem">
         <div style="font-size:1rem;font-weight:700;margin-bottom:.15rem">${escapeHtml(co.name || '株式会社 Sclass')}</div>
         ${co.inv ? `<div>登録番号：${escapeHtml(co.inv)}</div>` : ''}
         ${co.zip ? `<div>〒 ${escapeHtml(co.zip)}</div>` : ''}
@@ -966,14 +1026,17 @@ function buildReferralPreview(){
         <div>部署：${escapeHtml(co.dept || '営業部')}　　担当：${escapeHtml(co.staff || '')}</div>
       </div>
     </div>
-    <table style="border-collapse:collapse;width:100%;border:2px solid #333;table-layout:fixed">
+    <table style="border-collapse:collapse;width:100%;border:2px solid #333;table-layout:fixed;page-break-inside:auto">
       <colgroup>
         <col style="width:8.7%"><col style="width:3.8%"><col style="width:15.2%"><col style="width:3.8%"><col style="width:1.9%"><col style="width:3.8%"><col style="width:5.7%"><col style="width:3.8%">
         <col style="width:8.5%"><col style="width:3.7%"><col style="width:15%"><col style="width:3.7%"><col style="width:1.9%"><col style="width:3.7%"><col style="width:5.6%"><col style="width:3.7%">
         <col style="width:7.5%">
       </colgroup>
+      <thead style="display:table-header-group">
       <tr><td colspan="8" style="${th};letter-spacing:.4em">前　月　繰　越　額</td><td colspan="8" style="${th};letter-spacing:.4em;${SEP}">当　月　実　績　高</td><td style="${th};${SEP}">支払金額</td></tr>
       <tr>${['店舗名','日付','商品名','数量','掛率','単価','金額','入金日'].map((h,i)=>`<td style="${th};font-size:.56rem">${h}</td>`).join('')}${['店舗名','日付','商品名','数量','掛率','単価','金額','入金日'].map((h,i)=>`<td style="${th};font-size:.56rem;${i===0?SEP:''}">${h}</td>`).join('')}<td style="${th};font-size:.56rem;${SEP}"></td></tr>
+      </thead>
+      <tbody>
       ${body}
       <tr>
         <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700;border-top:2px solid #333;${pca}">${yen(carrySum)}</td>
@@ -985,6 +1048,7 @@ function buildReferralPreview(){
         <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700;${SEP};${pca}">${yen(curSum)}</td>
         <td style="${tdR};background:#eef1f8;font-weight:700;${SEP};${pca}">${yen(paidSum)}</td>
       </tr>
+      </tbody>
     </table>
     <div style="font-size:.62rem;color:#444;margin-top:.5rem">対象月：${escapeHtml(month)}　／　お支払予定日：${payDate}　（当月末までに入金された分を翌月10日にお支払い）</div>
   </div>`;
