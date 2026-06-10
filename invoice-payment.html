@@ -320,7 +320,21 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="fgrid">
         <div class="fg"><label>紹介者 <span class="req">*</span></label><select class="fc" id="rp-ref"></select></div>
         <div class="fg"><label>対象月 <span class="req">*</span></label><input class="fc" id="rp-month" type="month"></div>
+        <div class="fg"><label>作成日</label><input class="fc" id="rp-date" type="date"></div>
         <div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-p" onclick="buildReferralPreview()">📄 プレビュー作成</button></div>
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="form-section-title">▸ 発行情報（弊社情報）<span class="hint" style="font-weight:400">　ここで修正できます。マスター管理→弊社情報から自動入力され、変更は次回も保持されます</span></div>
+      <div class="fgrid">
+        <div class="fg"><label>会社名</label><input class="fc" id="rp-co-name" placeholder="株式会社 Sclass"></div>
+        <div class="fg"><label>登録番号（適格請求書）</label><input class="fc" id="rp-co-inv" placeholder="T1370003005017"></div>
+        <div class="fg"><label>郵便番号</label><input class="fc" id="rp-co-zip" placeholder="980-0803"></div>
+        <div class="fg fc-full"><label>住所</label><input class="fc" id="rp-co-addr" placeholder="宮城県仙台市青葉区国分町1-6-15 奥田ビル4F"></div>
+        <div class="fg"><label>電話</label><input class="fc" id="rp-co-tel" placeholder="080-3199-0550"></div>
+        <div class="fg"><label>メール</label><input class="fc" id="rp-co-email" placeholder="tohoku@sendai-sclass.com"></div>
+        <div class="fg"><label>部署</label><input class="fc" id="rp-co-dept" placeholder="営業部"></div>
+        <div class="fg"><label>担当</label><input class="fc" id="rp-co-staff" placeholder="担当者名"></div>
       </div>
     </div>
     <div class="form-section">
@@ -816,6 +830,21 @@ function initReferral(){
     const d = new Date(); d.setMonth(d.getMonth() - 1);   // 既定は先月（翌月10日に支払う運用のため）
     m.value = d.toISOString().slice(0,7);
   }
+  const dt = document.getElementById('rp-date');
+  if (!dt.value) dt.value = today();
+  // 発行情報: 保存済みの修正 → 弊社マスター → ログインユーザー の順で初期表示
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('lmb_refstmt_co') || '{}'); } catch(e){}
+  const co = S.company || {};
+  const set = (id, v) => { const el = document.getElementById(id); if (el && !el.value) el.value = v || ''; };
+  set('rp-co-name',  saved.name  || co.name  || '株式会社 Sclass');
+  set('rp-co-inv',   saved.inv   || co.invNum || '');
+  set('rp-co-zip',   saved.zip   || co.zip   || '');
+  set('rp-co-addr',  saved.addr  || co.addr  || '');
+  set('rp-co-tel',   saved.tel   || co.tel   || '');
+  set('rp-co-email', saved.email || co.email || '');
+  set('rp-co-dept',  saved.dept  || co.dept  || '営業部');
+  set('rp-co-staff', saved.staff || ((typeof currentUser !== 'undefined' && currentUser.name) || ''));
 }
 function referralUnit(r, cust, prodKey){
   const p = PROD_LIST.find(x => x.key === prodKey || x.name === prodKey || (x.fullName||'').indexOf(prodKey) >= 0);
@@ -865,30 +894,37 @@ function buildReferralPreview(){
     });
   });
   const tax = paidSum * 0.1;
-  const co = S.company || {};
-  const now = new Date();
-  const wareki = `令和${now.getFullYear()-2018}年 ${now.getMonth()+1}月 ${now.getDate()}日`;
+  // 発行情報は画面の入力欄から（修正可能・次回も保持）
+  const gv = id => (document.getElementById(id) || {}).value || '';
+  const co = { name: gv('rp-co-name'), inv: gv('rp-co-inv'), zip: gv('rp-co-zip'), addr: gv('rp-co-addr'),
+               tel: gv('rp-co-tel'), email: gv('rp-co-email'), dept: gv('rp-co-dept'), staff: gv('rp-co-staff') };
+  try { localStorage.setItem('lmb_refstmt_co', JSON.stringify(co)); } catch(e){}
+  const dval = gv('rp-date') || today();
+  const dd = new Date(dval + 'T12:00:00');
+  const wareki = `令和${dd.getFullYear()-2018}年 ${dd.getMonth()+1}月 ${dd.getDate()}日`;
   const yen = v => v ? '¥' + fmt(Math.round(v)) + '-' : '¥　　-';
   const G = '#4e7d3a';                       // 緑（PDF書式）
-  const th = `background:${G};color:#fff;border:1px solid ${G};padding:.25rem .3rem;font-size:.62rem;font-weight:700;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact`;
-  const td = 'border:1px solid #bbb;padding:.22rem .3rem;font-size:.66rem;color:#000;background:#fff';
+  const pca = '-webkit-print-color-adjust:exact;print-color-adjust:exact';
+  const th = `background:${G};color:#fff;border:1px solid #333;padding:.25rem .3rem;font-size:.62rem;font-weight:700;text-align:center;${pca}`;
+  const td = 'border:1px solid #999;padding:.22rem .3rem;font-size:.66rem;color:#000;background:#fff';
   const tdR = td + ';text-align:right';
+  const SEP = 'border-left:2px solid #333';   // 区切りの太線（前月繰越｜当月実績｜支払金額）
   // 前月繰越と当月実績を左右に並べる（行数はPDF同様に最低14行で揃える）
   const n = Math.max(rows.carry.length, rows.cur.length, 14);
   let body = '';
   for (let i = 0; i < n; i++){
     const L = rows.carry[i], Rr = rows.cur[i];
     const payAmt = (L && L.paid ? L.amt : 0) + (Rr && Rr.paid ? Rr.amt : 0);
-    const cell = (x) => x
-      ? `<td style="${td}">${escapeHtml(x.store)}</td><td style="${td};font-size:.58rem">${escapeHtml(x.date)}</td><td style="${td}">${escapeHtml(x.prod)}</td><td style="${tdR}">${x.qty}本</td><td style="${tdR}">${x.rate!==''?x.rate:''}</td><td style="${tdR}">${fmt(Math.round(x.unit))}</td><td style="${tdR}">${fmt(Math.round(x.amt))}</td><td style="${td};font-size:.58rem">${escapeHtml(x.paid||'')}</td>`
-      : `<td style="${td}">&nbsp;</td>`.repeat(8);
-    body += `<tr>${cell(L)}${cell(Rr)}<td style="${tdR};background:#eef1f8">${payAmt ? fmt(Math.round(payAmt)) : '-'}</td></tr>`;
+    const cell = (x, sep) => x
+      ? `<td style="${td};${sep?SEP:''}">${escapeHtml(x.store)}</td><td style="${td};font-size:.58rem">${escapeHtml(x.date)}</td><td style="${td}">${escapeHtml(x.prod)}</td><td style="${tdR}">${x.qty}本</td><td style="${tdR}">${x.rate!==''?x.rate:''}</td><td style="${tdR}">${fmt(Math.round(x.unit))}</td><td style="${tdR}">${fmt(Math.round(x.amt))}</td><td style="${td};font-size:.58rem">${escapeHtml(x.paid||'')}</td>`
+      : `<td style="${td};${sep?SEP:''}">&nbsp;</td>` + `<td style="${td}">&nbsp;</td>`.repeat(7);
+    body += `<tr>${cell(L,false)}${cell(Rr,true)}<td style="${tdR};${SEP};background:#eef1f8;${pca}">${payAmt ? fmt(Math.round(payAmt)) : '-'}</td></tr>`;
   }
   box.innerHTML = `
   <div style="font-family:'Yu Gothic','Meiryo',sans-serif;color:#000">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.6rem">
       <div style="flex:1"></div>
-      <div style="background:${G};color:#fff;padding:.45rem 3rem;font-size:1rem;letter-spacing:.6em;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact">支 払 明 細 書</div>
+      <div style="background:${G};color:#fff;padding:.45rem 3rem;font-size:1rem;letter-spacing:.6em;font-weight:700;${pca}">支 払 明 細 書</div>
       <div style="flex:1;text-align:right;font-size:.66rem;color:#333;padding-top:.3rem">作成日：　${wareki}　　1/1</div>
     </div>
     <div style="display:flex;justify-content:space-between;gap:1rem;margin-bottom:.7rem">
@@ -898,38 +934,38 @@ function buildReferralPreview(){
       </div>
       <div style="font-size:.66rem;line-height:1.55;text-align:left;min-width:230px">
         <div style="font-size:.95rem;font-weight:700">${escapeHtml(co.name || '株式会社 Sclass')}</div>
-        ${co.invNum ? `<div>登録番号：${escapeHtml(co.invNum)}</div>` : ''}
+        ${co.inv ? `<div>登録番号：${escapeHtml(co.inv)}</div>` : ''}
         ${co.zip ? `<div>〒 ${escapeHtml(co.zip)}</div>` : ''}
         ${co.addr ? `<div>${escapeHtml(co.addr)}</div>` : ''}
         <div>${co.tel ? '☎ ' + escapeHtml(co.tel) : ''}　${co.email ? '✉ ' + escapeHtml(co.email) : ''}</div>
-        <div>部署：${escapeHtml(co.dept || '営業部')}　　担当：${escapeHtml((typeof currentUser!=='undefined' && currentUser.name) || '')}</div>
+        <div>部署：${escapeHtml(co.dept || '営業部')}　　担当：${escapeHtml(co.staff || '')}</div>
       </div>
     </div>
-    <table style="border-collapse:collapse;margin-bottom:.6rem"><tr>
+    <table style="border-collapse:collapse;margin-bottom:.6rem;border:2px solid #333"><tr>
       <td style="${th};padding:.35rem 1.2rem">お支払金額(税込)</td>
-      <td style="${td};background:#eef1f8;font-size:1.05rem;font-weight:700;padding:.3rem 3rem;text-align:center">${yen(paidSum + tax)}</td>
+      <td style="${td};background:#eef1f8;font-size:1.05rem;font-weight:700;padding:.3rem 3rem;text-align:center;${pca}">${yen(paidSum + tax)}</td>
     </tr></table>
-    <table style="border-collapse:collapse;width:100%;margin-bottom:.8rem"><tr>
-      <td style="${th}">前月繰越額(税抜)</td><td style="${th}">当月実績額(税抜)</td><td style="${th}">当月入金額(税抜)</td><td style="${th}">消費税額(10％)</td>
+    <table style="border-collapse:collapse;width:100%;margin-bottom:.8rem;border:2px solid #333"><tr>
+      <td style="${th}">前月繰越額(税抜)</td><td style="${th};${SEP}">当月実績額(税抜)</td><td style="${th};${SEP}">当月入金額(税抜)</td><td style="${th};${SEP}">消費税額(10％)</td>
     </tr><tr>
-      <td style="${tdR};background:#eef1f8;font-weight:700">${yen(carrySum)}</td>
-      <td style="${tdR};background:#eef1f8;font-weight:700">${yen(curSum)}</td>
-      <td style="${tdR};background:#eef1f8;font-weight:700">${yen(paidSum)}</td>
-      <td style="${tdR};background:#eef1f8;font-weight:700">${yen(tax)}</td>
+      <td style="${tdR};background:#eef1f8;font-weight:700;${pca}">${yen(carrySum)}</td>
+      <td style="${tdR};background:#eef1f8;font-weight:700;${SEP};${pca}">${yen(curSum)}</td>
+      <td style="${tdR};background:#eef1f8;font-weight:700;${SEP};${pca}">${yen(paidSum)}</td>
+      <td style="${tdR};background:#eef1f8;font-weight:700;${SEP};${pca}">${yen(tax)}</td>
     </tr></table>
-    <table style="border-collapse:collapse;width:100%">
-      <tr><td colspan="8" style="${th};letter-spacing:.4em">前　月　繰　越　額</td><td colspan="8" style="${th};letter-spacing:.4em">当　月　実　績　高</td><td style="${th}">支払金額</td></tr>
-      <tr>${['店舗名','日付','商品名','数量','掛率','単価','金額','入金日','店舗名','日付','商品名','数量','掛率','単価','金額','入金日'].map(h=>`<td style="${th};font-size:.56rem">${h}</td>`).join('')}<td style="${th};font-size:.56rem"></td></tr>
+    <table style="border-collapse:collapse;width:100%;border:2px solid #333">
+      <tr><td colspan="8" style="${th};letter-spacing:.4em">前　月　繰　越　額</td><td colspan="8" style="${th};letter-spacing:.4em;${SEP}">当　月　実　績　高</td><td style="${th};${SEP}">支払金額</td></tr>
+      <tr>${['店舗名','日付','商品名','数量','掛率','単価','金額','入金日'].map((h,i)=>`<td style="${th};font-size:.56rem">${h}</td>`).join('')}${['店舗名','日付','商品名','数量','掛率','単価','金額','入金日'].map((h,i)=>`<td style="${th};font-size:.56rem;${i===0?SEP:''}">${h}</td>`).join('')}<td style="${th};font-size:.56rem;${SEP}"></td></tr>
       ${body}
       <tr>
-        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700">${yen(carrySum)}</td>
-        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700">${yen(curSum)}</td>
-        <td style="${tdR};background:#eef1f8;font-weight:700">${yen(paidSum)}</td>
+        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700;border-top:2px solid #333;${pca}">${yen(carrySum)}</td>
+        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700;border-top:2px solid #333;${SEP};${pca}">${yen(curSum)}</td>
+        <td style="${tdR};background:#eef1f8;font-weight:700;border-top:2px solid #333;${SEP};${pca}">${yen(paidSum)}</td>
       </tr>
       <tr>
-        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700">${yen(carrySum)}</td>
-        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700">${yen(curSum)}</td>
-        <td style="${tdR};background:#eef1f8;font-weight:700">${yen(paidSum)}</td>
+        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700;${pca}">${yen(carrySum)}</td>
+        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700;${SEP};${pca}">${yen(curSum)}</td>
+        <td style="${tdR};background:#eef1f8;font-weight:700;${SEP};${pca}">${yen(paidSum)}</td>
       </tr>
     </table>
     <div style="font-size:.62rem;color:#444;margin-top:.5rem">対象月：${escapeHtml(month)}　／　お支払予定日：${payDate}　（当月末までに入金された分を翌月10日にお支払い）</div>
