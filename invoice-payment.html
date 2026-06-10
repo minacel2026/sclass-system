@@ -157,6 +157,9 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   .invoice-preview, .invoice-preview *{visibility:visible !important}
   .invoice-preview{position:absolute !important;left:0;top:0;width:100% !important;border:none !important;padding:0 !important;margin:0 !important;background:#fff !important}
   .invoice-preview > div{max-width:none !important}
+  /* A4横1枚に収めるための圧縮 */
+  .invoice-preview table td{padding:1px 3px !important;font-size:8.5px !important;line-height:1.3 !important}
+  .invoice-preview{font-size:9px !important}
   header,.master-tabs,.kpi-row,.faction,.fp{display:none !important}
   body{background:#fff;color:#000}
 }
@@ -870,7 +873,7 @@ function exportReferralXlsx(){
   const dval = gv('rp-date') || today();
   const dd = new Date(dval + 'T12:00:00');
   const wareki = `令和${dd.getFullYear()-2018}年 ${dd.getMonth()+1}月 ${dd.getDate()}日`;
-  const n = Math.max(D.rows.carry.length, D.rows.cur.length, 14);
+  const n = Math.max(D.rows.carry.length, D.rows.cur.length, 8);
   const aoa = [];
   aoa.push(['', '', '', '', '支　払　明　細　書', '', '', '', '', '', '', '', '', '', '', '作成日：' + wareki]);   // 1
   aoa.push([r.name + '　御中', '', '', '', '', '', '', '', '', '', '', co.name, '', '', '', '']);                   // 2
@@ -1001,7 +1004,7 @@ function buildReferralPreview(){
   const tdR = td + ';text-align:right';
   const SEP = 'border-left:2px solid #333';   // 区切りの太線（前月繰越｜当月実績｜支払金額）
   // 前月繰越と当月実績を左右に並べる（行数はPDF同様に最低14行で揃える）
-  const n = Math.max(rows.carry.length, rows.cur.length, 14);
+  const n = Math.max(rows.carry.length, rows.cur.length, 8);
   let body = '';
   for (let i = 0; i < n; i++){
     const L = rows.carry[i], Rr = rows.cur[i];
@@ -1062,11 +1065,6 @@ function buildReferralPreview(){
         <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700;border-top:2px solid #333;${pca}">${yen(carrySum)}</td>
         <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700;border-top:2px solid #333;${SEP};${pca}">${yen(curSum)}</td>
         <td style="${tdR};background:#eef1f8;font-weight:700;border-top:2px solid #333;${SEP};${pca}">${yen(paidSum)}</td>
-      </tr>
-      <tr>
-        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700;${pca}">${yen(carrySum)}</td>
-        <td colspan="8" style="${tdR};background:#eef1f8;font-weight:700;${SEP};${pca}">${yen(curSum)}</td>
-        <td style="${tdR};background:#eef1f8;font-weight:700;${SEP};${pca}">${yen(paidSum)}</td>
       </tr>
       </tbody>
     </table>
