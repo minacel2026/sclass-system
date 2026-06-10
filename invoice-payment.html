@@ -152,9 +152,13 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .invoice-preview .total{font-size:1.2rem;font-weight:700;text-align:right;margin-top:1rem;padding-top:.5rem;border-top:2px solid #888;color:#000}
 
 @media print{
+  /* プレビュー部分のみを印刷（フォーム・タブ・ヘッダー等は出力しない） */
+  body *{visibility:hidden !important}
+  .invoice-preview, .invoice-preview *{visibility:visible !important}
+  .invoice-preview{position:absolute !important;left:0;top:0;width:100% !important;border:none !important;padding:0 !important;margin:0 !important;background:#fff !important}
+  .invoice-preview > div{max-width:none !important}
   header,.master-tabs,.kpi-row,.faction,.fp{display:none !important}
   body{background:#fff;color:#000}
-  .invoice-preview{border:none;padding:0}
 }
 
 #toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#161616;border:1px solid rgba(201,168,76,.4);color:#E8C97A;padding:.8rem 1.5rem;font-size:.85rem;z-index:9999;opacity:0;transition:opacity .2s;letter-spacing:.05em;pointer-events:none}
@@ -350,7 +354,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         </div>
       </div>
       <div class="faction">
-        <button class="btn btn-g" onclick="window.print()">🖨 印刷 / PDFで保存</button>
+        <button class="btn btn-g" onclick="printReferral()">🖨 印刷 / PDFで保存（横向き）</button>
         <button class="btn btn-g" onclick="exportReferralXlsx()">📥 Excelで出力（直接編集用）</button>
       </div>
     </div>
@@ -905,6 +909,20 @@ function exportReferralXlsx(){
   const fname = `支払明細書_${r.name}_${month}.xlsx`.replace(/[\\/:*?"<>|]/g, '_');
   XLSX.writeFile(wb, fname);
   toast('✓ Excelを出力しました: ' + fname);
+}
+// 紹介料明細書の印刷：横向き(A4 landscape)指定で印刷し、終了後に解除（請求書など他の印刷は縦のまま）
+function printReferral(){
+  let st = document.getElementById('print-landscape');
+  if (!st){
+    st = document.createElement('style');
+    st.id = 'print-landscape';
+    st.textContent = '@page{size:A4 landscape;margin:8mm}';
+    document.head.appendChild(st);
+  }
+  const cleanup = () => { const e = document.getElementById('print-landscape'); if (e) e.remove(); window.removeEventListener('afterprint', cleanup); };
+  window.addEventListener('afterprint', cleanup);
+  window.print();
+  setTimeout(cleanup, 2000);   // afterprint非対応ブラウザ向けの保険
 }
 function toggleCoEdit(){
   const box = document.getElementById('rp-co-box');
