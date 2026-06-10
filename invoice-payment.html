@@ -325,16 +325,22 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       </div>
     </div>
     <div class="form-section">
-      <div class="form-section-title">▸ 発行情報（弊社情報）<span class="hint" style="font-weight:400">　ここで修正できます。マスター管理→弊社情報から自動入力され、変更は次回も保持されます</span></div>
-      <div class="fgrid">
-        <div class="fg"><label>会社名</label><input class="fc" id="rp-co-name" placeholder="株式会社 Sclass"></div>
-        <div class="fg"><label>登録番号（適格請求書）</label><input class="fc" id="rp-co-inv" placeholder="T1370003005017"></div>
-        <div class="fg"><label>郵便番号</label><input class="fc" id="rp-co-zip" placeholder="980-0803"></div>
-        <div class="fg fc-full"><label>住所</label><input class="fc" id="rp-co-addr" placeholder="宮城県仙台市青葉区国分町1-6-15 奥田ビル4F"></div>
-        <div class="fg"><label>電話</label><input class="fc" id="rp-co-tel" placeholder="080-3199-0550"></div>
-        <div class="fg"><label>メール</label><input class="fc" id="rp-co-email" placeholder="tohoku@sendai-sclass.com"></div>
-        <div class="fg"><label>部署</label><input class="fc" id="rp-co-dept" placeholder="営業部"></div>
-        <div class="fg"><label>担当</label><input class="fc" id="rp-co-staff" placeholder="担当者名"></div>
+      <div style="display:flex;align-items:center;gap:.8rem">
+        <button class="btn-s" id="rp-co-toggle" onclick="toggleCoEdit()">🏢 弊社情報を編集</button>
+        <span class="hint" style="font-size:.68rem;color:var(--wh2)">普段は編集不要です。マスター管理→弊社情報から自動で明細書に入ります</span>
+      </div>
+      <div id="rp-co-box" style="display:none;margin-top:.8rem">
+        <div class="fgrid">
+          <div class="fg"><label>会社名</label><input class="fc" id="rp-co-name" placeholder="株式会社 Sclass"></div>
+          <div class="fg"><label>登録番号（適格請求書）</label><input class="fc" id="rp-co-inv" placeholder="T1370003005017"></div>
+          <div class="fg"><label>郵便番号</label><input class="fc" id="rp-co-zip" placeholder="980-0803"></div>
+          <div class="fg fc-full"><label>住所</label><input class="fc" id="rp-co-addr" placeholder="宮城県仙台市青葉区国分町1-6-15 奥田ビル4F"></div>
+          <div class="fg"><label>電話</label><input class="fc" id="rp-co-tel" placeholder="080-3199-0550"></div>
+          <div class="fg"><label>メール</label><input class="fc" id="rp-co-email" placeholder="tohoku@sendai-sclass.com"></div>
+          <div class="fg"><label>部署</label><input class="fc" id="rp-co-dept" placeholder="営業部"></div>
+          <div class="fg"><label>担当</label><input class="fc" id="rp-co-staff" placeholder="担当者名"></div>
+        </div>
+        <div style="font-size:.66rem;color:var(--wh2);margin-top:.3rem">変更内容は保存され、次回以降の明細書にも使われます（プレビュー作成時に反映）</div>
       </div>
     </div>
     <div class="form-section">
@@ -845,6 +851,13 @@ function initReferral(){
   set('rp-co-email', saved.email || co.email || '');
   set('rp-co-dept',  saved.dept  || co.dept  || '営業部');
   set('rp-co-staff', saved.staff || ((typeof currentUser !== 'undefined' && currentUser.name) || ''));
+}
+function toggleCoEdit(){
+  const box = document.getElementById('rp-co-box');
+  const btn = document.getElementById('rp-co-toggle');
+  const open = box.style.display === 'none';
+  box.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '▲ 閉じる' : '🏢 弊社情報を編集';
 }
 function referralUnit(r, cust, prodKey){
   const p = PROD_LIST.find(x => x.key === prodKey || x.name === prodKey || (x.fullName||'').indexOf(prodKey) >= 0);
