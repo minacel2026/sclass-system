@@ -3200,5 +3200,14 @@ function formatDeliveryZip(input, i){
 }
 </script>
 
+<script>
+// ポータルのチップから #ハッシュ指定でタブ直行（例: master.html#customers）
+window.addEventListener('DOMContentLoaded', function(){
+  var mods=['customers','staff','products','referrers','sponsors','company'];
+  var h=(location.hash||'').replace('#','');
+  var i=mods.indexOf(h);
+  if(i>=0){ try{ switchMaster(mods[i], document.querySelectorAll('.mtab')[i]); }catch(e){} }
+});
+</script>
 </body>
 </html>

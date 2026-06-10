@@ -1396,5 +1396,14 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
+<script>
+// ポータルのチップから #ハッシュ指定でタブ直行（例: invoice-payment.html#payment）
+window.addEventListener('DOMContentLoaded', function(){
+  var mods=['payment','arsummary','invoice','referral','bank','history'];
+  var h=(location.hash||'').replace('#','');
+  var i=mods.indexOf(h);
+  if(i>=0){ try{ switchModule(mods[i], document.querySelectorAll('.mtab')[i]); }catch(e){} }
+});
+</script>
 </body>
 </html>
