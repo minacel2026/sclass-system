@@ -199,6 +199,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     <button class="mtab active" onclick="switchModule('payment',this)"><span class="mtab-ic">💴</span>集金管理</button>
     <button class="mtab" onclick="switchModule('arsummary',this)"><span class="mtab-ic">📊</span>売掛サマリー</button>
     <button class="mtab" onclick="switchModule('invoice',this)"><span class="mtab-ic">📄</span>請求書</button>
+    <button class="mtab" onclick="switchModule('referral',this)"><span class="mtab-ic">🤝</span>紹介料</button>
     <button class="mtab" onclick="switchModule('bank',this)"><span class="mtab-ic">🏦</span>通帳連携</button>
     <button class="mtab" onclick="switchModule('history',this)"><span class="mtab-ic">📋</span>入金履歴</button>
   </div>
@@ -309,6 +310,32 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   </div>
 
   <!-- ════════ 通帳連携 ════════ -->
+  <!-- ════════ 紹介料（支払明細書） ════════ -->
+  <div id="m-referral" class="mcon">
+    <div class="info-note" style="margin-bottom:1rem">
+      紹介者と対象月を選んで支払明細書を作成します。<strong>当月末までに入金された分</strong>が支払対象（支払日：翌月10日）。紹介料率は紹介者マスターの計算方式（A：売値×％／B：掛率差）を使用します。
+    </div>
+    <div class="form-section">
+      <div class="form-section-title">▸ 明細書の作成</div>
+      <div class="fgrid">
+        <div class="fg"><label>紹介者 <span class="req">*</span></label><select class="fc" id="rp-ref"></select></div>
+        <div class="fg"><label>対象月 <span class="req">*</span></label><input class="fc" id="rp-month" type="month"></div>
+        <div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-p" onclick="buildReferralPreview()">📄 プレビュー作成</button></div>
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="form-section-title">▸ 支払明細書プレビュー</div>
+      <div id="rp-preview" class="invoice-preview">
+        <div style="text-align:center;color:#888;padding:4rem 2rem">
+          紹介者と対象月を選択して「プレビュー作成」を押してください
+        </div>
+      </div>
+      <div class="faction">
+        <button class="btn btn-g" onclick="window.print()">🖨 印刷 / PDFで保存</button>
+      </div>
+    </div>
+  </div>
+
   <div id="m-bank" class="mcon">
     <div class="hint-box">
       <strong>🏦 通帳連携</strong><br>
@@ -520,6 +547,7 @@ function switchModule(name, el){
   if (name === 'payment')   renderPayment();
   if (name === 'arsummary') renderARSummary();
   if (name === 'invoice')   initInvoice();
+  if (name === 'referral')  initReferral();
   if (name === 'bank')      renderBank();
   if (name === 'history')   renderHistory();
 }
@@ -769,6 +797,102 @@ function revertCollect(id){
   if (S.gasUrl && o.id) gasPost({ action: 'updatePayStatus', orderId: o.id, payStatus: '未収' });
   toast('✓ 未収に差し戻しました');
   renderPayment(); updateKPI();
+}
+
+// ===== 紹介料 支払明細書 =====
+// 業務ルール：紹介者の担当店舗の売上が当月末までに入金されたら、翌月10日に紹介料を支払う。
+// 単価は紹介者マスターの計算方式から税抜で算出し、消費税10%は合計に加算（Excelテンプレートと同形式）。
+//   A方式: 売値 × (param/100)
+//   B方式: 売値 × ((顧客掛率 − param) / 10)   例: 7掛・param5.5 → 売値×0.15
+function initReferral(){
+  loadState();
+  const sel = document.getElementById('rp-ref');
+  const refs = S.referrers || [];
+  sel.innerHTML = refs.length
+    ? refs.map(r => `<option value="${escapeHtml(r.id)}">${escapeHtml(r.name)}（${r.calcType==='B' ? 'B:掛率差 '+r.calcParam+'掛' : 'A:売値 '+r.calcParam+'%'}）</option>`).join('')
+    : '<option value="">紹介者が未登録です（マスター管理で登録）</option>';
+  const m = document.getElementById('rp-month');
+  if (!m.value){
+    const d = new Date(); d.setMonth(d.getMonth() - 1);   // 既定は先月（翌月10日に支払う運用のため）
+    m.value = d.toISOString().slice(0,7);
+  }
+}
+function referralUnit(r, cust, prodKey){
+  const p = PROD_LIST.find(x => x.key === prodKey || x.name === prodKey || (x.fullName||'').indexOf(prodKey) >= 0);
+  if (!p) return 0;
+  const base = p.price;                               // 税抜売値
+  const param = parseFloat(r.calcParam) || 0;
+  if (r.calcType === 'B'){
+    const rate = parseFloat((cust && cust.rate) || '7') || 7;
+    return Math.max(0, base * (rate - param) / 10);
+  }
+  return base * param / 100;                          // A方式
+}
+function buildReferralPreview(){
+  loadState();
+  const r = (S.referrers || []).find(x => x.id === document.getElementById('rp-ref').value);
+  const month = document.getElementById('rp-month').value;   // YYYY-MM
+  const box = document.getElementById('rp-preview');
+  if (!r || !month){ toast('紹介者と対象月を選択してください', 'error'); return; }
+  const custs = (S.customers || []).filter(c => (c.referrer || '') === r.name);
+  if (custs.length === 0){
+    box.innerHTML = `<div style="text-align:center;color:#888;padding:3rem">紹介者「${escapeHtml(r.name)}」が紹介者に設定された顧客がいません。<br>マスター管理 → 顧客の「紹介者」欄をご確認ください。</div>`;
+    return;
+  }
+  const custByStore = Object.fromEntries(custs.map(c => [c.name, c]));
+  const mStart = month + '-01';
+  const nextM = (() => { const d = new Date(month + '-01T12:00:00'); d.setMonth(d.getMonth()+1); return d; })();
+  const payDate = `${nextM.getFullYear()}年${nextM.getMonth()+1}月10日`;
+  const rows = { carry: [], cur: [] };
+  let carrySum = 0, curSum = 0, paidSum = 0;
+  (S.orders || []).forEach(o => {
+    const cust = custByStore[o.store];
+    if (!cust) return;
+    const oDate = String(o.date || '').slice(0,10);
+    if (!oDate) return;
+    const paid = String(o.paidAt || '').slice(0,10);
+    const paidInM = paid && paid.slice(0,7) === month;
+    const isCur = oDate.slice(0,7) === month;
+    const isCarry = oDate < mStart && (!paid || paid >= mStart);   // 月初時点で未入金だった過去注文
+    if (!isCur && !isCarry) return;
+    Object.entries(o.items || {}).forEach(([prod, qty]) => {
+      if (!qty) return;
+      const unit = referralUnit(r, cust, prod);
+      const amt = unit * qty;
+      const row = { store: o.store, date: oDate, prod, qty, unit, amt, paid: paidInM ? paid : (paid && paid < mStart ? '' : paid) };
+      if (isCur){ rows.cur.push(row); curSum += amt; } else { rows.carry.push(row); carrySum += amt; }
+      if (paidInM) paidSum += amt;
+    });
+  });
+  const tax = paidSum * 0.1;
+  const tbl = (list) => list.length === 0
+    ? '<div style="color:#999;padding:.6rem;font-size:.8rem">該当なし</div>'
+    : `<table style="width:100%;border-collapse:collapse;font-size:.78rem"><thead><tr>
+        <th>店舗名</th><th>日付</th><th>商品名</th><th style="text-align:right">数量</th><th style="text-align:right">単価</th><th style="text-align:right">金額</th><th>入金日</th>
+       </tr></thead><tbody>${list.map(x => `<tr${x.paid ? ' style="background:#f5fbf5"' : ''}>
+        <td>${escapeHtml(x.store)}</td><td>${escapeHtml(x.date)}</td><td>${escapeHtml(x.prod)}</td>
+        <td style="text-align:right">${x.qty}本</td><td style="text-align:right">¥${fmt(Math.round(x.unit))}</td>
+        <td style="text-align:right">¥${fmt(Math.round(x.amt))}</td><td>${escapeHtml(x.paid || '')}</td>
+       </tr>`).join('')}</tbody></table>`;
+  box.innerHTML = `
+    <div style="text-align:center;font-size:1.3rem;letter-spacing:.5em;margin-bottom:1rem;color:#000">支 払 明 細 書</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:.8rem">
+      <div style="font-size:1.05rem;border-bottom:2px solid #333;padding:0 1rem .2rem .2rem;color:#000">${escapeHtml(r.name)} 様</div>
+      <div style="font-size:.75rem;color:#444;text-align:right">対象月：${escapeHtml(month)}<br>支払予定日：${payDate}</div>
+    </div>
+    <div style="font-size:.8rem;color:#333;margin-bottom:.6rem">下記の通りお支払いさせていただきます。</div>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem">
+      <div style="flex:1;min-width:130px;border:1px solid #bbb;padding:.5rem"><div style="font-size:.65rem;color:#666">お支払金額(税込)</div><div style="font-size:1.15rem;font-weight:700;color:#000">¥${fmt(Math.round(paidSum + tax))}</div></div>
+      <div style="flex:1;min-width:110px;border:1px solid #ddd;padding:.5rem"><div style="font-size:.65rem;color:#666">前月繰越額(税抜)</div><div style="color:#000">¥${fmt(Math.round(carrySum))}</div></div>
+      <div style="flex:1;min-width:110px;border:1px solid #ddd;padding:.5rem"><div style="font-size:.65rem;color:#666">当月実績額(税抜)</div><div style="color:#000">¥${fmt(Math.round(curSum))}</div></div>
+      <div style="flex:1;min-width:110px;border:1px solid #ddd;padding:.5rem"><div style="font-size:.65rem;color:#666">当月入金額(税抜)</div><div style="color:#000">¥${fmt(Math.round(paidSum))}</div></div>
+      <div style="flex:1;min-width:110px;border:1px solid #ddd;padding:.5rem"><div style="font-size:.65rem;color:#666">消費税額(10%)</div><div style="color:#000">¥${fmt(Math.round(tax))}</div></div>
+    </div>
+    <div style="font-weight:700;font-size:.85rem;margin:.6rem 0 .3rem;color:#000">前　月　繰　越　額</div>
+    ${tbl(rows.carry)}
+    <div style="font-weight:700;font-size:.85rem;margin:1rem 0 .3rem;color:#000">当　月　実　績　高</div>
+    ${tbl(rows.cur)}
+    <div style="font-size:.7rem;color:#555;margin-top:.8rem">※ 緑色の行＝対象月内に入金済み（支払対象）。単価は${r.calcType==='B' ? `B方式：売値×(顧客掛率−${r.calcParam})÷10` : `A方式：売値×${r.calcParam}%`}（税抜）。消費税10%は合計に加算。</div>`;
 }
 
 // 集金管理から注文を削除（在庫を戻す・協賛取消・スプシ行削除・ローカル削除）

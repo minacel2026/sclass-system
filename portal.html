@@ -64,6 +64,7 @@ main{max-width:1200px;margin:0 auto;padding:3rem 2rem}
 .tile:hover{transform:translateY(-2px);border-color:var(--acc,var(--gold));background:var(--d3)}
 .tile:hover::before{opacity:1}
 .tile-icon{font-size:1.8rem;margin-bottom:.7rem;line-height:1}
+.tile-icon svg{width:30px;height:30px;stroke:var(--gold-l);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:block}
 .tile-name{font-size:.95rem;font-weight:700;color:var(--gold-l);margin-bottom:.3rem;letter-spacing:.05em}
 .tile-desc{font-size:.72rem;color:var(--wh2);line-height:1.6;flex:1;display:none}
 .tile-foot{margin-top:.8rem;padding-top:.6rem;border-top:1px solid rgba(255,255,255,.05);font-size:.62rem;color:var(--wh3);font-family:monospace}
@@ -156,7 +157,7 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
     </div>
     <div class="tile-grid grid-4">
       <a class="tile gray" href="master.html" style="grid-column:span 2">
-        <div class="tile-icon">⚙️</div>
+        <div class="tile-icon"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 11v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/></svg></div>
         <div class="tile-name">マスター管理</div>
         <div class="tile-desc">顧客・スタッフ・弊社情報・商品・紹介者・協賛マスターを1つの画面で管理</div>
         <div style="display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap">
@@ -181,25 +182,25 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
     </div>
     <div class="tile-grid grid-4">
       <a class="tile teal" href="sales-stock.html">
-        <div class="tile-icon">📋</div>
+        <div class="tile-icon"><svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></div>
         <div class="tile-name">受発注・在庫</div>
         <div class="tile-desc">LINE受注・注文登録・在庫管理・仕入・棚卸</div>
         <div class="tile-foot">sales-stock.html</div>
       </a>
       <a class="tile purple" href="invoice-payment.html">
-        <div class="tile-icon">📄</div>
+        <div class="tile-icon"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h6"/></svg></div>
         <div class="tile-name">請求・入金</div>
         <div class="tile-desc">請求書作成・入金管理・売掛サマリー・PDF照合</div>
         <div class="tile-foot">invoice-payment.html</div>
       </a>
       <a class="tile pink" href="accounting.html">
-        <div class="tile-icon">💴</div>
+        <div class="tile-icon"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="8.01" y2="11"/><line x1="12" y1="11" x2="12.01" y2="11"/><line x1="16" y1="11" x2="16.01" y2="11"/><line x1="8" y1="15" x2="8.01" y2="15"/><line x1="12" y1="15" x2="12.01" y2="15"/><line x1="16" y1="15" x2="16.01" y2="15"/></svg></div>
         <div class="tile-name">会計</div>
         <div class="tile-desc">経費精算・通帳連携・小口現金・AMEX・請求書支払</div>
         <div class="tile-foot">accounting.html</div>
       </a>
       <a class="tile coral" href="analysis.html">
-        <div class="tile-icon">📊</div>
+        <div class="tile-icon"><svg viewBox="0 0 24 24"><line x1="3" y1="21" x2="21" y2="21"/><rect x="5" y="10" width="3" height="8"/><rect x="10.5" y="6" width="3" height="12"/><rect x="16" y="13" width="3" height="5"/></svg></div>
         <div class="tile-name">分析・日報<span class="badge-new">NEW</span></div>
         <div class="tile-desc">月次P&L・年次・地域分析・営業日報</div>
         <div class="tile-foot">analysis.html</div>
@@ -216,19 +217,19 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
     </div>
     <div class="tile-grid grid-3">
       <a class="tile blue" href="liff-order-form.html" target="_blank">
-        <div class="tile-icon">📱</div>
+        <div class="tile-icon"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg></div>
         <div class="tile-name">LIFF 注文フォーム</div>
         <div class="tile-desc">顧客がLINEから注文するフォーム（プレビュー用）</div>
         <div class="tile-foot">liff-order-form.html</div>
       </a>
       <a class="tile blue" href="customer_portal.html" target="_blank">
-        <div class="tile-icon">🏠</div>
+        <div class="tile-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
         <div class="tile-name">顧客マイページ</div>
         <div class="tile-desc">顧客が支払状況・注文履歴を確認（プレビュー用）</div>
         <div class="tile-foot">customer_portal.html</div>
       </a>
       <a class="tile gray" href="settings.html">
-        <div class="tile-icon">⚙️</div>
+        <div class="tile-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
         <div class="tile-name">GAS・LINE設定</div>
         <div class="tile-desc">GAS URL・Webhook・LIFF ID・リッチメニュー</div>
         <div class="tile-foot">settings.html</div>
