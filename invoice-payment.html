@@ -1017,13 +1017,15 @@ function buildReferralPreview(){
           <td style="${tdR};background:#eef1f8;font-weight:700;${SEP};${pca}">${yen(tax)}</td>
         </tr></table>
       </div>
-      <div style="width:30%;font-size:.66rem;line-height:1.6;padding-left:.8rem">
+      <div style="width:30%;font-size:.66rem;line-height:1.6;padding-left:.8rem;padding-top:2.2rem">
         <div style="font-size:1rem;font-weight:700;margin-bottom:.15rem">${escapeHtml(co.name || '株式会社 Sclass')}</div>
         ${co.inv ? `<div>登録番号：${escapeHtml(co.inv)}</div>` : ''}
         ${co.zip ? `<div>〒 ${escapeHtml(co.zip)}</div>` : ''}
         ${co.addr ? `<div>${escapeHtml(co.addr)}</div>` : ''}
-        <div>${co.tel ? '☎ ' + escapeHtml(co.tel) : ''}${co.email ? '　✉ ' + escapeHtml(co.email) : ''}</div>
-        <div>部署：${escapeHtml(co.dept || '営業部')}　　担当：${escapeHtml(co.staff || '')}</div>
+        ${co.tel ? `<div>☎ ${escapeHtml(co.tel)}</div>` : ''}
+        ${co.email ? `<div>✉ ${escapeHtml(co.email)}</div>` : ''}
+        <div>部署：${escapeHtml(co.dept || '営業部')}</div>
+        ${co.staff ? `<div>担当：${escapeHtml(co.staff)}</div>` : ''}
       </div>
     </div>
     <table style="border-collapse:collapse;width:100%;border:2px solid #333;table-layout:fixed;page-break-inside:auto">
