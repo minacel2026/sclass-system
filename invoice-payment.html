@@ -1170,7 +1170,8 @@ function buildReferralPreview(){
   if (_cv && box.clientWidth > 50){
     const _cs = getComputedStyle(box);
     const _avail = box.clientWidth - (parseFloat(_cs.paddingLeft)||0) - (parseFloat(_cs.paddingRight)||0) - 6;
-    _cv.style.zoom = Math.max(0.2, _avail / 2200);
+    _cv.style.zoom = Math.max(0.2, Math.min(_avail, 1120) / 2200);   // 上限1120px=間延び防止
+    _cv.style.margin = '0 auto';                                      // 中央寄せ
   }
 
 }
