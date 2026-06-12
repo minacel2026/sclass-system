@@ -1127,6 +1127,9 @@ function buildReferralPreview(){
     </table>
     <div style="font-size:11px;color:#444;margin-top:8px">対象月：${escapeHtml(month)}　／　お支払予定日：${payDate}　（当月末までに入金された分を翌月10日にお支払い）</div>
   </div>`;
+  // プレビュー幅にフィット（Excel比率のまま右の空白なし。印刷時はCSSで0.47に上書き）
+  const _cv = document.getElementById('rp-canvas');
+  if (_cv && box.clientWidth > 50){ _cv.style.zoom = (box.clientWidth - 8) / 2200; }
 
 }
 
