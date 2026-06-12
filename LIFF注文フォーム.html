@@ -432,23 +432,23 @@
   <div class="section">
     <div class="section-title">お客様情報</div>
     <label>店舗名 <span style="color:var(--red)">*</span></label>
-    <input type="text" id="p1-store" placeholder="例：Club Camels">
+    <input type="text" id="p1-store" placeholder="例：株式会社 Sclass">
     <label>お届け先名 <span style="color:var(--red)">*</span></label>
-    <input type="text" id="p1-delivery" placeholder="例：田中太郎">
+    <input type="text" id="p1-delivery" placeholder="例：Sclass 営業部">
     <label>郵便番号</label>
     <div style="display:flex;gap:8px;align-items:center">
-      <input type="tel" id="p1-zip" placeholder="例：983-0852" maxlength="8" style="flex:1" oninput="onZipInput(this.value)">
+      <input type="tel" id="p1-zip" placeholder="例：980-0803" maxlength="8" style="flex:1" oninput="onZipInput(this.value)">
       <button onclick="searchZip()" style="padding:10px 12px;background:rgba(201,168,76,.2);border:1px solid rgba(201,168,76,.4);color:var(--gold);border-radius:6px;font-size:.75rem;white-space:nowrap;cursor:pointer">🔍 検索</button>
       <button onclick="openZipSearch()" style="padding:10px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:var(--wh2);border-radius:6px;font-size:.75rem;white-space:nowrap;cursor:pointer">わからない</button>
     </div>
     <div id="zip-msg" style="font-size:.65rem;margin-top:4px;min-height:14px"></div>
     <label>お届け先住所 <span style="color:var(--red)">*</span></label>
-    <input type="text" id="p1-address1" placeholder="例：宮城県仙台市青葉区">
-    <input type="text" id="p1-address2" placeholder="番地・建物名（例：1-2-3 マンション101）" style="margin-top:6px">
+    <input type="text" id="p1-address1" placeholder="例：宮城県仙台市青葉区国分町1-6-15">
+    <input type="text" id="p1-address2" placeholder="建物名など（例：奥田ビル4F）" style="margin-top:6px">
     <label>連絡先名 <span style="color:var(--red)">*</span></label>
-    <input type="text" id="p1-contact" placeholder="例：佐藤花子">
+    <input type="text" id="p1-contact" placeholder="例：佐々木 希望">
     <label>連絡先電話番号 <span style="color:var(--red)">*</span></label>
-    <input type="tel" id="p1-tel" placeholder="例：090-1234-5678">
+    <input type="tel" id="p1-tel" placeholder="例：080-3199-0550">
   </div>
   <button class="bottom-next-btn" onclick="goPage(2)" style="width:100%;padding:14px;font-size:.9rem;margin-top:8px">次へ　→</button>
 </div>
@@ -549,10 +549,10 @@
 
 <script>
 // ========== 設定 ==========
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbx_Q66tKpOikzNnVVJkpQLiC3MD9FZh2PkA1n10h1xiTrr-N0RWY9sLyCJWfFdiyVHH/exec';
-const LIFF_ID = 'YOUR_LIFF_ID'; // LIFFのIDに変更
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';   // 現行システムと同一
+const LIFF_ID = '';   // LINEミニアプリのLIFF IDを設定（空のままでもブラウザで動作確認可）
 
-const PRODUCTS = [
+const PRODUCTS = [   // ★システムの商品マスター(shared.js PROD_LIST)と同期(17種)
   { name: 'イエロー',       price: 10500,  color: '#f4d03f' },
   { name: 'オレンジ',       price: 21000,  color: '#e67e22' },
   { name: 'ブルー',         price: 21000,  color: '#3498db' },
@@ -562,7 +562,6 @@ const PRODUCTS = [
   { name: 'ルミナス',       price: 55000,  color: '#9b59b6' },
   { name: 'レジェンド',     price: 55000,  color: '#c0392b' },
   { name: 'さくら',         price: 25000,  color: '#f1948a' },
-  { name: 'シコ',           price: 100000, color: '#1a1a2e' },
   { name: 'チェングレット', price: 6800,   color: '#a8d5a2' },
   { name: 'チェングロッソ', price: 6800,   color: '#5dbb63' },
   { name: 'トレスコーネ',   price: 7800,   color: '#2e7d32' },
@@ -590,7 +589,7 @@ async function searchZip() {
   if (zip.length !== 7) { msg.style.color="#e74"; msg.textContent="7桁の郵便番号を入力してください"; return; }
   msg.style.color="var(--wh3)"; msg.textContent="検索中...";
   try {
-    const r = await fetch(GAS_URL + "?action=zip&zip=" + zip);
+    const r = await fetch("https://zipcloud.ibsnet.co.jp/api/search?zipcode=" + zip);
     const d = await r.json();
     if (d.results && d.results[0]) {
       const res = d.results[0];
@@ -616,20 +615,23 @@ async function init() {
   tomorrow.setDate(tomorrow.getDate() + 1);
   document.getElementById('p3-deldate').min = tomorrow.toISOString().split('T')[0];
 
-  // 前回情報を復元
+  // 顧客情報: 初回は空欄（Sclassの記入例がグレーのプレースホルダーで見える）／ 2回目以降は前回入力を復元
   try {
-    const saved = JSON.parse(localStorage.getItem('lmb_customer') || '{}');
-    if (saved.store) document.getElementById('p1-store').value = saved.store;
-    if (saved.delivery) document.getElementById('p1-delivery').value = saved.delivery;
-    if (saved.contact) document.getElementById('p1-contact').value = saved.contact;
-    if (saved.tel) document.getElementById('p1-tel').value = saved.tel;
-    if (saved.zip) document.getElementById('p1-zip').value = saved.zip;
-    if (saved.address1) document.getElementById('p1-address1').value = saved.address1;
-    if (saved.address2) document.getElementById('p1-address2').value = saved.address2;
+    const saved = JSON.parse(localStorage.getItem('lmb_customer_v2') || '{}');
+    if (saved.store) {
+      document.getElementById('p1-store').value    = saved.store    || '';
+      document.getElementById('p1-delivery').value = saved.delivery || '';
+      document.getElementById('p1-contact').value  = saved.contact  || '';
+      document.getElementById('p1-tel').value      = saved.tel      || '';
+      document.getElementById('p1-zip').value      = saved.zip      || '';
+      document.getElementById('p1-address1').value = saved.address1 || '';
+      document.getElementById('p1-address2').value = saved.address2 || '';
+    }
   } catch(e) {}
 
-  // LIFF初期化
+  // LIFF初期化（ID未設定や失敗時はブラウザモードで継続）
   try {
+    if (!LIFF_ID) throw new Error('LIFF_ID未設定');
     await liff.init({ liffId: LIFF_ID });
     if (liff.isLoggedIn()) {
       // 顧客認証チェック（GAS経由）
@@ -650,7 +652,12 @@ async function init() {
       if (authData.rate) window._custRate = authData.rate;
       lineProfile = await liff.getProfile();
     }
-  } catch(e) { console.log('LIFF init failed:', e); }
+  } catch(e) {
+    console.log('LIFF init failed:', e);
+    const hd = document.querySelector('.header');
+    if (hd) hd.insertAdjacentHTML('afterend',
+      '<div style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);color:#C9A84C;font-size:.68rem;text-align:center;padding:6px;border-radius:6px;margin:8px 12px">⚠ ブラウザモードで動作中（LINE連携なし）</div>');
+  }
 
   // 在庫取得
   await loadStock();
@@ -741,7 +748,7 @@ function goPage(n) {
   if (!document.getElementById('p1-tel').value.trim()) { alert('連絡先電話番号を入力してください'); return; }
   if (!document.getElementById('p1-address1').value.trim()) { alert('お届け先住所を入力してください'); return; }
     // 顧客情報保存
-    localStorage.setItem('lmb_customer', JSON.stringify({
+    localStorage.setItem('lmb_customer_v2', JSON.stringify({
       store: document.getElementById('p1-store').value,
       delivery: document.getElementById('p1-delivery').value,
       contact: document.getElementById('p1-contact').value,
@@ -823,45 +830,59 @@ function buildConfirm() {
 }
 
 // ========== 注文送信 ==========
+let _orderId = '';
 async function submitOrder() {
-  // 二重送信防止
-  if (window._submitting) return;
-  window._submitting = true;
-  document.getElementById('loading').style.display = 'block';
-  document.querySelector('#page4 .btn-primary').style.display = 'none';
-  document.querySelector('#page4 .btn-secondary').style.display = 'none';
+  const loading = document.getElementById('loading');
+  const btns = document.querySelectorAll('#page4 .bottom-next-btn, #page4 .bottom-back-btn');
+  loading.style.display = 'block';
+  btns.forEach(b => b.disabled = true);
 
+  const rate = parseFloat(window._custRate || '7') / 10;
   const items = {};
-  PRODUCTS.forEach(p => { if ((quantities[p.name] || 0) > 0) items[p.name] = quantities[p.name]; });
-
-  // 金額は表示・確認画面と同じ計算（掛率×税込）にそろえる
-  const _rate = parseFloat(window._custRate || '7') / 10;
   let total = 0;
-  PRODUCTS.forEach(p => { total += Math.round(p.price * _rate * 1.1) * (quantities[p.name] || 0); });
+  PRODUCTS.forEach(p => {
+    const q = quantities[p.name] || 0;
+    if (q > 0) {
+      items[p.name] = q;
+      total += Math.round(p.price * rate * 1.1) * q;   // 確認画面と同じ計算（掛率×税込）
+    }
+  });
 
+  _orderId = 'LF' + Date.now();
+  const zip = document.getElementById('p1-zip').value;
+  const addr = (zip ? '〒' + zip + ' ' : '') + document.getElementById('p1-address1').value + ' ' + document.getElementById('p1-address2').value;
+  const noteParts = [];
+  const deldate = document.getElementById('p3-deldate').value;
+  const deltime = document.getElementById('p3-deltime').value;
+  const delnote = document.getElementById('p3-delnote').value;
+  const contact = document.getElementById('p1-contact').value;
+  const tel = document.getElementById('p1-tel').value;
+  if (deldate) noteParts.push('希望配達日:' + deldate);
+  if (deltime) noteParts.push('時間帯:' + deltime);
+  if (delnote) noteParts.push('配達メモ:' + delnote);
+  if (contact) noteParts.push('連絡先:' + contact + (tel ? '(' + tel + ')' : ''));
+  const note = document.getElementById('p3-note').value;
+  if (note) noteParts.push(note);
+  noteParts.push('掛率' + (window._custRate || '7') + '掛');
+
+  // GASの注文受付シート(saveOrderToSheet)の列構成に合わせたペイロード
   const orderData = {
     action: 'saveOrder',
-    id: 'liff-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),  // 一意ID（重複排除用）
+    id: _orderId,
     timestamp: new Date().toLocaleString('ja-JP'),
+    branch: '',                          // 拠点は受注処理時に担当者が確定
+    staff: 'LINEフォーム',
     store: document.getElementById('p1-store').value,
-    delivery: document.getElementById('p1-delivery').value,
-    contact: document.getElementById('p1-contact').value,
-    tel: document.getElementById('p1-tel').value,
-    items: JSON.stringify(items),
+    area: '',
+    items: items,                        // GAS側でJSON文字列化される
     amount: total,
     payMethod: document.getElementById('p3-pay').value,
-    zip: document.getElementById('p1-zip').value,
-    address1: document.getElementById('p1-address1').value,
-    address2: document.getElementById('p1-address2').value,
-    deliveryDate: document.getElementById('p3-deldate').value,
-    deliveryTime: document.getElementById('p3-deltime').value,
-    deliveryNote: document.getElementById('p3-delnote').value,
-    note: document.getElementById('p3-note').value,
     payStatus: '未収',
     status: '新規',
-    lineUserId: lineProfile?.userId || '',
-    lineDisplayName: lineProfile?.displayName || '',
-    source: 'LIFF'
+    note: noteParts.join('　／　'),
+    deliveryName: document.getElementById('p1-delivery').value,
+    deliveryAddress: addr.trim(),
+    uid: (lineProfile && lineProfile.userId) || ''
   };
 
   try {
@@ -872,17 +893,15 @@ async function submitOrder() {
       body: JSON.stringify(orderData)
     });
   } catch(e) {
-    console.log('送信エラー:', e);
-    // 送信失敗: フラグを戻し、ボタンを復帰して再送信できるようにする
-    window._submitting = false;
-    document.getElementById('loading').style.display = 'none';
-    document.querySelector('#page4 .btn-primary').style.display = '';
-    document.querySelector('#page4 .btn-secondary').style.display = '';
-    alert('送信に失敗しました。通信環境を確認して、もう一度お試しください。');
+    loading.style.display = 'none';
+    btns.forEach(b => b.disabled = false);
+    alert('送信に失敗しました。通信環境をご確認のうえ、もう一度「注文送信」を押してください。');
     return;
   }
 
-  // 完了画面へ
+  // 完了画面へ（注文番号を表示）
+  const msg = document.querySelector('#page5 .success-msg');
+  if (msg) msg.insertAdjacentHTML('afterbegin', '<div style="color:#C9A84C;font-size:.8rem;margin-bottom:10px">注文番号：' + _orderId + '</div>');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page5').classList.add('active');
   document.getElementById('steps').style.display = 'none';
