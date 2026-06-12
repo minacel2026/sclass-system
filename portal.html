@@ -63,12 +63,15 @@ main{max-width:1200px;margin:0 auto;padding:3rem 2rem}
 .tile::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--acc,var(--gold)),transparent);opacity:.6}
 .tile:hover{transform:translateY(-2px);border-color:var(--acc,var(--gold));background:var(--d3)}
 .tile:hover::before{opacity:1}
-.tile-icon{font-size:1.8rem;margin-bottom:.7rem;line-height:1}
-.tile-icon svg{width:30px;height:30px;stroke:var(--gold-l);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:block}
+.tile-icon{font-size:1.8rem;margin-bottom:.45rem;line-height:1}
+.tile-icon svg{width:22px;height:22px;stroke:var(--gold-l);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:block}
 .tile-name{font-size:.95rem;font-weight:700;color:var(--gold-l);margin-bottom:.3rem;letter-spacing:.05em}
 .tile-desc{font-size:.72rem;color:var(--wh2);line-height:1.6;flex:1;display:none}
-.tile-chip{font-size:.6rem;padding:.18rem .55rem;background:rgba(201,168,76,.15);color:var(--gold-l);border-radius:2px;cursor:pointer;letter-spacing:.03em;transition:background .15s}
+.tile-chip{flex:0 0 calc(50% - .2rem);box-sizing:border-box;text-align:center;font-size:.6rem;padding:.24rem .2rem;background:rgba(201,168,76,.15);color:var(--gold-l);border-radius:2px;cursor:pointer;letter-spacing:.03em;transition:background .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tile-chip:hover{background:rgba(201,168,76,.35)}
+.tile-chip.c5{font-size:.55rem}
+.tile-chip.c6{font-size:.5rem}
+.tile-chip.c7{font-size:.45rem}
 .tile-foot{margin-top:.8rem;padding-top:.6rem;border-top:1px solid rgba(255,255,255,.05);font-size:.62rem;color:var(--wh3);font-family:monospace}
 
 /* ─── カラー別 ─── */
@@ -162,13 +165,13 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
         <div class="tile-icon"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 11v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/></svg></div>
         <div class="tile-name">マスター管理</div>
         <div class="tile-desc">顧客・スタッフ・弊社情報・商品・紹介者・協賛マスターを1つの画面で管理</div>
-        <div style="display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap">
-          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='master.html#customers'">🏪 顧客</span>
+        <div style="display:flex;gap:.4rem;margin-top:.6rem;flex-wrap:wrap">
+          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='master.html#customers'">🏪 顧客管理</span>
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='master.html#staff'">👥 スタッフ</span>
-          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='master.html#products'">🍾 商品</span>
+          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='master.html#products'">🍾 商品管理</span>
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='master.html#referrers'">🤝 紹介者</span>
-          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='master.html#sponsors'">🎁 協賛</span>
-          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='master.html#company'">🏢 弊社</span>
+          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='master.html#sponsors'">🎁 協賛設定</span>
+          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='master.html#company'">🏢 弊社情報</span>
         </div>
         <div class="tile-foot">master.html</div>
       </a>
@@ -203,7 +206,7 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
         <div class="tile-desc">請求書作成・入金管理・売掛サマリー・PDF照合</div>
         <div style="display:flex;gap:.4rem;margin-top:.6rem;flex-wrap:wrap">
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='invoice-payment.html#payment'">💴 集金管理</span>
-          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='invoice-payment.html#arsummary'">📊 売掛サマリー</span>
+          <span class="tile-chip c6" onclick="event.preventDefault();event.stopPropagation();location.href='invoice-payment.html#arsummary'">📊 売掛サマリー</span>
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='invoice-payment.html#invoice'">📄 請求書</span>
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='invoice-payment.html#referral'">🤝 紹介料</span>
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='invoice-payment.html#bank'">🏦 通帳連携</span>
@@ -216,11 +219,11 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
         <div class="tile-name">会計</div>
         <div class="tile-desc">経費精算・通帳連携・小口現金・AMEX・請求書支払</div>
         <div style="display:flex;gap:.4rem;margin-top:.6rem;flex-wrap:wrap">
-          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='accounting.html#cashbook'">💵 現金出納帳</span>
+          <span class="tile-chip c5" onclick="event.preventDefault();event.stopPropagation();location.href='accounting.html#cashbook'">💵 現金出納帳</span>
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='accounting.html#expense'">📝 経費精算</span>
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='accounting.html#petty'">👛 小口現金</span>
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='accounting.html#amex'">💳 AMEX</span>
-          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='accounting.html#payables'">📄 請求書支払</span>
+          <span class="tile-chip c5" onclick="event.preventDefault();event.stopPropagation();location.href='accounting.html#payables'">📄 請求書支払</span>
         </div>
         <div class="tile-foot">accounting.html</div>
       </a>
@@ -229,7 +232,7 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
         <div class="tile-name">分析・日報<span class="badge-new">NEW</span></div>
         <div class="tile-desc">月次P&L・年次・地域分析・営業日報</div>
         <div style="display:flex;gap:.4rem;margin-top:.6rem;flex-wrap:wrap">
-          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='analysis.html#monthly'">📈 月次P&L</span>
+          <span class="tile-chip c5" onclick="event.preventDefault();event.stopPropagation();location.href='analysis.html#monthly'">📈 月次P&L</span>
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='analysis.html#annual'">📅 年次管理</span>
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='analysis.html#regional'">🗾 地域分析</span>
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='analysis.html#product'">🍾 商品分析</span>
@@ -265,11 +268,11 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
         <div class="tile-name">GAS・LINE設定</div>
         <div class="tile-desc">GAS URL・Webhook・LIFF ID・リッチメニュー</div>
         <div style="display:flex;gap:.4rem;margin-top:.6rem;flex-wrap:wrap">
-          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#gas'">🔗 GAS設定</span>
-          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#gascode'">⚙️ GASコード</span>
-          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#line'">💬 LINE設定</span>
-          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#liff'">📱 LIFF登録</span>
-          <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#rmenu'">🍱 リッチメニュー</span>
+          <span class="tile-chip c5" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#gas'">🔗 GAS設定</span>
+          <span class="tile-chip c6" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#gascode'">⚙️ GASコード</span>
+          <span class="tile-chip c6" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#line'">💬 LINE設定</span>
+          <span class="tile-chip c6" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#liff'">📱 LIFF登録</span>
+          <span class="tile-chip c7" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#rmenu'">🍱 リッチメニュー</span>
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#etc'">🔧 その他</span>
         </div>
         <div class="tile-foot">settings.html</div>
