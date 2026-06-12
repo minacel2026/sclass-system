@@ -158,7 +158,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   .invoice-preview, .invoice-preview *{visibility:visible !important}
   .invoice-preview{position:absolute !important;left:0;top:0;width:100% !important;border:none !important;padding:0 !important;margin:0 !important;background:#fff !important}
   .invoice-preview{height:auto !important;overflow:visible !important}
-  #rp-canvas{zoom:.47 !important;transform:none !important}
+  #rp-canvas{zoom:.4828 !important;transform:none !important}
   body.print-ref > *:not(#print-root){display:none !important}
   #print-root{display:block !important;visibility:visible !important}
   #print-root *{visibility:visible !important}
@@ -983,7 +983,7 @@ function setupRefPrint(){
   root.id = 'print-root';
   const clone = cv.cloneNode(true);
   clone.id = 'rp-canvas-print';
-  clone.style.zoom = '0.47';
+  clone.style.zoom = '0.4828';
   root.appendChild(clone);
   document.body.appendChild(root);
   let st = document.getElementById('print-landscape');
@@ -1104,13 +1104,13 @@ function buildReferralPreview(){
     const cell = (x, sep) => x
       ? `<td style="${td};${TOP};font-size:21px;${sep?SEP:''}">${escapeHtml(x.store)}</td><td style="${td};${BOT};font-size:15px">${escapeHtml(x.date)}</td><td style="${td};${BOT};font-size:19px">${escapeHtml(x.prod)}</td><td style="${tdR};${BOT};font-size:19px">${x.qty}本</td><td style="${tdR};${BOT};font-size:19px">${x.rate!==''?x.rate:''}</td><td style="${tdR};${BOT};font-size:19px">${fmt(Math.round(x.unit))}</td><td style="${tdR};${BOT};font-size:19px">${fmt(Math.round(x.amt))}</td><td style="${td};${BOT};font-size:15px">${escapeHtml(x.paid||'')}</td>`
       : `<td style="${td};${sep?SEP:''}">&nbsp;</td>` + `<td style="${td}">&nbsp;</td>`.repeat(7);
-    body += `<tr style="page-break-inside:avoid;height:48px">${cell(L,false)}${cell(Rr,true)}<td style="${tdR};${BOT};${SEP};font-size:19px;${pca}">${payAmt ? fmt(Math.round(payAmt)) : '-'}</td></tr>`;
+    body += `<tr style="page-break-inside:avoid;height:50px">${cell(L,false)}${cell(Rr,true)}<td style="${tdR};${BOT};${SEP};font-size:19px;${pca}">${payAmt ? fmt(Math.round(payAmt)) : '-'}</td></tr>`;
   }
   // ===== テンプレ実寸の縮尺再現（2200pxキャンバスを0.5倍表示） =====
   // ===== Excel実物の画素実測に基づく縮尺再現（2200pxキャンバス、実測×1.921） =====
   box.innerHTML = `
-  <div id="rp-canvas" style="width:2200px;zoom:.5;font-family:'Meiryo UI','Yu Gothic',Meiryo,sans-serif;color:#000;padding:6px 0">
-    <div style="display:flex;align-items:flex-start;margin-bottom:14px">
+  <div id="rp-canvas" style="width:2200px;zoom:.5;font-family:'Meiryo UI','Yu Gothic',Meiryo,sans-serif;color:#000;padding:0">
+    <div style="display:flex;align-items:flex-start;margin-bottom:10px">
       <div style="flex:1"></div>
       <div style="width:34.3%;height:54px;line-height:54px;text-align:center;background:${G};color:#fff;font-size:25px;letter-spacing:.6em;font-weight:700;${pca}">支 払 明 細 書</div>
       <div style="flex:1;text-align:right;font-size:15px;color:#333;padding-top:8px">作成日：　${wareki}　　　1/1</div>
