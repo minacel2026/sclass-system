@@ -157,7 +157,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   .invoice-preview, .invoice-preview *{visibility:visible !important}
   .invoice-preview{position:absolute !important;left:0;top:0;width:100% !important;border:none !important;padding:0 !important;margin:0 !important;background:#fff !important}
   .invoice-preview{height:auto !important;overflow:visible !important}
-  #rp-canvas{transform:scale(.47) !important}
+  #rp-canvas{zoom:.47 !important;transform:none !important}
   header,.master-tabs,.kpi-row,.faction,.fp{display:none !important}
   body{background:#fff;color:#000}
 }
@@ -851,11 +851,11 @@ function initReferral(){
   const co = S.company || {};
   const set = (id, v) => { const el = document.getElementById(id); if (el && !el.value) el.value = v || ''; };
   set('rp-co-name',  saved.name  || co.name  || '株式会社 Sclass');
-  set('rp-co-inv',   saved.inv   || co.invNum || '');
-  set('rp-co-zip',   saved.zip   || co.zip   || '');
-  set('rp-co-addr',  saved.addr  || co.addr  || '');
-  set('rp-co-tel',   saved.tel   || co.tel   || '');
-  set('rp-co-email', saved.email || co.email || '');
+  set('rp-co-inv',   saved.inv   || co.invNum || 'T1370003005017');
+  set('rp-co-zip',   saved.zip   || co.zip   || '980-0803');
+  set('rp-co-addr',  saved.addr  || co.addr  || '宮城県仙台市青葉区国分町1-6-15　奥田ビル4F');
+  set('rp-co-tel',   saved.tel   || co.tel   || '080-3199-0550');
+  set('rp-co-email', saved.email || co.email || 'tohoku@sendai-sclass.com');
   set('rp-co-dept',  saved.dept  || co.dept  || '営業部');
   set('rp-co-staff', saved.staff || ((typeof currentUser !== 'undefined' && currentUser.name) || ''));
 }
@@ -1067,7 +1067,7 @@ function buildReferralPreview(){
   }
   // ===== テンプレ実寸の縮尺再現（2200pxキャンバスを0.5倍表示） =====
   box.innerHTML = `
-  <div id="rp-canvas" style="width:2200px;transform:scale(.5);transform-origin:top left;font-family:'Meiryo UI','Yu Gothic',Meiryo,sans-serif;color:#000">
+  <div id="rp-canvas" style="width:2200px;zoom:.5;font-family:'Meiryo UI','Yu Gothic',Meiryo,sans-serif;color:#000">
     <div style="display:flex;align-items:flex-start;margin-bottom:10px">
       <div style="flex:1"></div>
       <div style="width:34%;height:40px;line-height:40px;text-align:center;background:${G};color:#fff;font-size:21px;letter-spacing:.6em;font-weight:700;${pca}">支 払 明 細 書</div>
@@ -1127,8 +1127,7 @@ function buildReferralPreview(){
     </table>
     <div style="font-size:11px;color:#444;margin-top:8px">対象月：${escapeHtml(month)}　／　お支払予定日：${payDate}　（当月末までに入金された分を翌月10日にお支払い）</div>
   </div>`;
-  const _cv = document.getElementById('rp-canvas');
-  if (_cv){ box.style.height = Math.ceil(_cv.offsetHeight * 0.5 + 16) + 'px'; box.style.overflow = 'hidden'; }
+
 }
 
 // 集金管理から注文を削除（在庫を戻す・協賛取消・スプシ行削除・ローカル削除）
