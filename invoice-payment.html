@@ -1058,10 +1058,11 @@ function buildReferralPreview(){
   for (let i = 0; i < n; i++){
     const L = rows.carry[i], Rr = rows.cur[i];
     const payAmt = (L && L.paid ? L.amt : 0) + (Rr && Rr.paid ? Rr.amt : 0);
+    const TOP='vertical-align:top', BOT='vertical-align:bottom';
     const cell = (x, sep) => x
-      ? `<td style="${td};${sep?SEP:''}">${escapeHtml(x.store)}</td><td style="${td};font-size:.58rem">${escapeHtml(x.date)}</td><td style="${td}">${escapeHtml(x.prod)}</td><td style="${tdR};background:#E9ECF7">${x.qty}本</td><td style="${tdR};background:#E9ECF7">${x.rate!==''?x.rate:''}</td><td style="${tdR};background:#E9ECF7">${fmt(Math.round(x.unit))}</td><td style="${tdR};background:#E9ECF7">${fmt(Math.round(x.amt))}</td><td style="${td};font-size:.58rem;background:#E9ECF7">${escapeHtml(x.paid||'')}</td>`
+      ? `<td style="${td};${TOP};${sep?SEP:''}">${escapeHtml(x.store)}</td><td style="${td};${BOT};font-size:.52rem">${escapeHtml(x.date)}</td><td style="${td};${BOT}">${escapeHtml(x.prod)}</td><td style="${tdR};${BOT};background:#E9ECF7">${x.qty}本</td><td style="${tdR};${BOT};background:#E9ECF7">${x.rate!==''?x.rate:''}</td><td style="${tdR};${BOT};background:#E9ECF7">${fmt(Math.round(x.unit))}</td><td style="${tdR};${BOT};background:#E9ECF7">${fmt(Math.round(x.amt))}</td><td style="${td};${BOT};font-size:.52rem;background:#E9ECF7">${escapeHtml(x.paid||'')}</td>`
       : `<td style="${td};${sep?SEP:''}">&nbsp;</td>` + `<td style="${td}">&nbsp;</td>`.repeat(7);
-    body += `<tr style="page-break-inside:avoid">${cell(L,false)}${cell(Rr,true)}<td style="${tdR};${SEP};background:#D9DDF0;${pca}">${payAmt ? fmt(Math.round(payAmt)) : '-'}</td></tr>`;
+    body += `<tr style="page-break-inside:avoid;height:1.45rem">${cell(L,false)}${cell(Rr,true)}<td style="${tdR};${BOT};${SEP};background:#D9DDF0;${pca}">${payAmt ? fmt(Math.round(payAmt)) : '-'}</td></tr>`;
   }
   box.innerHTML = `
   <div style="font-family:'Meiryo UI','Yu Gothic',Meiryo,sans-serif;color:#000;max-width:1100px;margin:0 auto">
@@ -1076,7 +1077,7 @@ function buildReferralPreview(){
         <div style="font-size:.68rem;margin:.25rem 0 .7rem">下記の通りお支払いさせていただきます。</div>
         <table style="border-collapse:collapse;width:52%;margin-bottom:.7rem;border:2px solid #333"><tr>
           <td style="${th};width:48%;padding:.4rem .5rem">お支払金額(税込)</td>
-          <td style="${td};background:#D9DDF0;font-size:1.05rem;font-weight:700;text-align:center;${pca}">${yen(paidSum + tax)}</td>
+          <td style="${td};background:#D9DDF0;font-size:1.35rem;font-weight:700;text-align:center;${pca}">${yen(paidSum + tax)}</td>
         </tr></table>
         <table style="border-collapse:collapse;width:100%;border:2px solid #333"><tr>
           <td style="${th};width:23%">前月繰越額(税抜)</td><td style="${th};width:25%;${SEP}">当月実績額(税抜)</td><td style="${th};width:25%;${SEP}">当月入金額(税抜)</td><td style="${th};width:27%;${SEP}">消費税額(10％)</td>
@@ -1114,6 +1115,11 @@ function buildReferralPreview(){
         <td colspan="8" style="${tdR};background:#D9DDF0;font-weight:700;border-top:2px solid #333;${pca}">${yen(carrySum)}</td>
         <td colspan="8" style="${tdR};background:#D9DDF0;font-weight:700;border-top:2px solid #333;${SEP};${pca}">${yen(curSum)}</td>
         <td style="${tdR};background:#D9DDF0;font-weight:700;border-top:2px solid #333;${SEP};${pca}">${yen(paidSum)}</td>
+      </tr>
+      <tr>
+        <td colspan="8" style="${tdR};background:#D9DDF0;font-weight:700;${pca}">${yen(carrySum)}</td>
+        <td colspan="8" style="${tdR};background:#D9DDF0;font-weight:700;${SEP};${pca}">${yen(curSum)}</td>
+        <td style="${tdR};background:#D9DDF0;font-weight:700;${SEP};${pca}">${yen(paidSum)}</td>
       </tr>
       </tbody>
     </table>
