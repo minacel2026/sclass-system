@@ -1085,12 +1085,15 @@ function buildReferralPreview(){
   const dd = new Date(dval + 'T12:00:00');
   const wareki = `令和${dd.getFullYear()-2018}年 ${dd.getMonth()+1}月 ${dd.getDate()}日`;
   const yen = v => v ? '¥' + fmt(Math.round(v)) + '-' : '¥　　-';
+  // 合計・金額欄（Excel書式: ¥は左寄せ・金額/−は右寄せ）
+  const yenL = v => `<span style="float:left">¥</span>${v ? fmt(Math.round(v)) : '-'}`;
   const G = '#4e7d3a';                       // 緑（PDF書式）
+  const LAV = '#D9DDF0';                     // ラベンダー（実測色）
   const pca = '-webkit-print-color-adjust:exact;print-color-adjust:exact';
-  const th = `background:${G};color:#fff;border:1px solid #333;padding:.12rem .3rem;font-size:.6rem;font-weight:700;text-align:center;line-height:1.25;${pca}`;
-  const td = 'border-left:1px solid #999;border-right:1px solid #999;border-top:1px dashed #b0b0b0;border-bottom:1px dashed #b0b0b0;padding:.07rem .25rem;font-size:.64rem;color:#000;background:#fff;line-height:1.3';
+  const th = `background:${G};color:#fff;border:1px solid #436a31;padding:0 4px;font-weight:700;text-align:center;line-height:1.2;${pca}`;
+  const td = 'border-left:1px dotted #b8b8b8;border-right:1px dotted #b8b8b8;border-top:1px dashed #b8b8b8;border-bottom:1px dashed #b8b8b8;padding:1px 6px;color:#000;background:transparent;line-height:1.25';
   const tdR = td + ';text-align:right';
-  const SEP = 'border-left:2px solid #333';   // 区切りの太線（前月繰越｜当月実績｜支払金額）
+  const SEP = `border-left:2px solid ${G}`;   // 区切り線は緑（Excel実測）
   // 前月繰越と当月実績を左右に並べる（行数はPDF同様に最低14行で揃える）
   const n = Math.max(rows.carry.length, rows.cur.length, 19);
   let body = '';
@@ -1099,71 +1102,75 @@ function buildReferralPreview(){
     const payAmt = (L && L.paid ? L.amt : 0) + (Rr && Rr.paid ? Rr.amt : 0);
     const TOP='vertical-align:top', BOT='vertical-align:bottom';
     const cell = (x, sep) => x
-      ? `<td style="${td};${TOP};font-size:13px;${sep?SEP:''}">${escapeHtml(x.store)}</td><td style="${td};${BOT};font-size:10px">${escapeHtml(x.date)}</td><td style="${td};${BOT};font-size:12px">${escapeHtml(x.prod)}</td><td style="${tdR};${BOT};background:#E9ECF7;font-size:12px">${x.qty}本</td><td style="${tdR};${BOT};background:#E9ECF7;font-size:12px">${x.rate!==''?x.rate:''}</td><td style="${tdR};${BOT};background:#E9ECF7;font-size:12px">${fmt(Math.round(x.unit))}</td><td style="${tdR};${BOT};background:#E9ECF7;font-size:12px">${fmt(Math.round(x.amt))}</td><td style="${td};${BOT};font-size:10px;background:#E9ECF7">${escapeHtml(x.paid||'')}</td>`
+      ? `<td style="${td};${TOP};font-size:21px;${sep?SEP:''}">${escapeHtml(x.store)}</td><td style="${td};${BOT};font-size:15px">${escapeHtml(x.date)}</td><td style="${td};${BOT};font-size:19px">${escapeHtml(x.prod)}</td><td style="${tdR};${BOT};font-size:19px">${x.qty}本</td><td style="${tdR};${BOT};font-size:19px">${x.rate!==''?x.rate:''}</td><td style="${tdR};${BOT};font-size:19px">${fmt(Math.round(x.unit))}</td><td style="${tdR};${BOT};font-size:19px">${fmt(Math.round(x.amt))}</td><td style="${td};${BOT};font-size:15px">${escapeHtml(x.paid||'')}</td>`
       : `<td style="${td};${sep?SEP:''}">&nbsp;</td>` + `<td style="${td}">&nbsp;</td>`.repeat(7);
-    body += `<tr style="page-break-inside:avoid;height:36px">${cell(L,false)}${cell(Rr,true)}<td style="${tdR};${BOT};${SEP};background:#D9DDF0;font-size:12px;${pca}">${payAmt ? fmt(Math.round(payAmt)) : '-'}</td></tr>`;
+    body += `<tr style="page-break-inside:avoid;height:48px">${cell(L,false)}${cell(Rr,true)}<td style="${tdR};${BOT};${SEP};font-size:19px;${pca}">${payAmt ? fmt(Math.round(payAmt)) : '-'}</td></tr>`;
   }
   // ===== テンプレ実寸の縮尺再現（2200pxキャンバスを0.5倍表示） =====
+  // ===== Excel実物の画素実測に基づく縮尺再現（2200pxキャンバス、実測×1.921） =====
   box.innerHTML = `
-  <div id="rp-canvas" style="width:2200px;zoom:.5;font-family:'Meiryo UI','Yu Gothic',Meiryo,sans-serif;color:#000">
-    <div style="display:flex;align-items:flex-start;margin-bottom:10px">
+  <div id="rp-canvas" style="width:2200px;zoom:.5;font-family:'Meiryo UI','Yu Gothic',Meiryo,sans-serif;color:#000;padding:6px 0">
+    <div style="display:flex;align-items:flex-start;margin-bottom:14px">
       <div style="flex:1"></div>
-      <div style="width:34%;height:40px;line-height:40px;text-align:center;background:${G};color:#fff;font-size:21px;letter-spacing:.6em;font-weight:700;${pca}">支 払 明 細 書</div>
-      <div style="flex:1;text-align:right;font-size:12px;color:#333;padding-top:6px">作成日：　${wareki}　　1/1</div>
+      <div style="width:34.3%;height:54px;line-height:54px;text-align:center;background:${G};color:#fff;font-size:25px;letter-spacing:.6em;font-weight:700;${pca}">支 払 明 細 書</div>
+      <div style="flex:1;text-align:right;font-size:15px;color:#333;padding-top:8px">作成日：　${wareki}　　　1/1</div>
     </div>
-    <div style="display:flex;justify-content:space-between;gap:2.5%;margin-bottom:14px">
-      <div style="width:67.5%">
-        <div style="font-size:16px;border-bottom:2px solid #333;padding:0 24px 3px 8px;display:inline-block;min-width:46%">${escapeHtml(r.name)}　　　　御中</div>
-        <div style="font-size:11px;margin:4px 0 12px">下記の通りお支払いさせていただきます。</div>
-        <table style="border-collapse:collapse;width:52%;margin-bottom:12px;border:2px solid #333"><tr>
-          <td style="${th};width:48%;height:40px;font-size:13px">お支払金額(税込)</td>
-          <td style="${td};background:#D9DDF0;font-size:21px;font-weight:700;text-align:center;${pca}">${yen(paidSum + tax)}</td>
+    <div style="display:flex;justify-content:space-between;margin-bottom:16px">
+      <div style="width:71%">
+        <div style="width:33%;text-align:center;font-size:23px;border-bottom:2px solid #333;padding-bottom:4px">${escapeHtml(r.name)}　　御中</div>
+        <div style="font-size:15px;margin:6px 0 14px">下記の通りお支払いさせていただきます。</div>
+        <table style="border-collapse:collapse;width:68%;margin-bottom:16px;border:2px solid ${G}"><tr style="height:56px">
+          <td style="${th};width:42%;font-size:21px">お支払金額(税込)</td>
+          <td style="border:1px solid ${G};background:${LAV};font-size:26px;font-weight:700;text-align:right;padding:0 14px;${pca}">${yenL(paidSum + tax)}</td>
         </tr></table>
-        <table style="border-collapse:collapse;width:100%;border:2px solid #333"><tr>
-          <td style="${th};width:23%;height:20px;font-size:12px">前月繰越額(税抜)</td><td style="${th};font-size:12px;width:25%;${SEP}">当月実績額(税抜)</td><td style="${th};font-size:12px;width:25%;${SEP}">当月入金額(税抜)</td><td style="${th};font-size:12px;width:27%;${SEP}">消費税額(10％)</td>
-        </tr><tr>
-          <td style="${tdR};background:#D9DDF0;font-weight:700;height:24px;font-size:19px;${pca}">${yen(carrySum)}</td>
-          <td style="${tdR};background:#D9DDF0;font-weight:700;font-size:19px;${SEP};${pca}">${yen(curSum)}</td>
-          <td style="${tdR};background:#D9DDF0;font-weight:700;font-size:19px;${SEP};${pca}">${yen(paidSum)}</td>
-          <td style="${tdR};background:#D9DDF0;font-weight:700;font-size:19px;${SEP};${pca}">${yen(tax)}</td>
-        </tr></table>
+        <table style="border-collapse:collapse;width:94%;border:2px solid ${G}">
+          <tr style="height:29px">
+            <td style="${th};width:25%;font-size:16px">前月繰越額(税抜)</td><td style="${th};width:25%;font-size:16px">当月実績額(税抜)</td><td style="${th};width:25%;font-size:16px">当月入金額(税抜)</td><td style="${th};width:25%;font-size:16px">消費税額(10％)</td>
+          </tr>
+          <tr style="height:42px">
+            <td style="border:1px solid ${G};background:${LAV};font-size:23px;text-align:right;padding:0 10px;${pca}">${yenL(carrySum)}</td>
+            <td style="border:1px solid ${G};background:${LAV};font-size:23px;text-align:right;padding:0 10px;${pca}">${yenL(curSum)}</td>
+            <td style="border:1px solid ${G};background:${LAV};font-size:23px;text-align:right;padding:0 10px;${pca}">${yenL(paidSum)}</td>
+            <td style="border:1px solid ${G};background:${LAV};font-size:23px;text-align:right;padding:0 10px;${pca}">${yenL(tax)}</td>
+          </tr>
+        </table>
       </div>
-      <div style="width:30%;font-size:12px;line-height:1.6;padding-left:14px;padding-top:34px">
-        <div style="font-size:18px;font-weight:700;margin-bottom:3px">${escapeHtml(co.name || '株式会社 Sclass')}</div>
-        ${co.inv ? `<div>登録番号：${escapeHtml(co.inv)}</div>` : ''}
-        ${co.zip ? `<div>〒 ${escapeHtml(co.zip)}</div>` : ''}
-        ${co.addr ? `<div>${escapeHtml(co.addr)}</div>` : ''}
-        ${co.tel ? `<div>☎ ${escapeHtml(co.tel)}</div>` : ''}
-        ${co.email ? `<div>✉ ${escapeHtml(co.email)}</div>` : ''}
-        <div>部署：${escapeHtml(co.dept || '営業部')}</div>
-        ${co.staff ? `<div>担当：${escapeHtml(co.staff)}</div>` : ''}
+      <div style="width:27%;padding-top:24px;line-height:1.8">
+        <div style="font-size:33px;font-weight:700;margin-bottom:8px">${escapeHtml(co.name || '株式会社 Sclass')}</div>
+        <div style="font-size:16px">
+          ${co.inv ? `<div>登録番号：${escapeHtml(co.inv)}</div>` : ''}
+          ${co.zip ? `<div>〒 ${escapeHtml(co.zip)}</div>` : ''}
+          ${co.addr ? `<div>${escapeHtml(co.addr)}</div>` : ''}
+          ${co.tel ? `<div>☎ ${escapeHtml(co.tel)}${co.email ? '　✉ ' + escapeHtml(co.email) : ''}</div>` : ''}
+          <div>部署：${escapeHtml(co.dept || '営業部')}　　担当：${escapeHtml(co.staff || '')}</div>
+        </div>
       </div>
     </div>
-    <table style="border-collapse:collapse;width:100%;border:2px solid #333;table-layout:fixed;page-break-inside:auto">
+    <table style="border-collapse:collapse;width:100%;border:2px solid ${G};table-layout:fixed;page-break-inside:auto">
       <colgroup>
-        <col style="width:8.7%"><col style="width:3.8%"><col style="width:15.2%"><col style="width:3.8%"><col style="width:1.9%"><col style="width:3.8%"><col style="width:5.7%"><col style="width:3.8%">
-        <col style="width:8.5%"><col style="width:3.7%"><col style="width:15%"><col style="width:3.7%"><col style="width:1.9%"><col style="width:3.7%"><col style="width:5.6%"><col style="width:3.7%">
-        <col style="width:7.5%">
+        <col style="width:8.7%"><col style="width:3.8%"><col style="width:15.2%"><col style="width:3.8%;background:${LAV}"><col style="width:1.9%;background:${LAV}"><col style="width:3.8%;background:${LAV}"><col style="width:5.7%;background:${LAV}"><col style="width:3.8%">
+        <col style="width:8.5%"><col style="width:3.7%"><col style="width:15%"><col style="width:3.7%;background:${LAV}"><col style="width:1.9%;background:${LAV}"><col style="width:3.7%;background:${LAV}"><col style="width:5.6%;background:${LAV}"><col style="width:3.7%">
+        <col style="width:7.5%;background:${LAV}">
       </colgroup>
       <thead style="display:table-header-group">
-      <tr><td colspan="8" style="${th};height:38px;font-size:14px;letter-spacing:.4em">前　月　繰　越　額</td><td colspan="8" style="${th};height:38px;font-size:14px;letter-spacing:.4em;${SEP}">当　月　実　績　高</td><td style="${th};font-size:13px;${SEP}">支払金額</td></tr>
-      <tr>${['店舗名','日付','商品名','数量','掛率','単価','金額','入金日'].map((h,i)=>`<td style="${th};height:30px;font-size:11px">${h}</td>`).join('')}${['店舗名','日付','商品名','数量','掛率','単価','金額','入金日'].map((h,i)=>`<td style="${th};height:30px;font-size:11px;${i===0?SEP:''}">${h}</td>`).join('')}<td style="${th};font-size:11px;${SEP}"></td></tr>
+      <tr style="height:54px"><td colspan="8" style="${th};font-size:21px;letter-spacing:.5em">前 月 繰 越 額</td><td colspan="8" style="${th};font-size:21px;letter-spacing:.5em;${SEP}">当 月 実 績 高</td><td style="${th};font-size:18px;${SEP}">支払金額</td></tr>
+      <tr style="height:46px">${['店舗名','日付','商品名','数量','掛<br>率','単価','金額','入金日'].map((h,i)=>`<td style="${th};font-size:${i===4?'13':'15'}px">${h}</td>`).join('')}${['店舗名','日付','商品名','数量','掛<br>率','単価','金額','入金日'].map((h,i)=>`<td style="${th};font-size:${i===4?'13':'15'}px;${i===0?SEP:''}">${h}</td>`).join('')}<td style="${th};font-size:15px;${SEP}"></td></tr>
       </thead>
       <tbody>
       ${body}
-      <tr style="height:36px">
-        <td colspan="8" style="${tdR};background:#D9DDF0;font-weight:700;font-size:16px;border-top:2px solid #333;${pca}">${yen(carrySum)}</td>
-        <td colspan="8" style="${tdR};background:#D9DDF0;font-weight:700;font-size:16px;border-top:2px solid #333;${SEP};${pca}">${yen(curSum)}</td>
-        <td style="${tdR};background:#D9DDF0;font-weight:700;font-size:16px;border-top:2px solid #333;${SEP};${pca}">${yen(paidSum)}</td>
+      <tr style="height:52px">
+        <td colspan="8" style="${tdR};background:${LAV};font-size:23px;border-top:2px solid ${G};padding:0 12px;${pca}">${yenL(carrySum)}</td>
+        <td colspan="8" style="${tdR};background:${LAV};font-size:23px;border-top:2px solid ${G};${SEP};padding:0 12px;${pca}">${yenL(curSum)}</td>
+        <td style="${tdR};background:${LAV};font-size:23px;border-top:2px solid ${G};${SEP};padding:0 12px;${pca}">${yenL(paidSum)}</td>
       </tr>
-      <tr style="height:36px">
-        <td colspan="8" style="${tdR};background:#D9DDF0;font-weight:700;font-size:16px;${pca}">${yen(carrySum)}</td>
-        <td colspan="8" style="${tdR};background:#D9DDF0;font-weight:700;font-size:16px;${SEP};${pca}">${yen(curSum)}</td>
-        <td style="${tdR};background:#D9DDF0;font-weight:700;font-size:16px;${SEP};${pca}">${yen(paidSum)}</td>
+      <tr style="height:52px">
+        <td colspan="8" style="${tdR};background:${LAV};font-size:23px;border-top:2px solid ${G};padding:0 12px;${pca}">${yenL(carrySum)}</td>
+        <td colspan="8" style="${tdR};background:${LAV};font-size:23px;border-top:2px solid ${G};${SEP};padding:0 12px;${pca}">${yenL(curSum)}</td>
+        <td style="${tdR};background:${LAV};font-size:23px;border-top:2px solid ${G};${SEP};padding:0 12px;${pca}">${yenL(paidSum)}</td>
       </tr>
       </tbody>
     </table>
-    <div style="font-size:11px;color:#444;margin-top:8px">対象月：${escapeHtml(month)}　／　お支払予定日：${payDate}　（当月末までに入金された分を翌月10日にお支払い）</div>
+    <div style="font-size:15px;color:#444;margin-top:10px">対象月：${escapeHtml(month)}　／　お支払予定日：${payDate}　（当月末までに入金された分を翌月10日にお支払い）</div>
   </div>`;
   // プレビュー幅にフィット（Excel比率のまま右の空白なし。印刷時はCSSで0.47に上書き）
   const _cv = document.getElementById('rp-canvas');
