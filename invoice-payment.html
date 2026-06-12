@@ -973,9 +973,9 @@ function exportReferralXlsxLegacy(r, month, D){
   toast('✓ Excelを出力しました: ' + fname);
 }
 // 紹介料明細書の印刷：横向き(A4 landscape)指定で印刷し、終了後に解除（請求書など他の印刷は縦のまま）
-function printReferral(){
+function setupRefPrint(){
   const cv = document.getElementById('rp-canvas');
-  if (!cv){ toast('先に「プレビュー作成」を押してください', 'error'); return; }
+  if (!cv) return false;
   // 明細書だけを印刷用ルートに複製（他の画面要素を完全に除外＝縮小・空白の原因を断つ）
   let root = document.getElementById('print-root');
   if (root) root.remove();
@@ -994,15 +994,26 @@ function printReferral(){
     document.head.appendChild(st);
   }
   document.body.classList.add('print-ref');
-  const cleanup = () => {
-    const e = document.getElementById('print-landscape'); if (e) e.remove();
-    const pr = document.getElementById('print-root'); if (pr) pr.remove();
-    document.body.classList.remove('print-ref');
-    window.removeEventListener('afterprint', cleanup);
-  };
-  window.addEventListener('afterprint', cleanup);
+  return true;
+}
+function cleanupRefPrint(){
+  const e = document.getElementById('print-landscape'); if (e) e.remove();
+  const pr = document.getElementById('print-root'); if (pr) pr.remove();
+  document.body.classList.remove('print-ref');
+}
+// Ctrl+P でも印刷ボタンと同じ準備を自動で行う（紹介料タブでプレビュー作成済みの場合）
+window.addEventListener('beforeprint', () => {
+  const mod = document.getElementById('m-referral');
+  if (mod && mod.classList.contains('active') && document.getElementById('rp-canvas') && !document.getElementById('print-root')){
+    setupRefPrint();
+  }
+});
+window.addEventListener('afterprint', cleanupRefPrint);
+function printReferral(){
+  if (!document.getElementById('rp-canvas')){ toast('先に「プレビュー作成」を押してください', 'error'); return; }
+  setupRefPrint();
   window.print();
-  setTimeout(cleanup, 3000);   // afterprint非対応ブラウザ向けの保険
+  setTimeout(cleanupRefPrint, 15000);   // afterprint非対応環境向けの保険（印刷ダイアログ中はJS停止のため競合しない）
 }
 function toggleCoEdit(){
   const box = document.getElementById('rp-co-box');
