@@ -158,6 +158,9 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   .invoice-preview{position:absolute !important;left:0;top:0;width:100% !important;border:none !important;padding:0 !important;margin:0 !important;background:#fff !important}
   .invoice-preview{height:auto !important;overflow:visible !important}
   #rp-canvas{zoom:.47 !important;transform:none !important}
+  body.print-ref > *:not(#print-root){display:none !important}
+  #print-root{display:block !important;visibility:visible !important}
+  #print-root *{visibility:visible !important}
   header,.master-tabs,.kpi-row,.faction,.fp{display:none !important}
   body{background:#fff;color:#000}
 }
@@ -858,6 +861,11 @@ function initReferral(){
   set('rp-co-email', saved.email || co.email || 'tohoku@sendai-sclass.com');
   set('rp-co-dept',  saved.dept  || co.dept  || '営業部');
   set('rp-co-staff', saved.staff || ((typeof currentUser !== 'undefined' && currentUser.name) || ''));
+  // 発行情報・条件を変更したらプレビューを自動更新（作成済みの場合）
+  ['rp-co-name','rp-co-inv','rp-co-zip','rp-co-addr','rp-co-tel','rp-co-email','rp-co-dept','rp-co-staff','rp-date','rp-month','rp-ref'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el._rpBound){ el._rpBound = true; el.addEventListener('change', () => { if (document.getElementById('rp-canvas')) buildReferralPreview(); }); }
+  });
 }
 // Excel出力（直接編集用）。テンプレート(Book1)に書式そのままでデータを流し込む＝幅・高さ・色・書式・数式・テキストボックスが完全一致
 function exportReferralXlsx(){
@@ -965,6 +973,18 @@ function exportReferralXlsxLegacy(r, month, D){
 }
 // 紹介料明細書の印刷：横向き(A4 landscape)指定で印刷し、終了後に解除（請求書など他の印刷は縦のまま）
 function printReferral(){
+  const cv = document.getElementById('rp-canvas');
+  if (!cv){ toast('先に「プレビュー作成」を押してください', 'error'); return; }
+  // 明細書だけを印刷用ルートに複製（他の画面要素を完全に除外＝縮小・空白の原因を断つ）
+  let root = document.getElementById('print-root');
+  if (root) root.remove();
+  root = document.createElement('div');
+  root.id = 'print-root';
+  const clone = cv.cloneNode(true);
+  clone.id = 'rp-canvas-print';
+  clone.style.zoom = '0.47';
+  root.appendChild(clone);
+  document.body.appendChild(root);
   let st = document.getElementById('print-landscape');
   if (!st){
     st = document.createElement('style');
@@ -972,10 +992,16 @@ function printReferral(){
     st.textContent = '@page{size:A4 landscape;margin:8mm}';
     document.head.appendChild(st);
   }
-  const cleanup = () => { const e = document.getElementById('print-landscape'); if (e) e.remove(); window.removeEventListener('afterprint', cleanup); };
+  document.body.classList.add('print-ref');
+  const cleanup = () => {
+    const e = document.getElementById('print-landscape'); if (e) e.remove();
+    const pr = document.getElementById('print-root'); if (pr) pr.remove();
+    document.body.classList.remove('print-ref');
+    window.removeEventListener('afterprint', cleanup);
+  };
   window.addEventListener('afterprint', cleanup);
   window.print();
-  setTimeout(cleanup, 2000);   // afterprint非対応ブラウザ向けの保険
+  setTimeout(cleanup, 3000);   // afterprint非対応ブラウザ向けの保険
 }
 function toggleCoEdit(){
   const box = document.getElementById('rp-co-box');
