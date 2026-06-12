@@ -153,6 +153,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 
 @media print{
   /* プレビュー部分のみを印刷（フォーム・タブ・ヘッダー等は出力しない） */
+  html,body{width:1041px !important;margin:0 !important;padding:0 !important;overflow:hidden !important}
   body *{visibility:hidden !important}
   .invoice-preview, .invoice-preview *{visibility:visible !important}
   .invoice-preview{position:absolute !important;left:0;top:0;width:100% !important;border:none !important;padding:0 !important;margin:0 !important;background:#fff !important}
@@ -1155,7 +1156,11 @@ function buildReferralPreview(){
   </div>`;
   // プレビュー幅にフィット（Excel比率のまま右の空白なし。印刷時はCSSで0.47に上書き）
   const _cv = document.getElementById('rp-canvas');
-  if (_cv && box.clientWidth > 50){ _cv.style.zoom = (box.clientWidth - 8) / 2200; }
+  if (_cv && box.clientWidth > 50){
+    const _cs = getComputedStyle(box);
+    const _avail = box.clientWidth - (parseFloat(_cs.paddingLeft)||0) - (parseFloat(_cs.paddingRight)||0) - 6;
+    _cv.style.zoom = Math.max(0.2, _avail / 2200);
+  }
 
 }
 
