@@ -935,10 +935,10 @@ async function submitOrder() {
   };
 
   try {
+    // GASはプリフライトに非対応のため Content-Type を付けない（text/plain扱いで本文JSONをそのまま送る）
     await fetch(GAS_URL, {
       method: 'POST',
       mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(orderData)
     });
   } catch(e) {
