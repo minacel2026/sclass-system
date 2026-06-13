@@ -616,20 +616,6 @@ async function init() {
   tomorrow.setDate(tomorrow.getDate() + 1);
   document.getElementById('p3-deldate').min = tomorrow.toISOString().split('T')[0];
 
-  // 顧客情報: 初回は空欄（Sclassの記入例がグレーのプレースホルダーで見える）／ 2回目以降は前回入力を復元
-  try {
-    const saved = JSON.parse(localStorage.getItem('lmb_customer_v2') || '{}');
-    if (saved.store) {
-      if (!window._custStore) document.getElementById('p1-store').value = saved.store || '';
-      document.getElementById('p1-delivery').value = saved.delivery || '';
-      document.getElementById('p1-contact').value  = saved.contact  || '';
-      document.getElementById('p1-tel').value      = saved.tel      || '';
-      document.getElementById('p1-zip').value      = saved.zip      || '';
-      document.getElementById('p1-address1').value = saved.address1 || '';
-      document.getElementById('p1-address2').value = saved.address2 || '';
-    }
-  } catch(e) {}
-
   // LIFF初期化（ID未設定や失敗時はブラウザモードで継続）
   try {
     if (!LIFF_ID) throw new Error('LIFF_ID未設定');
@@ -656,6 +642,15 @@ async function init() {
       window._commonTax  = authData.commonTaxType   || '税込';
       // 店舗名は本人の登録店舗を自動入力＆編集不可に
       window._custStore = authData.name || '';
+      // 登録情報（住所・連絡先など）= 初回の初期値に使う
+      window._custInfo = {
+        delivery: authData.contact || authData.owner || '',
+        contact:  authData.contact || '',
+        tel:      authData.contactTel || authData.tel || authData.ownerTel || '',
+        zip:      authData.zip || '',
+        address1: [authData.pref, authData.city, authData.addr1].filter(Boolean).join(''),
+        address2: authData.addr2 || ''
+      };
       lineProfile = await liff.getProfile();
     }
   } catch(e) {
@@ -669,6 +664,23 @@ async function init() {
   await loadStock();
   renderProducts();
   applyLockedStore();
+  fillCustomerFields();
+}
+
+// 顧客情報の初期値を入れる（優先順位: 前回送信値 ＞ 登録情報 ＞ 空欄）
+function fillCustomerFields(){
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('lmb_customer_v2') || '{}'); } catch(e){}
+  const info = window._custInfo || {};
+  const pick = (k) => (saved[k] != null && saved[k] !== '') ? saved[k]
+                     : (info[k] != null ? info[k] : '');
+  const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+  set('p1-delivery', pick('delivery'));
+  set('p1-contact',  pick('contact'));
+  set('p1-tel',      pick('tel'));
+  set('p1-zip',      pick('zip'));
+  set('p1-address1', pick('address1'));
+  set('p1-address2', pick('address2'));
 }
 
 // 認証済みの店舗名を自動入力し、編集不可（固定表示）にする
