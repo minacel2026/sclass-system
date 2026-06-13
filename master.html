@@ -2314,43 +2314,85 @@ async function loadCustPendingUids(){
   const list = document.getElementById('pending-list');
   if (!list) return;
   list.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div>読込中...</div>';
+  // 顧客一覧（紐付け先候補）を最新化
+  try { const cs = await gasGet('getCustomers'); if (cs && cs.customers) S.customers = cs.customers; } catch(e){}
   const data = await gasGet('getPendingUids');
-  if (!data || !data.uids){
+  const pending = data && (data.pending || data.uids);   // GASは pending を返す
+  if (!pending){
     list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>未登録UIDはありません<div style="font-size:.7rem;margin-top:.5rem;color:var(--wh3)">（またはGAS未接続）</div></div>';
     return;
   }
-  if (data.uids.length === 0){
-    list.innerHTML = '<div class="empty"><div class="empty-icon">✓</div>未登録UIDなし</div>';
+  if (pending.length === 0){
+    list.innerHTML = '<div class="empty"><div class="empty-icon">✓</div>未登録UIDなし — すべて紐付け済みです</div>';
     return;
   }
-  list.innerHTML = `<div class="cust-grid">
-    ${data.uids.map(u => `
-      <div class="cust-card">
-        <div class="cust-name" style="font-size:.8rem">${escapeHtml(u.displayName || '匿名')}</div>
-        <div class="cust-info" style="font-family:monospace;word-break:break-all;font-size:.65rem">${escapeHtml(u.uid)}</div>
-        <div class="cust-info" style="font-size:.7rem">最終メッセージ: ${escapeHtml(u.lastMessage || '—').slice(0,30)}</div>
-        <div class="faction" style="margin-top:.6rem">
-          <button class="btn-s" onclick="linkCustUid('${u.uid}')">🔗 既存顧客に紐付け</button>
+  // 紐付け先の店舗名オプション（未紐付け＝UID未設定の顧客を上に）
+  const custs = (S.customers || []).slice().sort((a,b)=>{
+    const au = a.lineUid || a.uid ? 1 : 0, bu = b.lineUid || b.uid ? 1 : 0;
+    return au - bu;
+  });
+  const optsHtml = custs.map(c => {
+    const has = (c.lineUid || c.uid) ? '（UID登録済）' : '';
+    return `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}${has}</option>`;
+  }).join('');
+
+  list.innerHTML = `<div class="hint-box" style="margin-bottom:.8rem">
+      未登録UID <strong>${pending.length}</strong> 件。各カードで紐付け先の店舗を選び「紐付け」を押すと、その顧客のLINE UID欄に登録され、マイページ・注文フォームが使えるようになります。
+    </div>
+    <div class="cust-grid">
+    ${pending.map((u,i) => {
+      const name = u.name || u.displayName || '匿名';
+      const msg  = (u.message || u.lastMessage || '—');
+      const dt   = u.date || '';
+      return `
+      <div class="cust-card" id="pcard-${i}">
+        <div class="cust-name" style="font-size:.82rem">${escapeHtml(name)}</div>
+        <div class="cust-info" style="font-family:monospace;word-break:break-all;font-size:.64rem;color:var(--wh3)">${escapeHtml(u.uid)}</div>
+        ${dt ? `<div class="cust-info" style="font-size:.66rem">受信: ${escapeHtml(String(dt))}</div>` : ''}
+        <div class="cust-info" style="font-size:.7rem">メッセージ: ${escapeHtml(String(msg)).slice(0,40)}</div>
+        <div style="display:flex;gap:.4rem;align-items:center;margin-top:.6rem;flex-wrap:wrap">
+          <select class="fc" id="psel-${i}" style="flex:1;min-width:140px">
+            <option value="">― 店舗を選択 ―</option>
+            ${optsHtml}
+          </select>
+          <button class="btn-s" onclick="linkCustUid('${u.uid.replace(/'/g,"")}', ${i})">🔗 紐付け</button>
+          <button class="btn-s" style="border-color:rgba(255,99,99,.4);color:#ff8a80" onclick="dismissPendingUid('${u.uid.replace(/'/g,"")}')" title="この未登録UIDを一覧から削除（顧客には紐付けません）">✕</button>
         </div>
-      </div>`).join('')}
+      </div>`;
+    }).join('')}
   </div>`;
 }
 
-function linkCustUid(uid){
-  const name = prompt('紐付けたい店舗名を入力してください:');
-  if (!name) return;
-  const found = (S.customers || []).filter(c => (c.name || '').toLowerCase().includes(name.toLowerCase()));
-  if (found.length === 0) return toast('該当する顧客が見つかりません', 'error');
-  if (found.length > 1)   return toast(`${found.length}件ヒット。もっと具体的に入力してください`, 'error');
-  const c = found[0];
-  c.lineUid = uid;
-  c.updatedAt = new Date().toISOString();
-  saveState();
-  if (S.gasUrl) gasPost({ action: 'saveCustomer', ...c });
-  toast(`✓ ${c.name} にUIDを紐付けました`);
-  loadCustPendingUids();
-  renderCustList();
+async function linkCustUid(uid, idx){
+  const sel = document.getElementById('psel-' + idx);
+  const store = sel ? sel.value : '';
+  if (!store) return toast('紐付け先の店舗を選択してください', 'error');
+  if (!S.gasUrl) return toast('GAS URLが未設定です', 'error');
+  const card = document.getElementById('pcard-' + idx);
+  if (card) card.style.opacity = '.5';
+  // GASのlinkUidで顧客シートのLINE UID列（O列）に確実に書き込む＋未登録UIDから除去
+  const res = await gasGet('linkUid', { uid: uid, store: store });
+  if (res && res.ok){
+    toast(`✓ ${store} にUIDを紐付けました`);
+    // ローカルにも反映
+    const c = (S.customers || []).find(x => x.name === store);
+    if (c) c.lineUid = uid;
+    loadCustPendingUids();
+    if (typeof renderCustList === 'function') renderCustList();
+  } else {
+    if (card) card.style.opacity = '1';
+    toast((res && res.error) ? res.error : '紐付けに失敗しました', 'error');
+  }
 }
+
+async function dismissPendingUid(uid){
+  if (!confirm('この未登録UIDを一覧から削除しますか？（顧客には紐付けません）')) return;
+  if (!S.gasUrl) return toast('GAS URLが未設定です', 'error');
+  const res = await gasGet('deleteUid', { uid: uid });
+  if (res && res.ok){ toast('✓ 削除しました'); loadCustPendingUids(); }
+  else toast('削除に失敗しました', 'error');
+}
+
 </script>
 
 <!-- ═══ スタッフマスター ═══ -->
@@ -3200,14 +3242,5 @@ function formatDeliveryZip(input, i){
 }
 </script>
 
-<script>
-// ポータルのチップから #ハッシュ指定でタブ直行（例: master.html#customers）
-window.addEventListener('DOMContentLoaded', function(){
-  var mods=['customers','staff','products','referrers','sponsors','company'];
-  var h=(location.hash||'').replace('#','');
-  var i=mods.indexOf(h);
-  if(i>=0){ try{ switchMaster(mods[i], document.querySelectorAll('.mtab')[i]); }catch(e){} }
-});
-</script>
 </body>
 </html>
