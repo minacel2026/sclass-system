@@ -621,20 +621,20 @@ async function init() {
   tomorrow.setDate(tomorrow.getDate() + 1);
   document.getElementById('p3-deldate').min = tomorrow.toISOString().split('T')[0];
 
-  // 在庫取得を先行スタート（LIFF認証と並列で走らせ、待ち時間を重ねる）
-  const stockPromise = loadStock();
   let customerFilled = false;
+  let stockApplied = false;
 
   // LIFF初期化（ID未設定や失敗時はブラウザモードで継続）
   try {
     if (!LIFF_ID) throw new Error('LIFF_ID未設定');
     await liff.init({ liffId: LIFF_ID });
     if (liff.isLoggedIn()) {
-      // 顧客認証チェック（GAS経由）
       const prof = await liff.getProfile();
       lineProfile = prof;
-      const authRes = await fetch(GAS_URL + '?action=checkLineUser&uid=' + prof.userId);
-      const authData = await authRes.json();
+      // ★高速化: 認証＋協賛残数＋在庫を1往復でまとめて取得（旧:checkLineUser/getMySponsor/getStockの3往復→1往復）
+      const initRes = await fetch(GAS_URL + '?action=getOrderInit&uid=' + prof.userId);
+      const initData = await initRes.json();
+      const authData = (initData && initData.auth) ? initData.auth : { ok:false };
       if (!authData.ok) {
         document.body.innerHTML = `
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#080808;color:#fff;text-align:center;padding:2rem">
@@ -661,18 +661,16 @@ async function init() {
         address1: [authData.pref, authData.city, authData.addr1].filter(Boolean).join(''),
         address2: authData.addr2 || ''
       };
-      // 顧客情報は認証が返った時点で即反映（協賛・在庫の通信を待たせない＝店舗名・住所が先に埋まる）
+      // 在庫は同梱（追加のGAS通信なし）
+      applyStockData(initData.stock);
+      stockApplied = true;
+      // 協賛残数（商品別）も同梱
+      const sp = initData.sponsor;
+      if (sp && sp.ok && sp.total > 0){ window._sponsorBal = sp.byProduct; window._sponsorTotal = sp.total; }
+      // 顧客情報を即反映
       applyLockedStore();
       fillCustomerFields();
       customerFilled = true;
-      // 協賛残数（商品別）を取得（先行中の在庫取得と並列で進行）
-      if (authData.sponsorEnabled && lineProfile && lineProfile.userId){
-        try {
-          const spRes = await fetch(GAS_URL + '?action=getMySponsor&uid=' + lineProfile.userId);
-          const sp = await spRes.json();
-          if (sp && sp.ok && sp.total > 0){ window._sponsorBal = sp.byProduct; window._sponsorTotal = sp.total; }
-        } catch(e){}
-      }
     }
   } catch(e) {
     console.log('LIFF init failed:', e);
@@ -681,11 +679,10 @@ async function init() {
       '<div style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);color:#C9A84C;font-size:.68rem;text-align:center;padding:6px;border-radius:6px;margin:8px 12px">⚠ ブラウザモードで動作中（LINE連携なし）</div>');
   }
 
-  // ブラウザモード等で未反映なら顧客情報を反映（前回値）。認証成功時は上で反映済み＝二重fillで入力を上書きしない
+  // ブラウザモード等：在庫未取得なら従来通り取得。顧客情報は前回値で反映（二重fillで入力を上書きしない）
+  if (!stockApplied){ await loadStock(); }
   if (!customerFilled){ applyLockedStore(); fillCustomerFields(); }
 
-  // 先行スタートした在庫取得の完了を待ってから商品描画
-  await stockPromise;
   renderProducts();
   renderSponsor();
 }
@@ -752,14 +749,18 @@ function applyLockedStore(){
   if (note) note.style.display = 'block';
 }
 
+// 在庫データ（[{branch,product,qty}]）を stock に反映（getStock / getOrderInit 共用）
+function applyStockData(arr){
+  (arr || []).forEach(s => {
+    if (!stock[s.branch]) stock[s.branch] = {};
+    stock[s.branch][s.product] = parseInt(s.qty) || 0;
+  });
+}
 async function loadStock() {
   try {
     const r = await fetch(GAS_URL + '?action=getStock');
     const d = await r.json();
-    (d.stock || []).forEach(s => {
-      if (!stock[s.branch]) stock[s.branch] = {};
-      stock[s.branch][s.product] = parseInt(s.qty) || 0;
-    });
+    applyStockData(d.stock);
   } catch(e) {
     // 在庫取得失敗時はデフォルト値
     PRODUCTS.forEach(p => {
