@@ -2230,6 +2230,47 @@ function reservedFor(branch, product, excludeId){
   });
   return r;
 }
+// ─── 引当の内訳表示（どの注文が引当を作っているかを一覧し、その場で削除/出荷済にできる） ───
+function showReserveDetail(branch, product){
+  try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
+  const hits = (S.orders || []).filter(o =>
+    (o.branch || '') === branch &&
+    shipStatus(o) !== '出荷済' &&
+    (((o.items && o.items[product]) || 0) + ((o.sponsorItems && o.sponsorItems[product]) || 0)) > 0
+  );
+  let bx = document.getElementById('rsv-detail');
+  if (bx) bx.remove();
+  bx = document.createElement('div');
+  bx.id = 'rsv-detail';
+  bx.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  const rows = hits.length ? hits.map(o => {
+    const qty = ((o.items && o.items[product]) || 0) + ((o.sponsorItems && o.sponsorItems[product]) || 0);
+    return `<tr>
+      <td style="padding:6px 10px;border-bottom:1px solid rgba(201,168,76,.15);font-size:.75rem">${escapeHtml(o.date || o.timestamp || '—')}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid rgba(201,168,76,.15)">${escapeHtml(o.store || '—')}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid rgba(201,168,76,.15);text-align:right">${qty}本</td>
+      <td style="padding:6px 10px;border-bottom:1px solid rgba(201,168,76,.15);font-size:.72rem">${escapeHtml(shipStatus(o))}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid rgba(201,168,76,.15);white-space:nowrap">
+        <button class="act-btn" onclick="changeShipStatus('${o.id}','出荷済');showReserveDetail('${branch}','${product}');renderStock()">出荷済に</button>
+        <button class="act-btn dn" onclick="deleteOrder('${o.id}');showReserveDetail('${branch}','${product}');renderStock()">削除</button>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--wh3)">この拠点・商品の未出荷注文は見つかりません。<br>表示が古い可能性があるため、ページを再読み込み（F5）してください。</td></tr>`;
+  bx.innerHTML = `
+    <div style="background:#15150f;border:1px solid var(--gold);border-radius:10px;max-width:640px;width:100%;max-height:80vh;overflow:auto;padding:18px" onclick="event.stopPropagation()">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="color:var(--gold-l);font-weight:700">引当の内訳：${escapeHtml(branch)} / ${escapeHtml(product)}</div>
+        <button class="act-btn" onclick="document.getElementById('rsv-detail').remove();renderStock()">閉じる</button>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:.8rem;color:var(--wh)">
+        <tr style="color:var(--gold);font-size:.7rem"><td style="padding:4px 10px">日付</td><td style="padding:4px 10px">店舗</td><td style="padding:4px 10px;text-align:right">本数</td><td style="padding:4px 10px">状態</td><td></td></tr>
+        ${rows}
+      </table>
+    </div>`;
+  bx.onclick = () => { bx.remove(); renderStock(); };
+  document.body.appendChild(bx);
+}
+
 // 出荷可能 = 実在庫 − 引当
 function availableStock(branch, product, excludeId){
   return (((S.stock[branch] || {})[product]) || 0) - reservedFor(branch, product, excludeId);
@@ -2271,7 +2312,7 @@ function renderStock(){
       if (state === 'low' && (avail >= ro || avail <= 0)) return '';
       if (state === 'out' && avail > 0) return '';
       const cls = avail <= 0 ? 'out' : (avail < ro ? 'low' : '');
-      const rsvTxt = rsv > 0 ? ` <span style="color:var(--org);font-size:.85em">（引当 −${rsv}）</span>` : '';
+      const rsvTxt = rsv > 0 ? ` <span style="color:var(--org);font-size:.85em;cursor:pointer;text-decoration:underline dotted" onclick="showReserveDetail('${branch}','${p.key}')" title="クリックで引当の内訳（どの注文か）を表示">（引当 −${rsv}）</span>` : '';
       return `
       <tr class="${cls}">
         <td><span class="st-pname"><span class="st-pdot" style="background:${p.color}"></span>${p.name}</span></td>
