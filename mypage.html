@@ -49,6 +49,10 @@ body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;backg
 .sp-badge{font-size:.66rem;padding:2px 9px;border-radius:99px;font-weight:700;white-space:nowrap}
 .sp-e{background:rgba(80,200,120,.13);color:#7ee2a8;border:1px solid rgba(80,200,120,.35)}
 .sp-u{background:rgba(155,89,182,.15);color:#c39bd3;border:1px solid rgba(155,89,182,.35)}
+.order-sp{margin:6px 0 2px;padding-top:6px;border-top:1px dashed rgba(155,89,182,.25)}
+.order-sp-line{font-size:.78rem;color:#c39bd3;line-height:1.8}
+.sp-free{font-size:.6rem;color:#c39bd3;border:1px solid rgba(155,89,182,.4);border-radius:99px;padding:1px 7px;margin-left:4px}
+.order-sp-earned{font-size:.68rem;color:#7ee2a8;margin-top:4px}
 </style>
 </head>
 <body>
@@ -121,54 +125,80 @@ async function init(){
 
 function render(box, d){
   const orders = d.orders || [];
+  const sp = d.sponsor || { total:0, byProduct:{} };
+  const spLogs = d.sponsorLogs || [];
+
+  // 注文IDごとに協賛（使用/付与）をまとめる
+  const spByOrder = {};
+  spLogs.forEach(l => {
+    const oid = String(l.orderId || '');
+    if (!oid) return;
+    if (!spByOrder[oid]) spByOrder[oid] = { used:[], earned:[] };
+    if (String(l.type) === 'earned') spByOrder[oid].earned.push(l);
+    else spByOrder[oid].used.push(l);
+  });
+  const orderIdSet = {};
+  orders.forEach(o => { if (o.id) orderIdSet[String(o.id)] = 1; });
+
   let html = '';
   html += '<div class="store">' + esc(d.store) + ' 様</div>';
   html += '<div class="summary">';
   html += '<div class="sumcard"><div class="lbl">ご請求残高（未収）</div><div class="val ' + (d.unpaidTotal > 0 ? 'red' : 'gold') + '">¥' + fmt(d.unpaidTotal) + '</div></div>';
   html += '<div class="sumcard"><div class="lbl">ご注文件数</div><div class="val gold">' + orders.length + '件</div></div>';
   html += '</div>';
-  // ── 協賛（残数 ＋ 履歴）──
-  const sp = d.sponsor || { total:0, byProduct:{} };
-  const spLogs = d.sponsorLogs || [];
+
+  // 協賛残数カード
   const spProds = Object.keys(sp.byProduct || {}).filter(p => (sp.byProduct[p] || 0) > 0);
-  if ((sp.total || 0) > 0 || spLogs.length){
+  if (spProds.length){
     html += '<div class="sec-title">▸ 協賛残数</div>';
-    if (spProds.length){
-      html += '<div class="sponsor-box">';
-      spProds.forEach(p => {
-        html += '<div class="sp-row"><span>🎁 ' + esc(p) + '</span><span class="sp-q">' + (sp.byProduct[p] || 0) + '本</span></div>';
-      });
-      html += '<div class="sp-total-row"><span>合計</span><span class="sp-q">' + (sp.total || 0) + '本</span></div>';
-      html += '</div>';
-    } else {
-      html += '<div class="empty">ご利用可能な協賛残数はありません。</div>';
-    }
-    if (spLogs.length){
-      html += '<div class="sec-title">▸ 協賛履歴</div>';
-      html += '<div class="sponsor-box">';
-      spLogs.forEach(l => {
-        const isE = String(l.type) === 'earned';
-        html += '<div class="sp-log">'
-              + '<span class="sp-date">' + esc(dateText(l.date)) + '</span>'
-              + '<span class="sp-prod">' + esc(l.product || '') + '</span>'
-              + '<span class="sp-badge ' + (isE ? 'sp-e' : 'sp-u') + '">' + (isE ? '付与 +' : '使用 −') + (l.qty || 0) + '本</span>'
-              + '</div>';
-      });
-      html += '</div>';
-    }
+    html += '<div class="sponsor-box">';
+    spProds.forEach(p => {
+      html += '<div class="sp-row"><span>🎁 ' + esc(p) + '</span><span class="sp-q">' + (sp.byProduct[p] || 0) + '本</span></div>';
+    });
+    html += '<div class="sp-total-row"><span>合計</span><span class="sp-q">' + (sp.total || 0) + '本</span></div>';
+    html += '</div>';
   }
+
+  // ご注文履歴（各カードに協賛を差し込む）
   html += '<div class="sec-title">▸ ご注文履歴</div>';
   if (orders.length === 0){
     html += '<div class="empty">ご注文履歴はまだありません。</div>';
   } else {
     orders.forEach(o => {
+      const spo = spByOrder[String(o.id)] || { used:[], earned:[] };
       html += '<div class="order">';
       html += '<div class="top"><span class="date">' + esc(dateText(o.date)) + (o.id ? '　No.' + esc(o.id) : '') + '</span>' + badge(o.payStatus) + '</div>';
       html += '<div class="items">' + itemsText(o.items) + '</div>';
+      // 協賛（無料）分をこの注文に表示
+      if (spo.used.length){
+        html += '<div class="order-sp">';
+        spo.used.forEach(l => {
+          html += '<div class="order-sp-line">🎁 ' + esc(l.product || '') + ' × ' + (l.qty || 0) + '本 <span class="sp-free">協賛・無料</span></div>';
+        });
+        html += '</div>';
+      }
+      // 付与（この注文で貯まった協賛）
+      if (spo.earned.length){
+        const e = spo.earned.reduce((s,l) => s + (l.qty || 0), 0);
+        if (e > 0) html += '<div class="order-sp-earned">🎁 この注文で協賛 +' + e + '本 付与</div>';
+      }
       html += '<div class="bottom"><span class="pay">' + esc(o.payMethod || '') + (o.status ? '　／　' + esc(o.status) : '') + '</span><span class="amt">¥' + fmt(o.amount) + '</span></div>';
       html += '</div>';
     });
   }
+
+  // 注文に紐づかない協賛（管理者調整など）は「その他の協賛履歴」に
+  const orphan = spLogs.filter(l => { const oid = String(l.orderId || ''); return !oid || !orderIdSet[oid]; });
+  if (orphan.length){
+    html += '<div class="sec-title">▸ その他の協賛履歴</div>';
+    html += '<div class="sponsor-box">';
+    orphan.forEach(l => {
+      const isE = String(l.type) === 'earned';
+      html += '<div class="sp-log"><span class="sp-date">' + esc(dateText(l.date)) + '</span><span class="sp-prod">' + esc(l.product || '') + '</span><span class="sp-badge ' + (isE ? 'sp-e' : 'sp-u') + '">' + (isE ? '付与 +' : '使用 −') + (l.qty || 0) + '本</span></div>';
+    });
+    html += '</div>';
+  }
+
   box.innerHTML = html;
 }
 
