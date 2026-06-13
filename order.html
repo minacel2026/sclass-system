@@ -433,7 +433,7 @@
     <div class="section-title">お客様情報</div>
     <label>店舗名 <span style="color:var(--red)">*</span></label>
     <input type="text" id="p1-store" placeholder="例：株式会社 Sclass">
-    <label>お届け先名 <span style="color:var(--red)">*</span></label>
+    <label>お届け先名</label>
     <input type="text" id="p1-delivery" placeholder="例：Sclass 営業部">
     <label>郵便番号</label>
     <div style="display:flex;gap:8px;align-items:center">
@@ -648,8 +648,11 @@ async function init() {
           </div>`;
         return;
       }
-      // 登録顧客の掛け率を保存
+      // 登録顧客の価格条件を保存（商品別掛率・価格モード・税 = システム本体と同一ルール）
       if (authData.rate) window._custRate = authData.rate;
+      window._prodRates  = authData.productRates  || [];
+      window._commonMode = authData.commonPriceMode || '新値';
+      window._commonTax  = authData.commonTaxType   || '税込';
       lineProfile = await liff.getProfile();
     }
   } catch(e) {
@@ -681,6 +684,24 @@ async function loadStock() {
   }
 }
 
+// ========== 価格計算（sales-stock本体の calcProdLine と同一ルール） ==========
+function prodPricing(name){
+  const pr = (window._prodRates || []).find(r => r.key === name && r.rate);
+  return {
+    rate:      (pr && pr.rate)      ? parseFloat(pr.rate) : parseFloat(window._custRate || '7'),
+    priceMode: (pr && pr.priceMode) ? pr.priceMode        : (window._commonMode || '新値'),
+    taxType:   (pr && pr.taxType)   ? pr.taxType          : (window._commonTax  || '税込')
+  };
+}
+function lineCalc(p, qty){
+  const pc = prodPricing(p.name);
+  const base = (pc.priceMode === '旧値') ? (p.priceOld || p.price) : p.price;
+  const unitExcl = Math.round(base * (pc.rate / 10));                              // 税抜単価
+  const subExcl  = unitExcl * qty;
+  const subIncl  = (pc.taxType === '税込') ? Math.round(subExcl * 1.1) : subExcl;  // 税込小計
+  return { pc, unitExcl, subExcl, subIncl };
+}
+
 // ========== 商品描画 ==========
 function renderProducts() {
   const grid = document.getElementById('prod-grid');
@@ -700,7 +721,7 @@ function renderProducts() {
     <div class="prod-card ${qty > 0 ? 'selected' : ''} ${outOfStock ? 'out-of-stock' : ''}" id="card-${p.name}">
       <div style="width:8px;height:8px;border-radius:50%;background:${p.color};margin-bottom:6px"></div>
       <div class="prod-name">${p.name}</div>
-      <div class="prod-price">¥${Math.round(p.price * (parseFloat(window._custRate||'7')/10) * 1.1).toLocaleString('ja-JP', {maximumFractionDigits:0})}<span style="font-size:.6rem;color:var(--wh3)">税込</span></div>
+      <div class="prod-price">¥${lineCalc(p,1).subIncl.toLocaleString('ja-JP')}<span style="font-size:.6rem;color:var(--wh3)">${prodPricing(p.name).taxType}</span></div>
       <div class="prod-stock ${s <= 5 && s > 0 ? 'low' : ''}">${outOfStock ? '在庫切れ' : s <= 5 ? `残り${s}本` : `在庫あり`}</div>
       ${!outOfStock ? `
       <div class="prod-qty">
@@ -728,12 +749,11 @@ function changeQty(name, delta) {
 }
 
 function updateTotal() {
-  // 掛け率取得（顧客登録済みなら自動、なければ7掛デフォルト）
-  const rate = parseFloat(window._custRate || '7') / 10;
+  // 商品別の掛率・価格モード・税で合計（システム本体と同一計算）
   let total = 0;
   PRODUCTS.forEach(p => {
-    const unitPrice = Math.round(p.price * rate * 1.1); // 掛け率×税込
-    total += unitPrice * (quantities[p.name] || 0);
+    const q = quantities[p.name] || 0;
+    if (q > 0) total += lineCalc(p, q).subIncl;
   });
   document.getElementById('bottom-total').textContent = '¥' + total.toLocaleString();
 }
@@ -743,7 +763,6 @@ function goPage(n) {
   // バリデーション
   if (n === 2) {
     if (!document.getElementById('p1-store').value.trim()) { alert('店舗名を入力してください'); return; }
-    if (!document.getElementById('p1-delivery').value.trim()) { alert('お届け先名を入力してください'); return; }
   if (!document.getElementById('p1-contact').value.trim()) { alert('連絡先名を入力してください'); return; }
   if (!document.getElementById('p1-tel').value.trim()) { alert('連絡先電話番号を入力してください'); return; }
   if (!document.getElementById('p1-address1').value.trim()) { alert('お届け先住所を入力してください'); return; }
@@ -798,16 +817,14 @@ function buildConfirm() {
   // 商品
   let prodHtml = '';
   let total = 0;
-  const _rate = parseFloat(window._custRate || '7') / 10;
   PRODUCTS.forEach(p => {
     const q = quantities[p.name] || 0;
     if (q > 0) {
-      const unitPrice = Math.round(p.price * _rate * 1.1);
-      const amt = unitPrice * q;
-      total += amt;
+      const line = lineCalc(p, q);
+      total += line.subIncl;
       prodHtml += `<div class="order-line">
-        <span class="order-line-name">${p.name} × ${q}本</span>
-        <span class="order-line-amount">¥${amt.toLocaleString()}</span>
+        <span class="order-line-name">${p.name} × ${q}本 <span style="font-size:.62rem;color:var(--wh3)">@¥${line.unitExcl.toLocaleString()}(税抜)・${line.pc.rate}掛</span></span>
+        <span class="order-line-amount">¥${line.subIncl.toLocaleString()}</span>
       </div>`;
     }
   });
@@ -837,14 +854,16 @@ async function submitOrder() {
   loading.style.display = 'block';
   btns.forEach(b => b.disabled = true);
 
-  const rate = parseFloat(window._custRate || '7') / 10;
   const items = {};
   let total = 0;
+  const usedRates = new Set();
   PRODUCTS.forEach(p => {
     const q = quantities[p.name] || 0;
     if (q > 0) {
       items[p.name] = q;
-      total += Math.round(p.price * rate * 1.1) * q;   // 確認画面と同じ計算（掛率×税込）
+      const line = lineCalc(p, q);     // 商品別掛率（確認画面と同一計算）
+      total += line.subIncl;
+      usedRates.add(String(line.pc.rate));
     }
   });
 
@@ -863,7 +882,7 @@ async function submitOrder() {
   if (contact) noteParts.push('連絡先:' + contact + (tel ? '(' + tel + ')' : ''));
   const note = document.getElementById('p3-note').value;
   if (note) noteParts.push(note);
-  noteParts.push('掛率' + (window._custRate || '7') + '掛');
+  noteParts.push(usedRates.size === 1 ? '掛率' + [...usedRates][0] + '掛' : '商品別掛率適用(' + [...usedRates].join('/') + '掛)');
 
   // GASの注文受付シート(saveOrderToSheet)の列構成に合わせたペイロード
   const orderData = {
