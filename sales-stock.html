@@ -512,7 +512,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="th-area"><h3>協賛履歴（最新50件）</h3></div>
       <table>
         <thead>
-          <tr><th>日付</th><th>店舗名</th><th>種別</th><th class="col-amt">本数</th><th>商品/メモ</th></tr>
+          <tr><th>日付</th><th>店舗名</th><th>種別</th><th class="col-amt">本数</th><th>商品/メモ</th><th style="text-align:center">操作</th></tr>
         </thead>
         <tbody id="sp-log-tbody"></tbody>
       </table>
@@ -763,11 +763,16 @@ async function syncFromGAS(){
   // 協賛ログ同期: サーバーlog + ローカル未同期分をマージ（IDで重複排除）
   const spLogs = await gasGet('getSponsorLogs');
   if (spLogs && Array.isArray(spLogs.logs)){
-    const serverIds = new Set(spLogs.logs.map(l => String(l.id)));
-    const localOnly = (S.sponsorLogs || []).filter(l => !serverIds.has(String(l.id)));
+    const deletedIds = new Set(getDeletedSponsorLogIds());            // 削除済み(墓標)IDは復活させない
+    const serverLogs = spLogs.logs.filter(l => !deletedIds.has(String(l.id)));
+    const serverIds = new Set(serverLogs.map(l => String(l.id)));
+    // ローカルのみのログ（ただし削除済みは除外＝再送して復活させない）
+    const localOnly = (S.sponsorLogs || []).filter(l => !serverIds.has(String(l.id)) && !deletedIds.has(String(l.id)));
     // ローカルのみのログをサーバーへ送る（取りこぼし防止）
     if (S.gasUrl) localOnly.forEach(function(log){ try { gasPost({ action: 'saveSponsorLog', ...log }); } catch(e){} });
-    S.sponsorLogs = spLogs.logs.concat(localOnly);
+    S.sponsorLogs = serverLogs.concat(localOnly);
+    // サーバーに削除済みログがまだ残っていれば再削除を試みる（スプシ側の取り残し掃除）
+    if (S.gasUrl) spLogs.logs.forEach(function(l){ if (deletedIds.has(String(l.id))) { try { gasPost({ action: 'deleteSponsorLog', id: l.id }); } catch(e){} } });
   }
   // 注文受付シートの注文を取り込む（手動同期では since を無視して全件、漏れを補完）
   const ord = await gasGet('getNewOrders', { since: '' });
@@ -1608,6 +1613,41 @@ function cleanupOldSponsorLogs(){
   if (typeof updateKPI === 'function') updateKPI();
 }
 
+// ─── 協賛履歴: 削除済みID(墓標)管理 — 同期での復活を防止 ───
+const SPONSOR_TOMBSTONE_KEY = 'lmb_sponsorLogDeleted';
+function getDeletedSponsorLogIds(){
+  try { const v = localStorage.getItem(SPONSOR_TOMBSTONE_KEY); return v ? JSON.parse(v) : []; }
+  catch(e){ return []; }
+}
+function addDeletedSponsorLogId(id){
+  const sid = String(id);
+  const ids = getDeletedSponsorLogIds();
+  if (!ids.includes(sid)){
+    ids.push(sid);
+    try { localStorage.setItem(SPONSOR_TOMBSTONE_KEY, JSON.stringify(ids)); } catch(e){}
+  }
+}
+
+// 協賛履歴を1件削除（ローカル+スプシ両方／同期で復活しないよう墓標に登録）
+function deleteSponsorLogRow(id){
+  if (typeof canDelete === 'function' && !canDelete()) return toast('🔒 削除権限がありません', 'error');
+  const sid = String(id);
+  const log = (S.sponsorLogs || []).find(l => String(l.id) === sid);
+  if (!log){ toast('対象の履歴が見つかりません', 'error'); return; }
+  const label = `${log.date || ''}　${log.custName || ''}　${log.type === 'earned' ? '+付与' : '-使用'} ${log.qty}本`;
+  if (!confirm(`この協賛履歴を削除します。\n\n${label}\n\n・スプレッドシートからも削除します\n・同期しても復活しません\n\nこの操作は取り消せません。よろしいですか？`)) return;
+  // 復活防止のため削除IDを墓標に記録（以後の同期で除外される）
+  addDeletedSponsorLogId(sid);
+  // スプレッドシートからも削除
+  if (S.gasUrl) { try { gasPost({ action: 'deleteSponsorLog', id: sid }); } catch(e){} }
+  // ローカルから削除
+  S.sponsorLogs = (S.sponsorLogs || []).filter(l => String(l.id) !== sid);
+  saveState();
+  toast('✓ 協賛履歴を1件削除しました');
+  renderSponsor();
+  if (typeof updateKPI === 'function') updateKPI();
+}
+
 function renderSponsor(){
   const kw = (document.getElementById('sp-kw')?.value || '').toLowerCase();
   const state = document.getElementById('sp-state')?.value || 'all';
@@ -1681,13 +1721,16 @@ function renderSponsor(){
   const logs = [...(S.sponsorLogs || [])].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 50);
   const logBody = document.getElementById('sp-log-tbody');
   if (logs.length === 0){
-    logBody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">📋</div>履歴なし</div></td></tr>`;
+    logBody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-icon">📋</div>履歴なし</div></td></tr>`;
   } else {
     logBody.innerHTML = logs.map(l => {
       const cust = (S.customers || []).find(c => String(c.id) === String(l.custId));
       const typeBadge = l.type === 'earned'
         ? '<span class="badge bd-paid">+付与</span>'
         : '<span class="badge bd-out">-使用</span>';
+      const delBtn = l.id
+        ? `<button class="act-btn" style="border-color:rgba(224,82,82,.4);color:var(--red)" onclick="deleteSponsorLogRow('${escapeHtml(String(l.id))}')" title="この履歴を削除（同期しても復活しません）">🗑 削除</button>`
+        : '<span style="font-size:.7rem;color:var(--wh3)">—</span>';
       return `
       <tr>
         <td style="font-size:.72rem">${escapeHtml(l.date || '')}</td>
@@ -1695,6 +1738,7 @@ function renderSponsor(){
         <td>${typeBadge}</td>
         <td class="col-amt" style="color:${l.type === 'earned' ? 'var(--grn)' : 'var(--org)'}">${l.type === 'earned' ? '+' : '-'}${l.qty}本</td>
         <td style="font-size:.7rem;color:var(--wh2)">${escapeHtml(l.note || '')}${l.product ? ' / ' + escapeHtml(l.product) : ''}</td>
+        <td style="text-align:center">${delBtn}</td>
       </tr>`;
     }).join('');
   }
