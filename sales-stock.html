@@ -276,6 +276,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <button class="dnav" onclick="shiftOrderMonth(1)">›</button>
       <button class="btn-s" onclick="setOrderMonthToday()">今月</button>
       <button class="btn-s" id="ord-all-btn" onclick="toggleOrderAll()">全期間表示</button>
+      <button class="btn-s" style="border-color:rgba(255,99,99,.5);color:#ff8a80" onclick="clearAllOrders()" title="全注文を削除（テストデータの一括クリア用）。在庫の本数は変わりません">🗑 全注文クリア</button>
     </div>
     <div class="fp">
       <div class="frow">
@@ -800,6 +801,42 @@ let ordShowAll = false;
 function setOrderMonthToday(){ ordMonth = new Date(); ordShowAll = false; renderOrders(); }
 function shiftOrderMonth(n){ ordMonth = new Date(ordMonth.getFullYear(), ordMonth.getMonth() + n, 1); ordShowAll = false; renderOrders(); }
 function toggleOrderAll(){ ordShowAll = !ordShowAll; document.getElementById('ord-all-btn').textContent = ordShowAll ? '月別表示' : '全期間表示'; renderOrders(); }
+
+// ─── 全注文クリア（テストデータ一括削除。在庫の実数は変更しない＝引当のみ消える） ───
+async function clearAllOrders(){
+  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
+  try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
+  const n = (S.orders || []).length;
+  if (n === 0) return toast('注文はありません');
+  if (!confirm(`現在の全注文 ${n} 件をすべて削除します。\n\n・在庫の本数は変わりません（引当が解除され、出荷可能数が元に戻ります）\n・スプレッドシートの注文受付シートからも削除します\n・お客様のマイページ履歴からも消えます\n\nテストデータの一括クリア用です。本当に削除しますか？`)) return;
+  if (!confirm('最終確認：この操作は元に戻せません。よろしいですか？')) return;
+
+  const ids = (S.orders || []).map(o => ({ id:o.id, timestamp:o.timestamp, store:o.store, amount:o.amount }));
+  // スプレッドシートからも削除（1件ずつ）
+  if (S.gasUrl){
+    for (const o of ids){
+      try { await gasPost({ action:'deleteOrder', id:o.id, timestamp:o.timestamp, store:o.store, amount:o.amount }); } catch(e){}
+    }
+  }
+  // 関連する協賛ログも消す（注文に紐づくもの）
+  if (S.sponsorLogs && S.sponsorLogs.length){
+    const orderIds = new Set(ids.map(o => String(o.id)));
+    const remain = S.sponsorLogs.filter(l => !orderIds.has(String(l.orderId)));
+    if (S.gasUrl){
+      const toDel = S.sponsorLogs.filter(l => orderIds.has(String(l.orderId)));
+      for (const l of toDel){ try { await gasPost({ action:'deleteSponsorLog', id:l.id }); } catch(e){} }
+    }
+    S.sponsorLogs = remain;
+  }
+  S.orders = [];
+  localStorage.removeItem('lmb_lastSeenOrderId');   // 通知の既読位置もリセット
+  saveState();
+  updateKPI();
+  renderOrders();
+  if (typeof renderStock === 'function') renderStock();
+  toast(`✓ 全注文 ${n} 件を削除しました（在庫の本数は維持）`);
+}
+
 
 function renderOrders(){
   // 別ページ（集金管理など）での支払ステータス更新・削除を反映するため最新を読み込む
