@@ -768,37 +768,26 @@ async function syncFromGAS(){
     if (S.gasUrl) localOnly.forEach(function(log){ try { gasPost({ action: 'saveSponsorLog', ...log }); } catch(e){} });
     S.sponsorLogs = spLogs.logs.concat(localOnly);
   }
-  // 注文受付シートの注文を取り込む。getOrders(全件)を優先し、未対応の旧GASは getNewOrders(最大20件)へ自動フォールバック
-  let ord = await gasGet('getOrders');
-  let usedFallback = false;
-  if (!ord || !Array.isArray(ord.orders)){
-    ord = await gasGet('getNewOrders', { since: '' });
-    usedFallback = true;
-  }
-  let orderMsg = '', orderErr = false;
+  // 注文受付シートの注文を取り込む（手動同期では since を無視して全件、漏れを補完）
+  const ord = await gasGet('getNewOrders', { since: '' });
   if (ord && Array.isArray(ord.orders)){
-    const serverCount = ord.orders.length;
     let added = 0;
     ord.orders.forEach(function(o){
       o.items = normalizeOrderItems(o.items);
-      const oid = String(o.id || '');
-      const exists = (S.orders || []).some(x =>
-        (oid && String(x.id) === oid) ||
-        (!oid && String(x.store) === String(o.store) &&
-                 String(x.date || x.timestamp || '') === String(o.date || o.timestamp || '') &&
-                 JSON.stringify(x.items || {}) === JSON.stringify(o.items || {}))
+      normalizeGasOrderDate(o);
+      const exists = (S.orders || []).find(x =>
+        String(x.id) === String(o.id) ||
+        (x.timestamp && o.timestamp && String(x.timestamp) === String(o.timestamp) && String(x.store) === String(o.store))
       );
       if (!exists){ if (!S.orders) S.orders = []; S.orders.push(o); added++; }
     });
     if (typeof dedupeOrders === 'function') S.orders = dedupeOrders(S.orders);
-    orderMsg = `注文 サーバー${serverCount}件/取込${added}件${usedFallback ? '（旧GAS:最大20件）' : ''}`;
-  } else {
-    orderErr = true;
-    orderMsg = '⚠️ 注文の取得に失敗（GASが getOrders / getNewOrders 未対応か通信エラー）';
+    if (added) { /* 取込件数はトーストで通知 */ window._syncAddedOrders = added; }
   }
   saveState();
   localStorage.setItem('lmb_lastSync', new Date().toISOString());
-  toast((orderErr ? '⚠️ 同期: ' : '✓ 同期完了 ') + orderMsg, orderErr ? 'error' : undefined);
+  toast(window._syncAddedOrders ? `✓ 同期完了（注文${window._syncAddedOrders}件を取り込み）` : '✓ 同期完了');
+  window._syncAddedOrders = 0;
   updateKPI(); renderOrders(); renderStock();
 }
 </script>
@@ -821,6 +810,10 @@ function renderOrders(){
     S.orders = dedupeOrders(S.orders);
     if (S.orders.length !== _b) saveState();
   }
+  // 過去にdateなしで取り込まれた注文を修復（LINE注文が月フィルタで消える不具合対策）
+  let _fixed = false;
+  (S.orders || []).forEach(o => { if (!o.date){ normalizeGasOrderDate(o); _fixed = true; } });
+  if (_fixed) saveState();
   const kw  = (document.getElementById('sk-kw')?.value || '').toLowerCase();
   const br  = document.getElementById('sk-br')?.value || '';
   const pay = document.getElementById('sk-pay')?.value || '';
@@ -866,7 +859,7 @@ function renderOrders(){
       <td class="col-qty">${totalQty}</td>
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
       <td><span class="badge ${payBadge}">${escapeHtml(o.payStatus||'未収')}</span></td>
-      <td onclick="event.stopPropagation()"><select class="ship-sel" style="background:var(--d3);border:1px solid rgba(201,168,76,.3);color:var(--wh);font-size:.62rem !important;padding:.1rem 1.1rem .1rem .35rem;border-radius:2px;letter-spacing:.05em;height:auto;line-height:1.4" onchange="changeShipStatus('${o.id}', this.value)" title="出荷ステータス（その場で変更）"><option${stg==='新規受付'?' selected':''}>新規受付</option><option${stg==='対応中'?' selected':''}>対応中</option><option${stg==='出荷済'?' selected':''}>出荷済</option></select></td>
+      <td onclick="event.stopPropagation()"><select class="ship-sel" style="background:var(--d3);border:1px solid rgba(201,168,76,.3);color:var(--wh);font-size:.7rem;padding:.2rem .3rem;border-radius:3px" onchange="changeShipStatus('${o.id}', this.value)" title="出荷ステータス（その場で変更）"><option${stg==='新規受付'?' selected':''}>新規受付</option><option${stg==='対応中'?' selected':''}>対応中</option><option${stg==='出荷済'?' selected':''}>出荷済</option></select></td>
       <td onclick="event.stopPropagation()"><button class="act-btn" onclick="openOrderForEdit('${o.id}')">修正</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
     </tr>`;
   }).join('');
@@ -2670,6 +2663,25 @@ function hideAlertBanner(){
 // 注文の在庫不足チェック
 // LINE注文などで商品が番号（1始まり）で記録されている場合に商品名へ変換し、
 // 文字列JSONはオブジェクト化する（在庫データのキー＝商品名 と一致させる）
+// GAS由来の注文に date/time を補完（注文一覧の月フィルタで弾かれるのを防ぐ）
+function normalizeGasOrderDate(o){
+  if (o && !o.date){
+    let d = null;
+    const ts = o.timestamp;
+    if (ts){
+      const str = String(ts);
+      const m = str.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/);
+      if (m) d = new Date(+m[1], +m[2]-1, +m[3], +(m[4]||0), +(m[5]||0));
+      else { const t = new Date(str); if (!isNaN(t)) d = t; }
+    }
+    if (!d) d = new Date();
+    const p = n => String(n).padStart(2,'0');
+    o.date = `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+    if (!o.time) o.time = `${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  return o;
+}
+
 function normalizeOrderItems(raw){
   let items = raw;
   if (typeof items === 'string'){
@@ -2709,25 +2721,21 @@ function syncStockToGAS(){
   try { gasPost({ action: 'updateAllStock', stockData: stockData }); } catch(e){}
 }
 
-// 注文の重複を排除（同IDのみ統合。IDが無い旧データだけ内容で重複判定）
+// 注文の重複を排除（同IDは最新を残す／別IDでも内容が同一なら統合）
 function dedupeOrders(orders){
   if (!Array.isArray(orders)) return [];
   const result = [];
   const seenId = new Set();
-  const seenContentNoId = new Set();  // ID欠落の旧データ同士のみ内容で重複排除
+  const seenContent = new Set();
   // 後ろ（新しい方）から見て最新を優先、元の並びは維持
   for (let i = orders.length - 1; i >= 0; i--){
     const o = orders[i] || {};
     const id = String(o.id || '');
-    if (id){
-      if (seenId.has(id)) continue;   // 同ID重複（編集前の残骸など）だけ除外
-      seenId.add(id);
-    } else {
-      // IDが無い注文に限り、内容が完全一致する取込重複のみ除外
-      const ck = String(o.store||'') + '|' + String(o.date||'') + '|' + JSON.stringify(o.items||{}) + '|' + String(o.amount||'');
-      if (seenContentNoId.has(ck)) continue;
-      seenContentNoId.add(ck);
-    }
+    const ck = String(o.store||'') + '|' + String(o.date||'') + '|' + JSON.stringify(o.items||{}) + '|' + String(o.amount||'');
+    if (id && seenId.has(id)) continue;       // 同ID重複（編集前の残骸など）
+    if (seenContent.has(ck)) continue;          // 別IDでも内容が同一（取込重複など）
+    if (id) seenId.add(id);
+    seenContent.add(ck);
     result.unshift(o);
   }
   return result;
@@ -2784,6 +2792,7 @@ async function checkNewOrders(){
       data.orders.forEach(o => {
         // 商品が番号で記録されている場合は商品名に変換（在庫照合のため）
         o.items = normalizeOrderItems(o.items);
+        normalizeGasOrderDate(o);
         // 既存ローカル注文と重複チェック（id一致、または 日時+店舗 が一致したら同一注文とみなす）
         const exists = (S.orders || []).find(x =>
           String(x.id) === String(o.id) ||
@@ -2871,12 +2880,6 @@ window.addEventListener('DOMContentLoaded', () => {
   updateUserBadge();
   updateKPI();
   renderOrders();
-  // URLハッシュで初期タブを指定可能（ポータルのチップから直行）例: sales-stock.html#stock
-  const _mods = ['orders','neworder','stock','purchase','inventory','sponsor'];
-  const _h = (location.hash || '').replace('#','');
-  if (_mods.indexOf(_h) >= 0 && _h !== 'orders'){
-    switchModule(_h, document.querySelectorAll('.mtab')[_mods.indexOf(_h)]);
-  }
 });
 </script>
 
