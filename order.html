@@ -460,6 +460,11 @@
     <div class="section-title">商品を選択 <span class="tag">在庫連動</span></div>
     <div class="prod-grid" id="prod-grid"></div>
   </div>
+  <div class="section" id="sponsor-section" style="display:none;border:1px solid rgba(155,89,182,.5)">
+    <div class="section-title" style="color:#c39bd3">🎁 協賛で無料注文 <span class="tag" style="background:rgba(155,89,182,.2);color:#c39bd3">残数 <span id="sp-total">0</span>本</span></div>
+    <div style="font-size:.72rem;color:var(--wh3);margin-bottom:10px">ご利用可能な協賛分です。協賛で出す本数は無料（¥0）で、通常注文とは別に加算されます。</div>
+    <div id="sponsor-list"></div>
+  </div>
   <div class="bottom-bar">
     <button class="bottom-back-btn" onclick="goPage(1)">← 戻る</button>
     <div class="bottom-total">
@@ -642,6 +647,16 @@ async function init() {
       window._commonTax  = authData.commonTaxType   || '税込';
       // 店舗名は本人の登録店舗を自動入力＆編集不可に
       window._custStore = authData.name || '';
+      window._custId = authData.id || '';
+      lineProfile = await liff.getProfile();
+      // 協賛残数（商品別）を取得
+      if (authData.sponsorEnabled && lineProfile && lineProfile.userId){
+        try {
+          const spRes = await fetch(GAS_URL + '?action=getMySponsor&uid=' + lineProfile.userId);
+          const sp = await spRes.json();
+          if (sp && sp.ok && sp.total > 0){ window._sponsorBal = sp.byProduct; window._sponsorTotal = sp.total; }
+        } catch(e){}
+      }
       // 登録情報（住所・連絡先など）= 初回の初期値に使う
       window._custInfo = {
         delivery: authData.contact || authData.owner || '',
@@ -651,7 +666,6 @@ async function init() {
         address1: [authData.pref, authData.city, authData.addr1].filter(Boolean).join(''),
         address2: authData.addr2 || ''
       };
-      lineProfile = await liff.getProfile();
     }
   } catch(e) {
     console.log('LIFF init failed:', e);
@@ -665,6 +679,39 @@ async function init() {
   renderProducts();
   applyLockedStore();
   fillCustomerFields();
+  renderSponsor();
+}
+
+// 協賛セクションの描画（残数のある商品だけ）
+let sponsorQty = {};
+function renderSponsor(){
+  const sec = document.getElementById('sponsor-section');
+  const bal = window._sponsorBal || {};
+  const prods = Object.keys(bal).filter(p => (bal[p]||0) > 0);
+  if (prods.length === 0){ if (sec) sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  document.getElementById('sp-total').textContent = window._sponsorTotal || 0;
+  const list = document.getElementById('sponsor-list');
+  list.innerHTML = prods.map(p => {
+    const max = bal[p];
+    const q = sponsorQty[p] || 0;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;border:1px solid rgba(155,89,182,.3);border-radius:8px;margin-bottom:8px">
+      <div><div style="font-weight:700">${p}</div><div style="font-size:.66rem;color:var(--wh3)">無料・残数 ${max}本</div></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="qty-btn" onclick="changeSponsorQty('${p}',-1)">−</button>
+        <span style="min-width:28px;text-align:center;font-weight:700">${q}</span>
+        <button class="qty-btn" onclick="changeSponsorQty('${p}',1)">＋</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function changeSponsorQty(prod, delta){
+  const bal = window._sponsorBal || {};
+  const max = bal[prod] || 0;
+  const cur = sponsorQty[prod] || 0;
+  const next = Math.max(0, Math.min(max, cur + delta));
+  sponsorQty[prod] = next;
+  renderSponsor();
 }
 
 // 顧客情報の初期値を入れる（優先順位: 前回送信値 ＞ 登録情報 ＞ 空欄）
@@ -809,7 +856,8 @@ function goPage(n) {
   }
   if (n === 3) {
     const items = Object.entries(quantities).filter(([,v]) => v > 0);
-    if (items.length === 0) { alert('商品を選択してください'); return; }
+    const spItems = Object.entries(sponsorQty || {}).filter(([,v]) => v > 0);
+    if (items.length === 0 && spItems.length === 0) { alert('商品を選択してください'); return; }
   }
   if (n === 4) { buildConfirm(); }
 
@@ -858,6 +906,16 @@ function buildConfirm() {
       </div>`;
     }
   });
+  // 協賛（無料）行
+  Object.keys(sponsorQty).forEach(p => {
+    const q = sponsorQty[p] || 0;
+    if (q > 0){
+      prodHtml += `<div class="order-line">
+        <span class="order-line-name">🎁 ${p} × ${q}本 <span style="font-size:.62rem;color:#c39bd3">協賛・無料</span></span>
+        <span class="order-line-amount" style="color:#c39bd3">¥0</span>
+      </div>`;
+    }
+  });
   prodHtml += `<div class="total-row"><span class="total-label">合計（税込）</span><span class="total-amount">¥${total.toLocaleString()}</span></div>`;
   document.getElementById('confirm-products').innerHTML = prodHtml;
 
@@ -896,6 +954,9 @@ async function submitOrder() {
       usedRates.add(String(line.pc.rate));
     }
   });
+  // 協賛（無料）分
+  const sponsorItems = {};
+  Object.keys(sponsorQty).forEach(p => { if ((sponsorQty[p]||0) > 0) sponsorItems[p] = sponsorQty[p]; });
 
   _orderId = 'LF' + Date.now();
   const zip = document.getElementById('p1-zip').value;
@@ -931,7 +992,9 @@ async function submitOrder() {
     note: noteParts.join('　／　'),
     deliveryName: document.getElementById('p1-delivery').value,
     deliveryAddress: addr.trim(),
-    uid: (lineProfile && lineProfile.userId) || ''
+    uid: (lineProfile && lineProfile.userId) || '',
+    custId: window._custId || '',
+    sponsorItems: sponsorItems
   };
 
   try {
