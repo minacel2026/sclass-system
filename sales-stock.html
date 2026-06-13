@@ -2925,15 +2925,16 @@ async function checkNewOrders(){
   }
 
   try {
-    // GASから最新の注文を取得（lastSeenOrderId以降）
-    const data = await gasGet('getNewOrders', { since: lastSeenOrderId });
+    // since方式に頼らず全件取得し「ローカルに無い注文＝新規」で判定する。
+    // （全注文クリアや既読位置ズレがあっても新着を確実に拾うため）
+    const data = await gasGet('getNewOrders', { since: '' });
     if (data && data.orders && data.orders.length > 0){
-      // 最新のものから処理
+      let newCount = 0;
+      // 古い順に処理（pushの順序を保つ）
       data.orders.forEach(o => {
-        // 商品が番号で記録されている場合は商品名に変換（在庫照合のため）
         o.items = normalizeOrderItems(o.items);
         normalizeGasOrderDate(o);
-        // 既存ローカル注文と重複チェック（id一致、または 日時+店舗 が一致したら同一注文とみなす）
+        // 既存ローカル注文と重複チェック（id一致、または 日時+店舗 が一致）
         const exists = (S.orders || []).find(x =>
           String(x.id) === String(o.id) ||
           (x.timestamp && o.timestamp && String(x.timestamp) === String(o.timestamp) && String(x.store) === String(o.store))
@@ -2943,15 +2944,16 @@ async function checkNewOrders(){
           S.orders.push(o);
           lastSeenOrderId = o.id;
           localStorage.setItem('lmb_lastSeenOrderId', lastSeenOrderId);
-          // 通知
           showNotifyPopup(o);
-          // 在庫不足チェック
           checkStockShortage(o);
+          newCount++;
         }
       });
-      saveState();
-      updateKPI();
-      renderOrders();
+      if (newCount > 0){
+        saveState();
+        updateKPI();
+        renderOrders();
+      }
     }
   } catch(e){
     // GAS接続エラーは無視（次回再試行）
