@@ -696,9 +696,9 @@ function prodPricing(name){
 function lineCalc(p, qty){
   const pc = prodPricing(p.name);
   const base = (pc.priceMode === '旧値') ? (p.priceOld || p.price) : p.price;
-  const unitExcl = Math.round(base * (pc.rate / 10));                              // 税抜単価
+  const unitExcl = Math.round(base * (pc.rate / 10));   // 税抜単価（定価×掛率）
   const subExcl  = unitExcl * qty;
-  const subIncl  = (pc.taxType === '税込') ? Math.round(subExcl * 1.1) : subExcl;  // 税込小計
+  const subIncl  = Math.round(subExcl * 1.1);           // 金額は常に税込で計算
   return { pc, unitExcl, subExcl, subIncl };
 }
 
@@ -721,7 +721,7 @@ function renderProducts() {
     <div class="prod-card ${qty > 0 ? 'selected' : ''} ${outOfStock ? 'out-of-stock' : ''}" id="card-${p.name}">
       <div style="width:8px;height:8px;border-radius:50%;background:${p.color};margin-bottom:6px"></div>
       <div class="prod-name">${p.name}</div>
-      <div class="prod-price">¥${lineCalc(p,1).subIncl.toLocaleString('ja-JP')}<span style="font-size:.6rem;color:var(--wh3)">${prodPricing(p.name).taxType}</span></div>
+      <div class="prod-price">¥${lineCalc(p,1).subIncl.toLocaleString('ja-JP')}<span style="font-size:.6rem;color:var(--wh3)">税込</span></div>
       <div class="prod-stock ${s <= 5 && s > 0 ? 'low' : ''}">${outOfStock ? '在庫切れ' : s <= 5 ? `残り${s}本` : `在庫あり`}</div>
       ${!outOfStock ? `
       <div class="prod-qty">
