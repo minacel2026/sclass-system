@@ -645,7 +645,7 @@ async function init() {
         const prof = await liff.getProfile();
         lineProfile = prof;
         // ★高速化: 認証＋協賛残数＋在庫を1往復でまとめて取得（旧:checkLineUser/getMySponsor/getStockの3往復→1往復）
-        const initRes = await fetch(GAS_URL + '?action=getOrderInit&uid=' + prof.userId);
+        const initRes = await fetch(GAS_URL + '?action=getOrderInit&uid=' + prof.userId + '&_=' + Date.now(), { cache: 'no-store' });
         const initData = await initRes.json();
         const authData = (initData && initData.auth) ? initData.auth : { ok:false };
         if (!authData.ok) {
@@ -862,7 +862,7 @@ function applyStockData(arr){
 }
 async function loadStock() {
   try {
-    const r = await fetch(GAS_URL + '?action=getStock');
+    const r = await fetch(GAS_URL + '?action=getStock&_=' + Date.now(), { cache: 'no-store' });
     const d = await r.json();
     applyStockData(d.stock);
   } catch(e) {
