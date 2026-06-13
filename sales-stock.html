@@ -915,7 +915,11 @@ function renderOrders(){
     return `
     <tr onclick="openOrderForEdit('${o.id}')" style="cursor:pointer" title="クリックで修正">
       <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(o.date||'')}</td>
-      <td>${escapeHtml(o.branch||'')}</td>
+      <td onclick="event.stopPropagation()">${
+        o.branch
+          ? `<select class="ship-sel" style="background:var(--d3);border:1px solid rgba(201,168,76,.25);color:var(--wh);font-size:.7rem;padding:.2rem .3rem;border-radius:3px" onchange="setOrderBranch('${o.id}', this.value)" title="拠点を変更"><option${o.branch==='仙台'?' selected':''}>仙台</option><option${o.branch==='京都'?' selected':''}>京都</option></select>`
+          : `<select class="ship-sel" style="background:rgba(255,99,99,.12);border:1px solid #ff6b6b;color:#ff8a80;font-size:.7rem;padding:.2rem .3rem;border-radius:3px;font-weight:700" onchange="setOrderBranch('${o.id}', this.value)" title="LINE注文は拠点未確定です。担当拠点を選んでください"><option value="">⚠拠点選択</option><option>仙台</option><option>京都</option></select>`
+      }</td>
       <td>${escapeHtml(o.store||'')}</td>
       <td style="font-size:.72rem;color:var(--wh2);max-width:200px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(itemsTxt)}</td>
       <td class="col-qty">${totalQty}</td>
@@ -998,6 +1002,26 @@ function reverseShipEffects(order){
   if (S.gasUrl) syncStockToGAS();
 }
 
+// 注文の拠点を確定/変更（LINE注文は拠点空で届くため、一覧から直接設定できるようにする）
+function setOrderBranch(id, val){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const o = (S.orders || []).find(x => String(x.id) === String(id));
+  if (!o) return;
+  if (!val){ return; }
+  // 出荷済みの注文は拠点変更で在庫の整合が崩れるため、未出荷のみ許可
+  if (shipStatus(o) === '出荷済'){
+    toast('出荷済みの注文は拠点を変更できません', 'error');
+    renderOrders();
+    return;
+  }
+  o.branch = val;
+  saveState();
+  if (S.gasUrl){ try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} }
+  toast('✓ 拠点を「' + val + '」に確定しました');
+  renderOrders();
+  if (typeof renderStock === 'function') renderStock();
+}
+
 function changeShipStatus(id, val){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (['新規受付','対応中','出荷済'].indexOf(val) < 0) return;
@@ -1007,6 +1031,11 @@ function changeShipStatus(id, val){
   if (prev === val){ renderOrders(); return; }
   const wasShipped = prev === '出荷済';
   const willShip = val === '出荷済';
+  if (willShip && !o.branch){
+    toast('⚠ 拠点が未確定です。先に拠点（仙台/京都）を選んでください', 'error');
+    renderOrders();
+    return;
+  }
   if (willShip && !wasShipped) applyShipEffects(o);
   else if (wasShipped && !willShip) reverseShipEffects(o);
   o.status = val;
@@ -1095,7 +1124,15 @@ function openOrderForEdit(id){
   editingOrderId = id;
   currentOrderCust = (S.customers || []).find(x => x.name === o.store) || null;
   document.getElementById('no-store').value     = o.store    || '';
-  document.getElementById('no-branch').value    = o.branch   || '仙台';
+  // 拠点が未確定(LINE注文)なら空のままにして、ユーザーに選択させる
+  const _brSel = document.getElementById('no-branch');
+  if (o.branch){ _brSel.value = o.branch; }
+  else {
+    if (!_brSel.querySelector('option[value=""]')){
+      const op = document.createElement('option'); op.value=''; op.textContent='― 拠点を選択 ―'; _brSel.insertBefore(op, _brSel.firstChild);
+    }
+    _brSel.value = '';
+  }
   document.getElementById('no-staff').value     = o.staff    || '';
   document.getElementById('no-contact').value   = o.contact  || '';
   document.getElementById('no-tel').value       = o.tel      || '';
