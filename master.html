@@ -455,6 +455,10 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           </div>
           <!-- 新・適用協賛ルール（協賛マスターから複数選択） -->
           <div id="sponsor-rules" style="display:none;margin-top:.7rem">
+            <div class="sponsor-toggle" style="margin-bottom:.7rem">
+              <input type="checkbox" id="cf-sponsor-instant">
+              <label for="cf-sponsor-instant" style="font-size:.76rem;color:var(--wh);cursor:pointer">協賛を即時反映する <span class="hint">同じ注文内で達成した協賛をその場で無料追加（OFF＝次回以降に利用）</span></label>
+            </div>
             <label style="font-size:.7rem;color:var(--wh2);letter-spacing:.05em">適用協賛ルール <span class="hint">協賛マスターの有効なルールから複数選択</span></label>
             <div style="display:flex;gap:.5rem;margin-top:.4rem;align-items:center">
               <select class="fc" id="cf-sponsor-rule-sel" style="flex:1" onchange="addCustSponsor()"><option value="">ルールを選択...</option></select>
@@ -1381,6 +1385,7 @@ function fillCustForm(c){
   updateSponsorProductOptions(c.sponsorProduct||'');
   // 適用協賛ルール（新方式）
   custSponsorIds = Array.isArray(c.sponsorIds) ? c.sponsorIds.slice() : [];
+  document.getElementById('cf-sponsor-instant').checked = !!c.sponsorInstant;
   document.getElementById('sponsor-rules').style.display = c.sponsorEnabled ? 'block' : 'none';
   rebuildCustSponsorOptions();
   renderCustSponsors();
@@ -1423,6 +1428,7 @@ function clearCustForm(){
   document.getElementById('cf-common-price-mode').value = '新値';
   document.getElementById('cf-common-tax').value = '税込';
   document.getElementById('cf-sponsor').checked = false;
+  document.getElementById('cf-sponsor-instant').checked = false;
   updateReferrerOptions('');
   custSponsorIds = [];
   document.getElementById('sponsor-rules').style.display = 'none';
@@ -1756,6 +1762,7 @@ function submitCustForm(){
     sponsorReward:  g('cf-sponsor-reward'),
     sponsorProduct: g('cf-sponsor-product'),
     sponsorIds:     custSponsorIds.slice(),
+    sponsorInstant: document.getElementById('cf-sponsor-instant').checked,
     // 詳細情報（分析用）
     bizType:      g('cf-biz-type'),
     openDate:     g('cf-open-date'),
