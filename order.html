@@ -621,6 +621,10 @@ async function init() {
   tomorrow.setDate(tomorrow.getDate() + 1);
   document.getElementById('p3-deldate').min = tomorrow.toISOString().split('T')[0];
 
+  // 在庫取得を先行スタート（LIFF認証と並列で走らせ、待ち時間を重ねる）
+  const stockPromise = loadStock();
+  let customerFilled = false;
+
   // LIFF初期化（ID未設定や失敗時はブラウザモードで継続）
   try {
     if (!LIFF_ID) throw new Error('LIFF_ID未設定');
@@ -648,15 +652,6 @@ async function init() {
       // 店舗名は本人の登録店舗を自動入力＆編集不可に
       window._custStore = authData.name || '';
       window._custId = authData.id || '';
-      lineProfile = await liff.getProfile();
-      // 協賛残数（商品別）を取得
-      if (authData.sponsorEnabled && lineProfile && lineProfile.userId){
-        try {
-          const spRes = await fetch(GAS_URL + '?action=getMySponsor&uid=' + lineProfile.userId);
-          const sp = await spRes.json();
-          if (sp && sp.ok && sp.total > 0){ window._sponsorBal = sp.byProduct; window._sponsorTotal = sp.total; }
-        } catch(e){}
-      }
       // 登録情報（住所・連絡先など）= 初回の初期値に使う
       window._custInfo = {
         delivery: authData.contact || authData.owner || '',
@@ -666,6 +661,18 @@ async function init() {
         address1: [authData.pref, authData.city, authData.addr1].filter(Boolean).join(''),
         address2: authData.addr2 || ''
       };
+      // 顧客情報は認証が返った時点で即反映（協賛・在庫の通信を待たせない＝店舗名・住所が先に埋まる）
+      applyLockedStore();
+      fillCustomerFields();
+      customerFilled = true;
+      // 協賛残数（商品別）を取得（先行中の在庫取得と並列で進行）
+      if (authData.sponsorEnabled && lineProfile && lineProfile.userId){
+        try {
+          const spRes = await fetch(GAS_URL + '?action=getMySponsor&uid=' + lineProfile.userId);
+          const sp = await spRes.json();
+          if (sp && sp.ok && sp.total > 0){ window._sponsorBal = sp.byProduct; window._sponsorTotal = sp.total; }
+        } catch(e){}
+      }
     }
   } catch(e) {
     console.log('LIFF init failed:', e);
@@ -674,11 +681,12 @@ async function init() {
       '<div style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);color:#C9A84C;font-size:.68rem;text-align:center;padding:6px;border-radius:6px;margin:8px 12px">⚠ ブラウザモードで動作中（LINE連携なし）</div>');
   }
 
-  // 在庫取得
-  await loadStock();
+  // ブラウザモード等で未反映なら顧客情報を反映（前回値）。認証成功時は上で反映済み＝二重fillで入力を上書きしない
+  if (!customerFilled){ applyLockedStore(); fillCustomerFields(); }
+
+  // 先行スタートした在庫取得の完了を待ってから商品描画
+  await stockPromise;
   renderProducts();
-  applyLockedStore();
-  fillCustomerFields();
   renderSponsor();
 }
 
