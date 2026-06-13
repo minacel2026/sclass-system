@@ -433,6 +433,7 @@
     <div class="section-title">お客様情報</div>
     <label>店舗名 <span style="color:var(--red)">*</span></label>
     <input type="text" id="p1-store" placeholder="例：株式会社 Sclass">
+    <div id="p1-store-locked" style="display:none;font-size:.62rem;color:var(--gold);margin-top:-6px;margin-bottom:6px">✓ ご登録の店舗として注文します（変更はSclasまでご連絡ください）</div>
     <label>お届け先名</label>
     <input type="text" id="p1-delivery" placeholder="例：Sclass 営業部">
     <label>郵便番号</label>
@@ -619,7 +620,7 @@ async function init() {
   try {
     const saved = JSON.parse(localStorage.getItem('lmb_customer_v2') || '{}');
     if (saved.store) {
-      document.getElementById('p1-store').value    = saved.store    || '';
+      if (!window._custStore) document.getElementById('p1-store').value = saved.store || '';
       document.getElementById('p1-delivery').value = saved.delivery || '';
       document.getElementById('p1-contact').value  = saved.contact  || '';
       document.getElementById('p1-tel').value      = saved.tel      || '';
@@ -653,6 +654,8 @@ async function init() {
       window._prodRates  = authData.productRates  || [];
       window._commonMode = authData.commonPriceMode || '新値';
       window._commonTax  = authData.commonTaxType   || '税込';
+      // 店舗名は本人の登録店舗を自動入力＆編集不可に
+      window._custStore = authData.name || '';
       lineProfile = await liff.getProfile();
     }
   } catch(e) {
@@ -665,6 +668,21 @@ async function init() {
   // 在庫取得
   await loadStock();
   renderProducts();
+  applyLockedStore();
+}
+
+// 認証済みの店舗名を自動入力し、編集不可（固定表示）にする
+function applyLockedStore(){
+  if (!window._custStore) return;                 // ブラウザモード等で未取得なら手入力のまま
+  const el = document.getElementById('p1-store');
+  if (!el) return;
+  el.value = window._custStore;
+  el.readOnly = true;
+  el.style.background = 'rgba(201,168,76,.07)';
+  el.style.color = 'var(--gold-l)';
+  el.style.cursor = 'not-allowed';
+  const note = document.getElementById('p1-store-locked');
+  if (note) note.style.display = 'block';
 }
 
 async function loadStock() {
