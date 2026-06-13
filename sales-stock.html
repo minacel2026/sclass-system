@@ -803,8 +803,33 @@ function shiftOrderMonth(n){ ordMonth = new Date(ordMonth.getFullYear(), ordMont
 function toggleOrderAll(){ ordShowAll = !ordShowAll; document.getElementById('ord-all-btn').textContent = ordShowAll ? '月別表示' : '全期間表示'; renderOrders(); }
 
 // ─── 全注文クリア（テストデータ一括削除。在庫の実数は変更しない＝引当のみ消える） ───
+// 全注文クリア用パスワードの簡易ハッシュ（平文をlocalStorageに残さない）
+function _hashPw(str){
+  let h = 5381;
+  for (let i = 0; i < str.length; i++){ h = ((h << 5) + h) + str.charCodeAt(i); h |= 0; }
+  return String(h);
+}
 async function clearAllOrders(){
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
+
+  // ── 管理パスワード照合（未設定なら初回に設定） ──
+  const KEY = 'lmb_clearPwHash';
+  let stored = localStorage.getItem(KEY);
+  if (!stored){
+    const np = prompt('【全注文クリア用パスワードの設定】\nこの操作を保護するパスワードを新しく設定します。\n（今後この一括削除を実行するたびに必要になります）\n\n設定するパスワードを入力：');
+    if (np === null) return;
+    if (np.trim().length < 4) return toast('パスワードは4文字以上で設定してください', 'error');
+    const np2 = prompt('確認のため、もう一度同じパスワードを入力してください：');
+    if (np2 === null) return;
+    if (np !== np2) return toast('パスワードが一致しませんでした', 'error');
+    localStorage.setItem(KEY, _hashPw(np));
+    stored = localStorage.getItem(KEY);
+    toast('✓ パスワードを設定しました。続けて削除を実行します');
+  }
+  const input = prompt('🔒 全注文クリアを実行します。\n管理パスワードを入力してください：');
+  if (input === null) return;
+  if (_hashPw(input) !== stored){ toast('❌ パスワードが違います', 'error'); return; }
+
   try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
   const n = (S.orders || []).length;
   if (n === 0) return toast('注文はありません');
