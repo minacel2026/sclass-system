@@ -683,6 +683,10 @@ async function init() {
         // 協賛ルール＋即時反映フラグ（注文中の付与計算に使う）
         window._sponsorRules = authData.sponsorRules || [];
         window._sponsorInstant = !!authData.sponsorInstant;
+        // 送料設定（全体）＋顧客個別の送料/無料フラグ
+        window._shipping = initData.shipping || {};
+        window._freeShipping = !!authData.freeShipping;
+        window._shipFee = (authData.shipFee != null) ? authData.shipFee : '';
         // 顧客情報を反映
         applyLockedStore();
         fillCustomerFields();
@@ -723,8 +727,11 @@ function isSponsorRuleActive(s){
   const en = String((s && (s.enabled || s.status)) || '有効');
   if (en === '無効' || en === '停止' || en === '終了') return false;
   const t = new Date().toISOString().slice(0,10);
-  if (s.startDate && String(s.startDate) > t) return false;
-  if (s.endDate && String(s.endDate) < t) return false;
+  // 日付は yyyy-MM-dd に正規化してから比較（"2026/05/30" 等のスラッシュ表記でも誤判定しない）
+  const nd = function(d){ return d ? String(d).slice(0,10).replace(/\//g,'-') : ''; };
+  const sd = nd(s.startDate), ed = nd(s.endDate);
+  if (sd && sd > t) return false;
+  if (ed && ed < t) return false;
   return true;
 }
 
@@ -947,7 +954,32 @@ function updateTotal() {
     const q = quantities[p.name] || 0;
     if (q > 0) total += lineCalc(p, q).subIncl;
   });
+  const ship = calcShipping();
+  if (total > 0) total += ship.fee;
   document.getElementById('bottom-total').textContent = '¥' + total.toLocaleString();
+}
+
+// 送料計算（画面合計・確認画面・送信で共通使用）
+// 無料条件: 顧客が送料無料フラグON または 合計本数(設定により協賛無料を含む)≧無料本数
+function calcShipping() {
+  const cfg = window._shipping || {};
+  const defFee  = (typeof cfg.defaultFee === 'number') ? cfg.defaultFee : 950;
+  const freeQty = (typeof cfg.freeQty === 'number' && cfg.freeQty > 0) ? cfg.freeQty : 6;
+  const includeSp = !!cfg.includeSponsor;
+  // 顧客の個別送料（空ならデフォルト）
+  let myFee = defFee;
+  const rawFee = window._shipFee;
+  if (rawFee !== undefined && rawFee !== null && String(rawFee).trim() !== '') {
+    const pf = parseInt(String(rawFee).replace(/[^0-9.\-]/g, ''));
+    if (!isNaN(pf)) myFee = pf;
+  }
+  // 合計本数
+  let qty = 0;
+  PRODUCTS.forEach(p => { qty += (quantities[p.name] || 0); });
+  if (includeSp) { Object.keys(sponsorQty || {}).forEach(p => { qty += (sponsorQty[p] || 0); }); }
+  const alwaysFree = !!window._freeShipping;
+  const isFree = alwaysFree || (qty >= freeQty);
+  return { fee: isFree ? 0 : myFee, free: isFree, baseFee: myFee, qty: qty, freeQty: freeQty, alwaysFree: alwaysFree };
 }
 
 // ========== ページ遷移 ==========
@@ -1031,6 +1063,13 @@ function buildConfirm() {
       </div>`;
     }
   });
+  // 送料
+  const _ship = calcShipping();
+  total += _ship.fee;
+  prodHtml += `<div class="order-line">
+    <span class="order-line-name">送料${_ship.free ? `<span style="font-size:.62rem;color:#7ee2a8">（${_ship.alwaysFree ? '送料無料対象' : _ship.qty + '本以上で無料'}）</span>` : ''}</span>
+    <span class="order-line-amount"${_ship.free ? ' style="color:#7ee2a8"' : ''}>${_ship.free ? '無料' : '¥' + _ship.fee.toLocaleString()}</span>
+  </div>`;
   prodHtml += `<div class="total-row"><span class="total-label">合計（税込）</span><span class="total-amount">¥${total.toLocaleString()}</span></div>`;
   document.getElementById('confirm-products').innerHTML = prodHtml;
 
@@ -1072,6 +1111,9 @@ async function submitOrder() {
   // 協賛（無料）分
   const sponsorItems = {};
   Object.keys(sponsorQty).forEach(p => { if ((sponsorQty[p]||0) > 0) sponsorItems[p] = sponsorQty[p]; });
+  // 送料（確認画面と同一計算）
+  const ship = calcShipping();
+  total += ship.fee;
 
   _orderId = 'LF' + Date.now();
   const zip = document.getElementById('p1-zip').value;
@@ -1089,6 +1131,7 @@ async function submitOrder() {
   const note = document.getElementById('p3-note').value;
   if (note) noteParts.push(note);
   noteParts.push(usedRates.size === 1 ? '掛率' + [...usedRates][0] + '掛' : '商品別掛率適用(' + [...usedRates].join('/') + '掛)');
+  noteParts.push(ship.free ? '送料無料' : '送料¥' + ship.fee.toLocaleString());
 
   // GASの注文受付シート(saveOrderToSheet)の列構成に合わせたペイロード
   const orderData = {
@@ -1109,7 +1152,8 @@ async function submitOrder() {
     deliveryAddress: addr.trim(),
     uid: (lineProfile && lineProfile.userId) || '',
     custId: window._custId || '',
-    sponsorItems: sponsorItems
+    sponsorItems: sponsorItems,
+    shippingFee: ship.fee
   };
 
   try {
