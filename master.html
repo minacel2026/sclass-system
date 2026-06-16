@@ -315,6 +315,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           <span id="list-count">0</span> 件
         </span>
       </div>
+      <div id="kana-tabs" style="display:flex;flex-wrap:wrap;margin:.1rem 0 .5rem"></div>
       <div id="cust-grid" class="cust-grid"></div>
     </div>
 
@@ -1203,6 +1204,42 @@ function switchCustTab(name, el){
   if (name === 'uid')  loadCustPendingUids();
 }
 
+// ── 顧客一覧 あいうえおタブ ──
+let custKanaFilter = '全';
+function setKanaFilter(g){ custKanaFilter = g; renderCustList(); }
+function _kanaGroup(c){
+  const s = ((c.kana || c.name || '') + '').trim();
+  if (!s) return '他';
+  const ch = s[0];
+  const nfkc = ch.normalize('NFKC');
+  if (/[A-Za-z0-9]/.test(nfkc)) return '英';           // 英字・数字の店名
+  let h = ch;
+  if (ch >= 'ァ' && ch <= 'ヶ') h = String.fromCharCode(ch.charCodeAt(0) - 0x60); // カタカナ→ひらがな
+  const ROWS = {
+    'あ':'あいうえおぁぃぅぇぉ','か':'かきくけこがぎぐげご','さ':'さしすせそざじずぜぞ',
+    'た':'たちつてとだぢづでどっ','な':'なにぬねの','は':'はひふへほばびぶべぼぱぴぷぺぽ',
+    'ま':'まみむめも','や':'やゆよゃゅょ','ら':'らりるれろ','わ':'わをんゎ'
+  };
+  for (const k in ROWS) if (ROWS[k].includes(h)) return k;
+  return '他';
+}
+function renderKanaTabs(base){
+  const el = document.getElementById('kana-tabs');
+  if (!el) return;
+  const TABS = ['全','あ','か','さ','た','な','は','ま','や','ら','わ','英','他'];
+  const cnt = {}; base.forEach(c => { const g = _kanaGroup(c); cnt[g] = (cnt[g]||0) + 1; });
+  el.innerHTML = TABS.map(t => {
+    const n = (t === '全') ? base.length : (cnt[t] || 0);
+    const active = (custKanaFilter === t);
+    const dim = (t !== '全' && n === 0);
+    return `<button type="button" onclick="setKanaFilter('${t}')" style="`+
+      `padding:.25rem .55rem;margin:0 .25rem .3rem 0;border:1px solid ${active?'var(--gold)':'rgba(201,168,76,.25)'};`+
+      `background:${active?'var(--gold)':'transparent'};color:${active?'#1a1a1a':(dim?'var(--wh3)':'var(--wh1)')};`+
+      `border-radius:5px;font-size:.74rem;cursor:pointer;${dim?'opacity:.45;':''}">${t}`+
+      `${(t!=='全'&&n)?`<span style="font-size:.62rem;opacity:.7"> ${n}</span>`:''}</button>`;
+  }).join('');
+}
+
 function renderCustList(){
   const kw = (document.getElementById('f-kw')?.value || '').trim().toLowerCase();
   const br = document.getElementById('f-br')?.value || '';
@@ -1217,6 +1254,13 @@ function renderCustList(){
     }
     return true;
   });
+  // あいうえおタブ（他フィルタ適用後の集合で件数表示）→ かな絞り込み → 読み順ソート
+  renderKanaTabs(filtered);
+  if (custKanaFilter && custKanaFilter !== '全'){
+    filtered = filtered.filter(c => _kanaGroup(c) === custKanaFilter);
+  }
+  filtered = filtered.slice().sort((a, b) =>
+    (((a.kana || a.name || '') + '').localeCompare(((b.kana || b.name || '') + ''), 'ja')));
   const cnt = document.getElementById('list-count');
   if (cnt) cnt.textContent = filtered.length;
   const grid = document.getElementById('cust-grid');
@@ -2253,6 +2297,7 @@ function renderDupResolver(){
       '<button type="button" class="btn btn-g" style="font-size:.65rem;padding:.2rem .6rem" onclick="dupBulk(false)">全て区別して登録</button>' +
       '<button type="button" class="btn btn-g" style="font-size:.65rem;padding:.2rem .6rem" onclick="dupBulk(true)">全て削除</button>' +
     '</div>' +
+    '<div id="dup-summary" style="font-size:.72rem;margin:0 0 .4rem"></div>' +
     '<div style="max-height:260px;overflow-y:auto;border:1px solid rgba(201,168,76,.15)">' +
     dups.map(d =>
       '<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .4rem;border-bottom:1px solid rgba(255,255,255,.05)">' +
@@ -2262,13 +2307,23 @@ function renderDupResolver(){
       '</div>'
     ).join('') +
     '</div>';
+  updateDupSummary();
+}
+function updateDupSummary(){
+  const el = document.getElementById('dup-summary');
+  if (!el) return;
+  const del = document.querySelectorAll('.dup-del:checked').length;
+  const total = (parsedCsvData || []).length;
+  el.innerHTML = 'このまま登録すると → <b style="color:var(--grn)">登録 ' + (total - del) + '件</b>　／　<b style="color:var(--red)">削除（取込まない） ' + del + '件</b>';
 }
 function dupSync(cb){
   const inp = document.querySelector('.dup-name[data-i="' + cb.dataset.i + '"]');
   if (inp){ inp.disabled = cb.checked; inp.style.opacity = cb.checked ? '.4' : '1'; inp.style.textDecoration = cb.checked ? 'line-through' : ''; }
+  updateDupSummary();
 }
 function dupBulk(del){
   document.querySelectorAll('.dup-del').forEach(cb => { cb.checked = del; dupSync(cb); });
+  updateDupSummary();
 }
 
 // 確定登録
