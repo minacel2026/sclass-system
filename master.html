@@ -562,6 +562,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
         <div class="faction">
           <button class="btn btn-g" onclick="downloadCustomerTemplate()">📋 テンプレートをダウンロード</button>
           <button class="btn btn-g" onclick="exportCustomersCSV()">📤 現在の顧客一覧をCSVで出力</button>
+          <button class="btn btn-p" onclick="syncAllCustomersToGas()">☁ スプレッドシートへ全件再送信</button>
         </div>
       </div>
 
@@ -2327,6 +2328,31 @@ function dupBulk(del){
 }
 
 // 確定登録
+// 大量件数を安全に書き込むため、GASへ200件ずつ順次送信（一括保存エンドポイント）
+async function _bulkSaveCustomersToGas(list){
+  const clean = list.map(c => { const o = { ...c }; Object.keys(o).forEach(k => { if (k.startsWith('_')) delete o[k]; }); return o; });
+  const SIZE = 200, total = clean.length;
+  let sent = 0;
+  for (let i = 0; i < clean.length; i += SIZE){
+    const batch = clean.slice(i, i + SIZE);
+    await gasPost({ action: 'saveCustomersBulk', customers: batch });
+    sent += batch.length;
+    toast(`スプレッドシートへ送信中… ${sent}/${total}`);
+    await new Promise(r => setTimeout(r, 500));
+  }
+  toast(`✓ スプレッドシートへ送信完了（${total}件）`);
+}
+
+// ローカルの全顧客をスプレッドシートへ一括再送信（取込が途中までしか反映されなかった時の復旧用）
+async function syncAllCustomersToGas(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  if (!S.gasUrl) return toast('GAS URLが未設定です', 'error');
+  const all = S.customers || [];
+  if (!all.length) return toast('送信する顧客がありません', 'error');
+  if (!confirm(`${all.length}件の顧客をスプレッドシートへ送信します（店舗名で更新/追加）。よろしいですか？`)) return;
+  await _bulkSaveCustomersToGas(all);
+}
+
 function confirmCsvImport(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!parsedCsvData) return;
@@ -2384,13 +2410,7 @@ function confirmCsvImport(){
   saveState();
 
   if (S.gasUrl){
-    setTimeout(() => {
-      list.forEach(cust => {
-        const data = { ...cust };
-        Object.keys(data).forEach(k => { if (k.startsWith('_')) delete data[k]; });
-        gasPost({ action: 'saveCustomer', ...data });
-      });
-    }, 100);
+    _bulkSaveCustomersToGas(list);
   }
 
   toast(`✓ 登録完了: 新規 ${newCnt} / 更新 ${updateCnt}${delCnt ? ` / 削除 ${delCnt}` : ''}`);
