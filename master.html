@@ -1907,6 +1907,7 @@ const INVOICE_NAME_ALIASES = ['請求書宛名','請求書_宛名','請求宛名
 
 let parsedCsvData = null;
 let parsedCsvWarnings = [];
+let parsedCsvDups = [];
 
 // ─── 文字コード判定（UTF-8 / Shift-JIS / CP932 / EUC-JP） ───
 function detectEncoding(buffer){
@@ -2181,6 +2182,23 @@ function parseAndPreview(text, encoding){
   parsedCsvData = customers;
   parsedCsvWarnings = warnings;
 
+  // CSV内で店舗名が重複する行を検出し、エリア付きの区別名を提案
+  const _nc = {}; customers.forEach(c => { _nc[c.name] = (_nc[c.name]||0) + 1; });
+  const _usedNames = new Set(customers.filter(c => _nc[c.name] === 1).map(c => c.name));
+  parsedCsvDups = [];
+  customers.forEach((c, i) => {
+    if (_nc[c.name] > 1){
+      c._dup = true; c._origName = c.name; c._i = i;
+      c._addr = [c.pref, c.city, c.addr1].filter(Boolean).join('');
+      const ar = ((c.pref||'') + (c.city||'')).trim();
+      let base = ar ? `${c.name}（${ar}）` : `${c.name}（${parsedCsvDups.length+2}）`;
+      let s = base, n = 2;
+      while (_usedNames.has(s)){ s = base.replace(/）$/, '') + `・${n}）`; n++; }
+      _usedNames.add(s); c._suggest = s;
+      parsedCsvDups.push(c);
+    }
+  });
+
   // ステータス
   const mappedCols = Object.keys(colMap).filter(k => !k.startsWith('_') && colMap[k] !== undefined).length;
   document.getElementById('csv-stat').innerHTML =
@@ -2217,30 +2235,71 @@ function parseAndPreview(text, encoding){
     document.getElementById('csv-tbody').innerHTML += `<tr><td colspan="9" style="padding:.7rem;text-align:center;color:var(--wh3);font-size:.7rem">⋯ 他 ${customers.length - 50} 件 ⋯</td></tr>`;
   }
 
-  const warnEl = document.getElementById('csv-warnings');
-  if (warnings.length > 0){
-    warnEl.style.display = 'block';
-    warnEl.innerHTML = '<strong>⚠ 警告（' + warnings.length + '件）</strong><br>' +
-      warnings.slice(0, 10).map(escapeHtml).join('<br>') +
-      (warnings.length > 10 ? `<br>… 他 ${warnings.length - 10} 件` : '');
-  } else {
-    warnEl.style.display = 'none';
-  }
+  renderDupResolver();
 
   document.getElementById('csv-preview').style.display = 'block';
+}
+
+// 重複の解決UI：1件ずつ「区別して登録（エリア付与）／削除（取込まない）」を選択・名前編集可
+function renderDupResolver(){
+  const el = document.getElementById('csv-warnings');
+  const dups = parsedCsvDups || [];
+  if (!dups.length){ el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML =
+    '<strong>⚠ CSV内で店舗名が重複（' + dups.length + '件）</strong>' +
+    '<div style="font-size:.7rem;color:var(--wh2);margin:.3rem 0 .5rem">同名は別の店として<b>区別して登録</b>（登録名にエリアを自動付与）するか、<b>削除</b>（取込まない）かを1件ずつ選べます。登録名は直接編集もできます。</div>' +
+    '<div style="display:flex;gap:.4rem;margin-bottom:.5rem">' +
+      '<button type="button" class="btn btn-g" style="font-size:.65rem;padding:.2rem .6rem" onclick="dupBulk(false)">全て区別して登録</button>' +
+      '<button type="button" class="btn btn-g" style="font-size:.65rem;padding:.2rem .6rem" onclick="dupBulk(true)">全て削除</button>' +
+    '</div>' +
+    '<div style="max-height:260px;overflow-y:auto;border:1px solid rgba(201,168,76,.15)">' +
+    dups.map(d =>
+      '<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .4rem;border-bottom:1px solid rgba(255,255,255,.05)">' +
+        '<label style="font-size:.68rem;white-space:nowrap;color:var(--red)"><input type="checkbox" class="dup-del" data-i="' + d._i + '" onchange="dupSync(this)"> 削除</label>' +
+        '<input class="fc dup-name" data-i="' + d._i + '" value="' + escapeHtml(d._suggest) + '" style="flex:1;min-width:0;font-size:.72rem;padding:.2rem .4rem">' +
+        '<span style="font-size:.62rem;color:var(--wh3);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(d._addr||'') + '">' + escapeHtml(d._addr || '(住所なし)') + '</span>' +
+      '</div>'
+    ).join('') +
+    '</div>';
+}
+function dupSync(cb){
+  const inp = document.querySelector('.dup-name[data-i="' + cb.dataset.i + '"]');
+  if (inp){ inp.disabled = cb.checked; inp.style.opacity = cb.checked ? '.4' : '1'; inp.style.textDecoration = cb.checked ? 'line-through' : ''; }
+}
+function dupBulk(del){
+  document.querySelectorAll('.dup-del').forEach(cb => { cb.checked = del; dupSync(cb); });
 }
 
 // 確定登録
 function confirmCsvImport(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!parsedCsvData) return;
-  if (!confirm(`${parsedCsvData.length}件の顧客を登録/更新します。よろしいですか？`)) return;
+
+  // 重複の解決を反映：削除チェックは取込まない／編集した登録名を採用
+  const delSet = new Set([...document.querySelectorAll('.dup-del:checked')].map(c => +c.dataset.i));
+  document.querySelectorAll('.dup-name').forEach(inp => {
+    const i = +inp.dataset.i;
+    if (parsedCsvData[i]) parsedCsvData[i].name = (inp.value || '').trim() || parsedCsvData[i].name;
+  });
+  let list = parsedCsvData.filter((c, i) => !delSet.has(i));
+  // 残った同名は保険で連番を付与（衝突防止）
+  const seen = new Set();
+  list.forEach(c => { let nm = c.name, k = nm, n = 2; while (seen.has(k)){ k = `${nm}（${n}）`; n++; } c.name = k; seen.add(k); });
+  // 改名後に既存顧客との一致を再判定（新規/更新）
+  list.forEach(c => {
+    const ex = (S.customers || []).find(x => x.name === c.name);
+    if (ex){ c._action = 'update'; c._existingId = ex.id; } else { c._action = 'new'; }
+  });
+
+  const delCnt = delSet.size;
+  if (!confirm(`${list.length}件の顧客を登録/更新します${delCnt ? `（削除 ${delCnt}件は取込みません）` : ''}。よろしいですか？`)) return;
 
   if (!S.customers) S.customers = [];
   let newCnt = 0, updateCnt = 0;
   const now = new Date().toISOString();
 
-  parsedCsvData.forEach((cust, idx) => {
+  list.forEach((cust, idx) => {
     if (cust._action === 'update'){
       const existIdx = S.customers.findIndex(c => c.id === cust._existingId);
       if (existIdx >= 0){
@@ -2258,7 +2317,7 @@ function confirmCsvImport(){
       }
     } else {
       const newCust = { ...cust };
-      delete newCust._action;
+      Object.keys(newCust).forEach(k => { if (k.startsWith('_')) delete newCust[k]; });
       newCust.id = 'cust-' + Date.now() + '-' + idx;
       newCust.createdAt = now;
       newCust.updatedAt = now;
@@ -2270,19 +2329,19 @@ function confirmCsvImport(){
   saveState();
 
   if (S.gasUrl){
-    // バックグラウンドで非同期送信（UI ブロックしない）
     setTimeout(() => {
-      parsedCsvData.forEach(cust => {
+      list.forEach(cust => {
         const data = { ...cust };
-        delete data._action; delete data._existingId;
+        Object.keys(data).forEach(k => { if (k.startsWith('_')) delete data[k]; });
         gasPost({ action: 'saveCustomer', ...data });
       });
     }, 100);
   }
 
-  toast(`✓ 登録完了: 新規 ${newCnt} / 更新 ${updateCnt}`);
+  toast(`✓ 登録完了: 新規 ${newCnt} / 更新 ${updateCnt}${delCnt ? ` / 削除 ${delCnt}` : ''}`);
   parsedCsvData = null;
   parsedCsvWarnings = [];
+  parsedCsvDups = [];
   document.getElementById('csv-preview').style.display = 'none';
   document.getElementById('csv-file').value = '';
   renderCustList();
@@ -2291,6 +2350,7 @@ function confirmCsvImport(){
 function cancelCsvImport(){
   parsedCsvData = null;
   parsedCsvWarnings = [];
+  parsedCsvDups = [];
   document.getElementById('csv-preview').style.display = 'none';
   document.getElementById('csv-file').value = '';
   toast('インポートをキャンセル');
