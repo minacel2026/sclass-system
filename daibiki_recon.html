@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>入金消し込みツール | Sclassランボルギーニ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#080808;--pnl:#121212;--gold:#C9A84C;--gold-l:#E4C76A;--wh1:#f2f2f2;--wh2:#bdbdbd;--wh3:#777;--red:#e74c3c;--grn:#7ee2a8;--prp:#c39bd3;--bd:rgba(255,255,255,.1)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--wh1);font-family:'Noto Sans JP',system-ui,sans-serif;font-size:14px;padding:18px;max-width:1100px;margin:0 auto}
+h1{font-size:1.15rem;color:var(--gold);font-weight:600;letter-spacing:.04em}
+.sub{color:var(--wh3);font-size:.74rem;margin-bottom:16px}
+.panel{background:var(--pnl);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:14px}
+.ptitle{font-size:.82rem;color:var(--gold-l);font-weight:600;margin-bottom:10px;border-left:3px solid var(--gold);padding-left:8px}
+.drop{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.filecard{border:1px dashed rgba(201,168,76,.4);border-radius:8px;padding:12px;background:rgba(201,168,76,.04)}
+.filecard label{display:block;font-size:.72rem;color:var(--wh2);margin-bottom:6px}
+.filecard .fn{font-size:.7rem;color:var(--grn);margin-top:6px;min-height:14px}
+input[type=file]{font-size:.7rem;color:var(--wh2);width:100%}
+button.run{margin-top:12px;background:var(--gold);color:#000;border:none;border-radius:7px;padding:11px 20px;font-weight:700;font-size:.85rem;cursor:pointer}
+button.run:disabled{opacity:.4;cursor:not-allowed}
+button.ghost{background:transparent;border:1px solid var(--bd);color:var(--wh2);border-radius:7px;padding:8px 14px;font-size:.75rem;cursor:pointer;margin-left:8px}
+table{width:100%;border-collapse:collapse;font-size:.74rem}
+th,td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--bd)}
+th{color:var(--wh3);font-weight:500;font-size:.68rem}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+.badge{display:inline-block;padding:1px 8px;border-radius:99px;font-size:.62rem}
+.b-norm{background:rgba(201,168,76,.15);color:var(--gold-l)}
+.b-cod{background:rgba(155,89,182,.18);color:var(--prp)}
+.b-cash{background:rgba(126,226,168,.15);color:var(--grn)}
+.b-skip{background:rgba(255,255,255,.08);color:var(--wh3)}
+.b-warn{background:rgba(231,76,60,.18);color:#ff9a8f}
+.ok{color:var(--grn)} .warn{color:#ff9a8f} .muted{color:var(--wh3)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:8px}
+.kpi{background:rgba(255,255,255,.03);border:1px solid var(--bd);border-radius:8px;padding:10px 12px}
+.kpi .l{font-size:.62rem;color:var(--wh3)} .kpi .v{font-size:1.1rem;color:var(--gold-l);font-variant-numeric:tabular-nums}
+.note{font-size:.7rem;color:var(--wh3);margin-top:6px;line-height:1.6}
+.hidden{display:none}
+</style></head>
+<body>
+<h1>入金消し込みツール <span style="font-size:.7rem;color:var(--wh3)">代引き明細・通帳CSV対応 / プロトタイプ</span></h1>
+<div class="sub">通帳・ヤマト明細・佐川明細を読み込むと、入金分類・代引き消し込み（手数料/消費税の自動調整）・売掛集計を表示します。ファイルはブラウザ内だけで処理され、外部送信しません。</div>
+
+<div class="panel">
+  <div class="ptitle">▸ ファイルを選択</div>
+  <div class="drop">
+    <div class="filecard"><label>① 通帳明細（xlsx/csv）</label><input type="file" id="f-bank" accept=".xlsx,.xls,.csv"><div class="fn" id="fn-bank"></div></div>
+    <div class="filecard"><label>② ヤマト 代引き明細（xlsx）</label><input type="file" id="f-yamato" accept=".xlsx,.xls"><div class="fn" id="fn-yamato"></div></div>
+    <div class="filecard"><label>③ 佐川 代引き明細（xlsx）</label><input type="file" id="f-sagawa" accept=".xlsx,.xls"><div class="fn" id="fn-sagawa"></div></div>
+  </div>
+  <button class="run" id="btn-run" disabled onclick="runRecon()">消し込みを実行</button>
+  <button class="ghost" onclick="loadCustomers()" id="btn-cust">顧客マスターの振込名義を読込（任意・自動顧客判定）</button>
+  <div class="note" id="cust-note"></div>
+</div>
+
+<div id="results"></div>
+
+<script>
+const GAS_URL='https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
+const files={bank:null,yamato:null,sagawa:null};
+let CUST=[]; // {name, aliases:[振込名義...]}
+
+['bank','yamato','sagawa'].forEach(k=>{
+  document.getElementById('f-'+k).addEventListener('change',e=>{
+    const f=e.target.files[0]; files[k]=f||null;
+    document.getElementById('fn-'+k).textContent=f?('✓ '+f.name):'';
+    document.getElementById('btn-run').disabled=!files.bank;
+  });
+});
+
+function norm(s){ if(s==null)return''; s=String(s).normalize('NFKC').replace(/\u3000/g,' ').replace(/\t/g,' '); return s.replace(/\s+/g,' ').trim(); }
+function num(v){ if(v==null||v==='')return 0; const n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:Math.round(n); }
+function yen(n){ return '¥'+(n||0).toLocaleString('ja-JP'); }
+function pdate(s){ if(!s)return null; if(s instanceof Date)return s; const m=String(s).match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/); if(m)return new Date(+m[1],+m[2]-1,+m[3]); const d=String(s).replace(/[^0-9]/g,''); if(d.length===8)return new Date(+d.slice(0,4),+d.slice(4,6)-1,+d.slice(6,8)); return null; }
+const DAIBIKI=['ヤマトウンユ','ヤマト運輸','Eコレクト','SGシステム','サガワ','佐川'];
+
+function readWb(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>{ try{res(XLSX.read(e.target.result,{type:'array',cellDates:true}));}catch(err){rej(err);} }; r.onerror=rej; r.readAsArrayBuffer(file); }); }
+function aoa(wb,sheet){ return XLSX.utils.sheet_to_json(wb.Sheets[sheet||wb.SheetNames[0]],{header:1,raw:true}); }
+
+function parseBank(rows){
+  const H=(rows[0]||[]).map(norm), ix=n=>H.indexOf(n);
+  const cY=ix('操作日(年)'),cM=ix('操作日(月)'),cD=ix('操作日(日)'),cT=ix('摘要'),cDep=ix('お預り金額');
+  const out=[];
+  for(let r=1;r<rows.length;r++){
+    const row=rows[r]; if(!row||row.every(x=>x==null||String(x).trim()===''))continue;
+    const dep=num(row[cDep]); if(dep<=0)continue;
+    const t=norm(row[cT]); const date=`${num(row[cY])}/${String(num(row[cM])).padStart(2,'0')}/${String(num(row[cD])).padStart(2,'0')}`;
+    let kind,who;
+    if(/利息/.test(t)){kind='対象外';who='利息';}
+    else if(/ATM/.test(t)){kind='現金/ATM';who='ATM入金';}
+    else if(/^振込/.test(t)){ let p=t.replace(/^振込\s*/,'').replace(/[(](カ|ｶ|株).*$/,'').trim(); const nt=p.replace(/[\s.]/g,''); kind=DAIBIKI.some(k=>nt.includes(k.replace(/\s/g,'')))?'代引き入金':'通常入金'; who=p; }
+    else {kind='要確認';who=t;}
+    out.push({date,dateObj:new Date(num(row[cY]),num(row[cM])-1,num(row[cD])),kind,amount:dep,who,tekiyo:t,cust:matchCust(who)});
+  }
+  return out;
+}
+function parseCarrier(wb,carrier){
+  const out=[];
+  for(const name of wb.SheetNames){
+    const rows=aoa(wb,name); let hr=-1,H=null;
+    for(let r=0;r<Math.min(8,rows.length);r++){ const v=(rows[r]||[]).map(norm); if(v.includes('発送日')&&(v.includes('代引金')||v.includes('品代金'))){hr=r;H=v;break;} }
+    if(hr<0)continue;
+    const ix=(...ns)=>{for(const n of ns){const i=H.indexOf(n);if(i>=0)return i;}return -1;};
+    const cAmt=ix('代引金','品代金'),cStore=ix('店舗名','お届け先名'),cNo=ix('お問い合せNo.','伝票番号'),cShip=ix('発送日');
+    const cDf=ix('代引手数料'),cIn=ix('印紙代','収入印紙代相当額'),cTf=ix('振込事務手数料','振込手数料'),cTax=ix('消費税');
+    const cFu=ix('振込日'),cY=ix('振込日付(年)'),cM=ix('振込日付(月)'),cD=ix('振込日付(日)');
+    for(let r=hr+1;r<rows.length;r++){
+      const row=rows[r]; if(!row)continue; const amt=cAmt>=0?num(row[cAmt]):0; if(amt<=0)continue;
+      const fee=[cDf,cIn,cTf,cTax].filter(c=>c>=0).reduce((s,c)=>s+num(row[c]),0);
+      let furi=cFu>=0?row[cFu]:null; if((furi==null||furi==='')&&cY>=0)furi=`${num(row[cY])}/${String(num(row[cM])).padStart(2,'0')}/${String(num(row[cD])).padStart(2,'0')}`;
+      out.push({carrier,furi:String(furi||''),furiObj:pdate(furi),ship:cShip>=0?String(row[cShip]||''):'',store:cStore>=0?norm(row[cStore]):'',no:cNo>=0?norm(row[cNo]):'',amount:amt,fee,net:amt-fee,used:false});
+    }
+  }
+  return out;
+}
+function matchCust(payer){
+  if(!CUST.length)return null; const p=norm(payer).replace(/[\s.]/g,'');
+  for(const c of CUST){ for(const a of c.aliases){ const an=norm(a).replace(/[\s.]/g,''); if(an&&(p.includes(an)||an.includes(p)))return c.name; } }
+  return null;
+}
+function matchCOD(bankCOD,meisai){
+  const res=[];
+  for(const b of bankCOD){
+    let best=null;
+    for(const m of meisai){ if(m.used)continue; const diff=m.net-b.amount; if(diff>=0&&diff<=Math.max(200,m.amount*0.02)){ const dd=(m.furiObj&&b.dateObj)?Math.abs((m.furiObj-b.dateObj)/864e5):999; const score=diff*0.01+dd; if(best===null||score<best.score)best={m,diff,dd,score}; } }
+    if(best){best.m.used=true; res.push({bank:b,meisai:best.m,adjust:best.diff});}
+    else res.push({bank:b,meisai:null,adjust:0});
+  }
+  return res;
+}
+
+async function loadCustomers(){
+  const note=document.getElementById('cust-note'); note.textContent='読込中…';
+  try{ const r=await fetch(GAS_URL+'?action=getCustomers&_='+Date.now(),{cache:'no-store'}); const d=await r.json();
+    CUST=(d.customers||[]).map(c=>({name:c.name,aliases:[].concat(c.bankNames||[],c.name||[]).filter(Boolean)})).filter(c=>c.aliases.length);
+    note.innerHTML='<span class="ok">✓ 顧客 '+CUST.length+'件の振込名義を読込みました（通常入金の自動顧客判定が有効）</span>';
+  }catch(e){ note.innerHTML='<span class="warn">顧客マスター読込に失敗（名義判定なしで続行できます）</span>'; }
+}
+
+let LAST=null;
+async function runRecon(){
+  const R=document.getElementById('results'); R.innerHTML='<div class="panel muted">処理中…</div>';
+  try{
+    const bankWb=await readWb(files.bank); const bank=parseBank(aoa(bankWb));
+    let meisai=[];
+    if(files.yamato) meisai=meisai.concat(parseCarrier(await readWb(files.yamato),'ヤマト'));
+    if(files.sagawa) meisai=meisai.concat(parseCarrier(await readWb(files.sagawa),'佐川'));
+    const cod=matchCOD(bank.filter(b=>b.kind==='代引き入金'),meisai);
+    LAST={bank,meisai,cod}; render(bank,meisai,cod);
+  }catch(e){ R.innerHTML='<div class="panel warn">エラー: '+e.message+'</div>'; }
+}
+
+function render(bank,meisai,cod){
+  const sum=k=>bank.filter(b=>b.kind===k).reduce((s,b)=>s+b.amount,0);
+  let h='';
+  h+='<div class="panel"><div class="ptitle">▸ サマリー</div><div class="kpis">'
+   +kpi('通常入金',yen(sum('通常入金')))+kpi('代引き入金',yen(sum('代引き入金')))
+   +kpi('現金/ATM',yen(sum('現金/ATM')))+kpi('代引き消し込み',cod.filter(x=>x.meisai).length+'/'+cod.length+'件')
+   +'</div></div>';
+
+  h+='<div class="panel"><div class="ptitle">▸ ① 通帳入金の分類</div><table><tr><th>日付</th><th>区分</th><th>相手/振込人</th><th>顧客</th><th class="r">入金額</th></tr>';
+  bank.forEach(b=>{ const bc={'通常入金':'b-norm','代引き入金':'b-cod','現金/ATM':'b-cash','対象外':'b-skip','要確認':'b-warn'}[b.kind]||'b-skip';
+    h+=`<tr><td>${b.date}</td><td><span class="badge ${bc}">${b.kind}</span></td><td>${esc(b.who)}</td><td>${b.cust?esc(b.cust):'<span class="muted">—</span>'}</td><td class="r">${yen(b.amount)}</td></tr>`; });
+  h+='</table></div>';
+
+  h+='<div class="panel"><div class="ptitle">▸ ② 代引き消し込み（手数料・消費税の自動調整）</div>';
+  if(!cod.length) h+='<div class="muted note">代引き入金はありません。</div>';
+  else { h+='<table><tr><th>通帳日</th><th class="r">通帳入金</th><th>明細(店舗)</th><th class="r">代引金</th><th class="r">手数料</th><th class="r">消費税等調整</th><th>判定</th></tr>';
+    cod.forEach(x=>{ if(x.meisai){ const m=x.meisai;
+        h+=`<tr><td>${x.bank.date}</td><td class="r">${yen(x.bank.amount)}</td><td>${esc(m.carrier)} / ${esc(m.store)}</td><td class="r">${yen(m.amount)}</td><td class="r">${yen(m.fee)}</td><td class="r ${x.adjust>0?'warn':''}">${x.adjust>0?yen(x.adjust):'—'}</td><td><span class="ok">✓ 売掛満額消込</span></td></tr>`;
+      } else h+=`<tr><td>${x.bank.date}</td><td class="r">${yen(x.bank.amount)}</td><td colspan="4" class="muted">明細に一致なし</td><td><span class="badge b-warn">要確認</span></td></tr>`; });
+    h+='</table><div class="note">通帳の実入金額を正とし、明細netとの差額（消費税・手数料）を自動で調整行に起票します。売掛は代引金（顧客支払額）を満額で消し込みます。</div>'; }
+  h+='</div>';
+
+  // 売掛集計（顧客/振込人別）
+  const agg={};
+  bank.filter(b=>b.kind==='通常入金'||b.kind==='現金/ATM').forEach(b=>{ const k=b.cust||b.who; agg[k]=(agg[k]||0)+b.amount; });
+  cod.forEach(x=>{ if(x.meisai){ const k=x.meisai.store; agg[k]=(agg[k]||0)+x.meisai.amount; } });
+  h+='<div class="panel"><div class="ptitle">▸ ③ 売掛金 入金集計（顧客/振込人別）</div><table><tr><th>顧客/振込人</th><th class="r">消し込み額</th></tr>';
+  Object.entries(agg).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>h+=`<tr><td>${esc(k)}</td><td class="r">${yen(v)}</td></tr>`);
+  h+='</table><button class="ghost" onclick="dl()">CSVダウンロード</button></div>';
+
+  document.getElementById('results').innerHTML=h;
+}
+function kpi(l,v){ return `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function dl(){ if(!LAST)return; const rows=[['種別','日付','区分','相手/店舗','顧客','金額','手数料','調整(消費税等)']];
+  LAST.bank.forEach(b=>rows.push(['通帳',b.date,b.kind,b.who,b.cust||'',b.amount,'','']));
+  LAST.cod.forEach(x=>{ if(x.meisai)rows.push(['代引消込',x.bank.date,x.meisai.carrier,x.meisai.store,'',x.meisai.amount,x.meisai.fee,x.adjust]); });
+  const csv='\ufeff'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='消し込み表.csv'; a.click();
+}
+</script>
+</body></html>
