@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lamborghini Wine Order</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -131,7 +131,7 @@
     border-radius: 6px;
     color: var(--wh1);
     font-family: 'Noto Sans JP', sans-serif;
-    font-size: .85rem;
+    font-size: 1rem;
     padding: 10px 12px;
     outline: none;
     transition: border-color .2s;
@@ -299,11 +299,21 @@
     backdrop-filter: blur(10px);
     border-top: 1px solid rgba(201,168,76,.2);
     padding: 10px 12px;
+    display: block;
+  }
+  .bottom-bar-row {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     align-items: center;
     gap: 8px;
   }
+  .order-hint {
+    font-size: .66rem;
+    text-align: center;
+    line-height: 1.5;
+    padding: 0 0 7px;
+  }
+  .order-hint:empty { display: none; }
   .bottom-back-btn {
     background: transparent;
     color: var(--wh2);
@@ -444,24 +454,24 @@
   <div class="section">
     <div class="section-title">お客様情報</div>
     <label>店舗名 <span style="color:var(--red)">*</span></label>
-    <input type="text" id="p1-store" placeholder="例：株式会社 Sclass">
+    <input type="text" id="p1-store" autocomplete="organization" placeholder="例：株式会社 Sclass">
     <div id="p1-store-locked" style="display:none;font-size:.62rem;color:var(--gold);margin-top:-6px;margin-bottom:6px">✓ ご登録の店舗として注文します（変更はSclasまでご連絡ください）</div>
     <label>お届け先名</label>
     <input type="text" id="p1-delivery" placeholder="例：Sclass 営業部">
     <label>郵便番号</label>
     <div style="display:flex;gap:8px;align-items:center">
-      <input type="tel" id="p1-zip" placeholder="例：980-0803" maxlength="8" style="flex:1" oninput="onZipInput(this.value)">
+      <input type="tel" id="p1-zip" inputmode="numeric" autocomplete="postal-code" placeholder="例：980-0803" maxlength="8" style="flex:1" oninput="onZipInput(this.value)">
       <button onclick="searchZip()" style="padding:10px 12px;background:rgba(201,168,76,.2);border:1px solid rgba(201,168,76,.4);color:var(--gold);border-radius:6px;font-size:.75rem;white-space:nowrap;cursor:pointer">🔍 検索</button>
       <button onclick="openZipSearch()" style="padding:10px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:var(--wh2);border-radius:6px;font-size:.75rem;white-space:nowrap;cursor:pointer">わからない</button>
     </div>
     <div id="zip-msg" style="font-size:.65rem;margin-top:4px;min-height:14px"></div>
     <label>お届け先住所 <span style="color:var(--red)">*</span></label>
-    <input type="text" id="p1-address1" placeholder="例：宮城県仙台市青葉区国分町1-6-15">
+    <input type="text" id="p1-address1" autocomplete="street-address" placeholder="例：宮城県仙台市青葉区国分町1-6-15">
     <input type="text" id="p1-address2" placeholder="建物名など（例：奥田ビル4F）" style="margin-top:6px">
     <label>連絡先名 <span style="color:var(--red)">*</span></label>
-    <input type="text" id="p1-contact" placeholder="例：佐々木 希望">
+    <input type="text" id="p1-contact" autocomplete="name" placeholder="例：佐々木 希望">
     <label>連絡先電話番号 <span style="color:var(--red)">*</span></label>
-    <input type="tel" id="p1-tel" placeholder="例：080-3199-0550">
+    <input type="tel" id="p1-tel" autocomplete="tel" placeholder="例：080-3199-0550">
   </div>
   <button class="bottom-next-btn" onclick="goPage(2)" style="width:100%;padding:14px;font-size:.9rem;margin-top:8px">次へ　→</button>
 </div>
@@ -478,12 +488,15 @@
     <div id="sponsor-list"></div>
   </div>
   <div class="bottom-bar">
-    <button class="bottom-back-btn" onclick="goPage(1)">← 戻る</button>
-    <div class="bottom-total">
-      <div class="bottom-total-label">合計（税込）</div>
-      <div class="bottom-total-amt" id="bottom-total">¥0</div>
+    <div class="order-hint" id="order-hint"></div>
+    <div class="bottom-bar-row">
+      <button class="bottom-back-btn" onclick="goPage(1)">← 戻る</button>
+      <div class="bottom-total">
+        <div class="bottom-total-label">合計（税込）<span id="order-qty-badge"></span></div>
+        <div class="bottom-total-amt" id="bottom-total">¥0</div>
+      </div>
+      <button class="bottom-next-btn" onclick="goPage(3)">次へ →</button>
     </div>
-    <button class="bottom-next-btn" onclick="goPage(3)">次へ →</button>
   </div>
 </div>
 
@@ -628,10 +641,11 @@ function openZipSearch() {
 }
 
 async function init() {
-  // 明日以降の日付を最小値に設定
+  // 明日以降の日付を最小値に設定（端末ローカル基準でズレ防止）
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  document.getElementById('p3-deldate').min = tomorrow.toISOString().split('T')[0];
+  const _z = n => String(n).padStart(2, '0');
+  document.getElementById('p3-deldate').min = tomorrow.getFullYear() + '-' + _z(tomorrow.getMonth() + 1) + '-' + _z(tomorrow.getDate());
 
   let customerFilled = false;
   let stockApplied = false;
@@ -688,6 +702,7 @@ async function init() {
         window._freeShipping = !!authData.freeShipping;
         window._shipFee = (authData.shipFee != null) ? authData.shipFee : '';
         window._shipIncludeSponsor = (authData.shipIncludeSponsor != null) ? authData.shipIncludeSponsor : '';
+        window._custBranch = authData.branch || '';   // 在庫はこの顧客の拠点で判定
         // 顧客情報を反映
         applyLockedStore();
         fillCustomerFields();
@@ -903,13 +918,9 @@ function lineCalc(p, qty){
 // ========== 商品描画 ==========
 function renderProducts() {
   const grid = document.getElementById('prod-grid');
-  // 全拠点の合計在庫
+  // 在庫: 顧客の拠点を優先（拠点不明/未取得なら全拠点合計にフォールバック）
   const totalStock = {};
-  PRODUCTS.forEach(p => {
-    let total = 0;
-    Object.values(stock).forEach(b => { total += (b[p.name] || 0); });
-    totalStock[p.name] = total;
-  });
+  PRODUCTS.forEach(p => { totalStock[p.name] = availStock(p.name); });
 
   grid.innerHTML = PRODUCTS.map(p => {
     const qty = quantities[p.name] || 0;
@@ -924,7 +935,7 @@ function renderProducts() {
       ${!outOfStock ? `
       <div class="prod-qty">
         <button class="qty-btn" onclick="event.stopPropagation();changeQty('${p.name}',-1)">－</button>
-        <div class="qty-val" id="qty-${p.name}">${qty}</div>
+        <input class="qty-val" id="qty-${p.name}" type="number" inputmode="numeric" min="0" value="${qty}" style="width:54px;background:transparent;border:none;padding:2px" onclick="event.stopPropagation()" onfocus="this.select()" onchange="setQty('${p.name}',this.value)">
         <button class="qty-btn" onclick="event.stopPropagation();changeQty('${p.name}',1)">＋</button>
       </div>` : ''}
     </div>`;
@@ -932,32 +943,90 @@ function renderProducts() {
   updateTotal();
 }
 
+// 在庫: 顧客の拠点があればその拠点、なければ全拠点合計
+function availStock(name) {
+  const b = window._custBranch;
+  if (b && stock[b] && stock[b][name] != null) return parseInt(stock[b][name]) || 0;
+  let t = 0; Object.values(stock).forEach(x => { t += (x[name] || 0); }); return t;
+}
+
 function changeQty(name, delta) {
   const prod = PRODUCTS.find(p => p.name === name);
-  const totalStock = Object.values(stock).reduce((s, b) => s + (b[name] || 0), 0);
+  const max = availStock(name);
   const current = quantities[name] || 0;
-  const newVal = Math.max(0, Math.min(totalStock, current + delta));
+  const newVal = Math.max(0, Math.min(max, current + delta));
   quantities[name] = newVal;
 
   const card = document.getElementById('card-' + name);
   const qtyEl = document.getElementById('qty-' + name);
-  if (qtyEl) qtyEl.textContent = newVal;
+  if (qtyEl) qtyEl.value = newVal;
   if (card) card.classList.toggle('selected', newVal > 0);
-  updateTotal();
   recomputeInstantSponsor();   // 即時反映ON: 今回付与分を再計算して無料分を自動追加
   renderSponsor();
+  updateTotal();               // 協賛本数も確定後に合計・ヒントを更新
+}
+
+// 数量の直接入力（在庫上限でクランプ）
+function setQty(name, val) {
+  const max = availStock(name);
+  let n = parseInt(String(val).replace(/[^0-9]/g, ''));
+  if (isNaN(n) || n < 0) n = 0;
+  if (n > max) n = max;
+  quantities[name] = n;
+  const qtyEl = document.getElementById('qty-' + name);
+  if (qtyEl) qtyEl.value = n;
+  const card = document.getElementById('card-' + name);
+  if (card) card.classList.toggle('selected', n > 0);
+  recomputeInstantSponsor();
+  renderSponsor();
+  updateTotal();
 }
 
 function updateTotal() {
   // 商品別の掛率・価格モード・税で合計（システム本体と同一計算）
-  let total = 0;
+  let total = 0, qtyTotal = 0;
   PRODUCTS.forEach(p => {
     const q = quantities[p.name] || 0;
-    if (q > 0) total += lineCalc(p, q).subIncl;
+    if (q > 0) { total += lineCalc(p, q).subIncl; qtyTotal += q; }
   });
   const ship = calcShipping();
   if (total > 0) total += ship.fee;
   document.getElementById('bottom-total').textContent = '¥' + total.toLocaleString();
+  const badge = document.getElementById('order-qty-badge');
+  if (badge) badge.textContent = qtyTotal > 0 ? '　計' + qtyTotal + '本' : '';
+  const hintEl = document.getElementById('order-hint');
+  if (hintEl) hintEl.innerHTML = buildOrderHint(qtyTotal, ship);
+}
+
+// 下部バーのヒント（送料無料まで／協賛まで あと○本）
+function buildOrderHint(qtyTotal, ship) {
+  if (qtyTotal <= 0) return '';
+  const parts = [];
+  if (ship.alwaysFree) {
+    parts.push('<span style="color:#7ee2a8">送料無料対象です</span>');
+  } else if (ship.free) {
+    parts.push('<span style="color:#7ee2a8">✓ 送料無料になりました</span>');
+  } else {
+    const remain = ship.freeQty - ship.qty;
+    if (remain > 0) parts.push('<span style="color:#C9A84C">あと' + remain + '本で送料無料</span>');
+  }
+  // 協賛（即時反映ON＋有効ルール）: 次の無料まであと何本か
+  if (window._sponsorInstant && Array.isArray(window._sponsorRules)) {
+    let best = null;
+    window._sponsorRules.forEach(r => {
+      if (!isSponsorRuleActive(r)) return;
+      const tp = r.targetProduct;
+      const named = (tp && tp !== 'all' && tp !== '');
+      const buyQty = named ? (quantities[tp] || 0) : PRODUCTS.reduce((a, p) => a + (quantities[p.name] || 0), 0);
+      const trig = r.triggerQty || 0;
+      if (trig <= 0 || buyQty <= 0) return;
+      const rem = trig - (buyQty % trig);
+      if (rem === trig) return;   // ちょうど達成直後は出さない
+      if (best === null || rem < best.rem) best = { rem: rem, label: named ? tp : '対象商品', reward: (r.rewardQty || 1) };
+    });
+    if (best) parts.push('<span style="color:#c39bd3">あと' + best.rem + '本で🎁' + best.label + best.reward + '本無料</span>');
+  }
+  return parts.join('　');
 }
 
 // 送料計算（画面合計・確認画面・送信で共通使用）
@@ -1120,7 +1189,7 @@ async function submitOrder() {
   const ship = calcShipping();
   total += ship.fee;
 
-  _orderId = 'LF' + Date.now();
+  _orderId = _orderId || ('LF' + Date.now());
   const zip = document.getElementById('p1-zip').value;
   const addr = (zip ? '〒' + zip + ' ' : '') + document.getElementById('p1-address1').value + ' ' + document.getElementById('p1-address2').value;
   const noteParts = [];
