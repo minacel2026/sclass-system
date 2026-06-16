@@ -473,6 +473,13 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
               <label for="cf-free-shipping" style="font-size:.78rem;color:var(--wh);cursor:pointer">この顧客は常時送料無料 <span class="hint">本数に関係なく送料0円</span></label>
             </div>
             <div class="fg"><label>個別送料 <span class="hint">空欄＝デフォルト送料（送料設定シート）を使用</span></label><input type="number" class="fc" id="cf-ship-fee" placeholder="例：950" min="0"><span style="font-size:.6rem;color:var(--wh3)">円（規定本数以上で無料）</span></div>
+            <div class="fg"><label>協賛分の送料カウント <span class="hint">無料判定の本数に協賛無料分を含めるか</span></label>
+              <select class="fc" id="cf-ship-include-sponsor">
+                <option value="">全体設定に従う</option>
+                <option value="あり">含める</option>
+                <option value="なし">含めない</option>
+              </select>
+            </div>
           </div>
         </div>
         <div class="form-section">
@@ -1396,6 +1403,7 @@ function fillCustForm(c){
   document.getElementById('cf-sponsor-instant').checked = !!c.sponsorInstant;
   document.getElementById('cf-free-shipping').checked = !!c.freeShipping;
   document.getElementById('cf-ship-fee').value = (c.shipFee != null) ? c.shipFee : '';
+  document.getElementById('cf-ship-include-sponsor').value = (c.shipIncludeSponsor != null) ? c.shipIncludeSponsor : '';
   document.getElementById('sponsor-rules').style.display = c.sponsorEnabled ? 'block' : 'none';
   rebuildCustSponsorOptions();
   renderCustSponsors();
@@ -1440,6 +1448,7 @@ function clearCustForm(){
   document.getElementById('cf-sponsor').checked = false;
   document.getElementById('cf-sponsor-instant').checked = false;
   document.getElementById('cf-free-shipping').checked = false;
+  document.getElementById('cf-ship-include-sponsor').value = '';
   updateReferrerOptions('');
   custSponsorIds = [];
   document.getElementById('sponsor-rules').style.display = 'none';
@@ -1776,6 +1785,7 @@ function submitCustForm(){
     sponsorInstant: document.getElementById('cf-sponsor-instant').checked,
     freeShipping: document.getElementById('cf-free-shipping').checked,
     shipFee: g('cf-ship-fee'),
+    shipIncludeSponsor: g('cf-ship-include-sponsor'),
     // 詳細情報（分析用）
     bizType:      g('cf-biz-type'),
     openDate:     g('cf-open-date'),

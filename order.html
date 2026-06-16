@@ -687,6 +687,7 @@ async function init() {
         window._shipping = initData.shipping || {};
         window._freeShipping = !!authData.freeShipping;
         window._shipFee = (authData.shipFee != null) ? authData.shipFee : '';
+        window._shipIncludeSponsor = (authData.shipIncludeSponsor != null) ? authData.shipIncludeSponsor : '';
         // 顧客情報を反映
         applyLockedStore();
         fillCustomerFields();
@@ -965,7 +966,11 @@ function calcShipping() {
   const cfg = window._shipping || {};
   const defFee  = (typeof cfg.defaultFee === 'number') ? cfg.defaultFee : 950;
   const freeQty = (typeof cfg.freeQty === 'number' && cfg.freeQty > 0) ? cfg.freeQty : 6;
-  const includeSp = !!cfg.includeSponsor;
+  // 協賛分を本数に含めるか: 顧客の個別設定が優先（''=全体設定に従う）
+  let includeSp = !!cfg.includeSponsor;
+  const custInc = window._shipIncludeSponsor;
+  if (custInc === 'あり') includeSp = true;
+  else if (custInc === 'なし') includeSp = false;
   // 顧客の個別送料（空ならデフォルト）
   let myFee = defFee;
   const rawFee = window._shipFee;
