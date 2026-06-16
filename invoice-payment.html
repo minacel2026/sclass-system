@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>請求・入金 | Sclassランボルギーニ</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Bebas+Neue&family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
   --gold:#C9A84C;--gold-l:#E8C97A;--gold-d:#7A5C14;
@@ -298,6 +299,15 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     <div class="hint-box">
       <strong>🏦 通帳連携</strong><br>
       銀行の入出金データをCSVから取込み、注文と自動マッチング。
+    </div>
+
+    <div class="form-section" style="border:1px solid var(--gold)">
+      <div class="form-section-title">▸ 通帳ファイル取込（自動分類）</div>
+      <div class="frow">
+        <div class="fg" style="flex:2"><label>通帳ファイル（Excel / CSV）</label><input class="fc" type="file" id="bk-file" accept=".xlsx,.xls,.csv"></div>
+        <div class="fg" style="align-self:flex-end"><button class="btn btn-p" onclick="importBankFile()">取込んで自動分類</button></div>
+      </div>
+      <div id="bk-import-note" style="font-size:.72rem;color:var(--wh2);margin-top:.4rem"></div>
     </div>
 
     <div class="form-section">
@@ -909,6 +919,65 @@ function deleteInvoice(no){
 
 <!-- ═══ 通帳連携 ═══ -->
 <script>
+// ── 通帳ファイル取込＋自動分類（Aツールのロジックを統合）──
+function _parseBankRows(rows){
+  const norm = s => s==null ? '' : String(s).normalize('NFKC').replace(/\u3000/g,' ').replace(/\t/g,' ').replace(/\s+/g,' ').trim();
+  const num  = v => { if(v==null||v==='')return 0; const n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:Math.round(n); };
+  const DAIBIKI = ['ヤマトウンユ','ヤマト運輸','Eコレクト','SGシステム','サガワ','佐川'];
+  const H  = (rows[0]||[]).map(norm); const ix = n => H.indexOf(n);
+  const cY=ix('操作日(年)'), cM=ix('操作日(月)'), cD=ix('操作日(日)'), cT=ix('摘要'), cDep=ix('お預り金額');
+  if (cT<0 || cDep<0) throw new Error('通帳の列（摘要・お預り金額）が見つかりません');
+  const out=[];
+  for (let r=1; r<rows.length; r++){
+    const row=rows[r]; if(!row || row.every(x=>x==null||String(x).trim()===''))continue;
+    const dep=num(row[cDep]); if(dep<=0) continue;                       // 入金のみ（出金は対象外）
+    const t=norm(row[cT]);
+    const date = (cY>=0) ? `${num(row[cY])}-${String(num(row[cM])).padStart(2,'0')}-${String(num(row[cD])).padStart(2,'0')}` : '';
+    let kind, name;
+    if (/利息/.test(t)) { kind='対象外'; name='利息'; }
+    else if (/ATM/.test(t)) { kind='現金/ATM'; name='ATM入金'; }
+    else if (/^振込/.test(t)) {
+      let p = t.replace(/^振込\s*/,'').replace(/[(（](カ|ｶ|株).*$/,'').trim();
+      const nt = p.replace(/[\s.]/g,'');
+      kind = DAIBIKI.some(k => nt.includes(k.replace(/\s/g,''))) ? '代引き入金' : '通常入金';
+      name = p;
+    } else { kind='要確認'; name=t; }
+    out.push({ date, kind, name, amount:dep });
+  }
+  return out;
+}
+
+async function importBankFile(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const f = document.getElementById('bk-file').files[0];
+  if (!f) return toast('通帳ファイルを選択してください', 'error');
+  try{
+    const buf = await f.arrayBuffer();
+    const wb  = XLSX.read(buf, { type:'array', cellDates:true });
+    const rows= XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, raw:true });
+    const entries = _parseBankRows(rows);
+    if (!S.bankEntries) S.bankEntries = [];
+    let added=0, skipped=0;
+    entries.forEach(e => {
+      const dup = S.bankEntries.some(b => b.date===e.date && b.amount===e.amount && (b.name||'')===(e.name||''));
+      if (dup){ skipped++; return; }
+      S.bankEntries.push({
+        id:'bk-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),
+        date:e.date, name:e.name, amount:e.amount, note:'['+e.kind+']', kind:e.kind,
+        matchedTo:null, addedBy:currentUser.name, addedAt:new Date().toISOString(),
+      });
+      added++;
+    });
+    saveState();
+    const cnt = k => entries.filter(e=>e.kind===k).length;
+    document.getElementById('bk-import-note').innerHTML =
+      `✓ ${added}件取込（重複${skipped}件スキップ）／ 内訳: 通常入金 ${cnt('通常入金')}・代引き ${cnt('代引き入金')}・現金ATM ${cnt('現金/ATM')}・対象外 ${cnt('対象外')}`;
+    toast(`✓ 通帳 ${added}件を取込・自動分類`);
+    document.getElementById('bk-file').value='';
+    renderBank();
+  }catch(err){ toast('取込エラー: '+err.message, 'error'); document.getElementById('bk-import-note').innerHTML='<span style="color:var(--red)">取込失敗: '+escapeHtml(err.message)+'</span>'; }
+}
+
 function renderBank(){
   if (!document.getElementById('bk-date').value){
     document.getElementById('bk-date').value = today();
