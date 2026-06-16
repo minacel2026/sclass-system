@@ -73,6 +73,34 @@ function yen(n){ return '¥'+(n||0).toLocaleString('ja-JP'); }
 function pdate(s){ if(!s)return null; if(s instanceof Date)return s; const m=String(s).match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/); if(m)return new Date(+m[1],+m[2]-1,+m[3]); const d=String(s).replace(/[^0-9]/g,''); if(d.length===8)return new Date(+d.slice(0,4),+d.slice(4,6)-1,+d.slice(6,8)); return null; }
 const DAIBIKI=['ヤマトウンユ','ヤマト運輸','Eコレクト','SGシステム','サガワ','佐川'];
 
+// ===== 仕訳生成（あなたのExcel「仕訳帳_XX月」形式・諸口999ハブ・637支払手数料）=====
+const ACCT={130:{n:'PayPay銀行①',k:'資産'},162:{n:'売掛金',k:'資産'},111:{n:'現金(仙台)',k:'資産'},637:{n:'支払手数料',k:'費用'},810:{n:'受取利息',k:'収益'},999:{n:'諸口',k:'清算'}};
+function jl(date,dC,cC,amt,tax,store,memo){
+  const taxin = tax==='課10%';
+  const zei = taxin ? amt - Math.round(amt/1.1) : 0;
+  return {date,dC,dN:ACCT[dC].n,cC,cN:ACCT[cC].n,amt,tax,invoice:taxin?'適格':'',net:amt-zei,zei,store:store||'',memo,kbn:ACCT[dC].k};
+}
+function buildJournals(bank,cod){
+  const J=[];
+  cod.forEach(x=>{ const b=x.bank;
+    if(x.meisai){ const m=x.meisai, net=b.amount, fee=m.amount-net;
+      J.push(jl(b.date,130,999,net,'対象外',m.store,'代引入金 '+m.carrier));
+      if(fee>0) J.push(jl(b.date,637,999,fee,'課10%',m.store,'代引・振込手数料 '+m.carrier));
+      J.push(jl(b.date,999,162,m.amount,'対象外',m.store,'売掛回収(代引) '+m.store));
+    } else {
+      J.push(jl(b.date,130,999,b.amount,'対象外',b.who,'★要確認(代引・要科目確定) '+b.who));
+    }
+  });
+  bank.forEach(b=>{
+    if(b.kind==='通常入金') J.push(jl(b.date,130,162,b.amount,'対象外',b.cust||b.who,'売掛回収 '+(b.cust||b.who)));
+    else if(b.kind==='現金/ATM') J.push(jl(b.date,130,111,b.amount,'対象外','','現金売上預入'));
+    else if(b.kind==='対象外'&&/利息/.test(b.who)) J.push(jl(b.date,130,810,b.amount,'対象外','','受取利息'));
+    else if(b.kind==='要確認') J.push(jl(b.date,130,999,b.amount,'対象外',b.who,'★要確認(要科目確定) '+b.who));
+  });
+  J.forEach((j,i)=>j.no=i+1);
+  return J;
+}
+
 function readWb(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>{ try{res(XLSX.read(e.target.result,{type:'array',cellDates:true}));}catch(err){rej(err);} }; r.onerror=rej; r.readAsArrayBuffer(file); }); }
 function aoa(wb,sheet){ return XLSX.utils.sheet_to_json(wb.Sheets[sheet||wb.SheetNames[0]],{header:1,raw:true}); }
 
@@ -179,6 +207,17 @@ function render(bank,meisai,cod){
   Object.entries(agg).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>h+=`<tr><td>${esc(k)}</td><td class="r">${yen(v)}</td></tr>`);
   h+='</table><button class="ghost" onclick="dl()">CSVダウンロード</button></div>';
 
+  // ④ 仕訳プレビュー（あなたのExcel仕訳帳形式）
+  const J=buildJournals(bank,cod); LAST.journals=J;
+  const tD=J.reduce((s,j)=>s+j.amt,0), tZ=J.reduce((s,j)=>s+j.zei,0), warn=J.filter(j=>/要確認/.test(j.memo)).length;
+  h+='<div class="panel"><div class="ptitle">▸ ④ 仕訳プレビュー（仕訳帳_XX月にそのまま貼り付け）</div>';
+  h+='<div class="kpis">'+kpi('仕訳行数',J.length+'行')+kpi('借/貸合計',yen(tD))+kpi('消費税(仮払)',yen(tZ))+kpi('要確認',warn+'行')+'</div>';
+  h+='<table><tr><th>No</th><th>日付</th><th>借方</th><th>貸方</th><th class="r">金額(税込)</th><th>税区分</th><th class="r">税抜</th><th class="r">消費税</th><th>店舗</th><th>摘要</th></tr>';
+  J.forEach(j=>{ const wc=/要確認/.test(j.memo)?'warn':'';
+    h+=`<tr class="${wc}"><td>${j.no}</td><td>${j.date}</td><td>${j.dC} ${esc(j.dN)}</td><td>${j.cC} ${esc(j.cN)}</td><td class="r">${yen(j.amt)}</td><td>${j.tax}</td><td class="r">${j.zei?yen(j.net):'—'}</td><td class="r">${j.zei?yen(j.zei):'—'}</td><td>${esc(j.store)}</td><td style="font-size:.68rem">${esc(j.memo)}</td></tr>`; });
+  h+='</table><div class="note">借方区分・科目コードはあなたの科目マスタに準拠。手数料行は税区分「課10%/適格」で仮払消費税(186)まで自動連動。★要確認は諸口(999)に保留で起票しているので、Excel側または手動で科目を確定してください。</div>';
+  h+='<button class="run" style="margin-top:10px" onclick="dlJournal()">仕訳CSVをダウンロード（仕訳帳形式）</button></div>';
+
   document.getElementById('results').innerHTML=h;
 }
 function kpi(l,v){ return `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`; }
@@ -188,6 +227,13 @@ function dl(){ if(!LAST)return; const rows=[['種別','日付','区分','相手/
   LAST.cod.forEach(x=>{ if(x.meisai)rows.push(['代引消込',x.bank.date,x.meisai.carrier,x.meisai.store,'',x.meisai.amount,x.meisai.fee,x.adjust]); });
   const csv='\ufeff'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='消し込み表.csv'; a.click();
+}
+function dlJournal(){ if(!LAST||!LAST.journals)return;
+  const head=['No.','日付','借方コード','借方科目','貸方コード','貸方科目','金額(税込)','税区分','インボイス','税抜','消費税','店舗名','摘要','借方区分'];
+  const rows=[head];
+  LAST.journals.forEach(j=>rows.push([j.no,j.date,j.dC,j.dN,j.cC,j.cN,j.amt,j.tax,j.invoice,j.net,j.zei,j.store,j.memo,j.kbn]));
+  const csv='\ufeff'+rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='仕訳_貼付用.csv'; a.click();
 }
 </script>
 </body></html>
