@@ -190,11 +190,13 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 <body>
 
 <header>
-  <div class="logo-mark"><span>L</span></div>
-  <div>
-    <span class="sys-name">SALES &amp; STOCK</span>
-    <span class="sys-sub">受発注・在庫</span>
-  </div>
+  <a href="portal.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:inherit" title="ポータルへ戻る">
+    <div class="logo-mark"><span>L</span></div>
+    <div>
+      <span class="sys-name">SALES &amp; STOCK</span>
+      <span class="sys-sub">受発注・在庫</span>
+    </div>
+  </a>
   <div class="hdr-right">
     <a class="back-btn" href="portal.html">← ポータルへ戻る</a>
     <button class="btn-s" onclick="syncFromGAS()">🔄 GAS同期</button>
@@ -244,6 +246,8 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>支払状況</label><select class="fc" id="sk-pay" onchange="renderOrders()"><option value="">すべて</option><option>未収</option><option>集金済み</option><option>売掛</option></select></div>
         <div class="fg"><label>ステータス</label><select class="fc" id="sk-st" onchange="renderOrders()"><option value="">すべて</option><option>新規</option><option>対応中</option><option>発送</option><option>完了</option></select></div>
         <div class="fg"><label>集金担当</label><select class="fc" id="ord-collector" title="集金ボタンで記録される集金者"></select></div>
+        <div class="fg"><label>集金日</label><input class="fc" type="date" id="ord-coll-date" title="集金ボタン・一括集金で記録される集金日（既定:今日）"></div>
+        <div class="fg" style="align-self:flex-end"><button class="btn-s" onclick="bulkCollect()" title="チェックした注文をまとめて集金">☑ 選択を一括集金</button></div>
       </div>
     </div>
     <div class="summary-bar">
@@ -680,12 +684,14 @@ function renderOrders(){
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
       <td><span class="badge ${payBadge}">${escapeHtml(o.payStatus||'未収')}</span>${o.collector?`<div style="font-size:.6rem;color:var(--wh3)">集:${escapeHtml(o.collector)}</div>`:''}</td>
       <td><span class="badge ${stBadge}">${escapeHtml(o.status||'新規')}</span>${o.tracking?`<div style="font-size:.6rem;color:var(--wh3)">伝:${escapeHtml(o.tracking)}</div>`:''}</td>
-      <td><button class="act-btn" onclick="quickPaid('${o.id}')">集金</button><button class="act-btn" onclick="shipOrder('${o.id}')">発送</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
+      <td><input type="checkbox" class="ord-chk" value="${o.id}" style="margin-right:4px;vertical-align:middle" title="一括集金の対象に選択"><button class="act-btn" onclick="quickPaid('${o.id}')">集金</button><button class="act-btn" onclick="shipOrder('${o.id}')">発送</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
     </tr>`;
   }).join('');
 }
 
 function populateCollectorSelect(){
+  const di = document.getElementById('ord-coll-date');
+  if (di && !di.value) di.value = today();
   const sel = document.getElementById('ord-collector');
   if (!sel) return;
   const prev = sel.value;
@@ -697,19 +703,41 @@ function populateCollectorSelect(){
   sel.value = prev && names.includes(prev) ? prev : names[0];
 }
 
-function quickPaid(id){
-  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
-  const o = S.orders.find(x => x.id === id);
-  if (!o) return;
+function _collInfo(){
   const collector = document.getElementById('ord-collector')?.value || '佐々木';
-  const collectedDate = today();
+  const collectedDate = document.getElementById('ord-coll-date')?.value || today();
+  return { collector, collectedDate };
+}
+
+function _applyCollect(o, collector, collectedDate){
   o.payStatus = '集金済み';
   o.paidAt = new Date().toISOString();
   o.collector = collector;
   o.collectedDate = collectedDate;
-  saveState();
   if (S.gasUrl) gasPost({ action:'updatePayStatus', orderId:o.id, payStatus:'集金済み', collector, collectedDate });
-  toast(`✓ 集金済み（${collector}）`);
+}
+
+function quickPaid(id){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const o = S.orders.find(x => x.id === id);
+  if (!o) return;
+  const { collector, collectedDate } = _collInfo();
+  _applyCollect(o, collector, collectedDate);
+  saveState();
+  toast(`✓ 集金済み（${collector}・${collectedDate}）`);
+  renderOrders();
+}
+
+function bulkCollect(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const ids = [...document.querySelectorAll('.ord-chk:checked')].map(c => c.value);
+  if (ids.length === 0) return toast('集金する注文をチェックしてください', 'error');
+  const { collector, collectedDate } = _collInfo();
+  if (!confirm(`${ids.length}件を「集金済み」にします。\n集金担当: ${collector}\n集金日: ${collectedDate}\nよろしいですか？`)) return;
+  let n = 0;
+  ids.forEach(id => { const o = S.orders.find(x => x.id === id); if (o){ _applyCollect(o, collector, collectedDate); n++; } });
+  saveState();
+  toast(`✓ ${n}件を一括集金（${collector}・${collectedDate}）`);
   renderOrders();
 }
 

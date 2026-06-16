@@ -148,11 +148,13 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 <body>
 
 <header>
-  <div class="logo-mark"><span>L</span></div>
-  <div>
-    <span class="sys-name">INVOICE &amp; PAYMENT</span>
-    <span class="sys-sub">請求・入金</span>
-  </div>
+  <a href="portal.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:inherit" title="ポータルへ戻る">
+    <div class="logo-mark"><span>L</span></div>
+    <div>
+      <span class="sys-name">INVOICE &amp; PAYMENT</span>
+      <span class="sys-sub">請求・入金</span>
+    </div>
+  </a>
   <div class="hdr-right">
     <a class="back-btn" href="portal.html">← ポータルへ戻る</a>
     <button class="btn-s" onclick="syncFromGAS()">🔄 GAS同期</button>
