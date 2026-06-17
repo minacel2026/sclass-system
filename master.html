@@ -1179,6 +1179,10 @@ async function syncAllFromGAS(){
   if (refs && refs.referrers) { S.referrers = refs.referrers; }
   const sps = await gasGet('getSponsors');
   if (sps && sps.sponsors) { S.sponsors = sps.sponsors; }
+  const stf = await gasGet('getStaff');
+  if (stf && stf.staff) S.staff = stf.staff;
+  const co = await gasGet('getCompany');
+  if (co && co.company && Object.keys(co.company).length) S.company = co.company;
   saveState();
   localStorage.setItem('lmb_lastSync', new Date().toISOString());
   toast('✓ 同期完了');
@@ -2706,6 +2710,7 @@ function deleteStaff(){
   if (!staffEditingId) return;
   if (!confirm('このスタッフを削除しますか？')) return;
   S.staff = (S.staff || []).filter(s => s.id !== staffEditingId);
+  if (S.gasUrl) { try { gasPost({ action:'deleteStaff', id: staffEditingId }); } catch(e){} }
   saveState();
   toast('✓ 削除しました');
   clearStaffForm();
@@ -2719,6 +2724,7 @@ function deleteStaffById(id){
   if (!s) return;
   if (!confirm(`スタッフ「${s.name || '無名'}」を削除しますか？`)) return;
   S.staff = (S.staff || []).filter(x => x.id !== id);
+  if (S.gasUrl) { try { gasPost({ action:'deleteStaff', id: id }); } catch(e){} }
   saveState();
   toast('✓ 削除しました');
   renderStaffList();
