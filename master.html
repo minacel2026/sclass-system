@@ -903,7 +903,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
         <label>検索</label>
         <input class="fc" id="pf-kw" placeholder="商品名・カテゴリ..." oninput="renderProducts()" style="width:220px">
         <button class="btn btn-g" style="margin-left:auto" onclick="resetProducts()">🔄 初期値に戻す</button>
-        <span style="font-size:.72rem;color:var(--wh2)"><span id="prod-count">0</span> 商品 <span style="color:var(--gold-l);font-weight:600">［全幅v3］</span></span>
+        <span style="font-size:.72rem;color:var(--wh2)"><span id="prod-count">0</span> 商品</span>
       </div>
       <div id="prod-grid" class="cust-grid"></div>
     </div>
@@ -938,6 +938,20 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           <div class="frow">
             <div class="fg"><label>補充閾値</label><input class="fc" id="pf-reorder" type="number" min="0" step="1"></div>
             <div class="fg"><label>色（注文ボタン用）</label><input class="fc" id="pf-color" type="color" value="#C9A84C" style="height:38px;padding:2px"></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ 商品写真</div>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+            <img id="pf-img-preview" alt="" style="display:none;width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid rgba(201,168,76,.3)">
+            <div id="pf-img-placeholder" style="width:84px;height:84px;border-radius:8px;border:1px dashed rgba(201,168,76,.35);display:flex;align-items:center;justify-content:center;color:var(--wh3);font-size:.62rem">写真なし</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <input type="file" id="pf-img-file" accept="image/*" onchange="onProductImageSelected(this)" style="display:none">
+              <button type="button" class="btn-s" onclick="document.getElementById('pf-img-file').click()">📷 写真を選択</button>
+              <button type="button" class="btn-s" id="pf-img-clear" onclick="clearProductImage()" style="display:none;border-color:var(--red);color:var(--red)">写真を削除</button>
+              <span style="font-size:.6rem;color:var(--wh3)">自動で縮小して保存します</span>
+            </div>
+            <input type="hidden" id="pf-img">
           </div>
         </div>
         <div class="faction">
@@ -2975,7 +2989,7 @@ function renderProducts(){
             const enc = encodeURIComponent(p.name || '');
             return `
             <tr onclick="openProduct('${enc}')">
-              <td style="text-align:center"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${escapeHtml(p.color||'#C9A84C')}"></span></td>
+              <td style="text-align:center">${p.img ? `<img src="${p.img}" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:5px;vertical-align:middle">` : `<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${escapeHtml(p.color||'#C9A84C')}"></span>`}</td>
               <td class="ct-name">${escapeHtml(p.name || '無名')}</td>
               <td>${escapeHtml(p.category || '—')}</td>
               <td>¥${Number(p.cost||0).toLocaleString()}</td>
@@ -2993,6 +3007,55 @@ function renderProducts(){
     </div>`;
 }
 
+function _setProductImagePreview(dataUrl){
+  const pv=document.getElementById('pf-img-preview');
+  const ph=document.getElementById('pf-img-placeholder');
+  const cl=document.getElementById('pf-img-clear');
+  if(dataUrl){ if(pv){pv.src=dataUrl;pv.style.display='';} if(ph)ph.style.display='none'; if(cl)cl.style.display=''; }
+  else { if(pv){pv.removeAttribute('src');pv.style.display='none';} if(ph)ph.style.display=''; if(cl)cl.style.display='none'; }
+}
+function clearProductImage(){
+  const im=document.getElementById('pf-img'); if(im)im.value='';
+  const fl=document.getElementById('pf-img-file'); if(fl)fl.value='';
+  _setProductImagePreview('');
+}
+function _resizeImageFile(file,maxDim,quality){
+  return new Promise(function(resolve,reject){
+    const reader=new FileReader();
+    reader.onerror=reject;
+    reader.onload=function(e){
+      const img=new Image();
+      img.onerror=reject;
+      img.onload=function(){
+        let w=img.width,h=img.height;
+        if(w>=h){ if(w>maxDim){ h=Math.round(h*maxDim/w); w=maxDim; } }
+        else { if(h>maxDim){ w=Math.round(w*maxDim/h); h=maxDim; } }
+        const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+        const ctx=cv.getContext('2d');
+        ctx.fillStyle='#1a1a1a'; ctx.fillRect(0,0,w,h);
+        ctx.drawImage(img,0,0,w,h);
+        resolve(cv.toDataURL('image/jpeg',quality));
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function _applyProductImage(dataUrl){
+  if(dataUrl.length>48000){ toast('画像が大きすぎます。別の写真を試してください','error'); return; }
+  document.getElementById('pf-img').value=dataUrl;
+  _setProductImagePreview(dataUrl);
+  toast('✓ 写真を設定しました');
+}
+function onProductImageSelected(input){
+  const file=input.files&&input.files[0];
+  if(!file) return;
+  if(!/^image\//.test(file.type)) return toast('画像ファイルを選んでください','error');
+  _resizeImageFile(file,240,0.72).then(function(d1){
+    if(d1.length>48000){ _resizeImageFile(file,180,0.6).then(_applyProductImage).catch(function(){toast('画像の読み込みに失敗しました','error');}); }
+    else { _applyProductImage(d1); }
+  }).catch(function(){ toast('画像の読み込みに失敗しました','error'); });
+}
 function openProduct(enc){
   const name = decodeURIComponent(enc);
   const p = _prodList().find(x => (x.name || '') === name);
@@ -3008,6 +3071,8 @@ function openProduct(enc){
   g('pf-priceold').value = p.priceOld != null ? p.priceOld : '';
   g('pf-reorder').value = p.reorder != null ? p.reorder : '';
   g('pf-color').value = (p.color && /^#[0-9a-fA-F]{6}$/.test(p.color)) ? p.color : '#C9A84C';
+  g('pf-img').value = p.img || '';
+  _setProductImagePreview(p.img || '');
   g('prod-edit-status').textContent = '編集中: ' + (p.name || '');
   g('btn-prod-delete').style.display = 'inline-block';
   switchProductTab('new', document.querySelectorAll('#m-products .tab')[1]);
@@ -3017,6 +3082,7 @@ function clearProductForm(){
   productEditingKey = null;
   ['pf-name','pf-category','pf-fullname','pf-cost','pf-costold','pf-price','pf-priceold','pf-reorder'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
   const c = document.getElementById('pf-color'); if (c) c.value = '#C9A84C';
+  clearProductImage();
   document.getElementById('prod-edit-status').textContent = '';
   document.getElementById('btn-prod-delete').style.display = 'none';
 }
@@ -3040,7 +3106,7 @@ function submitProductForm(){
     cost: num(g('pf-cost')), costOld: num(g('pf-costold')),
     price: num(g('pf-price')), priceOld: num(g('pf-priceold')),
     reorder: num(g('pf-reorder')),
-    color: g('pf-color') || '#C9A84C', img: ''
+    color: g('pf-color') || '#C9A84C', img: g('pf-img') || ''
   };
   if (prod.costOld === 0)  prod.costOld  = prod.cost;
   if (prod.priceOld === 0) prod.priceOld = prod.price;
