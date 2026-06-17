@@ -69,6 +69,7 @@ select.fc option{background:var(--d3)}
 
 /* ─── カードグリッド ─── */
 .cust-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
+#prod-grid{display:block!important}  /* 商品一覧は全幅（顧客一覧と同じ） */
 .cust-card{background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:1rem;cursor:pointer;transition:all .25s;position:relative;overflow:hidden}
 /* ─── 顧客一覧テーブル（1行表示・横スクロール対応） ─── */
 .cust-table-wrap{width:100%;overflow-x:auto;border:1px solid rgba(201,168,76,.15);background:var(--d2)}
@@ -902,7 +903,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
         <label>検索</label>
         <input class="fc" id="pf-kw" placeholder="商品名・カテゴリ..." oninput="renderProducts()" style="width:220px">
         <button class="btn btn-g" style="margin-left:auto" onclick="resetProducts()">🔄 初期値に戻す</button>
-        <span style="font-size:.72rem;color:var(--wh2)"><span id="prod-count">0</span> 商品</span>
+        <span style="font-size:.72rem;color:var(--wh2)"><span id="prod-count">0</span> 商品 <span style="color:var(--gold-l);font-weight:600">［全幅v3］</span></span>
       </div>
       <div id="prod-grid" class="cust-grid"></div>
     </div>
