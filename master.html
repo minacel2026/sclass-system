@@ -70,23 +70,6 @@ select.fc option{background:var(--d3)}
 /* ─── カードグリッド ─── */
 .cust-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
 .cust-card{background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:1rem;cursor:pointer;transition:all .25s;position:relative;overflow:hidden}
-/* ─── 顧客一覧テーブル（1行表示・横スクロール対応） ─── */
-.cust-table-wrap{width:100%;overflow-x:auto;border:1px solid rgba(201,168,76,.15);background:var(--d2)}
-.cust-table{width:100%;min-width:780px;border-collapse:collapse;font-size:.78rem}
-.cust-table thead th{position:sticky;top:0;background:var(--d1);color:var(--gold-l);font-weight:500;text-align:left;padding:.6rem .7rem;border-bottom:1px solid rgba(201,168,76,.3);white-space:nowrap;letter-spacing:.03em;font-size:.72rem}
-.cust-table tbody tr{cursor:pointer;transition:background .15s;border-bottom:1px solid rgba(255,255,255,.04)}
-.cust-table tbody tr:hover{background:var(--d3)}
-.cust-table td{padding:.55rem .7rem;color:var(--wh2);white-space:nowrap}
-.cust-table td.ct-name{color:var(--gold-l);font-weight:500}
-.ct-spo{font-size:.6rem;padding:.1rem .35rem;background:rgba(155,127,212,.2);color:#b89fdc;border-radius:2px;margin-left:.3rem}
-.ct-uid.ok{color:var(--grn)}
-.ct-uid.no{color:var(--org)}
-.ct-actions{white-space:nowrap}
-.ct-btn{font-size:.68rem;padding:.25rem .6rem;border:1px solid;background:transparent;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-right:.3rem;transition:all .15s}
-.ct-btn.edit{border-color:rgba(201,168,76,.4);color:var(--gold-l)}
-.ct-btn.edit:hover{background:rgba(201,168,76,.15)}
-.ct-btn.del{border-color:rgba(224,82,82,.4);color:#e05252}
-.ct-btn.del:hover{background:rgba(224,82,82,.15)}
 .cust-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
 .cust-card:hover{border-color:rgba(201,168,76,.5);transform:translateY(-2px);background:var(--d3)}
 .cust-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem}
@@ -134,27 +117,6 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
 .btn-dn:hover{background:rgba(224,82,82,.15);border-color:var(--red)}
 
 /* ─── 商品別掛率 ─── */
-/* ─── 紹介者マスター: select の初期表示でも1行に制約 ─── */
-#m-referrers .fg select,
-#m-referrers .fg input{
-  white-space:nowrap;
-  text-overflow:ellipsis;
-  overflow:hidden;
-  height:36px;
-  box-sizing:border-box;
-  -webkit-appearance:none;
-  -moz-appearance:none;
-  appearance:none;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23BA9550' d='M0 0l5 6 5-6z'/></svg>");
-  background-repeat:no-repeat;
-  background-position:right .6rem center;
-  background-size:.55rem;
-  padding-right:1.8rem;
-}
-#m-referrers .fg input{
-  background-image:none;
-  padding-right:.65rem;
-}
 .product-rates{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.5rem;margin-top:.5rem}
 .prate-item{display:flex !important;flex-direction:column !important;gap:.3rem;background:var(--d3);padding:.45rem .55rem;border:1px solid rgba(255,255,255,.05);min-width:0}
 .prate-name{font-size:.72rem;color:var(--gold-l);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;writing-mode:horizontal-tb !important;text-orientation:mixed;line-height:1.3}
@@ -239,108 +201,6 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
 </style>
 </head>
 <body>
-<!-- ▼ copy-protection (auto-embedded) ▼ -->
-<script>
-/* ============================================================
-   Sclass 営業システム コピー対策モジュール（4点セット）
-   © minacel2026 / Sclass — 無断複製・再配布を禁止します
-   各HTMLの <body> 直後に script タグで囲って貼り付けてください
-   ============================================================ */
-(function(){
-  "use strict";
-  var PROTECT = window.PROTECT = {
-    OWNER:   'minacel2026',
-    SYSTEM:  'Sclass-Lambo',
-    BUILD:   '2026-06-17',
-    WMID:    'SCLASS-mqhnot4m-20tkul',                 // ← この端末固有の透かしID（変更不要）
-    GAS_URL: 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
-    ALLOWED: ['minacel2026.github.io'], // ← 自分の本番ドメイン（独自ドメインがあれば追加）
-    SECRET_KEY: '',                  // ← 空=無効。GAS側 SECRET_KEY と同じ文字列を入れると有効化
-    HARD_BLOCK: false                // true=許可外ドメインで画面を停止 / false=通知のみ（推奨: まず false）
-  };
-
-  // ── ① 不可視ウォーターマーク（ゼロ幅文字で WMID を埋め込む）──
-  // ゼロ幅: ZWSP(\u200b)=0bit, ZWNJ(\u200c)=1bit, 区切りに WJ(\u2060)
-  function wmEncode(s){
-    var bits='', out=[];
-    for (var i=0;i<s.length;i++){ var b=s.charCodeAt(i).toString(2); while(b.length<8)b='0'+b; bits+=b; }
-    for (var j=0;j<bits.length;j++){ out.push(bits[j]==='0'?'\u200b':'\u200c'); }
-    return '\u2060'+out.join('')+'\u2060';
-  }
-  function wmDecode(z){
-    z=String(z).replace(/[^\u200b\u200c]/g,''); var bits='';
-    for (var i=0;i<z.length;i++){ bits+= z[i]==='\u200b'?'0':'1'; }
-    var s=''; for (var k=0;k+8<=bits.length;k+=8){ s+=String.fromCharCode(parseInt(bits.substr(k,8),2)); }
-    return s;
-  }
-  PROTECT.wmDecode = wmDecode; // 盗用調査時: PROTECT.wmDecode(疑わしいDOM文字列) でWMIDを抽出
-  try {
-    var tag = PROTECT.OWNER+'|'+PROTECT.SYSTEM+'|'+PROTECT.WMID;
-    var holder = document.createElement('span');
-    holder.setAttribute('data-x','');                 // 目立たない属性
-    holder.style.cssText='position:absolute;left:-9999px;width:0;height:0;overflow:hidden';
-    holder.textContent = wmEncode(tag);               // 不可視文字のみ（画面に出ない）
-    (document.body||document.documentElement).appendChild(holder);
-    PROTECT._wm = tag;
-  } catch(e){}
-
-  // ── ② ビーコン（読み込み時に1回、稼働ドメイン等をGASへ通知）──
-  function beacon(kind){
-    try {
-      var q = '?action=beacon'
-        + '&kind='+encodeURIComponent(kind||'load')
-        + '&host='+encodeURIComponent(location.hostname)
-        + '&href='+encodeURIComponent(location.href.slice(0,300))
-        + '&wm='+encodeURIComponent(PROTECT.WMID)
-        + '&ref='+encodeURIComponent((document.referrer||'').slice(0,200))
-        + '&ua='+encodeURIComponent((navigator.userAgent||'').slice(0,200))
-        + '&t='+Date.now();
-      new Image().src = PROTECT.GAS_URL + q;           // CORS回避（画像GET）
-    } catch(e){}
-  }
-
-  // ── ③ ドメインロック（許可ドメイン外を検知）──
-  var host = location.hostname || '';
-  var isLocal = (host===''||host==='localhost'||host==='127.0.0.1'||location.protocol==='file:');
-  var allowed = isLocal || PROTECT.ALLOWED.some(function(h){ return host===h || host.endsWith('.'+h); });
-  beacon(allowed ? 'load' : 'ALERT-unauthorized-host');
-  if (!allowed && PROTECT.HARD_BLOCK){
-    try {
-      document.documentElement.innerHTML =
-        '<div style="font-family:sans-serif;padding:40px;text-align:center;color:#333">'
-        +'<h2>このアプリは許可されたサイトでのみ動作します</h2>'
-        +'<p>無断複製された可能性があります。</p></div>';
-    } catch(e){}
-    throw new Error('unauthorized host');
-  }
-
-  // ── ④ 秘密キー自動付与（GAS呼び出しに key を付ける／fetchをラップ）──
-  if (window.fetch){
-    var _f = window.fetch.bind(window);
-    window.fetch = function(input, init){
-      try {
-        var KEY = PROTECT.SECRET_KEY;
-        if (KEY){
-          var url = (typeof input==='string') ? input : (input && input.url) || '';
-          if (url && url.indexOf('script.google.com')>=0){
-            var m = (init && init.method) ? String(init.method).toUpperCase() : 'GET';
-            if (m==='GET'){
-              if (url.indexOf('key=')<0){ url += (url.indexOf('?')>=0?'&':'?')+'key='+encodeURIComponent(KEY); }
-              if (typeof input==='string') input=url; else input=new Request(url, input);
-            } else if (init && typeof init.body==='string'){
-              try { var b=JSON.parse(init.body); if (b && typeof b==='object' && b.key===undefined){ b.key=KEY; init=Object.assign({},init,{body:JSON.stringify(b)}); } } catch(e2){}
-            }
-          }
-        }
-      } catch(e){}
-      return _f(input, init);
-    };
-  }
-})();
-
-</script>
-<!-- ▲ copy-protection ▲ -->
-
 
 <header>
   <a href="portal.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:inherit" title="ポータルへ戻る">
@@ -373,17 +233,11 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     <button class="mtab" onclick="switchMaster('staff',this)">
       <span class="mtab-ic">👥</span>スタッフマスター
     </button>
-    <button class="mtab" onclick="switchMaster('products',this)">
-      <span class="mtab-ic">🍾</span>商品マスター
-    </button>
-    <button class="mtab" onclick="switchMaster('referrers',this)">
-      <span class="mtab-ic">🤝</span>紹介者マスター
-    </button>
-    <button class="mtab" onclick="switchMaster('sponsors',this)">
-      <span class="mtab-ic">🎁</span>協賛マスター
-    </button>
     <button class="mtab" onclick="switchMaster('company',this)">
       <span class="mtab-ic">🏢</span>弊社情報
+    </button>
+    <button class="mtab" onclick="switchMaster('products',this)">
+      <span class="mtab-ic">🍾</span>商品マスター
     </button>
   </div>
 
@@ -417,7 +271,6 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           <span id="list-count">0</span> 件
         </span>
       </div>
-      <div id="kana-tabs" style="display:flex;flex-wrap:wrap;margin:.1rem 0 .5rem"></div>
       <div id="cust-grid" class="cust-grid"></div>
     </div>
 
@@ -490,7 +343,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           <div class="form-section-title">▸ 請求・振込</div>
           <div class="frow">
             <div class="fg"><label>請求書宛名</label><input class="fc" id="cf-inv-name" placeholder="例：○○ 御中"></div>
-            <div class="fg"><label>紹介者 <span class="hint">紹介者マスターから選択</span></label><select class="fc" id="cf-referrer"><option value="">未設定</option></select></div>
+            <div class="fg"><label>紹介者</label><input class="fc" id="cf-referrer" placeholder="紹介者名"></div>
             <div class="fg">
               <label>支払方法 <span class="hint">注文時のデフォルト値</span></label>
               <select class="fc" id="cf-pay-method">
@@ -548,39 +401,11 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
             <input type="checkbox" id="cf-sponsor" onchange="toggleCustSponsor()">
             <label for="cf-sponsor" style="font-size:.78rem;color:var(--wh);cursor:pointer">この顧客は協賛対象</label>
           </div>
-          <!-- 旧・協賛詳細（購入条件/本数/対象商品）— 非表示で保持（互換性のため削除しない） -->
           <div id="sponsor-detail" style="display:none">
             <div class="frow">
               <div class="fg"><label>購入条件</label><input type="number" class="fc" id="cf-sponsor-trigger" placeholder="例：6" min="1"><span style="font-size:.6rem;color:var(--wh3)">本購入で協賛発動</span></div>
               <div class="fg"><label>協賛本数</label><input type="number" class="fc" id="cf-sponsor-reward" placeholder="例：1" min="1"><span style="font-size:.6rem;color:var(--wh3)">協賛する本数</span></div>
               <div class="fg"><label>対象商品 <span class="hint">空白＝全商品</span></label><select class="fc" id="cf-sponsor-product"><option value="">未設定（＝全商品）</option></select></div>
-            </div>
-          </div>
-          <!-- 新・適用協賛ルール（協賛マスターから複数選択） -->
-          <div id="sponsor-rules" style="display:none;margin-top:.7rem">
-            <div class="sponsor-toggle" style="margin-bottom:.7rem">
-              <input type="checkbox" id="cf-sponsor-instant">
-              <label for="cf-sponsor-instant" style="font-size:.76rem;color:var(--wh);cursor:pointer">協賛を即時反映する <span class="hint">同じ注文内で達成した協賛をその場で無料追加（OFF＝次回以降に利用）</span></label>
-            </div>
-            <label style="font-size:.7rem;color:var(--wh2);letter-spacing:.05em">適用協賛ルール <span class="hint">協賛マスターの有効なルールから複数選択</span></label>
-            <div style="display:flex;gap:.5rem;margin-top:.4rem;align-items:center">
-              <select class="fc" id="cf-sponsor-rule-sel" style="flex:1" onchange="addCustSponsor()"><option value="">ルールを選択...</option></select>
-              <button type="button" class="btn-s" onclick="addCustSponsor()" style="white-space:nowrap">＋ 追加</button>
-            </div>
-            <div id="cf-sponsor-rule-list" style="margin-top:.6rem;display:flex;flex-direction:column;gap:.4rem"></div>
-          </div>
-          <!-- 配送設定 -->
-          <div style="margin-top:1rem;padding-top:.8rem;border-top:1px solid rgba(255,255,255,.08)">
-            <div class="sponsor-toggle" style="margin-bottom:.6rem">
-              <input type="checkbox" id="cf-free-shipping">
-              <label for="cf-free-shipping" style="font-size:.78rem;color:var(--wh);cursor:pointer">この顧客は常時送料無料 <span class="hint">本数に関係なく送料0円</span></label>
-            </div>
-            <div class="fg"><label>個別送料 <span class="hint">空欄＝デフォルト送料（送料設定シート）を使用</span></label><input type="number" class="fc" id="cf-ship-fee" placeholder="例：950" min="0"><span style="font-size:.6rem;color:var(--wh3)">円（規定本数以上で無料）</span></div>
-            <div class="fg"><label>協賛分の送料カウント <span class="hint">無料判定の本数に協賛無料分を含めるか</span></label>
-              <select class="fc" id="cf-ship-include-sponsor">
-                <option value="あり">含める</option>
-                <option value="なし">含めない</option>
-              </select>
             </div>
           </div>
         </div>
@@ -664,11 +489,6 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
         <div class="faction">
           <button class="btn btn-g" onclick="downloadCustomerTemplate()">📋 テンプレートをダウンロード</button>
           <button class="btn btn-g" onclick="exportCustomersCSV()">📤 現在の顧客一覧をCSVで出力</button>
-          <button class="btn btn-p" onclick="syncAllCustomersToGas()">☁ スプレッドシートへ全件再送信</button>
-        </div>
-        <div class="faction" style="margin-top:.6rem;align-items:center;gap:.6rem;flex-wrap:wrap">
-          <button class="btn btn-p" onclick="importHistoricalOrders()">📥 実績（過去注文 154件）を取り込む</button>
-          <label style="font-size:.72rem;color:var(--wh2);display:flex;align-items:center;gap:.3rem"><input type="checkbox" id="hist-unpaid"> 売掛を未収として取り込む</label>
         </div>
       </div>
 
@@ -892,204 +712,33 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
 
   <!-- ════════ 商品マスター ════════ -->
   <div id="m-products" class="mcon">
-    <div class="tbar">
-      <div class="tab active" onclick="switchProductTab('list',this)">一覧</div>
-      <div class="tab" onclick="switchProductTab('new',this)">＋ 新規登録</div>
+    <div class="hint-box">
+      <strong>🍾 商品マスター</strong><br>
+      価格・原価・補充閾値を設定できます。ここで変更した内容は注文フォーム・在庫管理・分析に即時反映されます。
     </div>
-
-    <div id="prod-list" class="tcon active">
-      <div class="filter-bar">
-        <label>検索</label>
-        <input class="fc" id="pf-kw" placeholder="商品名・カテゴリ..." oninput="renderProducts()" style="width:220px">
-        <button class="btn btn-g" style="margin-left:auto" onclick="resetProducts()">🔄 初期値に戻す</button>
-        <span style="font-size:.72rem;color:var(--wh2)"><span id="prod-count">0</span> 商品</span>
-      </div>
-      <div id="prod-grid" class="cust-grid"></div>
-    </div>
-
-    <div id="prod-new" class="tcon">
-      <div class="action-bar">
-        <button class="btn-s" onclick="switchProductTab('list',document.querySelectorAll('#m-products .tab')[0])">← 一覧に戻る</button>
-        <span id="prod-edit-status" style="color:var(--gold-l);font-size:.8rem"></span>
-      </div>
-      <div class="form-panel">
-        <h3>商品情報</h3>
-        <div class="form-section">
-          <div class="form-section-title">▸ 基本情報</div>
-          <div class="frow">
-            <div class="fg"><label>商品名 <span class="req">*</span></label><input class="fc" id="pf-name" placeholder="例：イエロー"></div>
-            <div class="fg"><label>カテゴリ</label><input class="fc" id="pf-category" list="prod-cat-list" placeholder="例：スパークリング"></div>
-            <div class="fg fc-full"><label>表示名（任意）</label><input class="fc" id="pf-fullname" placeholder="例：001: Extra Brut（イエロー）"></div>
-          </div>
-          <datalist id="prod-cat-list"><option>スパークリング</option><option>スティルワイン</option><option>ギフト</option></datalist>
-        </div>
-        <div class="form-section">
-          <div class="form-section-title">▸ 価格・原価</div>
-          <div class="frow">
-            <div class="fg"><label>原価（新）</label><input class="fc" id="pf-cost" type="number" min="0" step="100"></div>
-            <div class="fg"><label>原価（旧）</label><input class="fc" id="pf-costold" type="number" min="0" step="100"></div>
-            <div class="fg"><label>新売値</label><input class="fc" id="pf-price" type="number" min="0" step="100"></div>
-            <div class="fg"><label>旧売値</label><input class="fc" id="pf-priceold" type="number" min="0" step="100"></div>
-          </div>
-        </div>
-        <div class="form-section">
-          <div class="form-section-title">▸ その他</div>
-          <div class="frow">
-            <div class="fg"><label>補充閾値</label><input class="fc" id="pf-reorder" type="number" min="0" step="1"></div>
-            <div class="fg"><label>色（注文ボタン用）</label><input class="fc" id="pf-color" type="color" value="#C9A84C" style="height:38px;padding:2px"></div>
-          </div>
-        </div>
-        <div class="faction">
-          <button class="btn btn-p" onclick="submitProductForm()">保存</button>
-          <button class="btn btn-g" onclick="clearProductForm()">クリア</button>
-          <button class="btn btn-dn" id="btn-prod-delete" style="display:none;margin-left:auto" onclick="deleteProductForm()">削除</button>
-        </div>
+    <div class="action-bar">
+      <span style="color:var(--wh2);font-size:.8rem">全<span id="prod-count">0</span>商品</span>
+      <div>
+        <button class="btn btn-g" onclick="resetProducts()">🔄 初期値に戻す</button>
+        <button class="btn btn-p" onclick="saveProducts()">保存</button>
       </div>
     </div>
-  </div>
-
-  <!-- ════════ 紹介者マスター ════════ -->
-  <div id="m-referrers" class="mcon">
-    <div class="tbar">
-      <div class="tab active" onclick="switchReferrerTab('list',this)">一覧</div>
-      <div class="tab" onclick="switchReferrerTab('new',this)">＋ 新規登録</div>
-    </div>
-
-    <div id="ref-list" class="tcon active">
-      <div class="filter-bar">
-        <label>検索</label>
-        <input class="fc" id="rf-kw" placeholder="名前・電話・メール..." oninput="renderReferrerList()" style="width:240px">
-        <label>計算方法</label>
-        <select class="fc" id="rf-calc" onchange="renderReferrerList()">
-          <option value="">すべて</option>
-          <option value="A">A: 売値×%</option>
-          <option value="B">B: 掛率差×消費税</option>
-        </select>
-        <span style="margin-left:auto;font-size:.72rem;color:var(--wh2)">
-          <span id="ref-count">0</span> 名
-        </span>
-      </div>
-      <div id="ref-grid" class="cust-grid"></div>
-    </div>
-
-    <div id="ref-new" class="tcon">
-      <div class="action-bar">
-        <button class="btn-s" onclick="switchReferrerTab('list',document.querySelectorAll('#m-referrers .tab')[0])">← 一覧に戻る</button>
-        <span id="ref-edit-status" style="color:var(--gold-l);font-size:.8rem"></span>
-      </div>
-      <div class="form-panel">
-        <h3>紹介者情報</h3>
-        <div class="form-section">
-          <div class="form-section-title">▸ 基本情報</div>
-          <div class="frow">
-            <div class="fg"><label>名前 <span class="req">*</span></label><input class="fc" id="rf-name" placeholder="例：山田 太郎"></div>
-            <div class="fg"><label>電話番号</label><input class="fc" id="rf-tel" type="tel" placeholder="090-XXXX-XXXX"></div>
-            <div class="fg"><label>メール</label><input class="fc" id="rf-email" type="email" placeholder="name@example.com"></div>
-            <div class="fg"><label>LINE ID</label><input class="fc" id="rf-lineid" placeholder="LINE ID"></div>
-            <div class="fg fc-full"><label>住所</label><input class="fc" id="rf-address" placeholder="例：仙台市青葉区中央1-2-3"></div>
-          </div>
-        </div>
-        <div class="form-section">
-          <div class="form-section-title">▸ 紹介料計算</div>
-          <div class="frow">
-            <div class="fg">
-              <label>計算方法 <span class="req">*</span></label>
-              <select class="fc" id="rf-calc-type" onchange="updateReferrerParamLabel()" style="white-space:nowrap;text-overflow:ellipsis;overflow:hidden">
-                <option value="A">A: 売値 × ％</option>
-                <option value="B">B: 掛率差 × 消費税</option>
-              </select>
-            </div>
-            <div class="fg">
-              <label id="rf-param-label">パラメータ <span class="hint">A選択時：％の値（例：10 = 10%）</span></label>
-              <input class="fc" id="rf-calc-param" type="number" step="0.1" min="0" placeholder="例：10">
-            </div>
-            <div class="fg fc-full">
-              <div style="background:rgba(155,127,212,.05);border:1px dashed rgba(155,127,212,.25);border-radius:3px;padding:.6rem .8rem;font-size:.72rem;color:var(--wh2);line-height:1.6">
-                <strong style="color:var(--gold-l)">計算式（紹介料の自動算出）:</strong><br>
-                ・<strong>A方式</strong>：紹介料 = 売値 × (パラメータ ÷ 100) × 1.1<br>
-                ・<strong>B方式</strong>：紹介料 = 売値 × {(顧客掛率 ÷ 10) − (パラメータ ÷ 10)} × 1.1<br>
-                <span style="color:var(--wh3)">※消費税1.1倍 / 顧客掛率は顧客マスターの設定値を使用</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="form-actions">
-          <button class="btn btn-p" onclick="submitReferrerForm()">💾 保存</button>
-          <button class="btn" onclick="clearReferrerForm()">クリア</button>
-          <button class="btn btn-d" id="ref-delete-btn" onclick="deleteReferrer()" style="display:none;margin-left:auto">🗑️ 削除</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ════════ 協賛マスター ════════ -->
-  <div id="m-sponsors" class="mcon">
-    <div class="tbar">
-      <div class="tab active" onclick="switchSponsorTab('list',this)">一覧</div>
-      <div class="tab" onclick="switchSponsorTab('new',this)">＋ 新規登録</div>
-    </div>
-
-    <div id="spo-list" class="tcon active">
-      <div class="filter-bar">
-        <label>検索</label>
-        <input class="fc" id="sp-kw" placeholder="ルール名・商品..." oninput="renderSponsorList()" style="width:240px">
-        <label>状態</label>
-        <select class="fc" id="sp-status" onchange="renderSponsorList()">
-          <option value="">すべて</option>
-          <option value="active">有効</option>
-          <option value="disabled">無効</option>
-          <option value="expired">期限切れ</option>
-        </select>
-        <span style="margin-left:auto;font-size:.72rem;color:var(--wh2)">
-          <span id="spo-count">0</span> 件
-        </span>
-      </div>
-      <div id="spo-grid" class="cust-grid"></div>
-    </div>
-
-    <div id="spo-new" class="tcon">
-      <div class="action-bar">
-        <button class="btn-s" onclick="switchSponsorTab('list',document.querySelectorAll('#m-sponsors .tab')[0])">← 一覧に戻る</button>
-        <span id="spo-edit-status" style="color:var(--gold-l);font-size:.8rem"></span>
-      </div>
-      <div class="form-panel">
-        <h3>協賛ルール</h3>
-        <div class="form-section">
-          <div class="form-section-title">▸ 基本情報</div>
-          <div class="frow">
-            <div class="fg fc-full"><label>ルール名 <span class="req">*</span></label><input class="fc" id="sp-name" placeholder="例：イエロー10ケース1本協賛"></div>
-            <div class="fg"><label>対象商品 <span class="req">*</span></label><select class="fc" id="sp-target"><option value="all">全商品</option></select></div>
-            <div class="fg fc-full"><label>メモ</label><input class="fc" id="sp-memo" placeholder="任意"></div>
-          </div>
-        </div>
-        <div class="form-section">
-          <div class="form-section-title">▸ 条件と報酬</div>
-          <div class="frow">
-            <div class="fg"><label>購入条件数量 <span class="req">*</span></label><input class="fc" type="number" id="sp-trigger-qty" min="0" step="1" placeholder="例：10"></div>
-            <div class="fg"><label>購入単位 <span class="req">*</span></label><select class="fc" id="sp-trigger-unit"><option value="ケース">ケース</option><option value="本">本</option></select></div>
-            <div class="fg"><label>報酬数量 <span class="req">*</span></label><input class="fc" type="number" id="sp-reward-qty" min="0" step="1" placeholder="例：1"></div>
-            <div class="fg"><label>報酬商品 <span class="req">*</span></label><select class="fc" id="sp-reward-product"><option value="same">対象商品と同じ</option></select></div>
-            <div class="fg fc-full">
-              <div style="background:rgba(155,127,212,.05);border:1px dashed rgba(155,127,212,.25);border-radius:3px;padding:.6rem .8rem;font-size:.72rem;color:var(--wh2);line-height:1.6">
-                <strong style="color:var(--gold-l)">ルール例:</strong> 「イエロー <strong>10ケース</strong> 購入で イエロー <strong>1本</strong> サービス」
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="form-section">
-          <div class="form-section-title">▸ 期間と状態</div>
-          <div class="frow">
-            <div class="fg"><label>開始日 <span class="hint">任意・空欄=無期限</span></label><input class="fc" type="date" id="sp-start"></div>
-            <div class="fg"><label>終了日 <span class="hint">任意・空欄=無期限</span></label><input class="fc" type="date" id="sp-end"></div>
-            <div class="fg"><label>状態 <span class="req">*</span></label><select class="fc" id="sp-enabled"><option value="有効">有効</option><option value="無効">無効</option></select></div>
-          </div>
-        </div>
-        <div class="form-actions">
-          <button class="btn btn-p" onclick="submitSponsorForm()">💾 保存</button>
-          <button class="btn" onclick="clearSponsorForm()">クリア</button>
-          <button class="btn btn-d" id="spo-delete-btn" onclick="deleteSponsorRule()" style="display:none;margin-left:auto">🗑️ 削除</button>
-        </div>
-      </div>
+    <div style="overflow-x:auto">
+      <table class="prod-table">
+        <thead>
+          <tr>
+            <th style="width:40px">#</th>
+            <th style="min-width:130px">商品名</th>
+            <th style="min-width:100px">カテゴリ</th>
+            <th style="width:110px;text-align:right">原価</th>
+            <th style="width:110px;text-align:right">新売値</th>
+            <th style="width:110px;text-align:right">旧売値</th>
+            <th style="width:90px;text-align:right">補充閾値</th>
+            <th style="width:80px">粗利率</th>
+          </tr>
+        </thead>
+        <tbody id="prod-tbody"></tbody>
+      </table>
     </div>
   </div>
 
@@ -1103,23 +752,23 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
 // shared.js  Sclassランボルギーニ 全システム共通データ
 // ============================================================
 const PROD_LIST = [
-  {key:'イエロー',     name:'イエロー',     fullName:'001: Extra Brut（イエロー）',     category:'スパークリング', cost:5000, costOld:5000,  price:10500,  priceOld:10500,  reorder:10, img:''},
-  {key:'オレンジ',     name:'オレンジ',     fullName:'002: Rosé（オレンジ）',            category:'スパークリング', cost:10000, costOld:10000, price:21000,  priceOld:21000,  reorder:10, img:''},
-  {key:'ブルー',       name:'ブルー',       fullName:'003: Blue Label',                  category:'スパークリング', cost:10000, costOld:10000, price:21000,  priceOld:21000,  reorder:10, img:''},
-  {key:'ブラック',     name:'ブラック',     fullName:'004: Black Label',                 category:'スパークリング', cost:10000, costOld:10000, price:21000,  priceOld:21000,  reorder:10, img:''},
-  {key:'プラチナ',     name:'プラチナ',     fullName:'005: Platinum',                    category:'スパークリング', cost:15000, costOld:15000, price:33000,  priceOld:33000,  reorder:6,  img:''},
-  {key:'ゴールド',     name:'ゴールド',     fullName:'006: Gold',                        category:'スパークリング', cost:20000, costOld:20000, price:44000,  priceOld:44000,  reorder:6,  img:''},
-  {key:'ルミナス',     name:'ルミナス',     fullName:'007: Luminous',                    category:'スパークリング', cost:25000, costOld:25000, price:55000,  priceOld:55000,  reorder:6,  img:''},
-  {key:'レジェンド',   name:'レジェンド',   fullName:'008: Legend',                      category:'スパークリング', cost:25000, costOld:25000, price:55000,  priceOld:55000,  reorder:6,  img:''},
-  {key:'さくら',       name:'さくら',       fullName:'009: Sakura',                      category:'スパークリング', cost:12000, costOld:12000, price:25000,  priceOld:25000,  reorder:6,  img:''},
-  {key:'チェングレット', name:'チェングレット', fullName:'010: Cheng Leggero',             category:'スティルワイン', cost:3000, costOld:3000,  price:6800,   priceOld:6800,   reorder:12, img:''},
-  {key:'チェングロッソ', name:'チェングロッソ', fullName:'011: Cheng Grosso',              category:'スティルワイン', cost:3000, costOld:3000,  price:6800,   priceOld:6800,   reorder:12, img:''},
-  {key:'トレスコーネ', name:'トレスコーネ', fullName:'012: Trescone',                    category:'スティルワイン', cost:3500, costOld:3500,  price:7800,   priceOld:7800,   reorder:12, img:''},
-  {key:'エラ',         name:'エラ',         fullName:'013: Ella',                        category:'スティルワイン', cost:4500, costOld:4500,  price:10000,  priceOld:10000,  reorder:10, img:''},
-  {key:'トラミ',       name:'トラミ',       fullName:'014: Trami',                       category:'スティルワイン', cost:6000, costOld:6000,  price:13000,  priceOld:13000,  reorder:10, img:''},
-  {key:'カンポレオーネ', name:'カンポレオーネ', fullName:'015: Campoleone',                category:'スティルワイン', cost:4500, costOld:4500,  price:10000,  priceOld:10000,  reorder:10, img:''},
-  {key:'GIFTBOX',      name:'GIFTBOX',      fullName:'016: GIFTBOX',                     category:'ギフト',       cost:9000, costOld:9000,  price:20000,  priceOld:20000,  reorder:5,  img:''},
-  {key:'コラチョロサ', name:'コラチョロサ', fullName:'017: Cora Chollosa',               category:'スティルワイン', cost:8000, costOld:8000,  price:17000,  priceOld:17000,  reorder:6,  img:''},
+  {key:'イエロー',     name:'イエロー',     fullName:'001: Extra Brut（イエロー）',     category:'スパークリング', cost:5000,  price:10500,  priceOld:10500,  reorder:10, img:''},
+  {key:'オレンジ',     name:'オレンジ',     fullName:'002: Rosé（オレンジ）',            category:'スパークリング', cost:10000, price:21000,  priceOld:21000,  reorder:10, img:''},
+  {key:'ブルー',       name:'ブルー',       fullName:'003: Blue Label',                  category:'スパークリング', cost:10000, price:21000,  priceOld:21000,  reorder:10, img:''},
+  {key:'ブラック',     name:'ブラック',     fullName:'004: Black Label',                 category:'スパークリング', cost:10000, price:21000,  priceOld:21000,  reorder:10, img:''},
+  {key:'プラチナ',     name:'プラチナ',     fullName:'005: Platinum',                    category:'スパークリング', cost:15000, price:33000,  priceOld:33000,  reorder:6,  img:''},
+  {key:'ゴールド',     name:'ゴールド',     fullName:'006: Gold',                        category:'スパークリング', cost:20000, price:44000,  priceOld:44000,  reorder:6,  img:''},
+  {key:'ルミナス',     name:'ルミナス',     fullName:'007: Luminous',                    category:'スパークリング', cost:25000, price:55000,  priceOld:55000,  reorder:6,  img:''},
+  {key:'レジェンド',   name:'レジェンド',   fullName:'008: Legend',                      category:'スパークリング', cost:25000, price:55000,  priceOld:55000,  reorder:6,  img:''},
+  {key:'さくら',       name:'さくら',       fullName:'009: Sakura',                      category:'スパークリング', cost:12000, price:25000,  priceOld:25000,  reorder:6,  img:''},
+  {key:'チェングレット', name:'チェングレット', fullName:'010: Cheng Leggero',             category:'スティルワイン', cost:3000,  price:6800,   priceOld:6800,   reorder:12, img:''},
+  {key:'チェングロッソ', name:'チェングロッソ', fullName:'011: Cheng Grosso',              category:'スティルワイン', cost:3000,  price:6800,   priceOld:6800,   reorder:12, img:''},
+  {key:'トレスコーネ', name:'トレスコーネ', fullName:'012: Trescone',                    category:'スティルワイン', cost:3500,  price:7800,   priceOld:7800,   reorder:12, img:''},
+  {key:'エラ',         name:'エラ',         fullName:'013: Ella',                        category:'スティルワイン', cost:4500,  price:10000,  priceOld:10000,  reorder:10, img:''},
+  {key:'トラミ',       name:'トラミ',       fullName:'014: Trami',                       category:'スティルワイン', cost:6000,  price:13000,  priceOld:13000,  reorder:10, img:''},
+  {key:'カンポレオーネ', name:'カンポレオーネ', fullName:'015: Campoleone',                category:'スティルワイン', cost:4500,  price:10000,  priceOld:10000,  reorder:10, img:''},
+  {key:'GIFTBOX',      name:'GIFTBOX',      fullName:'016: GIFTBOX',                     category:'ギフト',       cost:9000,  price:20000,  priceOld:20000,  reorder:5,  img:''},
+  {key:'コラチョロサ', name:'コラチョロサ', fullName:'017: Cora Chollosa',               category:'スティルワイン', cost:8000,  price:17000,  priceOld:17000,  reorder:6,  img:''},
 ];
 
 const PRODS   = PROD_LIST.map(p => p.key);
@@ -1137,17 +786,13 @@ const S = {
   company:{}, products:null,
   purchases:[], suppliers:['マルシェジャパン','オーク酒販'],
   cashEntries:[], dailyReps:[],
-  referrers:[], sponsors:[],
-  gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
+  gasUrl: localStorage.getItem('gasUrl') || '',
 };
 
 function today(){ return new Date().toISOString().slice(0,10); }
 function fmt(n){ return (Number(n)||0).toLocaleString('ja-JP'); }
 function yen(n){ return '¥' + fmt(n); }
 function calcAmt(o){
-  if (o.orderType === 'sponsor') return 0;  // 協賛注文は無料出荷（売上0）
-  if (typeof o.amount === 'number') return o.amount;  // 確定金額（価格モード・商品別掛率・税を反映済み）
-  // 旧注文の互換計算（amount未保存の注文）
   const tax = o.tax === 'taxあり' ? 1.1 : 1;
   const cond = (o.condition || 10) / 10;
   let total = 0;
@@ -1161,7 +806,7 @@ function saveState(){
   try {
     const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
-                  'cashEntries','dailyReps','referrers','sponsors'];
+                  'cashEntries','dailyReps'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
   } catch(e){ console.warn('saveState error', e); }
 }
@@ -1169,12 +814,12 @@ function loadState(){
   try {
     const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
-                  'cashEntries','dailyReps','referrers','sponsors'];
+                  'cashEntries','dailyReps'];
     keys.forEach(k => {
       const v = localStorage.getItem('lmb_' + k);
       if (v) try { S[k] = JSON.parse(v); } catch(e){}
     });
-    S.gasUrl = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
+    S.gasUrl = localStorage.getItem('gasUrl') || '';
   } catch(e){ console.warn('loadState error', e); }
 }
 
@@ -1281,8 +926,6 @@ function switchMaster(name, el){
   if (name === 'staff')     renderStaffList();
   if (name === 'company')   loadCompany();
   if (name === 'products')  renderProducts();
-  if (name === 'referrers') renderReferrerList();
-  if (name === 'sponsors')  renderSponsorList();
 }
 
 // ─── 全同期 ─────
@@ -1290,35 +933,12 @@ async function syncAllFromGAS(){
   if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
   toast('同期中...');
   const cust = await gasGet('getCustomers');
-  if (cust && cust.customers) {
-    // 安全策: id がない顧客には店舗名ベースの安定IDを補完（openCustが動くように）
-    S.customers = cust.customers.map(c => {
-      if (!c.id) {
-        const nm = String(c.name || '');
-        let h = 0;
-        for (let i = 0; i < nm.length; i++) { h = ((h << 5) - h + nm.charCodeAt(i)) | 0; }
-        c.id = 'cust-sync-' + Math.abs(h).toString(36);
-      }
-      return c;
-    });
-  }
-  const refs = await gasGet('getReferrers');
-  if (refs && refs.referrers) { S.referrers = refs.referrers; }
-  const sps = await gasGet('getSponsors');
-  if (sps && sps.sponsors) { S.sponsors = sps.sponsors; }
-  const stf = await gasGet('getStaff');
-  if (stf && stf.staff) S.staff = stf.staff;
-  const co = await gasGet('getCompany');
-  if (co && co.company && Object.keys(co.company).length) S.company = co.company;
-  const prd = await gasGet('getProducts');
-  if (prd && prd.products && prd.products.length) S.products = prd.products;
+  if (cust && cust.customers) { S.customers = cust.customers; }
   saveState();
   localStorage.setItem('lmb_lastSync', new Date().toISOString());
   toast('✓ 同期完了');
   renderCustList();
   renderStaffList();
-  if (typeof renderReferrerList === 'function') renderReferrerList();
-  if (typeof renderSponsorList === 'function') renderSponsorList();
 }
 
 // ─── ユーティリティ ─────
@@ -1342,42 +962,6 @@ function switchCustTab(name, el){
   if (name === 'uid')  loadCustPendingUids();
 }
 
-// ── 顧客一覧 あいうえおタブ ──
-let custKanaFilter = '全';
-function setKanaFilter(g){ custKanaFilter = g; renderCustList(); }
-function _kanaGroup(c){
-  const s = ((c.kana || c.name || '') + '').trim();
-  if (!s) return '他';
-  const ch = s[0];
-  const nfkc = ch.normalize('NFKC');
-  if (/[A-Za-z0-9]/.test(nfkc)) return '英';           // 英字・数字の店名
-  let h = ch;
-  if (ch >= 'ァ' && ch <= 'ヶ') h = String.fromCharCode(ch.charCodeAt(0) - 0x60); // カタカナ→ひらがな
-  const ROWS = {
-    'あ':'あいうえおぁぃぅぇぉ','か':'かきくけこがぎぐげご','さ':'さしすせそざじずぜぞ',
-    'た':'たちつてとだぢづでどっ','な':'なにぬねの','は':'はひふへほばびぶべぼぱぴぷぺぽ',
-    'ま':'まみむめも','や':'やゆよゃゅょ','ら':'らりるれろ','わ':'わをんゎ'
-  };
-  for (const k in ROWS) if (ROWS[k].includes(h)) return k;
-  return '他';
-}
-function renderKanaTabs(base){
-  const el = document.getElementById('kana-tabs');
-  if (!el) return;
-  const TABS = ['全','あ','か','さ','た','な','は','ま','や','ら','わ','英','他'];
-  const cnt = {}; base.forEach(c => { const g = _kanaGroup(c); cnt[g] = (cnt[g]||0) + 1; });
-  el.innerHTML = TABS.map(t => {
-    const n = (t === '全') ? base.length : (cnt[t] || 0);
-    const active = (custKanaFilter === t);
-    const dim = (t !== '全' && n === 0);
-    return `<button type="button" onclick="setKanaFilter('${t}')" style="`+
-      `padding:.25rem .55rem;margin:0 .25rem .3rem 0;border:1px solid ${active?'var(--gold)':'rgba(201,168,76,.25)'};`+
-      `background:${active?'var(--gold)':'transparent'};color:${active?'#1a1a1a':(dim?'var(--wh3)':'var(--wh1)')};`+
-      `border-radius:5px;font-size:.74rem;cursor:pointer;${dim?'opacity:.45;':''}">${t}`+
-      `${(t!=='全'&&n)?`<span style="font-size:.62rem;opacity:.7"> ${n}</span>`:''}</button>`;
-  }).join('');
-}
-
 function renderCustList(){
   const kw = (document.getElementById('f-kw')?.value || '').trim().toLowerCase();
   const br = document.getElementById('f-br')?.value || '';
@@ -1392,71 +976,43 @@ function renderCustList(){
     }
     return true;
   });
-  // あいうえおタブ（他フィルタ適用後の集合で件数表示）→ かな絞り込み → 読み順ソート
-  renderKanaTabs(filtered);
-  if (custKanaFilter && custKanaFilter !== '全'){
-    filtered = filtered.filter(c => _kanaGroup(c) === custKanaFilter);
-  }
-  filtered = filtered.slice().sort((a, b) =>
-    (((a.kana || a.name || '') + '').localeCompare(((b.kana || b.name || '') + ''), 'ja')));
   const cnt = document.getElementById('list-count');
   if (cnt) cnt.textContent = filtered.length;
   const grid = document.getElementById('cust-grid');
   if (!grid) return;
-  grid.style.display = 'block';
   if (filtered.length === 0){
-    grid.innerHTML = `<div class="empty">
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
       <div class="empty-icon">🏪</div>
       <div>該当する顧客がありません</div>
       <div style="font-size:.75rem;margin-top:.5rem;color:var(--wh3)">「＋ 新規登録」から追加してください</div>
     </div>`;
     return;
   }
-  grid.innerHTML = `
-    <div class="cust-table-wrap">
-      <table class="cust-table">
-        <thead>
-          <tr>
-            <th>拠点</th>
-            <th>店舗名</th>
-            <th>店舗電話</th>
-            <th>代表者</th>
-            <th>弊社担当</th>
-            <th>紹介者</th>
-            <th>掛率</th>
-            <th>UID</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${filtered.map(c => {
-            const rates = Array.isArray(c.productRates) ? c.productRates : [];
-            const rateCount = rates.filter(r => r.rate).length;
-            const hasRate = rateCount > 0;
-            const rateLabel = (c.rate || '7') + '掛' + (hasRate ? ` +${rateCount}` : '');
-            const uidBadge = c.lineUid
-              ? '<span class="ct-uid ok">🔗</span>'
-              : '<span class="ct-uid no">⚠</span>';
-            const realIdx = S.customers.indexOf(c);
-            return `
-            <tr onclick="openCustRow(${realIdx})">
-              <td>${escapeHtml(c.branch || '—')}</td>
-              <td class="ct-name">${escapeHtml(c.name || '無名')}${c.sponsorEnabled ? ' <span class="ct-spo">協賛</span>' : ''}</td>
-              <td>${escapeHtml(c.tel || '—')}</td>
-              <td>${escapeHtml(c.owner || '—')}</td>
-              <td>${escapeHtml(c.staff || '—')}</td>
-              <td>${escapeHtml(c.referrer || '—')}</td>
-              <td>${escapeHtml(rateLabel)}</td>
-              <td style="text-align:center">${uidBadge}</td>
-              <td class="ct-actions" onclick="event.stopPropagation()">
-                <button class="ct-btn edit" onclick="openCustRow(${realIdx})">編集</button>
-                <button class="ct-btn del" onclick="deleteCustRow(${realIdx})">削除</button>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
+  grid.innerHTML = filtered.map(c => {
+    const hasRate = c.productRates && c.productRates.filter(r => r.rate).length > 0;
+    const rateCount = hasRate ? c.productRates.filter(r => r.rate).length : 0;
+    const uidClass = c.lineUid ? 'uid' : 'no-uid';
+    const uidText  = c.lineUid ? '🔗 UID登録済み' : '⚠ UID未登録';
+    return `
+    <div class="cust-card" onclick="openCust('${c.id}')">
+      <div class="cust-head">
+        <div class="cust-name">${escapeHtml(c.name || '無名')}</div>
+        <div class="cust-branch">${c.branch || '—'}</div>
+      </div>
+      <div class="cust-info">
+        ${c.owner ? `<div><strong>代表:</strong> ${escapeHtml(c.owner)}</div>` : ''}
+        ${c.tel ? `<div><strong>TEL:</strong> ${escapeHtml(c.tel)}</div>` : ''}
+        ${c.staff ? `<div><strong>担当:</strong> ${escapeHtml(c.staff)}</div>` : ''}
+        ${(c.pref||c.city) ? `<div style="color:var(--wh3);font-size:.65rem;margin-top:.2rem">${escapeHtml((c.pref||'')+(c.city||''))}</div>` : ''}
+      </div>
+      <div class="cust-meta">
+        <span class="meta-chip rate">${c.rate || '7'}掛</span>
+        ${hasRate ? `<span class="meta-chip rate">商品別 ${rateCount}</span>` : ''}
+        <span class="meta-chip ${uidClass}">${uidText}</span>
+        ${c.sponsorEnabled ? '<span class="meta-chip sponsor">協賛あり</span>' : ''}
+      </div>
     </div>`;
+  }).join('');
 }
 
 function openCust(id){
@@ -1568,8 +1124,7 @@ function fillCustForm(c){
   g('cf-pref').value=c.pref||''; g('cf-city').value=c.city||'';
   g('cf-addr1').value=c.addr1||''; g('cf-addr2').value=c.addr2||'';
   g('cf-line-id').value=c.lineId||''; g('cf-line-uid').value=c.lineUid||'';
-  g('cf-inv-name').value=c.invName||'';
-  updateReferrerOptions(c.referrer||'');
+  g('cf-inv-name').value=c.invName||''; g('cf-referrer').value=c.referrer||'';
   g('cf-pay-method').value=c.payMethod||'';
   g('cf-rate').value=c.rate||'7'; g('cf-note').value=c.note||'';
   g('cf-common-price-mode').value = c.commonPriceMode || '新値';
@@ -1579,15 +1134,6 @@ function fillCustForm(c){
   g('cf-sponsor-reward').value=c.sponsorReward||'';
   g('cf-sponsor-product').value=c.sponsorProduct||'';
   updateSponsorProductOptions(c.sponsorProduct||'');
-  // 適用協賛ルール（新方式）
-  custSponsorIds = Array.isArray(c.sponsorIds) ? c.sponsorIds.slice() : [];
-  document.getElementById('cf-sponsor-instant').checked = !!c.sponsorInstant;
-  document.getElementById('cf-free-shipping').checked = !!c.freeShipping;
-  document.getElementById('cf-ship-fee').value = (c.shipFee != null) ? c.shipFee : '';
-  document.getElementById('cf-ship-include-sponsor').value = (c.shipIncludeSponsor === 'なし') ? 'なし' : 'あり';
-  document.getElementById('sponsor-rules').style.display = c.sponsorEnabled ? 'block' : 'none';
-  rebuildCustSponsorOptions();
-  renderCustSponsors();
   // 詳細情報（分析用）
   g('cf-biz-type').value      = c.bizType      || '';
   g('cf-open-date').value     = c.openDate     || '';
@@ -1607,7 +1153,7 @@ function fillCustForm(c){
   renderCustBanks();
   custDeliveryRows = (c.deliveries && Array.isArray(c.deliveries)) ? c.deliveries.map(d => ({...d})) : [];
   renderCustDeliveries();
-  renderCustProdRates(Array.isArray(c.productRates) ? c.productRates : []);
+  renderCustProdRates(c.productRates || []);
 }
 
 function clearCustForm(){
@@ -1615,7 +1161,7 @@ function clearCustForm(){
   ['cf-name','cf-kana','cf-tel','cf-owner','cf-owner-tel','cf-zip','cf-pref','cf-city',
    'cf-addr1','cf-addr2','cf-line-id','cf-line-uid','cf-inv-name','cf-referrer','cf-note',
    'cf-pay-method',
-   'cf-sponsor-trigger','cf-sponsor-reward','cf-sponsor-product','cf-ship-fee',
+   'cf-sponsor-trigger','cf-sponsor-reward','cf-sponsor-product',
    // 詳細情報（分析用）
    'cf-biz-type','cf-open-date','cf-seats','cf-owner-age',
    'cf-customer-base','cf-product-trend','cf-competitor',
@@ -1627,13 +1173,6 @@ function clearCustForm(){
   document.getElementById('cf-common-price-mode').value = '新値';
   document.getElementById('cf-common-tax').value = '税込';
   document.getElementById('cf-sponsor').checked = false;
-  document.getElementById('cf-sponsor-instant').checked = false;
-  document.getElementById('cf-free-shipping').checked = false;
-  document.getElementById('cf-ship-include-sponsor').value = 'あり';
-  updateReferrerOptions('');
-  custSponsorIds = [];
-  document.getElementById('sponsor-rules').style.display = 'none';
-  renderCustSponsors();
   toggleCustSponsor();
   custContactRows = []; custBankRows = []; custDeliveryRows = [];
   renderCustContacts(); renderCustBanks(); renderCustDeliveries();
@@ -1752,36 +1291,6 @@ function lookupCustDeliveryZip(i){
   document.body.appendChild(s);
 }
 
-// ─── 紹介者プルダウン: 紹介者マスターから選択肢を再構築 ─────
-// currentValue を渡すと、その値を選択状態にする（マスターになくても保持）
-function updateReferrerOptions(currentValue){
-  const sel = document.getElementById('cf-referrer');
-  if (!sel) return;
-  const list = S.referrers || [];
-  // 既存値を保持（引数優先、なければ現在のセレクト値）
-  const keep = (currentValue !== undefined && currentValue !== null) ? currentValue : sel.value;
-  // 選択肢を再構築
-  sel.innerHTML = '<option value="">未設定</option>';
-  list.forEach(r => {
-    if (!r.name) return;
-    const opt = document.createElement('option');
-    opt.value = r.name;
-    opt.textContent = r.name;
-    sel.appendChild(opt);
-  });
-  // 既存値がマスターになければ「(未登録)」として末尾に追加（互換性保持）
-  if (keep) {
-    const exists = Array.from(sel.options).some(o => o.value === keep);
-    if (!exists) {
-      const opt = document.createElement('option');
-      opt.value = keep;
-      opt.textContent = keep + ' (未登録)';
-      sel.appendChild(opt);
-    }
-    sel.value = keep;
-  }
-}
-
 // ─── 協賛対象商品プルダウン: 商品マスターから選択肢を再構築 ─────
 // currentValue を渡すと、その値を選択状態にする（廃番でも保持）
 function updateSponsorProductOptions(currentValue){
@@ -1833,7 +1342,7 @@ function renderCustProdRates(existing){
       <div class="prate-name">${escapeHtml(p.name)}</div>
       <div class="prate-controls">
         <input type="number" id="pr-${p.key}" step="0.5" min="0" max="10"
-          value="${existMap[p.key]||''}" placeholder="掛率">
+          value="${existMap[p.key]||''}" placeholder="率">
         <select id="pm-${p.key}" title="価格モード">
           <option value="新値" ${mode==='新値'?'selected':''}>新値</option>
           <option value="旧値" ${mode==='旧値'?'selected':''}>旧値</option>
@@ -1864,75 +1373,7 @@ function getCustProdRates(){
 
 function toggleCustSponsor(){
   const on = document.getElementById('cf-sponsor').checked;
-  // 旧詳細は常に非表示のまま（互換保持）。新ルール選択UIを表示
-  document.getElementById('sponsor-rules').style.display = on ? 'block' : 'none';
-  if (on) rebuildCustSponsorOptions();
-}
-
-// ─── 顧客の適用協賛ルール ─────
-// 現在編集中の顧客に紐づく協賛IDの作業用配列
-let custSponsorIds = [];
-
-// プルダウンを「有効な協賛ルール」で再構築（既に追加済みは除外）
-function rebuildCustSponsorOptions(){
-  const sel = document.getElementById('cf-sponsor-rule-sel');
-  if (!sel) return;
-  const all = S.sponsors || [];
-  // 有効なルールのみ（無効・期限切れは除外）
-  const available = all.filter(s =>
-    (typeof isSponsorActive === 'function' ? isSponsorActive(s) : s.enabled === '有効')
-    && custSponsorIds.indexOf(s.id) < 0
-  );
-  sel.innerHTML = '<option value="">ルールを選択...</option>';
-  available.forEach(s => {
-    const target = (s.targetProduct === 'all') ? '全商品' : s.targetProduct;
-    const opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = `${s.name}（${target} ${s.triggerQty}${s.triggerUnit}→${s.rewardQty}本）`;
-    sel.appendChild(opt);
-  });
-}
-
-// 選択中の協賛ルールをリスト表示
-function renderCustSponsors(){
-  const box = document.getElementById('cf-sponsor-rule-list');
-  if (!box) return;
-  if (custSponsorIds.length === 0){
-    box.innerHTML = '<div style="font-size:.7rem;color:var(--wh3);padding:.3rem 0">まだ協賛ルールが追加されていません</div>';
-    return;
-  }
-  box.innerHTML = custSponsorIds.map(id => {
-    const s = (S.sponsors || []).find(x => x.id === id);
-    const label = s ? s.name : id + ' (削除済み)';
-    const expired = s && typeof isSponsorExpired === 'function' && isSponsorExpired(s);
-    const note = expired ? ' <span style="color:var(--org);font-size:.6rem">期限切れ</span>' : '';
-    return `
-      <div style="display:flex;align-items:center;gap:.5rem;background:rgba(155,127,212,.08);border:1px solid rgba(155,127,212,.25);padding:.35rem .6rem;font-size:.72rem">
-        <span style="flex:1;color:var(--gold-l)">🎁 ${escapeHtml(label)}${note}</span>
-        <button type="button" onclick="removeCustSponsor('${escapeHtml(id)}')" style="background:transparent;border:none;color:#e05252;cursor:pointer;font-size:.85rem;padding:0 .2rem">✕</button>
-      </div>`;
-  }).join('');
-}
-
-// プルダウンから選択したルールを追加（onchange自動追加 + 追加ボタン両対応）
-function addCustSponsor(){
-  const sel = document.getElementById('cf-sponsor-rule-sel');
-  const id = sel.value;
-  if (!id) return;  // 「ルールを選択...」の時は静かに無視（onchange対応）
-  if (custSponsorIds.indexOf(id) >= 0){
-    sel.value = '';
-    return toast('既に追加済みです', 'error');
-  }
-  custSponsorIds.push(id);
-  rebuildCustSponsorOptions();
-  renderCustSponsors();
-}
-
-// ルールを削除
-function removeCustSponsor(id){
-  custSponsorIds = custSponsorIds.filter(x => x !== id);
-  rebuildCustSponsorOptions();
-  renderCustSponsors();
+  document.getElementById('sponsor-detail').style.display = on ? 'block' : 'none';
 }
 
 function submitCustForm(){
@@ -1962,11 +1403,6 @@ function submitCustForm(){
     sponsorTrigger: g('cf-sponsor-trigger'),
     sponsorReward:  g('cf-sponsor-reward'),
     sponsorProduct: g('cf-sponsor-product'),
-    sponsorIds:     custSponsorIds.slice(),
-    sponsorInstant: document.getElementById('cf-sponsor-instant').checked,
-    freeShipping: document.getElementById('cf-free-shipping').checked,
-    shipFee: g('cf-ship-fee'),
-    shipIncludeSponsor: g('cf-ship-include-sponsor'),
     // 詳細情報（分析用）
     bizType:      g('cf-biz-type'),
     openDate:     g('cf-open-date'),
@@ -1998,60 +1434,12 @@ function submitCustForm(){
 function deleteCust(){
   if (!canDelete()) return toast('🔒 削除権限がありません（admin/manager のみ）', 'error');
   if (!custEditingId) return;
-  if (!confirm('この顧客を削除しますか？\nスプレッドシートからも削除されます。')) return;
-  const _delC = (S.customers || []).find(x => x.id === custEditingId);
-  if (S.gasUrl && _delC) { try { gasPost({ action:'deleteCustomer', id:_delC.id, name:_delC.name }); } catch(e){} }
+  if (!confirm('この顧客を削除しますか？\nスプレッドシートのデータは残ります。')) return;
   S.customers = (S.customers || []).filter(c => c.id !== custEditingId);
   saveState();
   toast('✓ 削除しました');
   clearCustForm();
   switchCustTab('list', document.querySelectorAll('#m-customers .tab')[0]);
-}
-
-// ─── 一覧の行から直接削除 ─────
-function deleteCustById(id){
-  if (!canDelete()) return toast('🔒 削除権限がありません（admin/manager のみ）', 'error');
-  const c = (S.customers || []).find(x => x.id === id);
-  if (!c) return;
-  if (!confirm(`顧客「${c.name || '無名'}」を削除しますか？\nスプレッドシートからも削除されます。`)) return;
-  if (S.gasUrl) { try { gasPost({ action:'deleteCustomer', id:c.id, name:c.name }); } catch(e){} }
-  S.customers = (S.customers || []).filter(x => x.id !== id);
-  saveState();
-  toast('✓ 削除しました');
-  renderCustList();
-}
-
-// ─── 行インデックスで開く（id非依存・同期で id がずれても確実に動く） ─────
-function openCustRow(idx){
-  const c = (S.customers || [])[idx];
-  if (!c) return toast('顧客が見つかりません', 'error');
-  // id がなければ補完（古い同期データ対策）
-  if (!c.id) {
-    const nm = String(c.name || '');
-    let h = 0;
-    for (let i = 0; i < nm.length; i++) { h = ((h << 5) - h + nm.charCodeAt(i)) | 0; }
-    c.id = 'cust-sync-' + Math.abs(h).toString(36);
-  }
-  custEditingId = c.id;
-  fillCustForm(c);
-  const es = document.getElementById('edit-status');
-  if (es) es.textContent = '編集中: ' + (c.name || '');
-  const bd = document.getElementById('btn-delete');
-  if (bd) bd.style.display = 'inline-block';
-  switchCustTab('new', document.querySelectorAll('#m-customers .tab')[1]);
-}
-
-// ─── 行インデックスで削除（id非依存・絶対に削除できる） ─────
-function deleteCustRow(idx){
-  if (!canDelete()) return toast('🔒 削除権限がありません（admin/manager のみ）', 'error');
-  const c = (S.customers || [])[idx];
-  if (!c) return toast('顧客が見つかりません', 'error');
-  if (!confirm(`顧客「${c.name || '無名'}」を削除しますか？\nスプレッドシートからも削除されます。`)) return;
-  if (S.gasUrl) { try { gasPost({ action:'deleteCustomer', id:c.id, name:c.name }); } catch(e){} }
-  S.customers.splice(idx, 1);
-  saveState();
-  toast('✓ 削除しました');
-  renderCustList();
 }
 
 // ─── CSV取込/出力 ─────────────────────────────────
@@ -2089,7 +1477,6 @@ const INVOICE_NAME_ALIASES = ['請求書宛名','請求書_宛名','請求宛名
 
 let parsedCsvData = null;
 let parsedCsvWarnings = [];
-let parsedCsvDups = [];
 
 // ─── 文字コード判定（UTF-8 / Shift-JIS / CP932 / EUC-JP） ───
 function detectEncoding(buffer){
@@ -2364,23 +1751,6 @@ function parseAndPreview(text, encoding){
   parsedCsvData = customers;
   parsedCsvWarnings = warnings;
 
-  // CSV内で店舗名が重複する行を検出し、エリア付きの区別名を提案
-  const _nc = {}; customers.forEach(c => { _nc[c.name] = (_nc[c.name]||0) + 1; });
-  const _usedNames = new Set(customers.filter(c => _nc[c.name] === 1).map(c => c.name));
-  parsedCsvDups = [];
-  customers.forEach((c, i) => {
-    if (_nc[c.name] > 1){
-      c._dup = true; c._origName = c.name; c._i = i;
-      c._addr = [c.pref, c.city, c.addr1].filter(Boolean).join('');
-      const ar = ((c.pref||'') + (c.city||'')).trim();
-      let base = ar ? `${c.name}（${ar}）` : `${c.name}（${parsedCsvDups.length+2}）`;
-      let s = base, n = 2;
-      while (_usedNames.has(s)){ s = base.replace(/）$/, '') + `・${n}）`; n++; }
-      _usedNames.add(s); c._suggest = s;
-      parsedCsvDups.push(c);
-    }
-  });
-
   // ステータス
   const mappedCols = Object.keys(colMap).filter(k => !k.startsWith('_') && colMap[k] !== undefined).length;
   document.getElementById('csv-stat').innerHTML =
@@ -2417,107 +1787,30 @@ function parseAndPreview(text, encoding){
     document.getElementById('csv-tbody').innerHTML += `<tr><td colspan="9" style="padding:.7rem;text-align:center;color:var(--wh3);font-size:.7rem">⋯ 他 ${customers.length - 50} 件 ⋯</td></tr>`;
   }
 
-  renderDupResolver();
+  const warnEl = document.getElementById('csv-warnings');
+  if (warnings.length > 0){
+    warnEl.style.display = 'block';
+    warnEl.innerHTML = '<strong>⚠ 警告（' + warnings.length + '件）</strong><br>' +
+      warnings.slice(0, 10).map(escapeHtml).join('<br>') +
+      (warnings.length > 10 ? `<br>… 他 ${warnings.length - 10} 件` : '');
+  } else {
+    warnEl.style.display = 'none';
+  }
 
   document.getElementById('csv-preview').style.display = 'block';
 }
 
-// 重複の解決UI：1件ずつ「区別して登録（エリア付与）／削除（取込まない）」を選択・名前編集可
-function renderDupResolver(){
-  const el = document.getElementById('csv-warnings');
-  const dups = parsedCsvDups || [];
-  if (!dups.length){ el.style.display = 'none'; return; }
-  el.style.display = 'block';
-  el.innerHTML =
-    '<strong>⚠ CSV内で店舗名が重複（' + dups.length + '件）</strong>' +
-    '<div style="font-size:.7rem;color:var(--wh2);margin:.3rem 0 .5rem">同名は別の店として<b>区別して登録</b>（登録名にエリアを自動付与）するか、<b>削除</b>（取込まない）かを1件ずつ選べます。登録名は直接編集もできます。</div>' +
-    '<div style="display:flex;gap:.4rem;margin-bottom:.5rem">' +
-      '<button type="button" class="btn btn-g" style="font-size:.65rem;padding:.2rem .6rem" onclick="dupBulk(false)">全て区別して登録</button>' +
-      '<button type="button" class="btn btn-g" style="font-size:.65rem;padding:.2rem .6rem" onclick="dupBulk(true)">全て削除</button>' +
-    '</div>' +
-    '<div id="dup-summary" style="font-size:.72rem;margin:0 0 .4rem"></div>' +
-    '<div style="max-height:260px;overflow-y:auto;border:1px solid rgba(201,168,76,.15)">' +
-    dups.map(d =>
-      '<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .4rem;border-bottom:1px solid rgba(255,255,255,.05)">' +
-        '<label style="font-size:.68rem;white-space:nowrap;color:var(--red)"><input type="checkbox" class="dup-del" data-i="' + d._i + '" onchange="dupSync(this)"> 削除</label>' +
-        '<input class="fc dup-name" data-i="' + d._i + '" value="' + escapeHtml(d._suggest) + '" style="flex:1;min-width:0;font-size:.72rem;padding:.2rem .4rem">' +
-        '<span style="font-size:.62rem;color:var(--wh3);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(d._addr||'') + '">' + escapeHtml(d._addr || '(住所なし)') + '</span>' +
-      '</div>'
-    ).join('') +
-    '</div>';
-  updateDupSummary();
-}
-function updateDupSummary(){
-  const el = document.getElementById('dup-summary');
-  if (!el) return;
-  const del = document.querySelectorAll('.dup-del:checked').length;
-  const total = (parsedCsvData || []).length;
-  el.innerHTML = 'このまま登録すると → <b style="color:var(--grn)">登録 ' + (total - del) + '件</b>　／　<b style="color:var(--red)">削除（取込まない） ' + del + '件</b>';
-}
-function dupSync(cb){
-  const inp = document.querySelector('.dup-name[data-i="' + cb.dataset.i + '"]');
-  if (inp){ inp.disabled = cb.checked; inp.style.opacity = cb.checked ? '.4' : '1'; inp.style.textDecoration = cb.checked ? 'line-through' : ''; }
-  updateDupSummary();
-}
-function dupBulk(del){
-  document.querySelectorAll('.dup-del').forEach(cb => { cb.checked = del; dupSync(cb); });
-  updateDupSummary();
-}
-
 // 確定登録
-// 大量件数を安全に書き込むため、GASへ200件ずつ順次送信（一括保存エンドポイント）
-async function _bulkSaveCustomersToGas(list){
-  const clean = list.map(c => { const o = { ...c }; Object.keys(o).forEach(k => { if (k.startsWith('_')) delete o[k]; }); return o; });
-  const SIZE = 200, total = clean.length;
-  let sent = 0;
-  for (let i = 0; i < clean.length; i += SIZE){
-    const batch = clean.slice(i, i + SIZE);
-    await gasPost({ action: 'saveCustomersBulk', customers: batch });
-    sent += batch.length;
-    toast(`スプレッドシートへ送信中… ${sent}/${total}`);
-    await new Promise(r => setTimeout(r, 500));
-  }
-  toast(`✓ スプレッドシートへ送信完了（${total}件）`);
-}
-
-// ローカルの全顧客をスプレッドシートへ一括再送信（取込が途中までしか反映されなかった時の復旧用）
-async function syncAllCustomersToGas(){
-  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
-  if (!S.gasUrl) return toast('GAS URLが未設定です', 'error');
-  const all = S.customers || [];
-  if (!all.length) return toast('送信する顧客がありません', 'error');
-  if (!confirm(`${all.length}件の顧客をスプレッドシートへ送信します（店舗名で更新/追加）。よろしいですか？`)) return;
-  await _bulkSaveCustomersToGas(all);
-}
-
 function confirmCsvImport(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!parsedCsvData) return;
-
-  // 重複の解決を反映：削除チェックは取込まない／編集した登録名を採用
-  const delSet = new Set([...document.querySelectorAll('.dup-del:checked')].map(c => +c.dataset.i));
-  document.querySelectorAll('.dup-name').forEach(inp => {
-    const i = +inp.dataset.i;
-    if (parsedCsvData[i]) parsedCsvData[i].name = (inp.value || '').trim() || parsedCsvData[i].name;
-  });
-  let list = parsedCsvData.filter((c, i) => !delSet.has(i));
-  // 残った同名は保険で連番を付与（衝突防止）
-  const seen = new Set();
-  list.forEach(c => { let nm = c.name, k = nm, n = 2; while (seen.has(k)){ k = `${nm}（${n}）`; n++; } c.name = k; seen.add(k); });
-  // 改名後に既存顧客との一致を再判定（新規/更新）
-  list.forEach(c => {
-    const ex = (S.customers || []).find(x => x.name === c.name);
-    if (ex){ c._action = 'update'; c._existingId = ex.id; } else { c._action = 'new'; }
-  });
-
-  const delCnt = delSet.size;
-  if (!confirm(`${list.length}件の顧客を登録/更新します${delCnt ? `（削除 ${delCnt}件は取込みません）` : ''}。よろしいですか？`)) return;
+  if (!confirm(`${parsedCsvData.length}件の顧客を登録/更新します。よろしいですか？`)) return;
 
   if (!S.customers) S.customers = [];
   let newCnt = 0, updateCnt = 0;
   const now = new Date().toISOString();
 
-  list.forEach((cust, idx) => {
+  parsedCsvData.forEach((cust, idx) => {
     if (cust._action === 'update'){
       const existIdx = S.customers.findIndex(c => c.id === cust._existingId);
       if (existIdx >= 0){
@@ -2535,7 +1828,7 @@ function confirmCsvImport(){
       }
     } else {
       const newCust = { ...cust };
-      Object.keys(newCust).forEach(k => { if (k.startsWith('_')) delete newCust[k]; });
+      delete newCust._action;
       newCust.id = 'cust-' + Date.now() + '-' + idx;
       newCust.createdAt = now;
       newCust.updatedAt = now;
@@ -2547,13 +1840,19 @@ function confirmCsvImport(){
   saveState();
 
   if (S.gasUrl){
-    _bulkSaveCustomersToGas(list);
+    // バックグラウンドで非同期送信（UI ブロックしない）
+    setTimeout(() => {
+      parsedCsvData.forEach(cust => {
+        const data = { ...cust };
+        delete data._action; delete data._existingId;
+        gasPost({ action: 'saveCustomer', ...data });
+      });
+    }, 100);
   }
 
-  toast(`✓ 登録完了: 新規 ${newCnt} / 更新 ${updateCnt}${delCnt ? ` / 削除 ${delCnt}` : ''}`);
+  toast(`✓ 登録完了: 新規 ${newCnt} / 更新 ${updateCnt}`);
   parsedCsvData = null;
   parsedCsvWarnings = [];
-  parsedCsvDups = [];
   document.getElementById('csv-preview').style.display = 'none';
   document.getElementById('csv-file').value = '';
   renderCustList();
@@ -2562,7 +1861,6 @@ function confirmCsvImport(){
 function cancelCsvImport(){
   parsedCsvData = null;
   parsedCsvWarnings = [];
-  parsedCsvDups = [];
   document.getElementById('csv-preview').style.display = 'none';
   document.getElementById('csv-file').value = '';
   toast('インポートをキャンセル');
@@ -2615,85 +1913,43 @@ async function loadCustPendingUids(){
   const list = document.getElementById('pending-list');
   if (!list) return;
   list.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div>読込中...</div>';
-  // 顧客一覧（紐付け先候補）を最新化
-  try { const cs = await gasGet('getCustomers'); if (cs && cs.customers) S.customers = cs.customers; } catch(e){}
   const data = await gasGet('getPendingUids');
-  const pending = data && (data.pending || data.uids);   // GASは pending を返す
-  if (!pending){
+  if (!data || !data.uids){
     list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>未登録UIDはありません<div style="font-size:.7rem;margin-top:.5rem;color:var(--wh3)">（またはGAS未接続）</div></div>';
     return;
   }
-  if (pending.length === 0){
-    list.innerHTML = '<div class="empty"><div class="empty-icon">✓</div>未登録UIDなし — すべて紐付け済みです</div>';
+  if (data.uids.length === 0){
+    list.innerHTML = '<div class="empty"><div class="empty-icon">✓</div>未登録UIDなし</div>';
     return;
   }
-  // 紐付け先の店舗名オプション（未紐付け＝UID未設定の顧客を上に）
-  const custs = (S.customers || []).slice().sort((a,b)=>{
-    const au = a.lineUid || a.uid ? 1 : 0, bu = b.lineUid || b.uid ? 1 : 0;
-    return au - bu;
-  });
-  const optsHtml = custs.map(c => {
-    const has = (c.lineUid || c.uid) ? '（UID登録済）' : '';
-    return `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}${has}</option>`;
-  }).join('');
-
-  list.innerHTML = `<div class="hint-box" style="margin-bottom:.8rem">
-      未登録UID <strong>${pending.length}</strong> 件。各カードで紐付け先の店舗を選び「紐付け」を押すと、その顧客のLINE UID欄に登録され、マイページ・注文フォームが使えるようになります。
-    </div>
-    <div class="cust-grid">
-    ${pending.map((u,i) => {
-      const name = u.name || u.displayName || '匿名';
-      const msg  = (u.message || u.lastMessage || '—');
-      const dt   = u.date || '';
-      return `
-      <div class="cust-card" id="pcard-${i}">
-        <div class="cust-name" style="font-size:.82rem">${escapeHtml(name)}</div>
-        <div class="cust-info" style="font-family:monospace;word-break:break-all;font-size:.64rem;color:var(--wh3)">${escapeHtml(u.uid)}</div>
-        ${dt ? `<div class="cust-info" style="font-size:.66rem">受信: ${escapeHtml(String(dt))}</div>` : ''}
-        <div class="cust-info" style="font-size:.7rem">メッセージ: ${escapeHtml(String(msg)).slice(0,40)}</div>
-        <div style="display:flex;gap:.4rem;align-items:center;margin-top:.6rem;flex-wrap:wrap">
-          <select class="fc" id="psel-${i}" style="flex:1;min-width:140px">
-            <option value="">― 店舗を選択 ―</option>
-            ${optsHtml}
-          </select>
-          <button class="btn-s" onclick="linkCustUid('${u.uid.replace(/'/g,"")}', ${i})">🔗 紐付け</button>
-          <button class="btn-s" style="border-color:rgba(255,99,99,.4);color:#ff8a80" onclick="dismissPendingUid('${u.uid.replace(/'/g,"")}')" title="この未登録UIDを一覧から削除（顧客には紐付けません）">✕</button>
+  list.innerHTML = `<div class="cust-grid">
+    ${data.uids.map(u => `
+      <div class="cust-card">
+        <div class="cust-name" style="font-size:.8rem">${escapeHtml(u.displayName || '匿名')}</div>
+        <div class="cust-info" style="font-family:monospace;word-break:break-all;font-size:.65rem">${escapeHtml(u.uid)}</div>
+        <div class="cust-info" style="font-size:.7rem">最終メッセージ: ${escapeHtml(u.lastMessage || '—').slice(0,30)}</div>
+        <div class="faction" style="margin-top:.6rem">
+          <button class="btn-s" onclick="linkCustUid('${u.uid}')">🔗 既存顧客に紐付け</button>
         </div>
-      </div>`;
-    }).join('')}
+      </div>`).join('')}
   </div>`;
 }
 
-async function linkCustUid(uid, idx){
-  const sel = document.getElementById('psel-' + idx);
-  const store = sel ? sel.value : '';
-  if (!store) return toast('紐付け先の店舗を選択してください', 'error');
-  if (!S.gasUrl) return toast('GAS URLが未設定です', 'error');
-  const card = document.getElementById('pcard-' + idx);
-  if (card) card.style.opacity = '.5';
-  // GASのlinkUidで顧客シートのLINE UID列（O列）に確実に書き込む＋未登録UIDから除去
-  const res = await gasGet('linkUid', { uid: uid, store: store });
-  if (res && res.ok){
-    toast(`✓ ${store} にUIDを紐付けました`);
-    // ローカルにも反映
-    const c = (S.customers || []).find(x => x.name === store);
-    if (c) c.lineUid = uid;
-    loadCustPendingUids();
-    if (typeof renderCustList === 'function') renderCustList();
-  } else {
-    if (card) card.style.opacity = '1';
-    toast((res && res.error) ? res.error : '紐付けに失敗しました', 'error');
-  }
+function linkCustUid(uid){
+  const name = prompt('紐付けたい店舗名を入力してください:');
+  if (!name) return;
+  const found = (S.customers || []).filter(c => (c.name || '').toLowerCase().includes(name.toLowerCase()));
+  if (found.length === 0) return toast('該当する顧客が見つかりません', 'error');
+  if (found.length > 1)   return toast(`${found.length}件ヒット。もっと具体的に入力してください`, 'error');
+  const c = found[0];
+  c.lineUid = uid;
+  c.updatedAt = new Date().toISOString();
+  saveState();
+  if (S.gasUrl) gasPost({ action: 'saveCustomer', ...c });
+  toast(`✓ ${c.name} にUIDを紐付けました`);
+  loadCustPendingUids();
+  renderCustList();
 }
-
-async function dismissPendingUid(uid){
-  if (!confirm('この未登録UIDを一覧から削除しますか？（顧客には紐付けません）')) return;
-  if (!S.gasUrl) return toast('GAS URLが未設定です', 'error');
-  const res = await gasGet('deleteUid', { uid: uid });
-  if (res && res.ok){ toast('✓ 削除しました'); loadCustPendingUids(); }
-  else toast('削除に失敗しました', 'error');
-}
-
 </script>
 
 <!-- ═══ スタッフマスター ═══ -->
@@ -2723,9 +1979,8 @@ function renderStaffList(){
   });
   document.getElementById('staff-count').textContent = filtered.length;
   const grid = document.getElementById('staff-grid');
-  grid.style.display = 'block';
   if (filtered.length === 0){
-    grid.innerHTML = `<div class="empty">
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
       <div class="empty-icon">👥</div>
       <div>スタッフが登録されていません</div>
       <div style="font-size:.75rem;margin-top:.5rem;color:var(--wh3)">「＋ 新規登録」から追加してください</div>
@@ -2734,33 +1989,23 @@ function renderStaffList(){
     return;
   }
   const roleLabel = { admin:'👑 admin', manager:'📋 manager', staff:'🧑 staff', viewer:'👁 viewer' };
-  grid.innerHTML = `
-    <div class="cust-table-wrap">
-      <table class="cust-table">
-        <thead>
-          <tr>
-            <th>拠点</th><th>名前</th><th>メール</th><th>電話</th>
-            <th>ロール</th><th>入社日</th><th>状態</th><th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${filtered.map(s => `
-            <tr onclick="openStaff('${s.id}')">
-              <td>${escapeHtml(s.branch || '—')}</td>
-              <td class="ct-name">${escapeHtml(s.name || '無名')}${s.lineUid ? ' <span class="ct-spo">LINE</span>' : ''}</td>
-              <td>${escapeHtml(s.email || '—')}</td>
-              <td>${escapeHtml(s.tel || '—')}</td>
-              <td>${escapeHtml(roleLabel[s.role] || s.role || '—')}</td>
-              <td>${escapeHtml(s.joined || '—')}</td>
-              <td>${s.active === false ? '<span style="color:var(--org)">無効</span>' : '<span style="color:var(--grn)">有効</span>'}</td>
-              <td class="ct-actions" onclick="event.stopPropagation()">
-                <button class="ct-btn edit" onclick="openStaff('${s.id}')">編集</button>
-                <button class="ct-btn del" onclick="deleteStaffById('${s.id}')">削除</button>
-              </td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
+  grid.innerHTML = filtered.map(s => `
+    <div class="cust-card" onclick="openStaff('${s.id}')">
+      <div class="cust-head">
+        <div class="cust-name">${escapeHtml(s.name || '無名')}</div>
+        <div class="cust-branch">${s.branch || '—'}</div>
+      </div>
+      <div class="cust-info">
+        ${s.email ? `<div><strong>@</strong> ${escapeHtml(s.email)}</div>` : ''}
+        ${s.tel ? `<div><strong>TEL:</strong> ${escapeHtml(s.tel)}</div>` : ''}
+        ${s.joined ? `<div style="color:var(--wh3);font-size:.65rem;margin-top:.2rem">入社: ${s.joined}</div>` : ''}
+      </div>
+      <div class="cust-meta">
+        <span class="meta-chip role">${roleLabel[s.role] || s.role}</span>
+        ${s.active === false ? '<span class="meta-chip no-uid">無効</span>' : ''}
+        ${s.lineUid ? '<span class="meta-chip uid">LINE UID</span>' : ''}
+      </div>
+    </div>`).join('');
   updateCustStaffOptions();
 }
 
@@ -2839,24 +2084,10 @@ function deleteStaff(){
   if (!staffEditingId) return;
   if (!confirm('このスタッフを削除しますか？')) return;
   S.staff = (S.staff || []).filter(s => s.id !== staffEditingId);
-  if (S.gasUrl) { try { gasPost({ action:'deleteStaff', id: staffEditingId }); } catch(e){} }
   saveState();
   toast('✓ 削除しました');
   clearStaffForm();
   switchStaffTab('list', document.querySelectorAll('#m-staff .tab')[0]);
-}
-
-// ─── 一覧の行から直接削除 ─────
-function deleteStaffById(id){
-  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
-  const s = (S.staff || []).find(x => x.id === id);
-  if (!s) return;
-  if (!confirm(`スタッフ「${s.name || '無名'}」を削除しますか？`)) return;
-  S.staff = (S.staff || []).filter(x => x.id !== id);
-  if (S.gasUrl) { try { gasPost({ action:'deleteStaff', id: id }); } catch(e){} }
-  saveState();
-  toast('✓ 削除しました');
-  renderStaffList();
 }
 </script>
 
@@ -2932,150 +2163,52 @@ function saveCompany(){
 
 <!-- ═══ 商品マスター ═══ -->
 <script>
-let productEditingKey = null;
-
-function _prodList(){
-  return (S.products && S.products.length > 0) ? S.products : PROD_LIST.map(p => ({...p}));
-}
-
-function switchProductTab(name, el){
-  document.querySelectorAll('#m-products .tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('#m-products .tcon').forEach(t => t.classList.remove('active'));
-  if (el) el.classList.add('active');
-  document.getElementById('prod-' + name).classList.add('active');
-  if (name === 'list') renderProducts();
-}
-
 function renderProducts(){
-  const list = _prodList();
+  // S.products 優先、なければ PROD_LIST 初期値
+  const list = (S.products && S.products.length > 0) ? S.products : PROD_LIST.map(p => ({...p}));
+  // 互換性: 既存データに priceOld がない場合は補完
   list.forEach(p => {
-    if (p.priceOld == null) p.priceOld = p.price || 0;
-    if (p.costOld  == null) p.costOld  = p.cost  || 0;
-    if (!p.color) p.color = '#C9A84C';
-    if (!p.key) p.key = p.name;
+    if (p.priceOld === undefined || p.priceOld === null) p.priceOld = p.price || 0;
   });
-  const kw = (document.getElementById('pf-kw') ? document.getElementById('pf-kw').value : '').trim().toLowerCase();
-  const filtered = list.filter(p => !kw || (`${p.name||''} ${p.category||''}`).toLowerCase().includes(kw));
-  const cnt = document.getElementById('prod-count'); if (cnt) cnt.textContent = filtered.length;
-  const grid = document.getElementById('prod-grid'); if (!grid) return;
-  if (filtered.length === 0){
-    grid.innerHTML = `<div class="empty"><div class="empty-icon">🍾</div><div>商品がありません</div>
-      <div style="font-size:.75rem;margin-top:.5rem;color:var(--wh3)">「＋ 新規登録」から追加してください</div></div>`;
-    return;
-  }
-  grid.innerHTML = `
-    <div class="cust-table-wrap">
-      <table class="cust-table">
-        <thead><tr><th></th><th>商品名</th><th>カテゴリ</th><th>原価</th><th>売値</th><th>補充</th><th>粗利</th><th>操作</th></tr></thead>
-        <tbody>
-          ${filtered.map(p => {
-            const margin = p.price > 0 ? Math.round((1 - p.cost/p.price) * 100) : 0;
-            const enc = encodeURIComponent(p.name || '');
-            return `
-            <tr onclick="openProduct('${enc}')">
-              <td style="text-align:center"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${escapeHtml(p.color||'#C9A84C')}"></span></td>
-              <td class="ct-name">${escapeHtml(p.name || '無名')}</td>
-              <td>${escapeHtml(p.category || '—')}</td>
-              <td>¥${Number(p.cost||0).toLocaleString()}</td>
-              <td>¥${Number(p.price||0).toLocaleString()}</td>
-              <td>${p.reorder||0}</td>
-              <td style="color:${margin>=50?'var(--grn)':'var(--org)'}">${margin}%</td>
-              <td class="ct-actions" onclick="event.stopPropagation()">
-                <button class="ct-btn edit" onclick="openProduct('${enc}')">編集</button>
-                <button class="ct-btn del" onclick="deleteProductByKey('${enc}')">削除</button>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>`;
+  document.getElementById('prod-count').textContent = list.length;
+  const tbody = document.getElementById('prod-tbody');
+  tbody.innerHTML = list.map((p,i) => {
+    const margin = p.price > 0 ? Math.round((1 - p.cost/p.price) * 100) : 0;
+    return `
+    <tr data-idx="${i}">
+      <td style="color:var(--wh3);font-family:'Bebas Neue',sans-serif;text-align:center">${i+1}</td>
+      <td style="color:var(--gold-l);font-weight:500">${escapeHtml(p.name)}</td>
+      <td style="color:var(--wh2);font-size:.72rem">${escapeHtml(p.category || '—')}</td>
+      <td><input type="number" value="${p.cost}" data-field="cost" data-idx="${i}" step="100"></td>
+      <td><input type="number" value="${p.price}" data-field="price" data-idx="${i}" step="100"></td>
+      <td><input type="number" value="${p.priceOld}" data-field="priceOld" data-idx="${i}" step="100"></td>
+      <td><input type="number" value="${p.reorder}" data-field="reorder" data-idx="${i}" min="0"></td>
+      <td style="color:${margin>=50?'var(--grn)':'var(--org)'};font-family:'Bebas Neue',sans-serif;text-align:center">${margin}%</td>
+    </tr>`;
+  }).join('');
 }
 
-function openProduct(enc){
-  const name = decodeURIComponent(enc);
-  const p = _prodList().find(x => (x.name || '') === name);
-  if (!p) return toast('商品が見つかりません', 'error');
-  productEditingKey = name;
-  const g = id => document.getElementById(id);
-  g('pf-name').value = p.name || '';
-  g('pf-category').value = p.category || '';
-  g('pf-fullname').value = p.fullName || '';
-  g('pf-cost').value = p.cost != null ? p.cost : '';
-  g('pf-costold').value = p.costOld != null ? p.costOld : '';
-  g('pf-price').value = p.price != null ? p.price : '';
-  g('pf-priceold').value = p.priceOld != null ? p.priceOld : '';
-  g('pf-reorder').value = p.reorder != null ? p.reorder : '';
-  g('pf-color').value = (p.color && /^#[0-9a-fA-F]{6}$/.test(p.color)) ? p.color : '#C9A84C';
-  g('prod-edit-status').textContent = '編集中: ' + (p.name || '');
-  g('btn-prod-delete').style.display = 'inline-block';
-  switchProductTab('new', document.querySelectorAll('#m-products .tab')[1]);
-}
-
-function clearProductForm(){
-  productEditingKey = null;
-  ['pf-name','pf-category','pf-fullname','pf-cost','pf-costold','pf-price','pf-priceold','pf-reorder'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
-  const c = document.getElementById('pf-color'); if (c) c.value = '#C9A84C';
-  document.getElementById('prod-edit-status').textContent = '';
-  document.getElementById('btn-prod-delete').style.display = 'none';
-}
-
-function _persistProducts(list){
+function saveProducts(){
+  if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
+  const tbody = document.getElementById('prod-tbody');
+  const list = (S.products && S.products.length > 0) ? [...S.products] : PROD_LIST.map(p => ({...p}));
+  // 数値フィールド（cost / price / priceOld / reorder）
+  tbody.querySelectorAll('input').forEach(inp => {
+    const idx   = parseInt(inp.dataset.idx);
+    const field = inp.dataset.field;
+    const val   = parseFloat(inp.value) || 0;
+    if (list[idx]) list[idx][field] = val;
+  });
   S.products = list;
   saveState();
-  if (S.gasUrl) gasPost({ action: 'saveProducts', products: list });
-}
-
-function submitProductForm(){
-  if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
-  const g = id => (document.getElementById(id) || {}).value;
-  const name = (g('pf-name') || '').trim();
-  if (!name) return toast('商品名は必須です', 'error');
-  const num = v => parseFloat(v) || 0;
-  const prod = {
-    key: name, name: name,
-    category: (g('pf-category') || '').trim(),
-    fullName: (g('pf-fullname') || '').trim(),
-    cost: num(g('pf-cost')), costOld: num(g('pf-costold')),
-    price: num(g('pf-price')), priceOld: num(g('pf-priceold')),
-    reorder: num(g('pf-reorder')),
-    color: g('pf-color') || '#C9A84C', img: ''
-  };
-  if (prod.costOld === 0)  prod.costOld  = prod.cost;
-  if (prod.priceOld === 0) prod.priceOld = prod.price;
-  const list = _prodList().map(p => ({...p}));
-  if (productEditingKey){
-    const idx = list.findIndex(p => (p.name || '') === productEditingKey);
-    if (idx >= 0) list[idx] = prod; else list.push(prod);
-  } else {
-    if (list.find(p => (p.name || '') === name)) return toast('同じ商品名が既にあります', 'error');
-    list.push(prod);
-  }
-  _persistProducts(list);
-  toast(productEditingKey ? '✓ 更新しました（全端末に反映）' : '✓ 登録しました（全端末に反映）');
-  clearProductForm();
-  switchProductTab('list', document.querySelectorAll('#m-products .tab')[0]);
-}
-
-function deleteProductForm(){
-  if (productEditingKey) deleteProductByKey(encodeURIComponent(productEditingKey));
-}
-
-function deleteProductByKey(enc){
-  if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
-  const name = decodeURIComponent(enc);
-  if (!confirm('「' + name + '」を削除しますか？\n全端末に反映されます。')) return;
-  const list = _prodList().map(p => ({...p})).filter(p => (p.name || '') !== name);
-  _persistProducts(list);
-  toast('✓ 削除しました');
-  clearProductForm();
-  switchProductTab('list', document.querySelectorAll('#m-products .tab')[0]);
+  toast('✓ 商品マスターを保存しました');
+  renderProducts();
 }
 
 function resetProducts(){
   if (!confirm('商品マスターを初期値に戻しますか？\n現在の編集内容は失われます。')) return;
   S.products = null;
   saveState();
-  if (S.gasUrl) gasPost({ action: 'saveProducts', products: PROD_LIST.map(p => ({...p})) });
   renderProducts();
   toast('✓ 初期値に戻しました');
 }
@@ -3083,402 +2216,6 @@ function resetProducts(){
 
 <!-- ═══ 初期化 ═══ -->
 <script>
-// ════════════════════════════════════════
-// 紹介者マスター
-// ════════════════════════════════════════
-let editingReferrerId = null;
-
-function switchReferrerTab(name, el){
-  document.querySelectorAll('#m-referrers .tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('#m-referrers .tcon').forEach(t => t.classList.remove('active'));
-  if (el) el.classList.add('active');
-  document.getElementById('ref-' + name).classList.add('active');
-  if (name === 'list') {
-    editingReferrerId = null;
-    clearReferrerForm();
-    renderReferrerList();
-  }
-}
-
-function renderReferrerList(){
-  const grid = document.getElementById('ref-grid');
-  if (!grid) return;
-  const kw   = (document.getElementById('rf-kw')?.value || '').toLowerCase();
-  const calc = document.getElementById('rf-calc')?.value || '';
-  const list = (S.referrers || []).filter(r => {
-    if (calc && r.calcType !== calc) return false;
-    if (kw){
-      const blob = [r.name, r.tel, r.email, r.lineId, r.address].filter(Boolean).join(' ').toLowerCase();
-      if (blob.indexOf(kw) < 0) return false;
-    }
-    return true;
-  });
-  document.getElementById('ref-count').textContent = list.length;
-  grid.style.display = 'block';
-  if (list.length === 0){
-    grid.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--wh3);font-size:.8rem">紹介者が登録されていません</div>';
-    return;
-  }
-  grid.innerHTML = `
-    <div class="cust-table-wrap">
-      <table class="cust-table">
-        <thead>
-          <tr>
-            <th>名前</th><th>電話番号</th><th>メール</th><th>LINE ID</th>
-            <th>住所</th><th>計算方法</th><th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${list.map(r => {
-            const calcLabel = r.calcType === 'B' ? `B: 掛率差 ${r.calcParam}掛` : `A: 売値 ${r.calcParam}%`;
-            return `
-            <tr onclick="editReferrer('${escapeHtml(r.id)}')">
-              <td class="ct-name">${escapeHtml(r.name || '(名前なし)')}</td>
-              <td>${escapeHtml(r.tel || '—')}</td>
-              <td>${escapeHtml(r.email || '—')}</td>
-              <td>${escapeHtml(r.lineId || '—')}</td>
-              <td>${escapeHtml(r.address || '—')}</td>
-              <td>${escapeHtml(calcLabel)}</td>
-              <td class="ct-actions" onclick="event.stopPropagation()">
-                <button class="ct-btn edit" onclick="editReferrer('${escapeHtml(r.id)}')">編集</button>
-                <button class="ct-btn del" onclick="deleteReferrerById('${escapeHtml(r.id)}')">削除</button>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>`;
-}
-
-function clearReferrerForm(){
-  ['rf-name','rf-tel','rf-email','rf-lineid','rf-address','rf-calc-param'].forEach(id => {
-    const e = document.getElementById(id); if (e) e.value = '';
-  });
-  document.getElementById('rf-calc-type').value = 'A';
-  updateReferrerParamLabel();
-  document.getElementById('ref-edit-status').textContent = '';
-  document.getElementById('ref-delete-btn').style.display = 'none';
-}
-
-function fillReferrerForm(r){
-  document.getElementById('rf-name').value      = r.name      || '';
-  document.getElementById('rf-tel').value       = r.tel       || '';
-  document.getElementById('rf-email').value     = r.email     || '';
-  document.getElementById('rf-lineid').value    = r.lineId    || '';
-  document.getElementById('rf-address').value   = r.address   || '';
-  document.getElementById('rf-calc-type').value = r.calcType  || 'A';
-  document.getElementById('rf-calc-param').value = (r.calcParam !== undefined && r.calcParam !== null) ? r.calcParam : '';
-  updateReferrerParamLabel();
-}
-
-function updateReferrerParamLabel(){
-  const type = document.getElementById('rf-calc-type').value;
-  const label = document.getElementById('rf-param-label');
-  const input = document.getElementById('rf-calc-param');
-  if (type === 'B') {
-    label.innerHTML = '差し引き掛率 <span class="req">*</span> <span class="hint">B方式：例 5.5（=5.5掛）</span>';
-    input.placeholder = '例：5.5';
-  } else {
-    label.innerHTML = 'パーセント <span class="req">*</span> <span class="hint">A方式：例 10（=10%）</span>';
-    input.placeholder = '例：10';
-  }
-}
-
-function editReferrer(id){
-  const r = (S.referrers || []).find(x => x.id === id);
-  if (!r) return toast('紹介者が見つかりません', 'error');
-  editingReferrerId = id;
-  fillReferrerForm(r);
-  switchReferrerTab('new', document.querySelectorAll('#m-referrers .tab')[1]);
-  document.getElementById('ref-edit-status').textContent = '編集中: ' + (r.name || '(名前なし)');
-  document.getElementById('ref-delete-btn').style.display = 'inline-block';
-}
-
-function submitReferrerForm(){
-  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
-  const g = id => (document.getElementById(id)||{}).value || '';
-  const name = g('rf-name').trim();
-  if (!name) return toast('名前は必須です', 'error');
-  const param = parseFloat(g('rf-calc-param'));
-  if (isNaN(param)) return toast('紹介料パラメータを数値で入力してください', 'error');
-
-  const data = {
-    id:        editingReferrerId || ('ref-' + Date.now()),
-    name:      name,
-    tel:       g('rf-tel').trim(),
-    email:     g('rf-email').trim(),
-    lineId:    g('rf-lineid').trim(),
-    address:   g('rf-address').trim(),
-    calcType:  g('rf-calc-type') || 'A',
-    calcParam: param,
-    updatedAt: new Date().toISOString(),
-    updatedBy: currentUser.name
-  };
-
-  S.referrers = S.referrers || [];
-  const idx = S.referrers.findIndex(r => r.id === data.id);
-  if (idx >= 0) {
-    data.createdAt = S.referrers[idx].createdAt;
-    S.referrers[idx] = data;
-  } else {
-    data.createdAt = data.updatedAt;
-    S.referrers.push(data);
-  }
-  saveState();
-  if (S.gasUrl) gasPost({ action: 'saveReferrer', ...data });
-  toast('✓ 紹介者を保存しました');
-  switchReferrerTab('list', document.querySelectorAll('#m-referrers .tab')[0]);
-}
-
-function deleteReferrer(){
-  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
-  if (!editingReferrerId) return;
-  const r = (S.referrers || []).find(x => x.id === editingReferrerId);
-  if (!r) return;
-  if (!confirm(`紹介者「${r.name}」を削除します。この操作は元に戻せません。よろしいですか？`)) return;
-  S.referrers = (S.referrers || []).filter(x => x.id !== editingReferrerId);
-  saveState();
-  if (S.gasUrl) gasPost({ action: 'deleteReferrer', id: editingReferrerId });
-  toast('✓ 紹介者を削除しました');
-  switchReferrerTab('list', document.querySelectorAll('#m-referrers .tab')[0]);
-}
-
-// ─── 一覧の行から直接削除 ─────
-function deleteReferrerById(id){
-  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
-  const r = (S.referrers || []).find(x => x.id === id);
-  if (!r) return;
-  if (!confirm(`紹介者「${r.name}」を削除しますか？`)) return;
-  S.referrers = (S.referrers || []).filter(x => x.id !== id);
-  saveState();
-  if (S.gasUrl) gasPost({ action: 'deleteReferrer', id: id });
-  toast('✓ 紹介者を削除しました');
-  renderReferrerList();
-}
-
-// ════════════════════════════════════════
-// 協賛マスター
-// ════════════════════════════════════════
-let editingSponsorId = null;
-
-function switchSponsorTab(name, el){
-  document.querySelectorAll('#m-sponsors .tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('#m-sponsors .tcon').forEach(t => t.classList.remove('active'));
-  if (el) el.classList.add('active');
-  document.getElementById('spo-' + name).classList.add('active');
-  if (name === 'list') {
-    editingSponsorId = null;
-    clearSponsorForm();
-    renderSponsorList();
-  } else if (name === 'new') {
-    populateSponsorProductDropdowns();
-  }
-}
-
-// 対象商品・報酬商品プルダウンを商品マスターから生成
-function populateSponsorProductDropdowns(){
-  const list = (S.products && S.products.length > 0) ? S.products
-              : (typeof PROD_LIST !== 'undefined' ? PROD_LIST : []);
-  const target = document.getElementById('sp-target');
-  const reward = document.getElementById('sp-reward-product');
-  if (target) {
-    const keepT = target.value || 'all';
-    target.innerHTML = '<option value="all">全商品</option>';
-    list.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.name; opt.textContent = p.name;
-      target.appendChild(opt);
-    });
-    target.value = keepT;
-  }
-  if (reward) {
-    const keepR = reward.value || 'same';
-    reward.innerHTML = '<option value="same">対象商品と同じ</option>';
-    list.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.name; opt.textContent = p.name;
-      reward.appendChild(opt);
-    });
-    reward.value = keepR;
-  }
-}
-
-// 協賛ルールが現在期限切れか判定
-function isSponsorExpired(s){
-  if (!s.endDate) return false;
-  const today = new Date().toISOString().slice(0, 10);
-  return s.endDate < today;
-}
-function isSponsorActive(s){
-  return s.enabled === '有効' && !isSponsorExpired(s);
-}
-
-function renderSponsorList(){
-  const grid = document.getElementById('spo-grid');
-  if (!grid) return;
-  const kw     = (document.getElementById('sp-kw')?.value || '').toLowerCase();
-  const status = document.getElementById('sp-status')?.value || '';
-  const all    = S.sponsors || [];
-  const list = all.filter(s => {
-    if (kw){
-      const blob = [s.name, s.targetProduct, s.rewardProduct, s.memo].filter(Boolean).join(' ').toLowerCase();
-      if (blob.indexOf(kw) < 0) return false;
-    }
-    if (status === 'active'   && !isSponsorActive(s)) return false;
-    if (status === 'disabled' && s.enabled !== '無効') return false;
-    if (status === 'expired'  && !isSponsorExpired(s)) return false;
-    return true;
-  });
-  document.getElementById('spo-count').textContent = list.length;
-  grid.style.display = 'block';
-  if (list.length === 0){
-    grid.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--wh3);font-size:.8rem">協賛ルールが登録されていません</div>';
-    return;
-  }
-  grid.innerHTML = `
-    <div class="cust-table-wrap">
-      <table class="cust-table">
-        <thead>
-          <tr>
-            <th>ルール名</th><th>対象商品</th><th>条件</th><th>報酬</th>
-            <th>期間</th><th>状態</th><th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${list.map(s => {
-            const expired = isSponsorExpired(s);
-            const disabled = s.enabled === '無効';
-            const badgeColor = expired ? 'var(--org)' : (disabled ? 'var(--wh3)' : 'var(--grn)');
-            const badgeText  = expired ? '期限切れ'   : (disabled ? '無効'       : '有効');
-            const reward = (s.rewardProduct === 'same') ? s.targetProduct : s.rewardProduct;
-            const target = (s.targetProduct === 'all') ? '全商品' : s.targetProduct;
-            const period = (s.startDate || s.endDate) ? `${s.startDate||'∞'}〜${s.endDate||'∞'}` : '無期限';
-            return `
-            <tr onclick="editSponsor('${escapeHtml(s.id)}')">
-              <td class="ct-name">${escapeHtml(s.name || '(無題)')}</td>
-              <td>${escapeHtml(target)}</td>
-              <td>${s.triggerQty||0}${escapeHtml(s.triggerUnit||'')}</td>
-              <td>${escapeHtml(reward)} ${s.rewardQty||0}本</td>
-              <td>${escapeHtml(period)}</td>
-              <td><span style="color:${badgeColor}">${badgeText}</span></td>
-              <td class="ct-actions" onclick="event.stopPropagation()">
-                <button class="ct-btn edit" onclick="editSponsor('${escapeHtml(s.id)}')">編集</button>
-                <button class="ct-btn del" onclick="deleteSponsorById('${escapeHtml(s.id)}')">削除</button>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>`;
-}
-
-function clearSponsorForm(){
-  ['sp-name','sp-trigger-qty','sp-reward-qty','sp-start','sp-end','sp-memo'].forEach(id => {
-    const e = document.getElementById(id); if (e) e.value = '';
-  });
-  populateSponsorProductDropdowns();
-  document.getElementById('sp-target').value = 'all';
-  document.getElementById('sp-reward-product').value = 'same';
-  document.getElementById('sp-trigger-unit').value = 'ケース';
-  document.getElementById('sp-enabled').value = '有効';
-  document.getElementById('spo-edit-status').textContent = '';
-  document.getElementById('spo-delete-btn').style.display = 'none';
-}
-
-function fillSponsorForm(s){
-  populateSponsorProductDropdowns();
-  document.getElementById('sp-name').value           = s.name           || '';
-  document.getElementById('sp-target').value         = s.targetProduct  || 'all';
-  document.getElementById('sp-trigger-qty').value    = (s.triggerQty !== undefined && s.triggerQty !== null) ? s.triggerQty : '';
-  document.getElementById('sp-trigger-unit').value   = s.triggerUnit    || 'ケース';
-  document.getElementById('sp-reward-qty').value     = (s.rewardQty  !== undefined && s.rewardQty  !== null) ? s.rewardQty  : '';
-  document.getElementById('sp-reward-product').value = s.rewardProduct  || 'same';
-  document.getElementById('sp-start').value          = s.startDate      || '';
-  document.getElementById('sp-end').value            = s.endDate        || '';
-  document.getElementById('sp-enabled').value        = s.enabled        || '有効';
-  document.getElementById('sp-memo').value           = s.memo           || '';
-}
-
-function editSponsor(id){
-  const s = (S.sponsors || []).find(x => x.id === id);
-  if (!s) return toast('協賛ルールが見つかりません', 'error');
-  editingSponsorId = id;
-  switchSponsorTab('new', document.querySelectorAll('#m-sponsors .tab')[1]);
-  fillSponsorForm(s);
-  document.getElementById('spo-edit-status').textContent = '編集中: ' + (s.name || '(無題)');
-  document.getElementById('spo-delete-btn').style.display = 'inline-block';
-}
-
-function submitSponsorForm(){
-  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
-  const g = id => (document.getElementById(id)||{}).value || '';
-  const name = g('sp-name').trim();
-  if (!name) return toast('ルール名は必須です', 'error');
-  const triggerQty = parseFloat(g('sp-trigger-qty'));
-  const rewardQty  = parseFloat(g('sp-reward-qty'));
-  if (isNaN(triggerQty) || triggerQty <= 0) return toast('購入条件数量を入力してください', 'error');
-  if (isNaN(rewardQty)  || rewardQty  <= 0) return toast('報酬数量を入力してください', 'error');
-  // 期間の整合性チェック
-  const sd = g('sp-start'), ed = g('sp-end');
-  if (sd && ed && sd > ed) return toast('開始日は終了日より前にしてください', 'error');
-
-  const data = {
-    id:            editingSponsorId || ('spo-' + Date.now()),
-    name:          name,
-    targetProduct: g('sp-target')         || 'all',
-    triggerQty:    triggerQty,
-    triggerUnit:   g('sp-trigger-unit')   || 'ケース',
-    rewardQty:     rewardQty,
-    rewardProduct: g('sp-reward-product') || 'same',
-    startDate:     sd,
-    endDate:       ed,
-    enabled:       g('sp-enabled')        || '有効',
-    memo:          g('sp-memo').trim(),
-    updatedAt:     new Date().toISOString(),
-    updatedBy:     currentUser.name
-  };
-
-  S.sponsors = S.sponsors || [];
-  const idx = S.sponsors.findIndex(s => s.id === data.id);
-  if (idx >= 0) {
-    data.createdAt = S.sponsors[idx].createdAt;
-    S.sponsors[idx] = data;
-  } else {
-    data.createdAt = data.updatedAt;
-    S.sponsors.push(data);
-  }
-  saveState();
-  if (S.gasUrl) gasPost({ action: 'saveSponsor', ...data });
-  toast('✓ 協賛ルールを保存しました');
-  switchSponsorTab('list', document.querySelectorAll('#m-sponsors .tab')[0]);
-}
-
-function deleteSponsorRule(){
-  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
-  if (!editingSponsorId) return;
-  const s = (S.sponsors || []).find(x => x.id === editingSponsorId);
-  if (!s) return;
-  if (!confirm(`協賛ルール「${s.name}」を削除します。この操作は元に戻せません。よろしいですか？`)) return;
-  S.sponsors = (S.sponsors || []).filter(x => x.id !== editingSponsorId);
-  saveState();
-  if (S.gasUrl) gasPost({ action: 'deleteSponsor', id: editingSponsorId });
-  toast('✓ 協賛ルールを削除しました');
-  switchSponsorTab('list', document.querySelectorAll('#m-sponsors .tab')[0]);
-}
-
-// ─── 一覧の行から直接削除 ─────
-function deleteSponsorById(id){
-  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
-  const s = (S.sponsors || []).find(x => x.id === id);
-  if (!s) return;
-  if (!confirm(`協賛ルール「${s.name}」を削除しますか？`)) return;
-  S.sponsors = (S.sponsors || []).filter(x => x.id !== id);
-  saveState();
-  if (S.gasUrl) gasPost({ action: 'deleteSponsor', id: id });
-  toast('✓ 協賛ルールを削除しました');
-  renderSponsorList();
-}
-
 window.addEventListener('DOMContentLoaded', () => {
   updateUserBadge();
   renderCustList();
@@ -3487,11 +2224,8 @@ window.addEventListener('DOMContentLoaded', () => {
   renderCustDeliveries();
   renderCustProdRates([]);
   updateSponsorProductOptions('');
-  updateReferrerOptions('');
   updateCustStaffOptions();
   initCustFormEnterNav();
-  if (typeof renderReferrerList === 'function') renderReferrerList();
-  if (typeof renderSponsorList === 'function') renderSponsorList();
 });
 
 // ─── 顧客フォーム: キー操作で入力欄を移動 ─────
@@ -3642,37 +2376,5 @@ function formatDeliveryZip(input, i){
 }
 </script>
 
-<script>
-// 実績（過去注文）データ 154件・¥8,991,497 — ボタンでGAS saveOrdersBulk へ一括送信
-const HIST_ORDERS = [{"date": "2026-04-01", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202604-001", "note": "実績取込"}, {"date": "2026-04-01", "branch": "仙台", "store": "REMANS CLUB（リーマンズクラブ）", "area": "仙台市青葉区国分町", "items": {"イエロー": 1}, "amount": 8085, "payMethod": "現金", "id": "hist-仙台-202604-001", "note": "実績取込"}, {"date": "2026-04-01", "branch": "仙台", "store": "Girls Bar SENSATION(センセーション）", "area": "仙台市青葉区花京院", "items": {"オレンジ": 1}, "amount": 16170, "payMethod": "現金", "id": "hist-仙台-202604-002", "note": "実績取込"}, {"date": "2026-04-01", "branch": "仙台", "store": "Girls Bar SENSATION(センセーション）", "area": "仙台市青葉区花京院", "items": {"イエロー": 1}, "amount": 8085, "payMethod": "売掛", "id": "hist-仙台-202604-003", "note": "実績取込"}, {"date": "2026-04-01", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 5, "ブルー": 1}, "amount": 48510, "payMethod": "売掛", "id": "hist-仙台-202604-004", "note": "実績取込"}, {"date": "2026-04-03", "branch": "京都", "store": "ノア", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202604-002", "note": "実績取込"}, {"date": "2026-04-03", "branch": "仙台", "store": "REMANS CLUB（リーマンズクラブ）", "area": "仙台市青葉区国分", "items": {"イエロー": 1}, "amount": 8085, "payMethod": "現金", "id": "hist-仙台-202604-005", "note": "実績取込"}, {"date": "2026-04-03", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 9, "オレンジ": 1, "ブラック": 1}, "amount": 98010, "payMethod": "売掛", "id": "hist-仙台-202604-006", "note": "実績取込"}, {"date": "2026-04-03", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"ブルー": 1}, "amount": 13860, "payMethod": "売掛", "id": "hist-仙台-202604-007", "note": "実績取込"}, {"date": "2026-04-04", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 6}, "amount": 41580, "payMethod": "売掛", "id": "hist-仙台-202604-008", "note": "実績取込"}, {"date": "2026-04-05", "branch": "仙台", "store": "スナックＭＥＧＵ", "area": "仙台市太白区長町", "items": {"イエロー": 6}, "amount": 48510, "payMethod": "現金", "id": "hist-仙台-202604-009", "note": "実績取込"}, {"date": "2026-04-05", "branch": "仙台", "store": "NUEVO", "area": "東京都港区六本木", "items": {"イエロー": 3, "オレンジ": 2}, "amount": 56595, "payMethod": "売掛", "id": "hist-仙台-202604-010", "note": "実績取込"}, {"date": "2026-04-06", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202604-003", "note": "実績取込"}, {"date": "2026-04-07", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202604-004", "note": "実績取込"}, {"date": "2026-04-07", "branch": "仙台", "store": "檜輝", "area": "仙台市青葉区国分町", "items": {"GIFTBOX": 3}, "amount": 15708, "payMethod": "現金", "id": "hist-仙台-202604-011", "note": "実績取込"}, {"date": "2026-04-07", "branch": "仙台", "store": "Club　帝", "area": "大崎市古川北町", "items": {"イエロー": 2, "オレンジ": 1}, "amount": 32340, "payMethod": "売掛", "id": "hist-仙台-202604-012", "note": "実績取込"}, {"date": "2026-04-07", "branch": "仙台", "store": "Club　帝", "area": "大崎市古川北町", "items": {"ブルー": 1, "レジェンド": 2}, "amount": 54670, "payMethod": "売掛", "id": "hist-仙台-202604-013", "note": "実績取込"}, {"date": "2026-04-07", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 11, "オレンジ": 1}, "amount": 90090, "payMethod": "売掛", "id": "hist-仙台-202604-014", "note": "実績取込"}, {"date": "2026-04-08", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202604-005", "note": "実績取込"}, {"date": "2026-04-08", "branch": "京都", "store": "グッド", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202604-006", "note": "実績取込"}, {"date": "2026-04-08", "branch": "京都", "store": "紙音", "area": "木屋町", "items": {"イエロー": 40}, "amount": 240000, "payMethod": "売掛", "id": "hist-京都-202604-007", "note": "実績取込"}, {"date": "2026-04-08", "branch": "仙台", "store": "株式会社　吉岡屋", "area": "仙台市青葉区栗生", "items": {"イエロー": 6}, "amount": 41580, "payMethod": "売掛", "id": "hist-仙台-202604-015", "note": "実績取込"}, {"date": "2026-04-09", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202604-008", "note": "実績取込"}, {"date": "2026-04-09", "branch": "仙台", "store": "株式会社　吉岡屋", "area": "仙台市青葉区栗生", "items": {"イエロー": 12, "ブルー": 6}, "amount": 166320, "payMethod": "売掛", "id": "hist-仙台-202604-016", "note": "実績取込"}, {"date": "2026-04-09", "branch": "仙台", "store": "株式会社　吉岡屋", "area": "仙台市青葉区栗生", "items": {"ゴールド": 6}, "amount": 217800, "payMethod": "売掛", "id": "hist-仙台-202604-017", "note": "実績取込"}, {"date": "2026-04-09", "branch": "仙台", "store": "モエ", "area": "", "items": {}, "amount": 9350, "payMethod": "売掛", "id": "hist-仙台-202604-018", "note": "実績取込（数量不明）"}, {"date": "2026-04-09", "branch": "仙台", "store": "ディア", "area": "", "items": {}, "amount": 9350, "payMethod": "売掛", "id": "hist-仙台-202604-019", "note": "実績取込（数量不明）"}, {"date": "2026-04-10", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"オレンジ": 2}, "amount": 27720, "payMethod": "売掛", "id": "hist-仙台-202604-020", "note": "実績取込"}, {"date": "2026-04-10", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"ブルー": 2}, "amount": 27720, "payMethod": "売掛", "id": "hist-仙台-202604-021", "note": "実績取込"}, {"date": "2026-04-10", "branch": "仙台", "store": "REMANS CLUB（リーマンズクラブ）", "area": "仙台市青葉区国分町", "items": {"オレンジ": 1}, "amount": 16170, "payMethod": "売掛", "id": "hist-仙台-202604-022", "note": "実績取込"}, {"date": "2026-04-10", "branch": "仙台", "store": "モエ", "area": "", "items": {}, "amount": 9350, "payMethod": "売掛", "id": "hist-仙台-202604-023", "note": "実績取込（数量不明）"}, {"date": "2026-04-10", "branch": "仙台", "store": "ディア", "area": "", "items": {}, "amount": 9350, "payMethod": "売掛", "id": "hist-仙台-202604-024", "note": "実績取込（数量不明）"}, {"date": "2026-04-10", "branch": "仙台", "store": "ウルス", "area": "", "items": {}, "amount": 9350, "payMethod": "売掛", "id": "hist-仙台-202604-025", "note": "実績取込（数量不明）"}, {"date": "2026-04-11", "branch": "京都", "store": "ノア", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202604-009", "note": "実績取込"}, {"date": "2026-04-11", "branch": "仙台", "store": "Girls Bar SENSATION(センセーション）", "area": "仙台市青葉区花京院", "items": {"イエロー": 1}, "amount": 8085, "payMethod": "現金", "id": "hist-仙台-202604-026", "note": "実績取込"}, {"date": "2026-04-11", "branch": "仙台", "store": "smile", "area": "仙台市国分町", "items": {"イエロー": 3}, "amount": 24255, "payMethod": "現金", "id": "hist-仙台-202604-027", "note": "実績取込"}, {"date": "2026-04-11", "branch": "仙台", "store": "CLUB QUEEN'S", "area": "山形県山形市", "items": {"イエロー": 4, "オレンジ": 2}, "amount": 50820, "payMethod": "売掛", "id": "hist-仙台-202604-028", "note": "実績取込"}, {"date": "2026-04-11", "branch": "仙台", "store": "PURU CLUB", "area": "山形駅前", "items": {"イエロー": 3}, "amount": 19058, "payMethod": "売掛", "id": "hist-仙台-202604-029", "note": "実績取込"}, {"date": "2026-04-11", "branch": "仙台", "store": "4th CLUB", "area": "山形市香澄町", "items": {"イエロー": 3}, "amount": 19058, "payMethod": "売掛", "id": "hist-仙台-202604-030", "note": "実績取込"}, {"date": "2026-04-11", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 11, "オレンジ": 1}, "amount": 90090, "payMethod": "売掛", "id": "hist-仙台-202604-031", "note": "実績取込"}, {"date": "2026-04-11", "branch": "仙台", "store": "Insomnia(インソムニア）", "area": "仙台市青葉区国分町", "items": {"イエロー": 2}, "amount": 16170, "payMethod": "売掛", "id": "hist-仙台-202604-032", "note": "実績取込"}, {"date": "2026-04-11", "branch": "仙台", "store": "小鳥遊 「Takanashi」", "area": "東京都台東区上野", "items": {"イエロー": 6}, "amount": 49170, "payMethod": "代引き", "id": "hist-仙台-202604-033", "note": "実績取込"}, {"date": "2026-04-14", "branch": "京都", "store": "グッド", "area": "木屋町", "items": {"イエロー": 12}, "amount": 75600, "payMethod": "現金", "id": "hist-京都-202604-010", "note": "実績取込"}, {"date": "2026-04-14", "branch": "仙台", "store": "POINT NEMO", "area": "宮城県白石市", "items": {"イエロー": 6}, "amount": 48510, "payMethod": "売掛", "id": "hist-仙台-202604-034", "note": "実績取込"}, {"date": "2026-04-14", "branch": "仙台", "store": "Lounge 雅", "area": "仙台市宮城野区苦竹", "items": {"イエロー": 25, "オレンジ": 2}, "amount": 234465, "payMethod": "売掛", "id": "hist-仙台-202604-035", "note": "実績取込"}, {"date": "2026-04-15", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 3, "オレンジ": 2, "ブルー": 1}, "amount": 62370, "payMethod": "売掛", "id": "hist-仙台-202604-036", "note": "実績取込"}, {"date": "2026-04-15", "branch": "仙台", "store": "モエ", "area": "", "items": {}, "amount": 9350, "payMethod": "売掛", "id": "hist-仙台-202604-037", "note": "実績取込（数量不明）"}, {"date": "2026-04-15", "branch": "仙台", "store": "倉庫", "area": "", "items": {}, "amount": 9350, "payMethod": "売掛", "id": "hist-仙台-202604-038", "note": "実績取込（数量不明）"}, {"date": "2026-04-15", "branch": "仙台", "store": "Girls bar ジョシリョクタカメ", "area": "盛岡市　菜園", "items": {"イエロー": 1}, "amount": 9365, "payMethod": "代引き", "id": "hist-仙台-202604-039", "note": "実績取込"}, {"date": "2026-04-16", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202604-011", "note": "実績取込"}, {"date": "2026-04-16", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202604-012", "note": "実績取込"}, {"date": "2026-04-16", "branch": "京都", "store": "ノア", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202604-013", "note": "実績取込"}, {"date": "2026-04-16", "branch": "仙台", "store": "Insomnia(インソムニア）", "area": "仙台市青葉区国分町", "items": {"イエロー": 1}, "amount": 8085, "payMethod": "現金", "id": "hist-仙台-202604-040", "note": "実績取込"}, {"date": "2026-04-16", "branch": "仙台", "store": "美人百華", "area": "仙台市青葉区国分町", "items": {"イエロー": 1}, "amount": 8085, "payMethod": "現金", "id": "hist-仙台-202604-041", "note": "実績取込"}, {"date": "2026-04-16", "branch": "仙台", "store": "MIX BAR Deep", "area": "愛知県名古屋市中区", "items": {"イエロー": 9}, "amount": 72765, "payMethod": "売掛", "id": "hist-仙台-202604-042", "note": "実績取込"}, {"date": "2026-04-16", "branch": "仙台", "store": "株式会社　吉岡屋", "area": "仙台市青葉区栗生", "items": {"イエロー": 18}, "amount": 124740, "payMethod": "売掛", "id": "hist-仙台-202604-043", "note": "実績取込"}, {"date": "2026-04-17", "branch": "仙台", "store": "SoiCOWBOY", "area": "仙台市青葉区国分町", "items": {"イエロー": 1}, "amount": 8085, "payMethod": "現金", "id": "hist-仙台-202604-044", "note": "実績取込"}, {"date": "2026-04-18", "branch": "仙台", "store": "メイドラウンジ 絶対領域α", "area": "仙台市青葉区国分町", "items": {"ブラック": 1}, "amount": 25410, "payMethod": "現金", "id": "hist-仙台-202604-045", "note": "実績取込"}, {"date": "2026-04-18", "branch": "仙台", "store": "檜輝", "area": "仙台市青葉区国分町", "items": {"GIFTBOX": 3}, "amount": 15708, "payMethod": "現金", "id": "hist-仙台-202604-046", "note": "実績取込"}, {"date": "2026-04-18", "branch": "仙台", "store": "株式会社　吉岡屋", "area": "仙台市青葉区栗生", "items": {"イエロー": 9}, "amount": 62370, "payMethod": "売掛", "id": "hist-仙台-202604-047", "note": "実績取込"}, {"date": "2026-04-21", "branch": "仙台", "store": "LAID", "area": "", "items": {"チェンロッソ": 2}, "amount": 5984, "payMethod": "売掛", "id": "hist-仙台-202604-048", "note": "実績取込"}, {"date": "2026-04-21", "branch": "仙台", "store": "TSUBAKI Lounge", "area": "京都府京都市中区清本町", "items": {"イエロー": 6, "プラチナ": 1}, "amount": 82390, "payMethod": "売掛", "id": "hist-仙台-202604-049", "note": "実績取込"}, {"date": "2026-04-21", "branch": "仙台", "store": "株式会社　吉岡屋", "area": "仙台市青葉区栗生", "items": {"ブラック": 6}, "amount": 130680, "payMethod": "売掛", "id": "hist-仙台-202604-050", "note": "実績取込"}, {"date": "2026-04-21", "branch": "仙台", "store": "ワインハウス　ブウション　カネサ藤原屋", "area": "仙台市宮城野区元寺小路", "items": {"イエロー": 30, "オレンジ": 1}, "amount": 221760, "payMethod": "売掛", "id": "hist-仙台-202604-051", "note": "実績取込"}, {"date": "2026-04-21", "branch": "仙台", "store": "CLUB QUEEN'S", "area": "山形駅前", "items": {"イエロー": 6, "オレンジ": 4, "ブルー": 2, "ブラック": 1}, "amount": 134310, "payMethod": "売掛", "id": "hist-仙台-202604-052", "note": "実績取込"}, {"date": "2026-04-21", "branch": "仙台", "store": "PURU CLUB", "area": "山形駅前", "items": {"イエロー": 4, "ブルー": 2, "ブラック": 1}, "amount": 70785, "payMethod": "売掛", "id": "hist-仙台-202604-053", "note": "実績取込"}, {"date": "2026-04-21", "branch": "仙台", "store": "ZUZU", "area": "山形県山形市香澄町", "items": {"イエロー": 6, "オレンジ": 3, "ブルー": 1, "ブラック": 2}, "amount": 128865, "payMethod": "売掛", "id": "hist-仙台-202604-054", "note": "実績取込"}, {"date": "2026-04-21", "branch": "仙台", "store": "4th CLUB", "area": "山形市香澄町", "items": {"イエロー": 4, "オレンジ": 2, "ブルー": 2, "ブラック": 2, "プラチナ": 2}, "amount": 169400, "payMethod": "売掛", "id": "hist-仙台-202604-055", "note": "実績取込"}, {"date": "2026-04-21", "branch": "仙台", "store": "CLUB QUEEN'S", "area": "山形駅前", "items": {"カーボン": 1}, "amount": 60500, "payMethod": "売掛", "id": "hist-仙台-202604-056", "note": "実績取込"}, {"date": "2026-04-21", "branch": "仙台", "store": "PURU CLUB", "area": "山形駅前", "items": {"ゴールド": 1}, "amount": 33275, "payMethod": "売掛", "id": "hist-仙台-202604-057", "note": "実績取込"}, {"date": "2026-04-21", "branch": "仙台", "store": "4th CLUB", "area": "山形市香澄町", "items": {"ゴールド": 1}, "amount": 33275, "payMethod": "売掛", "id": "hist-仙台-202604-058", "note": "実績取込"}, {"date": "2026-04-21", "branch": "仙台", "store": "のの", "area": "秋田県秋田市大町", "items": {"イエロー": 18}, "amount": 145530, "payMethod": "売掛", "id": "hist-仙台-202604-059", "note": "実績取込"}, {"date": "2026-04-22", "branch": "京都", "store": "ノア", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202604-014", "note": "実績取込"}, {"date": "2026-04-22", "branch": "仙台", "store": "Pin-up", "area": "仙台市青葉区国分町", "items": {"イエロー": 1}, "amount": 8085, "payMethod": "売掛", "id": "hist-仙台-202604-060", "note": "実績取込"}, {"date": "2026-04-24", "branch": "京都", "store": "グッド", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202604-015", "note": "実績取込"}, {"date": "2026-04-24", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202604-016", "note": "実績取込"}, {"date": "2026-04-24", "branch": "京都", "store": "グッド", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202604-017", "note": "実績取込"}, {"date": "2026-04-24", "branch": "仙台", "store": "Insomnia(インソムニア）", "area": "仙台市青葉区国分町", "items": {"イエロー": 1}, "amount": 8085, "payMethod": "現金", "id": "hist-仙台-202604-061", "note": "実績取込"}, {"date": "2026-04-24", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 12}, "amount": 83160, "payMethod": "売掛", "id": "hist-仙台-202604-062", "note": "実績取込"}, {"date": "2026-04-25", "branch": "仙台", "store": "Pin-up", "area": "仙台市青葉区国分町", "items": {"イエロー": 2, "オレンジ": 1}, "amount": 32340, "payMethod": "現金", "id": "hist-仙台-202604-063", "note": "実績取込"}, {"date": "2026-04-25", "branch": "仙台", "store": "株式会社　吉岡屋", "area": "仙台市青葉区栗生", "items": {"イエロー": 12}, "amount": 83160, "payMethod": "売掛", "id": "hist-仙台-202604-064", "note": "実績取込"}, {"date": "2026-04-28", "branch": "仙台", "store": "Laputa", "area": "秋田県秋田市", "items": {"イエロー": 12}, "amount": 90090, "payMethod": "売掛", "id": "hist-仙台-202604-065", "note": "実績取込"}, {"date": "2026-04-28", "branch": "仙台", "store": "倉庫", "area": "", "items": {}, "amount": 18700, "payMethod": "売掛", "id": "hist-仙台-202604-066", "note": "実績取込（数量不明）"}, {"date": "2026-04-28", "branch": "仙台", "store": "スナックscarlet", "area": "青森県八戸市", "items": {"イエロー": 6}, "amount": 49170, "payMethod": "代引き", "id": "hist-仙台-202604-067", "note": "実績取込"}, {"date": "2026-04-29", "branch": "仙台", "store": "Insomnia(インソムニア）", "area": "仙台市青葉区国分町", "items": {"イエロー": 2}, "amount": 16170, "payMethod": "現金", "id": "hist-仙台-202604-068", "note": "実績取込"}, {"date": "2026-04-29", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 12}, "amount": 83160, "payMethod": "売掛", "id": "hist-仙台-202604-069", "note": "実績取込"}, {"date": "2026-05-01", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 11, "オレンジ": 2}, "amount": 103950, "payMethod": "売掛", "id": "hist-仙台-202605-001", "note": "実績取込"}, {"date": "2026-05-02", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"ゴールド": 1}, "amount": 36300, "payMethod": "売掛", "id": "hist-仙台-202605-002", "note": "実績取込"}, {"date": "2026-05-02", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 5}, "amount": 34650, "payMethod": "売掛", "id": "hist-仙台-202605-003", "note": "実績取込"}, {"date": "2026-05-03", "branch": "仙台", "store": "檜輝", "area": "仙台市青葉区国分町", "items": {"GIFTBOX": 4}, "amount": 20944, "payMethod": "現金", "id": "hist-仙台-202605-004", "note": "実績取込"}, {"date": "2026-05-03", "branch": "仙台", "store": "CLUB QUEEN'S", "area": "山形県山形市", "items": {"ブルー": 2}, "amount": 25410, "payMethod": "売掛", "id": "hist-仙台-202605-005", "note": "実績取込"}, {"date": "2026-05-03", "branch": "仙台", "store": "4th CLUB", "area": "山形市香澄町", "items": {"イエロー": 2}, "amount": 12705, "payMethod": "売掛", "id": "hist-仙台-202605-006", "note": "実績取込"}, {"date": "2026-05-03", "branch": "仙台", "store": "4th CLUB", "area": "山形市香澄町", "items": {"ブルー": 3}, "amount": 38115, "payMethod": "売掛", "id": "hist-仙台-202605-007", "note": "実績取込"}, {"date": "2026-05-03", "branch": "仙台", "store": "Club　帝", "area": "宮城県大崎市", "items": {"イエロー": 2}, "amount": 16170, "payMethod": "売掛", "id": "hist-仙台-202605-008", "note": "実績取込"}, {"date": "2026-05-03", "branch": "仙台", "store": "Club　帝", "area": "宮城県大崎市", "items": {"ブルー": 1, "レジェンド": 3}, "amount": 73920, "payMethod": "売掛", "id": "hist-仙台-202605-009", "note": "実績取込"}, {"date": "2026-05-03", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 12}, "amount": 83160, "payMethod": "売掛", "id": "hist-仙台-202605-010", "note": "実績取込"}, {"date": "2026-05-03", "branch": "仙台", "store": "Club Belle Gion　ベル", "area": "京都府京都市", "items": {"プラチナ": 2}, "amount": 67760, "payMethod": "売掛", "id": "hist-仙台-202605-011", "note": "実績取込"}, {"date": "2026-05-04", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202605-001", "note": "実績取込"}, {"date": "2026-05-08", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202605-002", "note": "実績取込"}, {"date": "2026-05-08", "branch": "京都", "store": "グッド", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202605-003", "note": "実績取込"}, {"date": "2026-05-08", "branch": "仙台", "store": "CLUB LAPUTA", "area": "岩手県盛岡市", "items": {"イエロー": 6}, "amount": 45045, "payMethod": "売掛", "id": "hist-仙台-202605-012", "note": "実績取込"}, {"date": "2026-05-08", "branch": "仙台", "store": "CLUB LAPUTA", "area": "岩手県盛岡市", "items": {"オレンジ": 6}, "amount": 90090, "payMethod": "売掛", "id": "hist-仙台-202605-013", "note": "実績取込"}, {"date": "2026-05-08", "branch": "仙台", "store": "株式会社吉田酒店", "area": "仙台市太白区大野田", "items": {"イエロー": 4, "ブラック": 2}, "amount": 71280, "payMethod": "売掛", "id": "hist-仙台-202605-014", "note": "実績取込"}, {"date": "2026-05-09", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 6}, "amount": 41580, "payMethod": "売掛", "id": "hist-仙台-202605-015", "note": "実績取込"}, {"date": "2026-05-10", "branch": "仙台", "store": "Girls bar ジョシリョクタカメ", "area": "盛岡市", "items": {"イエロー": 1}, "amount": 9365, "payMethod": "代引き", "id": "hist-仙台-202605-016", "note": "実績取込"}, {"date": "2026-05-11", "branch": "仙台", "store": "檜輝", "area": "仙台市青葉区国分町", "items": {"GIFTBOX": 2}, "amount": 10472, "payMethod": "現金", "id": "hist-仙台-202605-017", "note": "実績取込"}, {"date": "2026-05-12", "branch": "仙台", "store": "CLUB LAPUTA", "area": "岩手県盛岡市", "items": {"イエロー": 6, "オレンジ": 1, "ブルー": 3}, "amount": 105105, "payMethod": "売掛", "id": "hist-仙台-202605-018", "note": "実績取込"}, {"date": "2026-05-12", "branch": "仙台", "store": "CLUB LAPUTA", "area": "岩手県盛岡市", "items": {"オレンジ": 2}, "amount": 30030, "payMethod": "売掛", "id": "hist-仙台-202605-019", "note": "実績取込"}, {"date": "2026-05-15", "branch": "京都", "store": "グッド", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202605-004", "note": "実績取込"}, {"date": "2026-05-15", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202605-005", "note": "実績取込"}, {"date": "2026-05-15", "branch": "仙台", "store": "NUEVO", "area": "東京都港区六本木", "items": {"イエロー": 3, "オレンジ": 3}, "amount": 72765, "payMethod": "売掛", "id": "hist-仙台-202605-020", "note": "実績取込"}, {"date": "2026-05-15", "branch": "仙台", "store": "NUEVO", "area": "東京都港区六本木", "items": {"ブラック": 1}, "amount": 25410, "payMethod": "売掛", "id": "hist-仙台-202605-021", "note": "実績取込"}, {"date": "2026-05-15", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 9, "オレンジ": 2, "ブルー": 1}, "amount": 103950, "payMethod": "売掛", "id": "hist-仙台-202605-022", "note": "実績取込"}, {"date": "2026-05-15", "branch": "仙台", "store": "株式会社　吉岡屋", "area": "仙台市青葉区栗生", "items": {"イエロー": 4, "オレンジ": 1, "プラチナ": 1}, "amount": 70620, "payMethod": "売掛", "id": "hist-仙台-202605-023", "note": "実績取込"}, {"date": "2026-05-15", "branch": "仙台", "store": "POINT NEMO", "area": "宮城県白石市兎作", "items": {"イエロー": 3}, "amount": 24255, "payMethod": "売掛", "id": "hist-仙台-202605-024", "note": "実績取込"}, {"date": "2026-05-16", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202605-006", "note": "実績取込"}, {"date": "2026-05-16", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202605-007", "note": "実績取込"}, {"date": "2026-05-16", "branch": "京都", "store": "ノア", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202605-008", "note": "実績取込"}, {"date": "2026-05-16", "branch": "仙台", "store": "OVER TIME", "area": "山形県米沢市", "items": {"イエロー": 5, "オレンジ": 5, "プラチナ": 3}, "amount": 222915, "payMethod": "売掛", "id": "hist-仙台-202605-025", "note": "実績取込"}, {"date": "2026-05-16", "branch": "仙台", "store": "株式会社吉田酒店", "area": "仙台市太白区大野田", "items": {"イエロー": 2, "ブラック": 4}, "amount": 100980, "payMethod": "売掛", "id": "hist-仙台-202605-026", "note": "実績取込"}, {"date": "2026-05-16", "branch": "仙台", "store": "Pin-up", "area": "仙台市青葉区国分町", "items": {"イエロー": 1}, "amount": 8085, "payMethod": "売掛", "id": "hist-仙台-202605-027", "note": "実績取込"}, {"date": "2026-05-17", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"プラチナ": 1, "ゴールド": 1}, "amount": 53900, "payMethod": "現金", "id": "hist-京都-202605-009", "note": "実績取込"}, {"date": "2026-05-17", "branch": "京都", "store": "紙音", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "売掛", "id": "hist-京都-202605-010", "note": "実績取込"}, {"date": "2026-05-17", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"イエロー": 18, "オレンジ": 2, "ブルー": 1, "レジェンド": 2}, "amount": 199320, "payMethod": "売掛", "id": "hist-仙台-202605-028", "note": "実績取込"}, {"date": "2026-05-17", "branch": "仙台", "store": "club camels(キャメルズ）", "area": "秋田県秋田市", "items": {"ブラック": 1}, "amount": 21780, "payMethod": "売掛", "id": "hist-仙台-202605-029", "note": "実績取込"}, {"date": "2026-05-19", "branch": "仙台", "store": "4th CLUB", "area": "山形市香澄町", "items": {"イエロー": 8, "オレンジ": 2, "ブルー": 2}, "amount": 101640, "payMethod": "売掛", "id": "hist-仙台-202605-030", "note": "実績取込"}, {"date": "2026-05-19", "branch": "仙台", "store": "4th CLUB", "area": "山形市香澄町", "items": {"ブラック": 2}, "amount": 39930, "payMethod": "売掛", "id": "hist-仙台-202605-031", "note": "実績取込"}, {"date": "2026-05-19", "branch": "仙台", "store": "CLUB QUEEN'S", "area": "山形市香澄町", "items": {"イエロー": 12, "オレンジ": 4, "ブルー": 4}, "amount": 177870, "payMethod": "売掛", "id": "hist-仙台-202605-032", "note": "実績取込"}, {"date": "2026-05-19", "branch": "仙台", "store": "CLUB QUEEN'S", "area": "山形市香澄町", "items": {"ブラック": 1}, "amount": 19965, "payMethod": "売掛", "id": "hist-仙台-202605-033", "note": "実績取込"}, {"date": "2026-05-19", "branch": "仙台", "store": "PURU CLUB", "area": "山形駅前", "items": {"イエロー": 6, "オレンジ": 1, "ブルー": 1}, "amount": 63525, "payMethod": "売掛", "id": "hist-仙台-202605-034", "note": "実績取込"}, {"date": "2026-05-19", "branch": "仙台", "store": "PURU CLUB", "area": "山形駅前", "items": {"ブラック": 1}, "amount": 19965, "payMethod": "売掛", "id": "hist-仙台-202605-035", "note": "実績取込"}, {"date": "2026-05-19", "branch": "仙台", "store": "ZUZU", "area": "山形市香澄町", "items": {"イエロー": 8}, "amount": 50820, "payMethod": "売掛", "id": "hist-仙台-202605-036", "note": "実績取込"}, {"date": "2026-05-19", "branch": "仙台", "store": "ZUZU", "area": "山形市香澄町", "items": {"ブラック": 2, "ゴールド": 1}, "amount": 73205, "payMethod": "売掛", "id": "hist-仙台-202605-037", "note": "実績取込"}, {"date": "2026-05-21", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202605-011", "note": "実績取込"}, {"date": "2026-05-21", "branch": "仙台", "store": "TSUBAKI LOUNGE神戸", "area": "", "items": {"イエロー": 6, "ブルー": 6}, "amount": 145530, "payMethod": "売掛", "id": "hist-仙台-202605-038", "note": "実績取込"}, {"date": "2026-05-22", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"ゴールド": 1}, "amount": 30800, "payMethod": "現金", "id": "hist-京都-202605-012", "note": "実績取込"}, {"date": "2026-05-22", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"ゴールド": 1}, "amount": 30800, "payMethod": "現金", "id": "hist-京都-202605-013", "note": "実績取込"}, {"date": "2026-05-22", "branch": "京都", "store": "紙音", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "売掛", "id": "hist-京都-202605-014", "note": "実績取込"}, {"date": "2026-05-23", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202605-015", "note": "実績取込"}, {"date": "2026-05-24", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"ブラック": 2, "ゴールド": 2}, "amount": 91000, "payMethod": "現金", "id": "hist-京都-202605-016", "note": "実績取込"}, {"date": "2026-05-26", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202605-017", "note": "実績取込"}, {"date": "2026-05-28", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202605-018", "note": "実績取込"}, {"date": "2026-05-28", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"ブラック": 1, "ゴールド": 1}, "amount": 50050, "payMethod": "現金", "id": "hist-京都-202605-019", "note": "実績取込"}, {"date": "2026-05-28", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"ブラック": 1}, "amount": 16170, "payMethod": "現金", "id": "hist-京都-202605-020", "note": "実績取込"}, {"date": "2026-05-31", "branch": "京都", "store": "ノア", "area": "木屋町", "items": {"イエロー": 18}, "amount": 108000, "payMethod": "現金", "id": "hist-京都-202605-021", "note": "実績取込"}, {"date": "2026-06-01", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202606-001", "note": "実績取込"}, {"date": "2026-06-02", "branch": "京都", "store": "ノア", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202606-002", "note": "実績取込"}, {"date": "2026-06-03", "branch": "京都", "store": "ノア", "area": "木屋町", "items": {"イエロー": 18}, "amount": 108000, "payMethod": "現金", "id": "hist-京都-202606-003", "note": "実績取込"}, {"date": "2026-06-04", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202606-004", "note": "実績取込"}, {"date": "2026-06-08", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202606-005", "note": "実績取込"}, {"date": "2026-06-08", "branch": "京都", "store": "グッド", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202606-006", "note": "実績取込"}, {"date": "2026-06-16", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202606-007", "note": "実績取込"}, {"date": "2026-06-16", "branch": "京都", "store": "ザウバー", "area": "木屋町", "items": {"イエロー": 6}, "amount": 36000, "payMethod": "現金", "id": "hist-京都-202606-008", "note": "実績取込"}, {"date": "2026-06-16", "branch": "京都", "store": "ノア", "area": "木屋町", "items": {"イエロー": 12}, "amount": 72000, "payMethod": "現金", "id": "hist-京都-202606-009", "note": "実績取込"}];
-async function importHistoricalOrders(){
-  if (typeof S === 'undefined' || !S.gasUrl) { alert('GAS URLが未設定です'); return; }
-  if (typeof canEdit === 'function' && !canEdit()) { if(typeof toast==='function') toast('🔒 編集権限がありません','error'); return; }
-  const cb = document.getElementById('hist-unpaid');
-  const asUnpaid = cb && cb.checked;
-  const list = HIST_ORDERS.map(function(o){ return {
-    timestamp:o.date, date:o.date, branch:o.branch, staff:'', store:o.store, area:o.area,
-    items:o.items, amount:o.amount, payMethod:o.payMethod,
-    payStatus:(asUnpaid && o.payMethod==='売掛') ? '未収' : '集金済み',
-    status:'発送済み', note:o.note, id:o.id
-  }; });
-  if (!confirm(list.length + '件の過去注文を取り込みます（注文IDで重複チェック・冪等）。よろしいですか？')) return;
-  const SIZE = 100; let sent = 0;
-  for (let i = 0; i < list.length; i += SIZE) {
-    const batch = list.slice(i, i + SIZE);
-    try {
-      await fetch(S.gasUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'saveOrdersBulk', orders:batch }) });
-    } catch(e) { if(typeof toast==='function') toast('送信エラー: '+e.message,'error'); }
-    sent += batch.length;
-    if (typeof toast === 'function') toast('実績取込 送信中… ' + sent + '/' + list.length);
-    await new Promise(function(r){ setTimeout(r, 400); });
-  }
-  if (typeof toast === 'function') toast('✓ 実績 ' + list.length + '件を送信。注文受付をご確認ください');
-}
-</script>
-<script>
-/* 別PCでも起動時にスプレッドシートから自動読込 */
-window.addEventListener('DOMContentLoaded', function(){ if (typeof syncAllFromGAS === 'function') { try { syncAllFromGAS(); } catch(e){} } });
-</script>
 </body>
 </html>
