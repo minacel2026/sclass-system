@@ -1011,7 +1011,7 @@ const S = {
   purchases:[], suppliers:['マルシェジャパン','オーク酒販'],
   cashEntries:[], dailyReps:[],
   referrers:[], sponsors:[],
-  gasUrl: localStorage.getItem('gasUrl') || '',
+  gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
 };
 
 function today(){ return new Date().toISOString().slice(0,10); }
@@ -1047,7 +1047,7 @@ function loadState(){
       const v = localStorage.getItem('lmb_' + k);
       if (v) try { S[k] = JSON.parse(v); } catch(e){}
     });
-    S.gasUrl = localStorage.getItem('gasUrl') || '';
+    S.gasUrl = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
   } catch(e){ console.warn('loadState error', e); }
 }
 
@@ -3437,6 +3437,12 @@ async function importHistoricalOrders(){
   }
   if (typeof toast === 'function') toast('✓ 実績 ' + list.length + '件を送信。注文受付をご確認ください');
 }
+</script>
+<script>
+/* 別PC・別ブラウザでも起動時にスプレッドシートから自動読込（URLは既定値を内蔵） */
+window.addEventListener('DOMContentLoaded', function(){
+  if (typeof syncAllFromGAS === 'function') { try { syncAllFromGAS(); } catch(e){} }
+});
 </script>
 </body>
 </html>

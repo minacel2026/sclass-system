@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>請求・入金 | Sclassランボルギーニ</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Bebas+Neue&family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
   --gold:#C9A84C;--gold-l:#E8C97A;--gold-d:#7A5C14;
@@ -149,13 +148,11 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 <body>
 
 <header>
-  <a href="portal.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:inherit" title="ポータルへ戻る">
-    <div class="logo-mark"><span>L</span></div>
-    <div>
-      <span class="sys-name">INVOICE &amp; PAYMENT</span>
-      <span class="sys-sub">請求・入金</span>
-    </div>
-  </a>
+  <div class="logo-mark"><span>L</span></div>
+  <div>
+    <span class="sys-name">INVOICE &amp; PAYMENT</span>
+    <span class="sys-sub">請求・入金</span>
+  </div>
   <div class="hdr-right">
     <a class="back-btn" href="portal.html">← ポータルへ戻る</a>
     <button class="btn-s" onclick="syncFromGAS()">🔄 GAS同期</button>
@@ -301,25 +298,6 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       銀行の入出金データをCSVから取込み、注文と自動マッチング。
     </div>
 
-    <div class="form-section" style="border:1px solid var(--gold)">
-      <div class="form-section-title">▸ 通帳ファイル取込（自動分類）</div>
-      <div class="frow">
-        <div class="fg" style="flex:2"><label>通帳ファイル（Excel / CSV）</label><input class="fc" type="file" id="bk-file" accept=".xlsx,.xls,.csv"></div>
-        <div class="fg" style="align-self:flex-end"><button class="btn btn-p" onclick="importBankFile()">取込んで自動分類</button></div>
-      </div>
-      <div id="bk-import-note" style="font-size:.72rem;color:var(--wh2);margin-top:.4rem"></div>
-    </div>
-
-    <div class="form-section" style="border:1px solid var(--gold)">
-      <div class="form-section-title">▸ 代引き明細 照合（ヤマト / 佐川）</div>
-      <div class="frow">
-        <div class="fg"><label>ヤマト明細（Excel）</label><input class="fc" type="file" id="cod-yamato" accept=".xlsx,.xls"></div>
-        <div class="fg"><label>佐川明細（Excel）</label><input class="fc" type="file" id="cod-sagawa" accept=".xlsx,.xls"></div>
-        <div class="fg" style="align-self:flex-end"><button class="btn btn-p" onclick="importCodFiles()">取込んで代引き照合</button></div>
-      </div>
-      <div id="cod-note" style="font-size:.72rem;color:var(--wh2);margin-top:.4rem"></div>
-    </div>
-
     <div class="form-section">
       <div class="form-section-title">▸ 入金データ手入力</div>
       <div class="frow">
@@ -331,7 +309,6 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="faction">
         <button class="btn btn-p" onclick="addBankEntry()">＋ 入金を登録</button>
         <button class="btn btn-g" onclick="autoMatch()">🔍 自動マッチング</button>
-        <button class="btn btn-g" onclick="dlJournalCsv()">🧾 仕訳CSVを出力</button>
       </div>
     </div>
 
@@ -343,20 +320,6 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         </thead>
         <tbody id="bk-tbody"></tbody>
       </table>
-    </div>
-
-    <!-- 入金の消し込みパネル（顧客の未収を別枠表示→選択） -->
-    <div id="recon-panel" class="form-section" style="display:none;margin-top:1rem;border:1px solid var(--gold)">
-      <div class="form-section-title">▸ 入金の消し込み <button class="btn-s" onclick="closeRecon()" style="float:right">閉じる</button></div>
-      <div id="recon-head" style="font-size:.8rem;color:var(--gold-l);margin-bottom:.6rem"></div>
-      <div class="tw">
-        <table>
-          <thead><tr><th>選択</th><th>注文日</th><th>商品</th><th class="col-amt">金額</th><th>状態</th></tr></thead>
-          <tbody id="recon-tbody"></tbody>
-        </table>
-      </div>
-      <div id="recon-sum" style="font-size:.78rem;margin:.6rem 0"></div>
-      <button class="btn btn-p" onclick="applyRecon()">✓ 選択した取引にこの入金を充当（入金済みに）</button>
     </div>
   </div>
 
@@ -380,7 +343,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     <div class="tw">
       <table>
         <thead>
-          <tr><th>入金日</th><th>注文日</th><th>店舗名</th><th>支払方法</th><th>入金元</th><th class="col-amt">金額</th></tr>
+          <tr><th>入金日</th><th>注文日</th><th>店舗名</th><th>支払方法</th><th class="col-amt">金額</th></tr>
         </thead>
         <tbody id="ht-tbody"></tbody>
       </table>
@@ -423,7 +386,7 @@ const S = {
   slog:[], collections:[], invoices:[],
   bankEntries:[], bankHistory:[], company:{}, products:null,
   purchases:[], cashEntries:[], dailyReps:[],
-  gasUrl: localStorage.getItem('gasUrl') || '',
+  gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
 };
 
 function today(){ return new Date().toISOString().slice(0,10); }
@@ -456,7 +419,7 @@ function loadState(){
       const v = localStorage.getItem('lmb_' + k);
       if (v) try { S[k] = JSON.parse(v); } catch(e){}
     });
-    S.gasUrl = localStorage.getItem('gasUrl') || '';
+    S.gasUrl = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
   } catch(e){ console.warn('loadState error', e); }
 }
 
@@ -930,151 +893,6 @@ function deleteInvoice(no){
 
 <!-- ═══ 通帳連携 ═══ -->
 <script>
-// ── 通帳ファイル取込＋自動分類（Aツールのロジックを統合）──
-function _parseBankRows(rows){
-  const norm = s => s==null ? '' : String(s).normalize('NFKC').replace(/\u3000/g,' ').replace(/\t/g,' ').replace(/\s+/g,' ').trim();
-  const num  = v => { if(v==null||v==='')return 0; const n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:Math.round(n); };
-  const DAIBIKI = ['ヤマトウンユ','ヤマト運輸','Eコレクト','SGシステム','サガワ','佐川'];
-  const H  = (rows[0]||[]).map(norm); const ix = n => H.indexOf(n);
-  const cY=ix('操作日(年)'), cM=ix('操作日(月)'), cD=ix('操作日(日)'), cT=ix('摘要'), cDep=ix('お預り金額');
-  if (cT<0 || cDep<0) throw new Error('通帳の列（摘要・お預り金額）が見つかりません');
-  const out=[];
-  for (let r=1; r<rows.length; r++){
-    const row=rows[r]; if(!row || row.every(x=>x==null||String(x).trim()===''))continue;
-    const dep=num(row[cDep]); if(dep<=0) continue;                       // 入金のみ（出金は対象外）
-    const t=norm(row[cT]);
-    const date = (cY>=0) ? `${num(row[cY])}-${String(num(row[cM])).padStart(2,'0')}-${String(num(row[cD])).padStart(2,'0')}` : '';
-    let kind, name;
-    if (/利息/.test(t)) { kind='対象外'; name='利息'; }
-    else if (/ATM/.test(t)) { kind='現金/ATM'; name='ATM入金'; }
-    else if (/^振込/.test(t)) {
-      let p = t.replace(/^振込\s*/,'').replace(/[(（](カ|ｶ|株).*$/,'').trim();
-      const nt = p.replace(/[\s.]/g,'');
-      kind = DAIBIKI.some(k => nt.includes(k.replace(/\s/g,''))) ? '代引き入金' : '通常入金';
-      name = p;
-    } else { kind='要確認'; name=t; }
-    out.push({ date, kind, name, amount:dep });
-  }
-  return out;
-}
-
-async function importBankFile(){
-  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
-  const f = document.getElementById('bk-file').files[0];
-  if (!f) return toast('通帳ファイルを選択してください', 'error');
-  try{
-    const buf = await f.arrayBuffer();
-    const wb  = XLSX.read(buf, { type:'array', cellDates:true });
-    const rows= XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, raw:true });
-    const entries = _parseBankRows(rows);
-    if (!S.bankEntries) S.bankEntries = [];
-    let added=0, skipped=0;
-    entries.forEach(e => {
-      const dup = S.bankEntries.some(b => b.date===e.date && b.amount===e.amount && (b.name||'')===(e.name||''));
-      if (dup){ skipped++; return; }
-      S.bankEntries.push({
-        id:'bk-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),
-        date:e.date, name:e.name, amount:e.amount, note:'['+e.kind+']', kind:e.kind,
-        matchedTo:null, addedBy:currentUser.name, addedAt:new Date().toISOString(),
-      });
-      added++;
-    });
-    saveState();
-    const cnt = k => entries.filter(e=>e.kind===k).length;
-    document.getElementById('bk-import-note').innerHTML =
-      `✓ ${added}件取込（重複${skipped}件スキップ）／ 内訳: 通常入金 ${cnt('通常入金')}・代引き ${cnt('代引き入金')}・現金ATM ${cnt('現金/ATM')}・対象外 ${cnt('対象外')}`;
-    toast(`✓ 通帳 ${added}件を取込・自動分類`);
-    document.getElementById('bk-file').value='';
-    renderBank();
-  }catch(err){ toast('取込エラー: '+err.message, 'error'); document.getElementById('bk-import-note').innerHTML='<span style="color:var(--red)">取込失敗: '+escapeHtml(err.message)+'</span>'; }
-}
-
-// ── 代引き明細 照合（Aツールの検証済みロジックを統合）──
-function _normC(s){ return s==null?'':String(s).normalize('NFKC').replace(/\u3000/g,' ').replace(/\t/g,' ').replace(/\s+/g,' ').trim(); }
-function _numC(v){ if(v==null||v==='')return 0; const n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:Math.round(n); }
-function _pdateC(s){ if(!s)return null; if(s instanceof Date)return s; const m=String(s).match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/); if(m)return new Date(+m[1],+m[2]-1,+m[3]); const d=String(s).replace(/[^0-9]/g,''); if(d.length===8)return new Date(+d.slice(0,4),+d.slice(4,6)-1,+d.slice(6,8)); return null; }
-function _parseCarrier(wb, carrier){
-  const out=[];
-  for(const name of wb.SheetNames){
-    const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true});
-    let hr=-1,H=null;
-    for(let r=0;r<Math.min(8,rows.length);r++){ const v=(rows[r]||[]).map(_normC); if(v.includes('発送日')&&(v.includes('代引金')||v.includes('品代金'))){hr=r;H=v;break;} }
-    if(hr<0)continue;
-    const ix=(...ns)=>{for(const n of ns){const i=H.indexOf(n);if(i>=0)return i;}return -1;};
-    const cAmt=ix('代引金','品代金'),cStore=ix('店舗名','お届け先名'),cNo=ix('お問い合せNo.','伝票番号');
-    const cDf=ix('代引手数料'),cIn=ix('印紙代','収入印紙代相当額'),cTf=ix('振込事務手数料','振込手数料'),cTax=ix('消費税');
-    const cFu=ix('振込日'),cY=ix('振込日付(年)'),cM=ix('振込日付(月)'),cD=ix('振込日付(日)');
-    for(let r=hr+1;r<rows.length;r++){
-      const row=rows[r]; if(!row)continue; const amt=cAmt>=0?_numC(row[cAmt]):0; if(amt<=0)continue;
-      const fee=[cDf,cIn,cTf,cTax].filter(c=>c>=0).reduce((s,c)=>s+_numC(row[c]),0);
-      let furi=cFu>=0?row[cFu]:null; if((furi==null||furi==='')&&cY>=0)furi=_numC(row[cY])+'/'+String(_numC(row[cM])).padStart(2,'0')+'/'+String(_numC(row[cD])).padStart(2,'0');
-      out.push({carrier,furi:String(furi||''),furiObj:_pdateC(furi),store:cStore>=0?_normC(row[cStore]):'',no:cNo>=0?_normC(row[cNo]):'',amount:amt,fee,net:amt-fee});
-    }
-  }
-  return out;
-}
-function _linkCod(){
-  const det=(S.codDetails||[]).map(d=>({...d,used:false}));
-  let n=0;
-  (S.bankEntries||[]).filter(b=>b.kind==='代引き入金').forEach(b=>{
-    if(b.cod)return;
-    const bd=_pdateC(b.date); let best=null;
-    det.forEach(m=>{ if(m.used)return; const diff=m.net-b.amount; if(diff>=0&&diff<=Math.max(200,m.amount*0.02)){ const dd=(m.furiObj&&bd)?Math.abs((m.furiObj-bd)/864e5):999; const sc=diff*0.01+dd; if(!best||sc<best.sc)best={m,diff,sc}; } });
-    if(best){ best.m.used=true; b.cod={carrier:best.m.carrier,store:best.m.store,daibiki:best.m.amount,fee:best.m.fee,no:best.m.no}; b.codStore=best.m.store; b.matchedTo=best.m.store+'（代引）'; n++; }
-  });
-  return n;
-}
-async function importCodFiles(){
-  if(!canEdit())return toast('🔒 編集権限がありません','error');
-  const fy=document.getElementById('cod-yamato').files[0];
-  const fg=document.getElementById('cod-sagawa').files[0];
-  if(!fy&&!fg)return toast('ヤマト / 佐川の明細を選択してください','error');
-  try{
-    let det=[];
-    if(fy) det=det.concat(_parseCarrier(XLSX.read(await fy.arrayBuffer(),{type:'array',cellDates:true}),'ヤマト'));
-    if(fg) det=det.concat(_parseCarrier(XLSX.read(await fg.arrayBuffer(),{type:'array',cellDates:true}),'佐川'));
-    S.codDetails=det;
-    const n=_linkCod();
-    saveState();
-    document.getElementById('cod-note').innerHTML=`✓ 明細 ${det.length}件読込 ／ 代引き入金 ${n}件を照合（手数料・消費税は自動調整。各行「消込」で店舗の未収に充当）`;
-    toast(`✓ 代引き明細 ${det.length}件・照合 ${n}件`);
-    document.getElementById('cod-yamato').value=''; document.getElementById('cod-sagawa').value='';
-    renderBank();
-  }catch(e){ toast('取込エラー: '+e.message,'error'); document.getElementById('cod-note').innerHTML='<span style="color:var(--red)">取込失敗: '+escapeHtml(e.message)+'</span>'; }
-}
-
-// ── 仕訳生成（あなたのExcel「仕訳帳」形式・諸口999ハブ）──
-const ACCT={130:{n:'PayPay銀行①',k:'資産'},162:{n:'売掛金',k:'資産'},111:{n:'現金(仙台)',k:'資産'},637:{n:'支払手数料',k:'費用'},810:{n:'受取利息',k:'収益'},999:{n:'諸口',k:'清算'}};
-function jl(date,dC,cC,amt,tax,store,memo){ const taxin=tax==='課10%'; const zei=taxin?amt-Math.round(amt/1.1):0; return {date,dC,dN:ACCT[dC].n,cC,cN:ACCT[cC].n,amt,tax,invoice:taxin?'適格':'',net:amt-zei,zei,store:store||'',memo,kbn:ACCT[dC].k}; }
-function buildJournalsFromBank(){
-  const J=[];
-  (S.bankEntries||[]).forEach(b=>{
-    const d=b.date;
-    if(b.kind==='対象外'&&/利息/.test(b.name)) J.push(jl(d,130,810,b.amount,'対象外','','受取利息'));
-    else if(b.kind==='現金/ATM') J.push(jl(d,130,111,b.amount,'対象外','','現金売上預入'));
-    else if(b.kind==='通常入金') J.push(jl(d,130,162,b.amount,'対象外',b.name,'売掛回収 '+(b.name||'')));
-    else if(b.kind==='代引き入金'){
-      if(b.cod){ const net=b.amount, daibiki=b.cod.daibiki, fee=daibiki-net;
-        J.push(jl(d,130,999,net,'対象外',b.cod.store,'代引入金 '+b.cod.carrier));
-        if(fee>0) J.push(jl(d,637,999,fee,'課10%',b.cod.store,'代引・振込手数料 '+b.cod.carrier));
-        J.push(jl(d,999,162,daibiki,'対象外',b.cod.store,'売掛回収(代引) '+b.cod.store));
-      } else J.push(jl(d,130,999,b.amount,'対象外',b.name,'★代引(明細未照合・要確認) '+(b.name||'')));
-    }
-  });
-  J.forEach((j,i)=>j.no=i+1);
-  return J;
-}
-function dlJournalCsv(){
-  const J=buildJournalsFromBank();
-  if(!J.length) return toast('対象の入金がありません（先に通帳を取込んでください）','error');
-  const head=['No.','日付','借方コード','借方科目','貸方コード','貸方科目','金額(税込)','税区分','インボイス','税抜','消費税','店舗名','摘要','借方区分'];
-  const rows=[head];
-  J.forEach(j=>rows.push([j.no,j.date,j.dC,j.dN,j.cC,j.cN,j.amt,j.tax,j.invoice,j.net,j.zei,j.store,j.memo,j.kbn]));
-  const csv='\ufeff'+rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
-  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='仕訳_貼付用.csv'; a.click();
-  toast(`✓ 仕訳 ${J.length}行を出力`);
-}
-
 function renderBank(){
   if (!document.getElementById('bk-date').value){
     document.getElementById('bk-date').value = today();
@@ -1094,7 +912,7 @@ function renderBank(){
       <td class="col-amt" style="color:var(--grn)">¥${fmt(b.amount)}</td>
       <td>${b.matchedTo ? `<span class="badge bd-paid">✓ ${escapeHtml(b.matchedTo)}</span>` : '<span class="badge bd-pending">未マッチ</span>'}</td>
       <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(b.note || '')}</td>
-      <td><button class="act-btn" onclick="openRecon('${escapeHtml(b.id)}')">消込</button><button class="act-btn dn" onclick="deleteBank('${escapeHtml(b.id)}')">削</button></td>
+      <td><button class="act-btn dn" onclick="deleteBank('${escapeHtml(b.id)}')">削</button></td>
     </tr>
   `).join('');
 }
@@ -1123,114 +941,30 @@ function addBankEntry(){
   renderBank();
 }
 
-// ── 入金消し込み（顧客の未収を別枠表示→選択充当）──
-function _kana(s){
-  s = String(s||'').normalize('NFKC').replace(/^振込\s*/,'').replace(/[\s.・]/g,'')
-        .replace(/[(（](カ|ｶ|株|有|ﾕ).*$/,'').replace(/[株有（）()]/g,'').toLowerCase();
-  s = s.replace(/[ぁ-ん]/g, c => String.fromCharCode(c.charCodeAt(0)+0x60)); // ひら→カタ
-  const sm='ァィゥェォッャュョヮヵヶ', lg='アイウエオツヤユヨワカケ';
-  s = s.replace(/[ァィゥェォッャュョヮヵヶ]/g, c => lg[sm.indexOf(c)] || c);  // 小カナ→大カナ
-  return s;
-}
-function _custByName(name){
-  const p = _kana(name);
-  if (!p) return null;
-  for (const c of (S.customers||[])){
-    const aliases = [].concat(c.bankNames||[], c.name?[c.name]:[]).filter(Boolean);
-    for (const a of aliases){
-      const an = _kana(a);
-      if (an && (p.includes(an) || an.includes(p))) return c;
-    }
-  }
-  return null;
-}
-function _openOrdersFor(custName){
-  return (S.orders||[]).filter(o =>
-    o.payStatus !== '集金済み' && o.payStatus !== '入金済み' && (o.store||'') === custName
-  ).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-}
-function _markPaidByBank(o, b){
-  o.payStatus='入金済み'; o.paidAt=b.date; o.paidBy='通帳:'+(b.name||''); o.bankRef=b.id;
-  if (S.gasUrl) gasPost({ action:'updatePayStatus', orderId:o.id, payStatus:'入金済み', collector:'', collectedDate:b.date });
-}
-
-let _reconBankId = null;
-function openRecon(bankId){
-  const b=(S.bankEntries||[]).find(x=>x.id===bankId); if(!b) return;
-  _reconBankId=bankId;
-  const matchName = b.codStore || b.name;                 // 代引きは明細の店舗名で顧客特定
-  const targetAmt = b.cod ? b.cod.daibiki : b.amount;     // 代引きは代引金（満額）で売掛を消す
-  const cust=_custByName(matchName);
-  const orders = cust ? _openOrdersFor(cust.name) : [];
-  // 自動候補：ちょうど一致を最優先、なければ古い順に積んで対象額以下
-  const pre=new Set();
-  const exact=orders.find(o=>calcAmt(o)===targetAmt);
-  if (exact) pre.add(exact.id);
-  else { let acc=0; for(const o of orders){ const a=calcAmt(o); if(acc+a<=targetAmt){ pre.add(o.id); acc+=a; } } }
-  const codInfo = b.cod ? ` ｜ 代引金 ¥${fmt(b.cod.daibiki)}（手数料・税 ¥${fmt(b.cod.daibiki-b.amount)}）` : '';
-  document.getElementById('recon-head').innerHTML =
-    `入金 ${escapeHtml(b.date)} <b>${escapeHtml(matchName||'不明')}</b> ¥${fmt(b.amount)}${codInfo} → 顧客 <b>${escapeHtml(cust?cust.name:'(未特定)')}</b>・未収 ${orders.length}件`;
-  const tb=document.getElementById('recon-tbody');
-  if (orders.length===0) tb.innerHTML=`<tr><td colspan="5"><div class="empty">未収取引なし（顧客未特定の可能性。振込名義の登録をご確認ください）</div></td></tr>`;
-  else tb.innerHTML=orders.map(o=>{
-    const items=Object.entries(o.items||{}).filter(([,q])=>q>0).map(([p,q])=>`${p}×${q}`).join(', ');
-    return `<tr>
-      <td><input type="checkbox" class="recon-chk" value="${escapeHtml(o.id)}" ${pre.has(o.id)?'checked':''} onchange="reconSum()"></td>
-      <td>${escapeHtml(o.date||'')}</td>
-      <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(items)}</td>
-      <td class="col-amt">¥${fmt(calcAmt(o))}</td>
-      <td><span class="badge bd-unpaid">${escapeHtml(o.payStatus||'未収')}</span></td>
-    </tr>`;
-  }).join('');
-  document.getElementById('recon-panel').style.display='';
-  reconSum();
-}
-function reconSum(){
-  const b=(S.bankEntries||[]).find(x=>x.id===_reconBankId); if(!b) return;
-  const target = b.cod ? b.cod.daibiki : b.amount;
-  const ids=[...document.querySelectorAll('.recon-chk:checked')].map(c=>c.value);
-  const sel=ids.reduce((s,id)=>{const o=(S.orders||[]).find(x=>x.id===id);return s+(o?calcAmt(o):0);},0);
-  const diff=target-sel;
-  document.getElementById('recon-sum').innerHTML=
-    `選択 ${ids.length}件 合計 ¥${fmt(sel)} ／ ${b.cod?'代引金':'入金'} ¥${fmt(target)} ／ 差額 <b style="color:${diff===0?'var(--grn)':'var(--red)'}">¥${fmt(diff)}</b>`+
-    (diff===0?'（ピッタリ一致）':(diff>0?'（残り：未充当）':'（選択が超過）'));
-}
-function applyRecon(){
-  if (!canEdit()) return toast('🔒 編集権限がありません','error');
-  const b=(S.bankEntries||[]).find(x=>x.id===_reconBankId); if(!b) return;
-  const ids=[...document.querySelectorAll('.recon-chk:checked')].map(c=>c.value);
-  if (ids.length===0) return toast('充当する取引を選択してください','error');
-  let n=0;
-  ids.forEach(id=>{ const o=(S.orders||[]).find(x=>x.id===id); if(o){ _markPaidByBank(o,b); n++; } });
-  const cust=_custByName(b.name);
-  b.matchedTo=`${cust?cust.name:(b.name||'')} ${n}件`;
-  saveState();
-  toast(`✓ ${n}件にこの入金を充当（入金済み）`);
-  closeRecon(); renderBank(); updateKPI();
-}
-function closeRecon(){ _reconBankId=null; const p=document.getElementById('recon-panel'); if(p) p.style.display='none'; }
-
 function autoMatch(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   let matched = 0;
   (S.bankEntries || []).forEach(b => {
     if (b.matchedTo) return;
-    const cust = _custByName(b.name);
-    if (!cust) return;
-    const orders = _openOrdersFor(cust.name);
-    const exactMatches = orders.filter(o => calcAmt(o) === b.amount);
-    const sumAll = orders.reduce((s,o)=>s+calcAmt(o),0);
-    let target = null;
-    if (exactMatches.length === 1) target = [exactMatches[0]];        // 同額が一意のときだけ自動
-    else if (orders.length>0 && sumAll === b.amount) target = orders;  // 全未収がちょうど一致
-    if (target){
-      target.forEach(o => _markPaidByBank(o, b));
-      b.matchedTo = `${cust.name} ${target.length}件`;
-      matched += target.length;
+    // 振込人名と金額が一致する未収注文を探す
+    const candidates = (S.orders || []).filter(o => {
+      if (o.payStatus === '集金済み' || o.payStatus === '入金済み') return false;
+      if (calcAmt(o) !== b.amount) return false;
+      const storeKey = (o.store || '').toLowerCase();
+      const nameKey  = (b.name || '').toLowerCase();
+      return nameKey.includes(storeKey) || storeKey.includes(nameKey);
+    });
+    if (candidates.length === 1){
+      const o = candidates[0];
+      o.payStatus = '入金済み';
+      o.paidAt = b.date;
+      o.paidBy = '通帳マッチ';
+      b.matchedTo = `注文 ${o.id}`;
+      matched++;
     }
   });
   saveState();
-  toast(matched > 0 ? `✓ ${matched}件を自動マッチ（残りは各行「消込」で手動選択）` : '自動一致なし。各入金の「消込」で手動選択してください');
+  toast(matched > 0 ? `✓ ${matched}件をマッチ` : '一致する組み合わせが見つかりませんでした');
   renderBank();
   updateKPI();
 }
@@ -1273,7 +1007,7 @@ function renderHistory(){
 
   const tbody = document.getElementById('ht-tbody');
   if (list.length === 0){
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-icon">📋</div>入金履歴がありません</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">📋</div>入金履歴がありません</div></td></tr>`;
     return;
   }
   tbody.innerHTML = list.map(o => `
@@ -1282,7 +1016,6 @@ function renderHistory(){
       <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(o.date || '')}</td>
       <td>${escapeHtml(o.store || '')}</td>
       <td style="font-size:.72rem">${escapeHtml(o.payMethod || '')}</td>
-      <td style="font-size:.7rem;color:var(--wh2)">${escapeHtml(o.paidBy || (o.collector?('集金:'+o.collector):'') || '')}</td>
       <td class="col-amt" style="color:var(--grn)">¥${fmt(calcAmt(o))}</td>
     </tr>
   `).join('');
@@ -1298,5 +1031,11 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
+<script>
+/* 別PC・別ブラウザでも起動時にスプレッドシートから自動読込（URLは既定値を内蔵） */
+window.addEventListener('DOMContentLoaded', function(){
+  if (typeof syncFromGAS === 'function') { try { syncFromGAS(); } catch(e){} }
+});
+</script>
 </body>
 </html>
