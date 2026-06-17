@@ -145,6 +145,108 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 </style>
 </head>
 <body>
+<!-- ▼ copy-protection (auto-embedded) ▼ -->
+<script>
+/* ============================================================
+   Sclass 営業システム コピー対策モジュール（4点セット）
+   © minacel2026 / Sclass — 無断複製・再配布を禁止します
+   各HTMLの <body> 直後に script タグで囲って貼り付けてください
+   ============================================================ */
+(function(){
+  "use strict";
+  var PROTECT = window.PROTECT = {
+    OWNER:   'minacel2026',
+    SYSTEM:  'Sclass-Lambo',
+    BUILD:   '2026-06-17',
+    WMID:    'SCLASS-mqhnot4m-20tkul',                 // ← この端末固有の透かしID（変更不要）
+    GAS_URL: 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
+    ALLOWED: ['minacel2026.github.io'], // ← 自分の本番ドメイン（独自ドメインがあれば追加）
+    SECRET_KEY: '',                  // ← 空=無効。GAS側 SECRET_KEY と同じ文字列を入れると有効化
+    HARD_BLOCK: false                // true=許可外ドメインで画面を停止 / false=通知のみ（推奨: まず false）
+  };
+
+  // ── ① 不可視ウォーターマーク（ゼロ幅文字で WMID を埋め込む）──
+  // ゼロ幅: ZWSP(\u200b)=0bit, ZWNJ(\u200c)=1bit, 区切りに WJ(\u2060)
+  function wmEncode(s){
+    var bits='', out=[];
+    for (var i=0;i<s.length;i++){ var b=s.charCodeAt(i).toString(2); while(b.length<8)b='0'+b; bits+=b; }
+    for (var j=0;j<bits.length;j++){ out.push(bits[j]==='0'?'\u200b':'\u200c'); }
+    return '\u2060'+out.join('')+'\u2060';
+  }
+  function wmDecode(z){
+    z=String(z).replace(/[^\u200b\u200c]/g,''); var bits='';
+    for (var i=0;i<z.length;i++){ bits+= z[i]==='\u200b'?'0':'1'; }
+    var s=''; for (var k=0;k+8<=bits.length;k+=8){ s+=String.fromCharCode(parseInt(bits.substr(k,8),2)); }
+    return s;
+  }
+  PROTECT.wmDecode = wmDecode; // 盗用調査時: PROTECT.wmDecode(疑わしいDOM文字列) でWMIDを抽出
+  try {
+    var tag = PROTECT.OWNER+'|'+PROTECT.SYSTEM+'|'+PROTECT.WMID;
+    var holder = document.createElement('span');
+    holder.setAttribute('data-x','');                 // 目立たない属性
+    holder.style.cssText='position:absolute;left:-9999px;width:0;height:0;overflow:hidden';
+    holder.textContent = wmEncode(tag);               // 不可視文字のみ（画面に出ない）
+    (document.body||document.documentElement).appendChild(holder);
+    PROTECT._wm = tag;
+  } catch(e){}
+
+  // ── ② ビーコン（読み込み時に1回、稼働ドメイン等をGASへ通知）──
+  function beacon(kind){
+    try {
+      var q = '?action=beacon'
+        + '&kind='+encodeURIComponent(kind||'load')
+        + '&host='+encodeURIComponent(location.hostname)
+        + '&href='+encodeURIComponent(location.href.slice(0,300))
+        + '&wm='+encodeURIComponent(PROTECT.WMID)
+        + '&ref='+encodeURIComponent((document.referrer||'').slice(0,200))
+        + '&ua='+encodeURIComponent((navigator.userAgent||'').slice(0,200))
+        + '&t='+Date.now();
+      new Image().src = PROTECT.GAS_URL + q;           // CORS回避（画像GET）
+    } catch(e){}
+  }
+
+  // ── ③ ドメインロック（許可ドメイン外を検知）──
+  var host = location.hostname || '';
+  var isLocal = (host===''||host==='localhost'||host==='127.0.0.1'||location.protocol==='file:');
+  var allowed = isLocal || PROTECT.ALLOWED.some(function(h){ return host===h || host.endsWith('.'+h); });
+  beacon(allowed ? 'load' : 'ALERT-unauthorized-host');
+  if (!allowed && PROTECT.HARD_BLOCK){
+    try {
+      document.documentElement.innerHTML =
+        '<div style="font-family:sans-serif;padding:40px;text-align:center;color:#333">'
+        +'<h2>このアプリは許可されたサイトでのみ動作します</h2>'
+        +'<p>無断複製された可能性があります。</p></div>';
+    } catch(e){}
+    throw new Error('unauthorized host');
+  }
+
+  // ── ④ 秘密キー自動付与（GAS呼び出しに key を付ける／fetchをラップ）──
+  if (window.fetch){
+    var _f = window.fetch.bind(window);
+    window.fetch = function(input, init){
+      try {
+        var KEY = PROTECT.SECRET_KEY;
+        if (KEY){
+          var url = (typeof input==='string') ? input : (input && input.url) || '';
+          if (url && url.indexOf('script.google.com')>=0){
+            var m = (init && init.method) ? String(init.method).toUpperCase() : 'GET';
+            if (m==='GET'){
+              if (url.indexOf('key=')<0){ url += (url.indexOf('?')>=0?'&':'?')+'key='+encodeURIComponent(KEY); }
+              if (typeof input==='string') input=url; else input=new Request(url, input);
+            } else if (init && typeof init.body==='string'){
+              try { var b=JSON.parse(init.body); if (b && typeof b==='object' && b.key===undefined){ b.key=KEY; init=Object.assign({},init,{body:JSON.stringify(b)}); } } catch(e2){}
+            }
+          }
+        }
+      } catch(e){}
+      return _f(input, init);
+    };
+  }
+})();
+
+</script>
+<!-- ▲ copy-protection ▲ -->
+
 
 <header>
   <a href="portal.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:inherit" title="ポータルへ戻る">
