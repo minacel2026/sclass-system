@@ -609,6 +609,11 @@ async function syncFromGAS(){
   toast('同期中...');
   const cust = await gasGet('getCustomers');
   if (cust && cust.customers) S.customers = cust.customers;
+  const ords = await gasGet('getOrders');
+  if (ords && ords.orders) {
+    const _nd = function(d){ if(!d) return ''; const s=String(d); const m=s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/); return m ? (m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2)+s.slice(m[0].length)) : s; };
+    S.orders = ords.orders.map(function(o){ o.date = _nd(o.date); if(!o.timestamp) o.timestamp = o.date; return o; });
+  }
   const stock = await gasGet('getStock');
   if (stock && stock.stock){
     stock.stock.forEach(s => {
