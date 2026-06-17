@@ -404,7 +404,7 @@ const COST  = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
 const S = {
   branch:'both', orders:[], customers:[], staff:[],
   stock:{仙台:{}, 京都:{}}, slog:[], invoices:[],
-  dailyReps:[], gasUrl: localStorage.getItem('gasUrl') || '',
+  dailyReps:[], gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
 };
 
 function today(){ return new Date().toISOString().slice(0,10); }

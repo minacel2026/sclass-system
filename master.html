@@ -3439,10 +3439,8 @@ async function importHistoricalOrders(){
 }
 </script>
 <script>
-/* 別PC・別ブラウザでも起動時にスプレッドシートから自動読込（URLは既定値を内蔵） */
-window.addEventListener('DOMContentLoaded', function(){
-  if (typeof syncAllFromGAS === 'function') { try { syncAllFromGAS(); } catch(e){} }
-});
+/* 別PCでも起動時にスプレッドシートから自動読込 */
+window.addEventListener('DOMContentLoaded', function(){ if (typeof syncAllFromGAS === 'function') { try { syncAllFromGAS(); } catch(e){} } });
 </script>
 </body>
 </html>

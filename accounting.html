@@ -478,7 +478,7 @@ const S = {
   bankEntries:[], company:{}, products:null,
   purchases:[], cashEntries:[], expenses:[], pettyEntries:[],
   amexEntries:[], payables:[], dailyReps:[],
-  gasUrl: localStorage.getItem('gasUrl') || '',
+  gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
 };
 
 function today(){ return new Date().toISOString().slice(0,10); }
@@ -516,7 +516,7 @@ function loadState(){
       const v = localStorage.getItem('lmb_' + k);
       if (v) try { S[k] = JSON.parse(v); } catch(e){}
     });
-    S.gasUrl = localStorage.getItem('gasUrl') || '';
+    S.gasUrl = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
   } catch(e){ console.warn('loadState error', e); }
 }
 

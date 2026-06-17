@@ -344,7 +344,7 @@ const S = {
   suppliers:['マルシェジャパン','オーク酒販'],
   cashEntries:[],       // 現金出納帳
   dailyReps:[],         // 営業日報
-  gasUrl: localStorage.getItem('gasUrl') || '',
+  gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
 };
 
 // ─── 共通ヘルパー関数 ───────────────────────────────
@@ -396,7 +396,7 @@ function loadState() {
         try { S[k] = JSON.parse(v); } catch(e) {}
       }
     });
-    S.gasUrl = localStorage.getItem('gasUrl') || '';
+    S.gasUrl = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
   } catch(e) { console.warn('loadState error', e); }
 }
 
@@ -578,7 +578,7 @@ updateStatus();
 // ─── 新規注文アラート（受発注と同じ判定: GAS getNewOrders + 既読ID） ───
 (async function(){
   try {
-    const gas = localStorage.getItem('gasUrl') || '';
+    const gas = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
     if (!gas) return;                                          // GAS未設定なら何もしない
     const since = localStorage.getItem('lmb_lastSeenOrderId') || '';
     async function check(){
