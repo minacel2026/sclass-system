@@ -899,6 +899,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     <div class="action-bar">
       <span style="color:var(--wh2);font-size:.8rem">全<span id="prod-count">0</span>商品</span>
       <div>
+        <button class="btn btn-p" onclick="addProduct()">＋ 商品を追加</button>
         <button class="btn btn-g" onclick="resetProducts()">🔄 初期値に戻す</button>
         <button class="btn btn-p" onclick="saveProducts()">保存</button>
       </div>
@@ -916,6 +917,8 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
             <th style="width:110px;text-align:right">旧売値</th>
             <th style="width:90px;text-align:right">補充閾値</th>
             <th style="width:80px">粗利率</th>
+            <th style="width:56px">色</th>
+            <th style="width:56px">操作</th>
           </tr>
         </thead>
         <tbody id="prod-tbody"></tbody>
@@ -1285,6 +1288,8 @@ async function syncAllFromGAS(){
   if (stf && stf.staff) S.staff = stf.staff;
   const co = await gasGet('getCompany');
   if (co && co.company && Object.keys(co.company).length) S.company = co.company;
+  const prd = await gasGet('getProducts');
+  if (prd && prd.products && prd.products.length) S.products = prd.products;
   saveState();
   localStorage.setItem('lmb_lastSync', new Date().toISOString());
   toast('✓ 同期完了');
@@ -2906,11 +2911,11 @@ function saveCompany(){
 <!-- ═══ 商品マスター ═══ -->
 <script>
 function renderProducts(){
-  // S.products 優先、なければ PROD_LIST 初期値
   const list = (S.products && S.products.length > 0) ? S.products : PROD_LIST.map(p => ({...p}));
-  // 互換性: 既存データに priceOld がない場合は補完
   list.forEach(p => {
     if (p.priceOld === undefined || p.priceOld === null) p.priceOld = p.price || 0;
+    if (p.costOld  === undefined || p.costOld  === null) p.costOld  = p.cost  || 0;
+    if (!p.color) p.color = '#C9A84C';
   });
   document.getElementById('prod-count').textContent = list.length;
   const tbody = document.getElementById('prod-tbody');
@@ -2919,32 +2924,43 @@ function renderProducts(){
     return `
     <tr data-idx="${i}">
       <td style="color:var(--wh3);font-family:'Bebas Neue',sans-serif;text-align:center">${i+1}</td>
-      <td style="color:var(--gold-l);font-weight:500">${escapeHtml(p.name)}</td>
-      <td style="color:var(--wh2);font-size:.72rem">${escapeHtml(p.category || '—')}</td>
+      <td><input type="text" value="${escapeHtml(p.name||'')}" data-field="name" data-idx="${i}" style="width:120px"></td>
+      <td><input type="text" value="${escapeHtml(p.category||'')}" data-field="category" data-idx="${i}" style="width:90px"></td>
       <td><input type="number" value="${p.cost}" data-field="cost" data-idx="${i}" step="100"></td>
       <td><input type="number" value="${p.costOld != null ? p.costOld : p.cost}" data-field="costOld" data-idx="${i}" step="100"></td>
       <td><input type="number" value="${p.price}" data-field="price" data-idx="${i}" step="100"></td>
       <td><input type="number" value="${p.priceOld}" data-field="priceOld" data-idx="${i}" step="100"></td>
       <td><input type="number" value="${p.reorder}" data-field="reorder" data-idx="${i}" min="0"></td>
       <td style="color:${margin>=50?'var(--grn)':'var(--org)'};font-family:'Bebas Neue',sans-serif;text-align:center">${margin}%</td>
+      <td style="text-align:center"><input type="color" value="${escapeHtml(p.color||'#C9A84C')}" data-field="color" data-idx="${i}" style="width:38px;height:26px;padding:0;border:none;background:none;cursor:pointer"></td>
+      <td style="text-align:center"><button class="btn btn-g" style="padding:2px 8px" onclick="deleteProduct(${i})">🗑</button></td>
     </tr>`;
   }).join('');
 }
 
 function saveProducts(){
   if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
+  const base = (S.products && S.products.length > 0) ? S.products.map(p => ({...p})) : PROD_LIST.map(p => ({...p}));
   const tbody = document.getElementById('prod-tbody');
-  const list = (S.products && S.products.length > 0) ? [...S.products] : PROD_LIST.map(p => ({...p}));
-  // 数値フィールド（cost / price / priceOld / reorder）
-  tbody.querySelectorAll('input').forEach(inp => {
-    const idx   = parseInt(inp.dataset.idx);
-    const field = inp.dataset.field;
-    const val   = parseFloat(inp.value) || 0;
-    if (list[idx]) list[idx][field] = val;
+  tbody.querySelectorAll('tr[data-idx]').forEach(tr => {
+    const idx = parseInt(tr.dataset.idx);
+    if (!base[idx]) base[idx] = {};
+    tr.querySelectorAll('input').forEach(inp => {
+      const field = inp.dataset.field;
+      if (field === 'cost' || field === 'costOld' || field === 'price' || field === 'priceOld' || field === 'reorder') {
+        base[idx][field] = parseFloat(inp.value) || 0;
+      } else {
+        base[idx][field] = inp.value;   // name / category / color
+      }
+    });
+    base[idx].name = (base[idx].name || '').trim();
+    base[idx].key = base[idx].name;
   });
+  const list = base.filter(p => (p.name || '').trim() !== '');
   S.products = list;
   saveState();
-  toast('✓ 商品マスターを保存しました');
+  if (S.gasUrl) gasPost({ action: 'saveProducts', products: list });
+  toast('✓ 商品マスターを保存しました（全端末に反映）');
   renderProducts();
 }
 
@@ -2954,6 +2970,23 @@ function resetProducts(){
   saveState();
   renderProducts();
   toast('✓ 初期値に戻しました');
+}
+
+function addProduct(){
+  if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
+  if (!S.products || S.products.length === 0) S.products = PROD_LIST.map(p => ({...p}));
+  S.products.push({ key:'新商品', name:'新商品', fullName:'', category:'', cost:0, costOld:0, price:0, priceOld:0, reorder:0, color:'#C9A84C', img:'' });
+  renderProducts();
+  toast('行を追加しました。内容を入力して「保存」を押してください');
+}
+
+function deleteProduct(idx){
+  if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
+  if (!S.products || S.products.length === 0) S.products = PROD_LIST.map(p => ({...p}));
+  const p = S.products[idx]; if (!p) return;
+  if (!confirm('「' + (p.name || '') + '」を削除しますか？\n「保存」を押すと全端末に反映されます。')) return;
+  S.products.splice(idx, 1);
+  renderProducts();
 }
 </script>
 
