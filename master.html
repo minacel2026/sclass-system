@@ -70,6 +70,20 @@ select.fc option{background:var(--d3)}
 /* ─── カードグリッド ─── */
 .cust-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
 .cust-card{background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:1rem;cursor:pointer;transition:all .25s;position:relative;overflow:hidden}
+/* ─── 商品一覧: スマホ=折り返しカード / PC=横一列 ─── */
+.prod-cards{display:flex;flex-direction:column;gap:8px}
+.prod-row{display:flex;flex-direction:column;gap:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px;cursor:pointer}
+.prod-row:hover{background:rgba(255,255,255,.07)}
+.prod-row .pr-main{display:flex;align-items:center;gap:8px;min-width:0}
+.prod-row .pr-name{flex:1;min-width:0;font-weight:600;color:var(--gold-l);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prod-row .pr-meta{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:.74rem;color:var(--wh2)}
+.prod-row .pr-actions{display:flex;gap:8px}
+@media(min-width:760px){
+  .prod-row{flex-direction:row;align-items:center;gap:16px}
+  .prod-row .pr-main{flex:1.1;min-width:0}
+  .prod-row .pr-meta{flex:2;flex-wrap:nowrap;gap:18px;white-space:nowrap}
+  .prod-row .pr-actions{flex:none;margin-left:auto}
+}
 /* ─── 顧客一覧テーブル（1行表示・横スクロール対応） ─── */
 .cust-table-wrap{width:100%;overflow-x:auto;border:1px solid rgba(201,168,76,.15);background:var(--d2)}
 .cust-table{width:100%;min-width:780px;border-collapse:collapse;font-size:.78rem}
@@ -2964,24 +2978,25 @@ function renderProducts(){
     return;
   }
   grid.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:8px">
+    <div class="prod-cards">
       ${filtered.map(p => {
         const margin = p.price > 0 ? Math.round((1 - p.cost/p.price) * 100) : 0;
         const enc = encodeURIComponent(p.name || '');
+        const mcol = margin>=50?'var(--grn)':'var(--org)';
         return `
-        <div onclick="openProduct('${enc}')" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px;cursor:pointer">
-          <div style="display:flex;align-items:center;gap:8px">
+        <div class="prod-row" onclick="openProduct('${enc}')">
+          <div class="pr-main">
             <span style="flex:none;width:14px;height:14px;border-radius:4px;background:${escapeHtml(p.color||'#C9A84C')}"></span>
-            <span style="flex:1;min-width:0;font-weight:600;color:var(--gold-l);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.name || '無名')}</span>
-            <span style="flex:none;font-size:.72rem;color:${margin>=50?'var(--grn)':'var(--org)'}">粗利 ${margin}%</span>
+            <span class="pr-name">${escapeHtml(p.name || '無名')}</span>
           </div>
-          <div style="display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:6px;font-size:.74rem;color:var(--wh2)">
+          <div class="pr-meta">
             <span>${escapeHtml(p.category || '—')}</span>
             <span>原価 ¥${Number(p.cost||0).toLocaleString()}</span>
             <span>売値 ¥${Number(p.price||0).toLocaleString()}</span>
             <span>補充 ${p.reorder||0}</span>
+            <span style="color:${mcol}">粗利 ${margin}%</span>
           </div>
-          <div style="display:flex;gap:8px;margin-top:8px" onclick="event.stopPropagation()">
+          <div class="pr-actions" onclick="event.stopPropagation()">
             <button class="ct-btn edit" onclick="openProduct('${enc}')">編集</button>
             <button class="ct-btn del" onclick="deleteProductByKey('${enc}')">削除</button>
           </div>
