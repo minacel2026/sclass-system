@@ -2964,30 +2964,29 @@ function renderProducts(){
     return;
   }
   grid.innerHTML = `
-    <div class="cust-table-wrap">
-      <table class="cust-table">
-        <thead><tr><th></th><th>商品名</th><th>カテゴリ</th><th>原価</th><th>売値</th><th>補充</th><th>粗利</th><th>操作</th></tr></thead>
-        <tbody>
-          ${filtered.map(p => {
-            const margin = p.price > 0 ? Math.round((1 - p.cost/p.price) * 100) : 0;
-            const enc = encodeURIComponent(p.name || '');
-            return `
-            <tr onclick="openProduct('${enc}')">
-              <td style="text-align:center"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${escapeHtml(p.color||'#C9A84C')}"></span></td>
-              <td class="ct-name">${escapeHtml(p.name || '無名')}</td>
-              <td>${escapeHtml(p.category || '—')}</td>
-              <td>¥${Number(p.cost||0).toLocaleString()}</td>
-              <td>¥${Number(p.price||0).toLocaleString()}</td>
-              <td>${p.reorder||0}</td>
-              <td style="color:${margin>=50?'var(--grn)':'var(--org)'}">${margin}%</td>
-              <td class="ct-actions" onclick="event.stopPropagation()">
-                <button class="ct-btn edit" onclick="openProduct('${enc}')">編集</button>
-                <button class="ct-btn del" onclick="deleteProductByKey('${enc}')">削除</button>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${filtered.map(p => {
+        const margin = p.price > 0 ? Math.round((1 - p.cost/p.price) * 100) : 0;
+        const enc = encodeURIComponent(p.name || '');
+        return `
+        <div onclick="openProduct('${enc}')" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px;cursor:pointer">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="flex:none;width:14px;height:14px;border-radius:4px;background:${escapeHtml(p.color||'#C9A84C')}"></span>
+            <span style="flex:1;min-width:0;font-weight:600;color:var(--gold-l);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.name || '無名')}</span>
+            <span style="flex:none;font-size:.72rem;color:${margin>=50?'var(--grn)':'var(--org)'}">粗利 ${margin}%</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:6px;font-size:.74rem;color:var(--wh2)">
+            <span>${escapeHtml(p.category || '—')}</span>
+            <span>原価 ¥${Number(p.cost||0).toLocaleString()}</span>
+            <span>売値 ¥${Number(p.price||0).toLocaleString()}</span>
+            <span>補充 ${p.reorder||0}</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px" onclick="event.stopPropagation()">
+            <button class="ct-btn edit" onclick="openProduct('${enc}')">編集</button>
+            <button class="ct-btn del" onclick="deleteProductByKey('${enc}')">削除</button>
+          </div>
+        </div>`;
+      }).join('')}
     </div>`;
 }
 
