@@ -892,37 +892,59 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
 
   <!-- ════════ 商品マスター ════════ -->
   <div id="m-products" class="mcon">
-    <div class="hint-box">
-      <strong>🍾 商品マスター</strong><br>
-      価格・原価・補充閾値を設定できます。ここで変更した内容は注文フォーム・在庫管理・分析に即時反映されます。
+    <div class="tbar">
+      <div class="tab active" onclick="switchProductTab('list',this)">一覧</div>
+      <div class="tab" onclick="switchProductTab('new',this)">＋ 新規登録</div>
     </div>
-    <div class="action-bar">
-      <span style="color:var(--wh2);font-size:.8rem">全<span id="prod-count">0</span>商品</span>
-      <div>
-        <button class="btn btn-p" onclick="addProduct()">＋ 商品を追加</button>
-        <button class="btn btn-g" onclick="resetProducts()">🔄 初期値に戻す</button>
-        <button class="btn btn-p" onclick="saveProducts()">保存</button>
+
+    <div id="prod-list" class="tcon active">
+      <div class="filter-bar">
+        <label>検索</label>
+        <input class="fc" id="pf-kw" placeholder="商品名・カテゴリ..." oninput="renderProducts()" style="width:220px">
+        <button class="btn btn-g" style="margin-left:auto" onclick="resetProducts()">🔄 初期値に戻す</button>
+        <span style="font-size:.72rem;color:var(--wh2)"><span id="prod-count">0</span> 商品</span>
       </div>
+      <div id="prod-grid" class="cust-grid"></div>
     </div>
-    <div style="overflow-x:auto">
-      <table class="prod-table">
-        <thead>
-          <tr>
-            <th style="width:40px">#</th>
-            <th style="min-width:130px">商品名</th>
-            <th style="min-width:100px">カテゴリ</th>
-            <th style="width:110px;text-align:right">原価(新)</th>
-            <th style="width:110px;text-align:right">原価(旧)</th>
-            <th style="width:110px;text-align:right">新売値</th>
-            <th style="width:110px;text-align:right">旧売値</th>
-            <th style="width:90px;text-align:right">補充閾値</th>
-            <th style="width:80px">粗利率</th>
-            <th style="width:56px">色</th>
-            <th style="width:56px">操作</th>
-          </tr>
-        </thead>
-        <tbody id="prod-tbody"></tbody>
-      </table>
+
+    <div id="prod-new" class="tcon">
+      <div class="action-bar">
+        <button class="btn-s" onclick="switchProductTab('list',document.querySelectorAll('#m-products .tab')[0])">← 一覧に戻る</button>
+        <span id="prod-edit-status" style="color:var(--gold-l);font-size:.8rem"></span>
+      </div>
+      <div class="form-panel">
+        <h3>商品情報</h3>
+        <div class="form-section">
+          <div class="form-section-title">▸ 基本情報</div>
+          <div class="frow">
+            <div class="fg"><label>商品名 <span class="req">*</span></label><input class="fc" id="pf-name" placeholder="例：イエロー"></div>
+            <div class="fg"><label>カテゴリ</label><input class="fc" id="pf-category" list="prod-cat-list" placeholder="例：スパークリング"></div>
+            <div class="fg fc-full"><label>表示名（任意）</label><input class="fc" id="pf-fullname" placeholder="例：001: Extra Brut（イエロー）"></div>
+          </div>
+          <datalist id="prod-cat-list"><option>スパークリング</option><option>スティルワイン</option><option>ギフト</option></datalist>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ 価格・原価</div>
+          <div class="frow">
+            <div class="fg"><label>原価（新）</label><input class="fc" id="pf-cost" type="number" min="0" step="100"></div>
+            <div class="fg"><label>原価（旧）</label><input class="fc" id="pf-costold" type="number" min="0" step="100"></div>
+            <div class="fg"><label>新売値</label><input class="fc" id="pf-price" type="number" min="0" step="100"></div>
+            <div class="fg"><label>旧売値</label><input class="fc" id="pf-priceold" type="number" min="0" step="100"></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ その他</div>
+          <div class="frow">
+            <div class="fg"><label>補充閾値</label><input class="fc" id="pf-reorder" type="number" min="0" step="1"></div>
+            <div class="fg"><label>色（注文ボタン用）</label><input class="fc" id="pf-color" type="color" value="#C9A84C" style="height:38px;padding:2px"></div>
+          </div>
+        </div>
+        <div class="faction">
+          <button class="btn btn-p" onclick="submitProductForm()">保存</button>
+          <button class="btn btn-g" onclick="clearProductForm()">クリア</button>
+          <button class="btn btn-dn" id="btn-prod-delete" style="display:none;margin-left:auto" onclick="deleteProductForm()">削除</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -2910,83 +2932,152 @@ function saveCompany(){
 
 <!-- ═══ 商品マスター ═══ -->
 <script>
-function renderProducts(){
-  const list = (S.products && S.products.length > 0) ? S.products : PROD_LIST.map(p => ({...p}));
-  list.forEach(p => {
-    if (p.priceOld === undefined || p.priceOld === null) p.priceOld = p.price || 0;
-    if (p.costOld  === undefined || p.costOld  === null) p.costOld  = p.cost  || 0;
-    if (!p.color) p.color = '#C9A84C';
-  });
-  document.getElementById('prod-count').textContent = list.length;
-  const tbody = document.getElementById('prod-tbody');
-  tbody.innerHTML = list.map((p,i) => {
-    const margin = p.price > 0 ? Math.round((1 - p.cost/p.price) * 100) : 0;
-    return `
-    <tr data-idx="${i}">
-      <td style="color:var(--wh3);font-family:'Bebas Neue',sans-serif;text-align:center">${i+1}</td>
-      <td><input type="text" value="${escapeHtml(p.name||'')}" data-field="name" data-idx="${i}" style="width:120px"></td>
-      <td><input type="text" value="${escapeHtml(p.category||'')}" data-field="category" data-idx="${i}" style="width:90px"></td>
-      <td><input type="number" value="${p.cost}" data-field="cost" data-idx="${i}" step="100"></td>
-      <td><input type="number" value="${p.costOld != null ? p.costOld : p.cost}" data-field="costOld" data-idx="${i}" step="100"></td>
-      <td><input type="number" value="${p.price}" data-field="price" data-idx="${i}" step="100"></td>
-      <td><input type="number" value="${p.priceOld}" data-field="priceOld" data-idx="${i}" step="100"></td>
-      <td><input type="number" value="${p.reorder}" data-field="reorder" data-idx="${i}" min="0"></td>
-      <td style="color:${margin>=50?'var(--grn)':'var(--org)'};font-family:'Bebas Neue',sans-serif;text-align:center">${margin}%</td>
-      <td style="text-align:center"><input type="color" value="${escapeHtml(p.color||'#C9A84C')}" data-field="color" data-idx="${i}" style="width:38px;height:26px;padding:0;border:none;background:none;cursor:pointer"></td>
-      <td style="text-align:center"><button class="btn btn-g" style="padding:2px 8px" onclick="deleteProduct(${i})">🗑</button></td>
-    </tr>`;
-  }).join('');
+let productEditingKey = null;
+
+function _prodList(){
+  return (S.products && S.products.length > 0) ? S.products : PROD_LIST.map(p => ({...p}));
 }
 
-function saveProducts(){
-  if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
-  const base = (S.products && S.products.length > 0) ? S.products.map(p => ({...p})) : PROD_LIST.map(p => ({...p}));
-  const tbody = document.getElementById('prod-tbody');
-  tbody.querySelectorAll('tr[data-idx]').forEach(tr => {
-    const idx = parseInt(tr.dataset.idx);
-    if (!base[idx]) base[idx] = {};
-    tr.querySelectorAll('input').forEach(inp => {
-      const field = inp.dataset.field;
-      if (field === 'cost' || field === 'costOld' || field === 'price' || field === 'priceOld' || field === 'reorder') {
-        base[idx][field] = parseFloat(inp.value) || 0;
-      } else {
-        base[idx][field] = inp.value;   // name / category / color
-      }
-    });
-    base[idx].name = (base[idx].name || '').trim();
-    base[idx].key = base[idx].name;
+function switchProductTab(name, el){
+  document.querySelectorAll('#m-products .tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#m-products .tcon').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('prod-' + name).classList.add('active');
+  if (name === 'list') renderProducts();
+}
+
+function renderProducts(){
+  const list = _prodList();
+  list.forEach(p => {
+    if (p.priceOld == null) p.priceOld = p.price || 0;
+    if (p.costOld  == null) p.costOld  = p.cost  || 0;
+    if (!p.color) p.color = '#C9A84C';
+    if (!p.key) p.key = p.name;
   });
-  const list = base.filter(p => (p.name || '').trim() !== '');
+  const kw = (document.getElementById('pf-kw') ? document.getElementById('pf-kw').value : '').trim().toLowerCase();
+  const filtered = list.filter(p => !kw || (`${p.name||''} ${p.category||''}`).toLowerCase().includes(kw));
+  const cnt = document.getElementById('prod-count'); if (cnt) cnt.textContent = filtered.length;
+  const grid = document.getElementById('prod-grid'); if (!grid) return;
+  if (filtered.length === 0){
+    grid.innerHTML = `<div class="empty"><div class="empty-icon">🍾</div><div>商品がありません</div>
+      <div style="font-size:.75rem;margin-top:.5rem;color:var(--wh3)">「＋ 新規登録」から追加してください</div></div>`;
+    return;
+  }
+  grid.innerHTML = `
+    <div class="cust-table-wrap">
+      <table class="cust-table">
+        <thead><tr><th></th><th>商品名</th><th>カテゴリ</th><th>原価</th><th>売値</th><th>補充</th><th>粗利</th><th>操作</th></tr></thead>
+        <tbody>
+          ${filtered.map(p => {
+            const margin = p.price > 0 ? Math.round((1 - p.cost/p.price) * 100) : 0;
+            const enc = encodeURIComponent(p.name || '');
+            return `
+            <tr onclick="openProduct('${enc}')">
+              <td style="text-align:center"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${escapeHtml(p.color||'#C9A84C')}"></span></td>
+              <td class="ct-name">${escapeHtml(p.name || '無名')}</td>
+              <td>${escapeHtml(p.category || '—')}</td>
+              <td>¥${Number(p.cost||0).toLocaleString()}</td>
+              <td>¥${Number(p.price||0).toLocaleString()}</td>
+              <td>${p.reorder||0}</td>
+              <td style="color:${margin>=50?'var(--grn)':'var(--org)'}">${margin}%</td>
+              <td class="ct-actions" onclick="event.stopPropagation()">
+                <button class="ct-btn edit" onclick="openProduct('${enc}')">編集</button>
+                <button class="ct-btn del" onclick="deleteProductByKey('${enc}')">削除</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function openProduct(enc){
+  const name = decodeURIComponent(enc);
+  const p = _prodList().find(x => (x.name || '') === name);
+  if (!p) return toast('商品が見つかりません', 'error');
+  productEditingKey = name;
+  const g = id => document.getElementById(id);
+  g('pf-name').value = p.name || '';
+  g('pf-category').value = p.category || '';
+  g('pf-fullname').value = p.fullName || '';
+  g('pf-cost').value = p.cost != null ? p.cost : '';
+  g('pf-costold').value = p.costOld != null ? p.costOld : '';
+  g('pf-price').value = p.price != null ? p.price : '';
+  g('pf-priceold').value = p.priceOld != null ? p.priceOld : '';
+  g('pf-reorder').value = p.reorder != null ? p.reorder : '';
+  g('pf-color').value = (p.color && /^#[0-9a-fA-F]{6}$/.test(p.color)) ? p.color : '#C9A84C';
+  g('prod-edit-status').textContent = '編集中: ' + (p.name || '');
+  g('btn-prod-delete').style.display = 'inline-block';
+  switchProductTab('new', document.querySelectorAll('#m-products .tab')[1]);
+}
+
+function clearProductForm(){
+  productEditingKey = null;
+  ['pf-name','pf-category','pf-fullname','pf-cost','pf-costold','pf-price','pf-priceold','pf-reorder'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  const c = document.getElementById('pf-color'); if (c) c.value = '#C9A84C';
+  document.getElementById('prod-edit-status').textContent = '';
+  document.getElementById('btn-prod-delete').style.display = 'none';
+}
+
+function _persistProducts(list){
   S.products = list;
   saveState();
   if (S.gasUrl) gasPost({ action: 'saveProducts', products: list });
-  toast('✓ 商品マスターを保存しました（全端末に反映）');
-  renderProducts();
+}
+
+function submitProductForm(){
+  if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
+  const g = id => (document.getElementById(id) || {}).value;
+  const name = (g('pf-name') || '').trim();
+  if (!name) return toast('商品名は必須です', 'error');
+  const num = v => parseFloat(v) || 0;
+  const prod = {
+    key: name, name: name,
+    category: (g('pf-category') || '').trim(),
+    fullName: (g('pf-fullname') || '').trim(),
+    cost: num(g('pf-cost')), costOld: num(g('pf-costold')),
+    price: num(g('pf-price')), priceOld: num(g('pf-priceold')),
+    reorder: num(g('pf-reorder')),
+    color: g('pf-color') || '#C9A84C', img: ''
+  };
+  if (prod.costOld === 0)  prod.costOld  = prod.cost;
+  if (prod.priceOld === 0) prod.priceOld = prod.price;
+  const list = _prodList().map(p => ({...p}));
+  if (productEditingKey){
+    const idx = list.findIndex(p => (p.name || '') === productEditingKey);
+    if (idx >= 0) list[idx] = prod; else list.push(prod);
+  } else {
+    if (list.find(p => (p.name || '') === name)) return toast('同じ商品名が既にあります', 'error');
+    list.push(prod);
+  }
+  _persistProducts(list);
+  toast(productEditingKey ? '✓ 更新しました（全端末に反映）' : '✓ 登録しました（全端末に反映）');
+  clearProductForm();
+  switchProductTab('list', document.querySelectorAll('#m-products .tab')[0]);
+}
+
+function deleteProductForm(){
+  if (productEditingKey) deleteProductByKey(encodeURIComponent(productEditingKey));
+}
+
+function deleteProductByKey(enc){
+  if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
+  const name = decodeURIComponent(enc);
+  if (!confirm('「' + name + '」を削除しますか？\n全端末に反映されます。')) return;
+  const list = _prodList().map(p => ({...p})).filter(p => (p.name || '') !== name);
+  _persistProducts(list);
+  toast('✓ 削除しました');
+  clearProductForm();
+  switchProductTab('list', document.querySelectorAll('#m-products .tab')[0]);
 }
 
 function resetProducts(){
   if (!confirm('商品マスターを初期値に戻しますか？\n現在の編集内容は失われます。')) return;
   S.products = null;
   saveState();
+  if (S.gasUrl) gasPost({ action: 'saveProducts', products: PROD_LIST.map(p => ({...p})) });
   renderProducts();
   toast('✓ 初期値に戻しました');
-}
-
-function addProduct(){
-  if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
-  if (!S.products || S.products.length === 0) S.products = PROD_LIST.map(p => ({...p}));
-  S.products.push({ key:'新商品', name:'新商品', fullName:'', category:'', cost:0, costOld:0, price:0, priceOld:0, reorder:0, color:'#C9A84C', img:'' });
-  renderProducts();
-  toast('行を追加しました。内容を入力して「保存」を押してください');
-}
-
-function deleteProduct(idx){
-  if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
-  if (!S.products || S.products.length === 0) S.products = PROD_LIST.map(p => ({...p}));
-  const p = S.products[idx]; if (!p) return;
-  if (!confirm('「' + (p.name || '') + '」を削除しますか？\n「保存」を押すと全端末に反映されます。')) return;
-  S.products.splice(idx, 1);
-  renderProducts();
 }
 </script>
 
