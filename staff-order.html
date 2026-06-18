@@ -82,6 +82,8 @@ let selCust = null;
 const qty = {};   // 商品名 -> 数量
 let sponsorData = null;        // 協賛残数 {ok,custId,byProduct,total}
 const spQty = {};              // 協賛(無料) 商品名 -> 数量
+let spPending = {};            // 今回の購入で付与される協賛(商品別)
+let spAuto = {};               // 即時反映で自動追加した本数(手動調整保持用)
 
 function esc(t){ return String(t==null?'':t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 const yen = n => '¥' + Math.round(Number(n)||0).toLocaleString();
@@ -152,12 +154,13 @@ async function pickCust(i){
   selCust = CUSTOMERS[i];
   Object.keys(qty).forEach(k => delete qty[k]);
   Object.keys(spQty).forEach(k => delete spQty[k]);
+  spPending = {}; spAuto = {};
   sponsorData = null;
   renderOrderStep();
   // この顧客の協賛残数を取得（無料注文用）
   try {
     const sp = await fetch(GAS_URL + '?action=getSponsorByStore&store=' + encodeURIComponent(selCust.name) + '&_=' + Date.now(), { cache:'no-store' }).then(r => r.json());
-    if (sp && sp.ok && sp.total > 0){ sponsorData = sp; renderSponsorSection(); }
+    if (sp && sp.ok){ sponsorData = sp; spRecompute(); renderSponsorSection(); }
   } catch(e){}
 }
 
@@ -199,19 +202,89 @@ function chg(name, d){
   if (nv === 0) delete qty[name]; else qty[name] = nv;
   const el = document.getElementById('q-' + name);
   if (el) el.textContent = nv;
+  spRecompute();            // 購入で付与される協賛を再計算・自動追加
+  renderSponsorSection();
   updateTotal();
+}
+// 協賛ルールが有効か（状態・期限）
+function spRuleActive(srule){
+  const en = String((srule && (srule.enabled || srule.status)) || '有効');
+  if (en === '無効' || en === '停止' || en === '終了') return false;
+  const t = new Date().toISOString().slice(0,10);
+  const nd = d => d ? String(d).slice(0,10).replace(/\//g,'-') : '';
+  const sd = nd(srule.startDate), ed = nd(srule.endDate);
+  if (sd && sd > t) return false;
+  if (ed && ed < t) return false;
+  return true;
+}
+// 今回の購入(qty)で付与される協賛本数（計算のみ）
+function spCalcPending(){
+  const rules = (sponsorData && sponsorData.sponsorRules) || [];
+  const res = {};
+  rules.forEach(srule => {
+    if (!spRuleActive(srule)) return;
+    const trig = parseInt(srule.triggerQty) || 0; if (!trig) return;
+    const rq = parseInt(srule.rewardQty) || 1;
+    const tp = srule.targetProduct || 'all';
+    const rp = (srule.rewardProduct && srule.rewardProduct !== 'same') ? srule.rewardProduct : null;
+    const grant = (prod, buyQ) => {
+      const pts = Math.floor(Math.abs(buyQ || 0) / trig) * rq;
+      if (!pts) return;
+      const key = rp || prod;
+      res[key] = (res[key] || 0) + pts;
+    };
+    if (tp === 'all') Object.keys(qty).forEach(p => grant(p, qty[p]));
+    else grant(tp, qty[tp] || 0);
+  });
+  return res;
+}
+// 利用可能な協賛 = 既存残数 ＋（即時反映ONなら）今回付与分
+function spAvail(){
+  const bal = (sponsorData && sponsorData.byProduct) || {};
+  const pend = (sponsorData && sponsorData.sponsorInstant) ? spPending : {};
+  const out = {};
+  Object.keys(bal).concat(Object.keys(pend)).forEach(p => {
+    const v = (bal[p] || 0) + (pend[p] || 0);
+    if (v > 0) out[p] = v;
+  });
+  return out;
+}
+// 即時反映: 購入数の変化に応じ今回付与を再計算し、無料分を自動追加（手動分は保持）
+function spRecompute(){
+  if (!sponsorData || !sponsorData.sponsorInstant){ spPending = {}; return; }
+  spPending = spCalcPending();
+  const bal = sponsorData.byProduct || {};
+  const keys = {};
+  Object.keys(spPending).forEach(p => keys[p] = 1);
+  Object.keys(spAuto).forEach(p => keys[p] = 1);
+  Object.keys(keys).forEach(p => {
+    const want = spPending[p] || 0;
+    const prev = spAuto[p] || 0;
+    const delta = want - prev;
+    if (delta !== 0){
+      const avail = (bal[p] || 0) + want;
+      let nv = Math.max(0, Math.min(avail, (spQty[p] || 0) + delta));
+      if (nv === 0) delete spQty[p]; else spQty[p] = nv;
+      spAuto[p] = want;
+    }
+  });
 }
 function renderSponsorSection(){
   const wrap = document.getElementById('sp-wrap');
   if (!wrap) return;
-  if (!sponsorData || !(sponsorData.total > 0)){ wrap.innerHTML = ''; return; }
-  let html = '<div class="sp-box"><div class="sp-title">🎁 協賛で無料注文 <span class="sp-rem">残 ' + sponsorData.total + '本</span></div>'
-    + '<div class="sp-note">この顧客の協賛分。無料（¥0）で追加され、通常注文とは別に加算されます。</div>';
-  Object.keys(sponsorData.byProduct).forEach(p => {
-    const n = esc(p); const bal = sponsorData.byProduct[p];
+  const avail = spAvail();
+  const prods = Object.keys(avail);
+  let totalAvail = 0; prods.forEach(p => totalAvail += avail[p]);
+  if (totalAvail <= 0){ wrap.innerHTML = ''; return; }
+  const pendTotal = Object.keys(spPending).reduce((a,p) => a + (spPending[p] || 0), 0);
+  let html = '<div class="sp-box"><div class="sp-title">🎁 協賛で無料注文 <span class="sp-rem">利用可 ' + totalAvail + '本</span></div>'
+    + '<div class="sp-note">この顧客の協賛分。無料（¥0）で追加され、通常注文とは別に加算されます。'
+    + ((sponsorData && sponsorData.sponsorInstant && pendTotal > 0) ? ('<br>今回の注文で <b style="color:#d7b8e8">' + pendTotal + '本</b> が付与されます（即時反映）。') : '') + '</div>';
+  prods.forEach(p => {
+    const n = esc(p); const bal = avail[p];
     html += '<div class="prow">'
       + '<span class="dot" style="background:#9b59b6"></span>'
-      + '<div class="pn"><div class="t">' + n + '</div><div class="p">残 ' + bal + '本·¥0</div></div>'
+      + '<div class="pn"><div class="t">' + n + '</div><div class="p">利用可 ' + bal + '本·¥0</div></div>'
       + '<div class="qty"><button onclick="spChg(\'' + n + '\',-1)">－</button>'
       + '<span class="v" id="sp-' + n + '">' + (spQty[p] || 0) + '</span>'
       + '<button onclick="spChg(\'' + n + '\',1)">＋</button></div></div>';
@@ -220,7 +293,8 @@ function renderSponsorSection(){
   wrap.innerHTML = html;
 }
 function spChg(name, d){
-  const bal = (sponsorData && sponsorData.byProduct[name]) || 0;
+  const av = spAvail();
+  const bal = av[name] || 0;
   const nv = Math.min(bal, Math.max(0, (spQty[name] || 0) + d));
   if (nv === 0) delete spQty[name]; else spQty[name] = nv;
   const el = document.getElementById('sp-' + name);
