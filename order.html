@@ -719,6 +719,7 @@ async function init() {
     if (!stockApplied){ await loadStock(); }
     if (!customerFilled){ applyLockedStore(); fillCustomerFields(); }
 
+    await loadProducts();
     renderProducts();
     renderSponsor();
   } finally {
@@ -883,6 +884,24 @@ function applyStockData(arr){
     stock[s.branch][s.product] = parseInt(s.qty) || 0;
   });
 }
+async function loadProducts() {
+  try {
+    const r = await fetch(GAS_URL + '?action=getProducts&_=' + Date.now(), { cache: 'no-store' });
+    const d = await r.json();
+    const list = (d.products || []).filter(p => p && p.name && p.active !== false);
+    if (list.length) {
+      PRODUCTS.length = 0;
+      list.forEach(p => PRODUCTS.push({
+        name: p.name,
+        price: Number(p.price) || 0,
+        priceOld: Number(p.priceOld) || Number(p.price) || 0,
+        color: p.color || '#C9A84C',
+        img: p.img || ''
+      }));
+    }
+  } catch (e) { /* 失敗時は既定のPRODUCTSを使用 */ }
+}
+
 async function loadStock() {
   try {
     const r = await fetch(GAS_URL + '?action=getStock&_=' + Date.now(), { cache: 'no-store' });
@@ -928,7 +947,7 @@ function renderProducts() {
     const outOfStock = s <= 0;
     return `
     <div class="prod-card ${qty > 0 ? 'selected' : ''} ${outOfStock ? 'out-of-stock' : ''}" id="card-${p.name}">
-      <div style="width:8px;height:8px;border-radius:50%;background:${p.color};margin-bottom:6px"></div>
+      ${p.img ? `<img src="${p.img}" alt="${p.name}" style="width:100%;height:auto;border-radius:6px;margin-bottom:8px;display:block">` : `<div style="width:8px;height:8px;border-radius:50%;background:${p.color};margin-bottom:6px"></div>`}
       <div class="prod-name">${p.name}</div>
       <div class="prod-price">¥${lineCalc(p,1).subIncl.toLocaleString('ja-JP')}<span style="font-size:.6rem;color:var(--wh3)">税込</span></div>
       <div class="prod-stock ${s <= 5 && s > 0 ? 'low' : ''}">${outOfStock ? '在庫切れ' : s <= 5 ? `残り${s}本` : `在庫あり`}</div>
