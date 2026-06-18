@@ -385,6 +385,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>拠点</label><select class="fc" id="sk-br" onchange="renderOrders()"><option value="">全拠点</option><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>支払状況</label><select class="fc" id="sk-pay" onchange="renderOrders()"><option value="">すべて</option><option>未収</option><option>集金済み</option><option>売掛</option></select></div>
         <div class="fg"><label>ステータス</label><select class="fc" id="sk-st" onchange="renderOrders()"><option value="">すべて</option><option>新規受付</option><option>対応中</option><option>出荷済</option></select></div>
+        <div class="fg"><label>年で表示</label><select class="fc" id="sk-year" onchange="renderOrders()"><option value="">月別表示</option></select></div>
       </div>
     </div>
     <div class="summary-bar">
@@ -491,9 +492,9 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     </div>
     <div class="fp">
       <div class="frow">
-        <div class="fg"><label>拠点フィルタ</label><select class="fc" id="st-br" onchange="renderStock()"><option value="">両拠点</option><option>仙台</option><option>京都</option></select></div>
-        <div class="fg"><label>状態</label><select class="fc" id="st-state" onchange="renderStock()"><option value="">すべて</option><option value="low">補充警告のみ</option><option value="out">在庫切れのみ</option></select></div>
-        <div class="fg" style="grid-column:span 2"><label>&nbsp;</label><button class="btn-s" style="width:100%;padding:.42rem .65rem" onclick="migrateToReserve()" title="一度だけ実行：既存の未出荷注文の本数を実在庫へ戻し、引当方式へ移行します">⇄ 引当方式へ移行（初回のみ）</button></div>
+        <div class="fg"><label>拠点フィルタ</label><select class="fc" id="st-br" style="height:38px;box-sizing:border-box" onchange="renderStock()"><option value="">両拠点</option><option>仙台</option><option>京都</option></select></div>
+        <div class="fg"><label>状態</label><select class="fc" id="st-state" style="height:38px;box-sizing:border-box" onchange="renderStock()"><option value="">すべて</option><option value="low">補充警告のみ</option><option value="out">在庫切れのみ</option></select></div>
+        <div class="fg" style="grid-column:span 2"><label>&nbsp;</label><button class="btn-s" style="width:100%;height:38px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:.4rem;padding:0 .65rem" onclick="migrateToReserve()" title="一度だけ実行：既存の未出荷注文の本数を実在庫へ戻し、引当方式へ移行します">⇄ 引当方式へ移行（初回のみ）</button></div>
       </div>
     </div>
     <div class="stock-grid" id="stock-grid"></div>
@@ -913,6 +914,16 @@ let ordShowAll = false;
 function setOrderMonthToday(){ ordMonth = new Date(); ordShowAll = false; renderOrders(); }
 function shiftOrderMonth(n){ ordMonth = new Date(ordMonth.getFullYear(), ordMonth.getMonth() + n, 1); ordShowAll = false; renderOrders(); }
 function toggleOrderAll(){ ordShowAll = !ordShowAll; document.getElementById('ord-all-btn').textContent = ordShowAll ? '月別表示' : '全期間表示'; renderOrders(); }
+function populateOrderYears(){
+  const sel = document.getElementById('sk-year'); if (!sel) return;
+  const cur = sel.value;
+  const years = new Set();
+  (S.orders||[]).forEach(o => { const y=(o.date||'').slice(0,4); if(/^\d{4}$/.test(y)) years.add(y); });
+  years.add(String(new Date().getFullYear()));
+  const sorted = [...years].sort().reverse();
+  sel.innerHTML = '<option value="">月別表示</option>' + sorted.map(y=>`<option value="${y}">${y}年</option>`).join('');
+  if ([...sorted, ''].includes(cur)) sel.value = cur;
+}
 
 // ─── 全注文クリア（テストデータ一括削除。在庫の実数は変更しない＝引当のみ消える） ───
 // 全注文クリア用パスワードの簡易ハッシュ（平文をlocalStorageに残さない）
@@ -995,10 +1006,13 @@ function renderOrders(){
 
   const yr = ordMonth.getFullYear(), mo = ordMonth.getMonth();
   const mStr = `${yr}-${String(mo+1).padStart(2,'0')}`;
-  document.getElementById('ord-month-disp').textContent = `${yr}年${mo+1}月`;
+  populateOrderYears();
+  const yrSel = document.getElementById('sk-year')?.value || '';
+  document.getElementById('ord-month-disp').textContent = yrSel ? `${yrSel}年（年間）` : `${yr}年${mo+1}月`;
 
   let list = [...(S.orders || [])];
-  if (!ordShowAll) list = list.filter(o => (o.date || '').slice(0, 7) === mStr);
+  if (yrSel)            list = list.filter(o => (o.date || '').slice(0, 4) === yrSel);
+  else if (!ordShowAll) list = list.filter(o => (o.date || '').slice(0, 7) === mStr);
   if (kw)  list = list.filter(o => (`${o.store||''} ${o.staff||''} ${o.contact||''}`).toLowerCase().includes(kw));
   if (br)  list = list.filter(o => o.branch === br);
   if (pay) list = list.filter(o => o.payStatus === pay);
@@ -1475,7 +1489,7 @@ function showStoreSuggest(){
   storeSuggestIdx = -1;  // ハイライト位置をリセット
   const sugg = getStoreSuggestions(inp.value);
   if (!sugg.length){
-    box.innerHTML = '<div class="suggest-empty">候補なし（このまま新規店舗として入力できます）</div>';
+    box.innerHTML = '<div class="suggest-empty">該当なし（登録済みの顧客のみ注文できます。顧客マスターで登録してください）</div>';
     box.style.display = 'block';
     return;
   }
@@ -2130,6 +2144,7 @@ function submitNewOrder(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   const store = document.getElementById('no-store').value.trim();
   if (!store) return toast('店舗名を入力してください', 'error');
+  if (!editingOrderId && !(S.customers || []).some(x => (x.name||'') === store)) return toast('未登録の店舗です。先に顧客マスターで登録してください', 'error');
 
   const items = {};
   Object.entries(newOrderQty).forEach(([k,v]) => { if (v > 0) items[k] = v; });
