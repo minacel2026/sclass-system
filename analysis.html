@@ -64,6 +64,7 @@ main{padding:1.5rem 2rem;max-width:1500px;margin:0 auto}
 .fg label{font-size:.65rem;letter-spacing:.08em;color:var(--wh2)}
 .fg label .req{color:var(--red)}
 .fc{background:var(--d3);border:1px solid rgba(201,168,76,.22);color:var(--wh);padding:.42rem .65rem;font-family:'Noto Sans JP',sans-serif;font-size:.8rem;outline:none;transition:border-color .2s;width:100%}
+select.fc,input.fc{height:38px;box-sizing:border-box}
 .fc:focus{border-color:var(--gold)}
 select.fc option{background:var(--d3)}
 textarea.fc{resize:vertical}
@@ -286,7 +287,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>年</label><select class="fc" id="mn-year" onchange="renderMonthly()"></select></div>
         <div class="fg"><label>月</label><select class="fc" id="mn-month" onchange="renderMonthly()"></select></div>
         <div class="fg"><label>拠点</label><select class="fc" id="mn-branch" onchange="renderMonthly()"><option value="both">全拠点</option><option>仙台</option><option>京都</option></select></div>
-        <div class="fg"><label>&nbsp;</label><button class="btn btn-g" style="padding:.42rem 1.1rem;font-size:.8rem;box-sizing:border-box" onclick="exportMonthlyCSV()">📥 CSV出力</button></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn btn-g" style="width:100%;height:38px;padding:.42rem .65rem;font-size:.8rem;box-sizing:border-box;text-align:center;display:flex;align-items:center;justify-content:center" onclick="exportMonthlyCSV()">📥 CSV出力</button></div>
       </div>
     </div>
 
@@ -325,7 +326,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>年</label><select class="fc" id="an-year" onchange="renderAnnual()"></select></div>
         <div class="fg"><label>拠点</label><select class="fc" id="an-branch" onchange="renderAnnual()"><option value="both">全拠点</option><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>表示</label><select class="fc" id="an-mode" onchange="renderAnnual()"><option value="amount">売上金額</option><option value="qty">販売本数</option><option value="orders">注文件数</option><option value="profit">粗利</option></select></div>
-        <div class="fg"><label>&nbsp;</label><button class="btn btn-g" style="padding:.42rem 1.1rem;font-size:.8rem;box-sizing:border-box" onclick="exportAnnualCSV()">📥 CSV出力</button></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn btn-g" style="width:100%;height:38px;padding:.42rem .65rem;font-size:.8rem;box-sizing:border-box;text-align:center;display:flex;align-items:center;justify-content:center" onclick="exportAnnualCSV()">📥 CSV出力</button></div>
       </div>
     </div>
 
@@ -363,9 +364,13 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
           <option value="3m">直近3ヶ月</option>
           <option value="ytd">年初来</option>
           <option value="all">全期間</option>
+          <option value="fiscal">会計年度（4〜3月）</option>
+          <option value="calendar">暦年（1〜12月）</option>
           <option value="custom">任意期間（日付指定）</option>
         </select></div>
-        <div class="fg" id="rg-range-wrap" style="display:none"><label>開始〜終了</label><div style="display:flex;gap:6px;align-items:center"><input class="fc" id="rg-from" type="date" onchange="renderRegional()" style="flex:1"><span style="color:var(--wh3)">〜</span><input class="fc" id="rg-to" type="date" onchange="renderRegional()" style="flex:1"></div></div>
+        <div class="fg" id="rg-year-wrap" style="display:none"><label>年</label><select class="fc" id="rg-year" onchange="renderRegional()"></select></div>
+        <div class="fg" id="rg-from-wrap" style="display:none"><label>開始日</label><input class="fc" id="rg-from" type="date" onchange="renderRegional()"></div>
+        <div class="fg" id="rg-to-wrap" style="display:none"><label>終了日</label><input class="fc" id="rg-to" type="date" onchange="renderRegional()"></div>
         <div class="fg"><label>表示モード</label><select class="fc" id="rg-mode" onchange="renderRegional()">
           <option value="branch">拠点別</option>
           <option value="store">取引先別TOP20</option>
@@ -400,9 +405,13 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
           <option value="3m">直近3ヶ月</option>
           <option value="ytd">年初来</option>
           <option value="all">全期間</option>
+          <option value="fiscal">会計年度（4〜3月）</option>
+          <option value="calendar">暦年（1〜12月）</option>
           <option value="custom">任意期間（日付指定）</option>
         </select></div>
-        <div class="fg" id="pr-range-wrap" style="display:none"><label>開始〜終了</label><div style="display:flex;gap:6px;align-items:center"><input class="fc" id="pr-from" type="date" onchange="renderProduct()" style="flex:1"><span style="color:var(--wh3)">〜</span><input class="fc" id="pr-to" type="date" onchange="renderProduct()" style="flex:1"></div></div>
+        <div class="fg" id="pr-year-wrap" style="display:none"><label>年</label><select class="fc" id="pr-year" onchange="renderProduct()"></select></div>
+        <div class="fg" id="pr-from-wrap" style="display:none"><label>開始日</label><input class="fc" id="pr-from" type="date" onchange="renderProduct()"></div>
+        <div class="fg" id="pr-to-wrap" style="display:none"><label>終了日</label><input class="fc" id="pr-to" type="date" onchange="renderProduct()"></div>
         <div class="fg"><label>並び替え</label><select class="fc" id="pr-sort" onchange="renderProduct()">
           <option value="amount">売上順</option>
           <option value="qty">本数順</option>
@@ -470,7 +479,13 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
           <option value="30">直近1ヶ月</option>
           <option value="90">直近3ヶ月</option>
           <option value="all">全期間</option>
+          <option value="fiscal">会計年度（4〜3月）</option>
+          <option value="calendar">暦年（1〜12月）</option>
+          <option value="custom">任意期間（日付指定）</option>
         </select></div>
+        <div class="fg" id="dr-year-wrap" style="display:none"><label>年</label><select class="fc" id="dr-year" onchange="renderDailyRep()"></select></div>
+        <div class="fg" id="dr-from-wrap" style="display:none"><label>開始日</label><input class="fc" id="dr-from" type="date" onchange="renderDailyRep()"></div>
+        <div class="fg" id="dr-to-wrap" style="display:none"><label>終了日</label><input class="fc" id="dr-to" type="date" onchange="renderDailyRep()"></div>
         <div class="fg"><label>拠点</label><select class="fc" id="dr-fbranch" onchange="renderDailyRep()"><option value="">全拠点</option><option>仙台</option><option>京都</option><option>両拠点</option></select></div>
       </div>
     </div>
@@ -616,7 +631,7 @@ function switchModule(name, el){
 }
 
 // 期間でフィルタするユーティリティ
-function filterByPeriod(orders, period, fromDate, toDate){
+function filterByPeriod(orders, period, fromDate, toDate, year){
   const now = new Date();
   if (period === 'month'){
     const m = now.toISOString().slice(0,7);
@@ -638,6 +653,12 @@ function filterByPeriod(orders, period, fromDate, toDate){
   if (period === 'custom'){
     const f = fromDate || '0000-00-00';
     const t = toDate || '9999-99-99';
+    return orders.filter(o => { const d = (o.date || ''); return d && d >= f && d <= t; });
+  }
+  if (period === 'fiscal' || period === 'calendar'){
+    const Y = parseInt(year) || now.getFullYear();
+    const f = (period === 'fiscal') ? (Y + '-04-01') : (Y + '-01-01');
+    const t = (period === 'fiscal') ? ((Y + 1) + '-03-31') : (Y + '-12-31');
     return orders.filter(o => { const d = (o.date || ''); return d && d >= f && d <= t; });
   }
   return orders;
@@ -675,6 +696,19 @@ function initMonthlySelectors(){
       aySel.appendChild(opt);
     }
   }
+
+  // 分析タブ（地域・商品・日報）の「年」セレクタ
+  ['rg-year','pr-year','dr-year'].forEach(function(id){
+    const sel = document.getElementById(id);
+    if (sel && sel.options.length === 0){
+      for (let y = cy + 1; y >= cy - 4; y--){
+        const o = document.createElement('option');
+        o.value = y; o.textContent = y + '年';
+        if (y === cy) o.selected = true;
+        sel.appendChild(o);
+      }
+    }
+  });
 }
 
 function renderMonthly(){
@@ -912,16 +946,20 @@ function exportAnnualCSV(){
 function renderRegional(){
   const period = document.getElementById('rg-period').value;
   const mode = document.getElementById('rg-mode').value;
-  const _rw = document.getElementById('rg-range-wrap'); if (_rw) _rw.style.display = (period === 'custom') ? '' : 'none';
-  if (period === 'custom'){
+  const _isCustom = (period === 'custom'), _needYear = (period === 'fiscal' || period === 'calendar');
+  { const e=document.getElementById('rg-from-wrap'); if(e) e.style.display=_isCustom?'':'none'; }
+  { const e=document.getElementById('rg-to-wrap');   if(e) e.style.display=_isCustom?'':'none'; }
+  { const e=document.getElementById('rg-year-wrap'); if(e) e.style.display=_needYear?'':'none'; }
+  if (_isCustom){
     const _f = document.getElementById('rg-from'), _t = document.getElementById('rg-to');
     if (_f && !_f.value) _f.value = new Date().getFullYear() + '-01-01';
     if (_t && !_t.value) _t.value = new Date().toISOString().slice(0,10);
   }
   const _from = document.getElementById('rg-from') ? document.getElementById('rg-from').value : '';
   const _to   = document.getElementById('rg-to')   ? document.getElementById('rg-to').value   : '';
+  const _yr   = document.getElementById('rg-year') ? (parseInt(document.getElementById('rg-year').value)||new Date().getFullYear()) : new Date().getFullYear();
 
-  let orders = filterByPeriod(S.orders || [], period, _from, _to);
+  let orders = filterByPeriod(S.orders || [], period, _from, _to, _yr);
 
   // KPI
   const totalSales = orders.reduce((s,o) => s + calcAmt(o), 0);
@@ -1064,16 +1102,20 @@ function renderProduct(){
   const period = document.getElementById('pr-period').value;
   const sortKey = document.getElementById('pr-sort').value;
   const br = document.getElementById('pr-branch').value;
-  const _rw = document.getElementById('pr-range-wrap'); if (_rw) _rw.style.display = (period === 'custom') ? '' : 'none';
-  if (period === 'custom'){
+  const _isCustom = (period === 'custom'), _needYear = (period === 'fiscal' || period === 'calendar');
+  { const e=document.getElementById('pr-from-wrap'); if(e) e.style.display=_isCustom?'':'none'; }
+  { const e=document.getElementById('pr-to-wrap');   if(e) e.style.display=_isCustom?'':'none'; }
+  { const e=document.getElementById('pr-year-wrap'); if(e) e.style.display=_needYear?'':'none'; }
+  if (_isCustom){
     const _f = document.getElementById('pr-from'), _t = document.getElementById('pr-to');
     if (_f && !_f.value) _f.value = new Date().getFullYear() + '-01-01';
     if (_t && !_t.value) _t.value = new Date().toISOString().slice(0,10);
   }
   const _from = document.getElementById('pr-from') ? document.getElementById('pr-from').value : '';
   const _to   = document.getElementById('pr-to')   ? document.getElementById('pr-to').value   : '';
+  const _yr   = document.getElementById('pr-year') ? (parseInt(document.getElementById('pr-year').value)||new Date().getFullYear()) : new Date().getFullYear();
 
-  let orders = filterByPeriod(S.orders || [], period, _from, _to);
+  let orders = filterByPeriod(S.orders || [], period, _from, _to, _yr);
   if (br !== 'both') orders = orders.filter(o => o.branch === br);
 
   // 商品別集計
@@ -1210,10 +1252,28 @@ function renderDailyRep(){
   let list = [...(S.dailyReps || [])];
   if (fStaff) list = list.filter(d => d.staff === fStaff);
   if (fBranch) list = list.filter(d => d.branch === fBranch);
-  if (fPeriod !== 'all'){
-    const days = parseInt(fPeriod);
-    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0,10);
-    list = list.filter(d => (d.date || '') >= cutoff);
+  {
+    const _isCustom = (fPeriod === 'custom'), _needYear = (fPeriod === 'fiscal' || fPeriod === 'calendar');
+    { const e=document.getElementById('dr-from-wrap'); if(e) e.style.display=_isCustom?'':'none'; }
+    { const e=document.getElementById('dr-to-wrap');   if(e) e.style.display=_isCustom?'':'none'; }
+    { const e=document.getElementById('dr-year-wrap'); if(e) e.style.display=_needYear?'':'none'; }
+    if (_isCustom){
+      const _f=document.getElementById('dr-from'), _t=document.getElementById('dr-to');
+      if(_f && !_f.value) _f.value = new Date().getFullYear()+'-01-01';
+      if(_t && !_t.value) _t.value = new Date().toISOString().slice(0,10);
+    }
+    if (fPeriod === 'all'){
+      // 全期間：絞り込みなし
+    } else if (_isCustom || _needYear){
+      const _yr = document.getElementById('dr-year') ? (parseInt(document.getElementById('dr-year').value)||new Date().getFullYear()) : new Date().getFullYear();
+      const _f = document.getElementById('dr-from') ? document.getElementById('dr-from').value : '';
+      const _t = document.getElementById('dr-to') ? document.getElementById('dr-to').value : '';
+      list = filterByPeriod(list, fPeriod, _f, _t, _yr);
+    } else {
+      const days = parseInt(fPeriod);
+      const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0,10);
+      list = list.filter(d => (d.date || '') >= cutoff);
+    }
   }
   list.sort((a,b) => (b.date || '').localeCompare(a.date || ''));
 
