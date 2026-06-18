@@ -659,9 +659,28 @@ async function init() {
       '<div style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);color:#C9A84C;font-size:.68rem;text-align:center;padding:6px;border-radius:6px;margin:8px 12px">⚠ ブラウザモードで動作中（LINE連携なし）</div>');
   }
 
+  // 商品マスター取得（写真含む）
+  await loadProducts();
   // 在庫取得
   await loadStock();
   renderProducts();
+}
+
+async function loadProducts() {
+  try {
+    const r = await fetch(GAS_URL + '?action=getProducts');
+    const d = await r.json();
+    const list = (d.products || []).filter(p => p && p.name && p.active !== false);
+    if (list.length) {
+      PRODUCTS.length = 0;
+      list.forEach(p => PRODUCTS.push({
+        name: p.name,
+        price: Number(p.price) || 0,
+        color: p.color || '#C9A84C',
+        img: p.img || ''
+      }));
+    }
+  } catch (e) { /* 失敗時は既定のPRODUCTSを使用 */ }
 }
 
 async function loadStock() {
@@ -698,7 +717,7 @@ function renderProducts() {
     const outOfStock = s <= 0;
     return `
     <div class="prod-card ${qty > 0 ? 'selected' : ''} ${outOfStock ? 'out-of-stock' : ''}" id="card-${p.name}">
-      <div style="width:8px;height:8px;border-radius:50%;background:${p.color};margin-bottom:6px"></div>
+      ${p.img ? `<img src="${p.img}" alt="${p.name}" style="width:100%;height:88px;object-fit:cover;border-radius:6px;margin-bottom:8px;display:block">` : `<div style="width:8px;height:8px;border-radius:50%;background:${p.color};margin-bottom:6px"></div>`}
       <div class="prod-name">${p.name}</div>
       <div class="prod-price">¥${Math.round(p.price * (parseFloat(window._custRate||'7')/10) * 1.1).toLocaleString('ja-JP', {maximumFractionDigits:0})}<span style="font-size:.6rem;color:var(--wh3)">税込</span></div>
       <div class="prod-stock ${s <= 5 && s > 0 ? 'low' : ''}">${outOfStock ? '在庫切れ' : s <= 5 ? `残り${s}本` : `在庫あり`}</div>
