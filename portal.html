@@ -16,6 +16,48 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 
+<!-- OneSignal Web Push（アプリアイコンの赤バッジ通知） -->
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.SCLASS_OS_APPID = localStorage.getItem('oneSignalAppId') || 'YOUR_ONESIGNAL_APP_ID';
+  OneSignalDeferred.push(async function(OneSignal){
+    try {
+      if (window.SCLASS_OS_APPID && window.SCLASS_OS_APPID.indexOf('YOUR_') !== 0){
+        await OneSignal.init({
+          appId: window.SCLASS_OS_APPID,
+          serviceWorkerPath: 'OneSignalSDKWorker.js',
+          serviceWorkerParam: { scope: './' },
+          allowLocalhostAsSecureOrigin: true
+        });
+      }
+    } catch(e){}
+  });
+  // 「通知をON」ボタン（端末ごとに1回・ユーザー操作で許可を出す＝iOS必須）
+  function sclassEnablePush(){
+    if (!window.SCLASS_OS_APPID || window.SCLASS_OS_APPID.indexOf('YOUR_') === 0){
+      alert('先に「設定」でOneSignalのApp IDを登録してください'); return;
+    }
+    window.OneSignalDeferred.push(async function(OneSignal){
+      try { await OneSignal.Notifications.requestPermission();
+        alert('✅ 通知を設定しました。新しい連絡があるとアイコンに件数が表示されます'); }
+      catch(e){ alert('通知の設定に失敗しました。ホーム画面に追加したアプリから開いて再度お試しください'); }
+    });
+  }
+  // アプリを開いている間：アイコンのバッジを件数（注文＋未登録）に同期
+  window._sclassBadge = { orders: 0, pending: 0 };
+  window.sclassSetBadge = function(n){
+    try {
+      if ('setAppBadge' in navigator){
+        if (n > 0) navigator.setAppBadge(n).catch(function(){}); else navigator.clearAppBadge().catch(function(){});
+      }
+    } catch(e){}
+  };
+  window.sclassUpdateBadge = function(){
+    window.sclassSetBadge((window._sclassBadge.orders || 0) + (window._sclassBadge.pending || 0));
+  };
+</script>
+
 <style>
 :root{
   --gold:#C9A84C;--gold-l:#E8C97A;--gold-d:#7A5C14;
@@ -225,6 +267,7 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
     <span id="clock"></span>
     <div style="display:flex;align-items:center;gap:.5rem;padding-left:.8rem;margin-left:.5rem;border-left:1px solid rgba(201,168,76,.2)">
       <span id="user-badge" style="font-size:.72rem;color:var(--gold-l)">—</span>
+      <button onclick="sclassEnablePush()" title="このアプリで通知を受け取る（端末ごとに1回）" style="margin-left:.6rem;font-size:.66rem;padding:.18rem .55rem;background:transparent;border:1px solid var(--gold);color:var(--gold-l);border-radius:6px;cursor:pointer;white-space:nowrap">🔔 通知をON</button>
       <button onclick="doLogout()" style="background:transparent;border:1px solid rgba(201,168,76,.25);color:var(--wh2);padding:.2rem .6rem;font-size:.65rem;cursor:pointer;font-family:'Noto Sans JP',sans-serif">ログアウト</button>
     </div>
   </div>
@@ -697,6 +740,7 @@ updateStatus();
       } catch(e) {}
     }
     function renderAlert(n){
+      window._sclassBadge.orders = n; if(window.sclassUpdateBadge) window.sclassUpdateBadge();
       // タイルバッジ
       const tile = document.getElementById('tile-sales');
       let badge = document.getElementById('order-badge');
@@ -747,6 +791,7 @@ updateStatus();
       } catch(e) {}
     }
     function renderPending(n){
+      window._sclassBadge.pending = n; if(window.sclassUpdateBadge) window.sclassUpdateBadge();
       const tile = document.getElementById('tile-master');
       let badge = document.getElementById('pending-badge');
       let banner = document.getElementById('pending-banner');

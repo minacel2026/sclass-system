@@ -313,6 +313,10 @@ textarea.fc{resize:vertical}
         <label>スプレッドシートID <span class="hint">URLの d/ と /edit の間</span></label>
         <input type="text" class="fc mono" id="sheet-id" placeholder="15PDRjw1QSJi0mXxpPNGHHvu--HTFJ3q-0bEsDpFLJbs">
       </div>
+      <div class="fg">
+        <label>OneSignal App ID <span class="hint">アプリアイコンの通知バッジ用（任意）</span></label>
+        <input type="text" class="fc mono" id="os-appid" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+      </div>
       <div class="faction">
         <button class="btn btn-p" onclick="saveGasSettings()">保存</button>
         <button class="btn btn-g" onclick="testGasConnection()">🔌 接続テスト</button>
@@ -762,6 +766,7 @@ function updateProgress(){
 function loadGasSettings(){
   document.getElementById('gas-url').value = S.gasUrl || '';
   document.getElementById('sheet-id').value = S.sheetId || '';
+  document.getElementById('os-appid').value = localStorage.getItem('oneSignalAppId') || '';
   document.getElementById('webhook-url').value = S.gasUrl || '';
 }
 
@@ -776,6 +781,7 @@ function saveGasSettings(){
   S.sheetId = sid;
   localStorage.setItem('gasUrl', url);
   localStorage.setItem('lmb_sheetId', sid);
+  localStorage.setItem('oneSignalAppId', (document.getElementById('os-appid').value || '').trim());
   document.getElementById('webhook-url').value = url;
   toast('✓ 保存しました');
   updateProgress();
