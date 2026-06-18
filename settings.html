@@ -25,9 +25,9 @@
   --line:#06C755;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bk);color:var(--wh);font-family:'Noto Sans JP',sans-serif;font-weight:300;min-height:100vh}
+body{background:var(--bk);color:var(--wh);font-family:'Noto Sans JP',sans-serif;font-weight:300;min-height:100vh;padding-top:56px}
 
-header{background:linear-gradient(180deg,#0e0c06,var(--d1));border-bottom:1px solid var(--gold-d);height:56px;display:flex;align-items:center;padding:0 1.2rem;position:sticky;top:0;z-index:200;gap:1rem}
+header{background:linear-gradient(180deg,#0e0c06,var(--d1));border-bottom:1px solid var(--gold-d);height:56px;display:flex;align-items:center;padding:0 1.2rem;position:fixed;top:0;left:0;right:0;z-index:200;gap:1rem}
 .logo-mark{width:28px;height:28px;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold);transform:rotate(45deg);flex-shrink:0;cursor:pointer;transition:all .15s}
 .logo-mark span{transform:rotate(-45deg)}
 header a:hover .logo-mark{background:rgba(201,168,76,.15);border-color:var(--gold-l)}
@@ -1116,7 +1116,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <script>
 // ポータルのチップから #ハッシュ指定でタブ直行（例: settings.html#gas）
 window.addEventListener('DOMContentLoaded', function(){
-  var mods=['gas','gascode','line','liff','rmenu','etc'];
+  var mods=['gas','gascode','line','liff','rmenu','oplog','etc'];
   var h=(location.hash||'').replace('#','');
   var i=mods.indexOf(h);
   if(i>=0){ try{ switchModule(mods[i], document.querySelectorAll('.mtab')[i]); }catch(e){} }

@@ -69,7 +69,7 @@
 body{background:var(--bk);color:var(--wh);font-family:'Noto Sans JP',sans-serif;font-weight:300;min-height:100vh}
 
 /* ─── ヘッダー ─── */
-header{background:linear-gradient(180deg,#0e0c06,var(--d1));border-bottom:1px solid var(--gold-d);padding:1.5rem 2rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:200}
+header{background:linear-gradient(180deg,#0e0c06,var(--d1));border-bottom:1px solid var(--gold-d);padding:1.5rem 2rem;display:flex;align-items:center;gap:1rem;position:fixed;top:0;left:0;right:0;z-index:200}
 .logo-mark{width:42px;height:42px;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--gold);transform:rotate(45deg);flex-shrink:0;cursor:pointer;transition:all .15s}
 .logo-mark span{transform:rotate(-45deg)}
 header a:hover .logo-mark{background:rgba(201,168,76,.15);border-color:var(--gold-l)}
@@ -421,13 +421,14 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
       <a class="tile gray" href="settings.html">
         <div class="tile-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
         <div class="tile-name">GAS・LINE設定</div>
-        <div class="tile-desc">GAS URL・Webhook・LIFF ID・リッチメニュー</div>
+        <div class="tile-desc">GAS URL・Webhook・LIFF ID・リッチメニュー・操作履歴</div>
         <div style="display:flex;gap:.4rem;margin-top:.6rem;flex-wrap:wrap">
           <span class="tile-chip c5" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#gas'">GAS設定</span>
           <span class="tile-chip c6" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#gascode'">GASコード</span>
           <span class="tile-chip c6" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#line'">LINE設定</span>
           <span class="tile-chip c6" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#liff'">LIFF登録</span>
           <span class="tile-chip c7" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#rmenu'">リッチメニュー</span>
+          <span class="tile-chip c5" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#oplog'">操作履歴</span>
           <span class="tile-chip" onclick="event.preventDefault();event.stopPropagation();location.href='settings.html#etc'">その他</span>
         </div>
         <div class="tile-foot">settings.html</div>
@@ -837,6 +838,10 @@ updateStatus();
     setInterval(checkPending, 60000);
   } catch(e) {}
 })();
+</script>
+<script>
+(function(){function p(){var h=document.querySelector('header');if(h)document.body.style.paddingTop=h.offsetHeight+'px';}
+window.addEventListener('DOMContentLoaded',p);window.addEventListener('load',p);window.addEventListener('resize',p);})();
 </script>
 </body>
 </html>
