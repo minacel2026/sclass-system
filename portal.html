@@ -580,6 +580,7 @@ async function gasGet(action, params) {
 }
 
 async function gasPost(data) {
+  try{ if(typeof currentUser!=='undefined'&&currentUser){ if(!data._actor)data._actor=currentUser.name; if(!data._actorBranch)data._actorBranch=currentUser.branch||''; } }catch(e){}
   if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
   try {
     await fetch(S.gasUrl, {
@@ -652,8 +653,21 @@ function updateUserBadge(){
 }
 
 // ─── ログアウト ─────
+function logOp(op,target,detail){
+  try{
+    var u=(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'';
+    var b=(typeof currentUser!=='undefined'&&currentUser&&currentUser.branch)||'';
+    var gas=(typeof S!=='undefined'&&S&&S.gasUrl)||localStorage.getItem('gasUrl')||'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
+    if(!gas) return;
+    fetch(gas+'?action=logOp&user='+encodeURIComponent(u)+'&op='+encodeURIComponent(op||'')+'&target='+encodeURIComponent(target||'')+'&detail='+encodeURIComponent(detail||'')+'&branch='+encodeURIComponent(b),{keepalive:true,mode:'no-cors'}).catch(function(){});
+  }catch(e){}
+}
+
+// ログイン記録（このセッションで一度だけ）
+try{ if(!sessionStorage.getItem('lmb_login_logged')){ logOp('ログイン','',''); sessionStorage.setItem('lmb_login_logged','1'); } }catch(e){}
 function doLogout(){
   if (confirm('ログアウトしますか？')) {
+    try{ logOp('ログアウト','',''); }catch(e){}
     sessionStorage.removeItem('lmb_current_user');
     location.href = 'login.html';
   }

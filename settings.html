@@ -152,6 +152,12 @@ textarea.fc{resize:vertical}
 .tabs-wrap::before{content:'\2039';left:0;justify-content:flex-start;padding-left:8px;background:linear-gradient(270deg,transparent,var(--d2) 78%)}
 .tabs-wrap.more-right::after{opacity:1}
 .tabs-wrap.more-left::before{opacity:1}
+
+/* ─── 携帯: 広い表を詰めて収まりやすく ─── */
+@media(max-width:560px){
+  .tw table,.cust-table-wrap table,.prod-table-wrap table{font-size:.72rem}
+  .tw th,.tw td,.cust-table-wrap th,.cust-table-wrap td,.prod-table-wrap th,.prod-table-wrap td{padding:.3rem .42rem}
+}
 </style>
 </head>
 <body>
@@ -306,6 +312,7 @@ textarea.fc{resize:vertical}
     <button class="mtab" onclick="switchModule('line',this)"><span class="mtab-ic">💬</span>LINE設定</button>
     <button class="mtab" onclick="switchModule('liff',this)"><span class="mtab-ic">📱</span>LIFF登録</button>
     <button class="mtab" onclick="switchModule('rmenu',this)"><span class="mtab-ic">🍱</span>リッチメニュー</button>
+    <button class="mtab" onclick="switchModule('oplog',this)"><span class="mtab-ic">📋</span>操作履歴</button>
     <button class="mtab" onclick="switchModule('etc',this)"><span class="mtab-ic">🔧</span>その他</button>
   </div>
 
@@ -590,6 +597,33 @@ textarea.fc{resize:vertical}
   </div>
 
   <!-- ════════ その他 ════════ -->
+  <!-- ════════ 操作履歴 ════════ -->
+  <div id="m-oplog" class="mcon">
+    <div class="fp">
+      <h3>📋 操作履歴</h3>
+      <div class="tip"><strong>スタッフの操作ログ</strong>（顧客・在庫・商品・注文の変更、入金/出荷の状態変更、ログイン/ログアウト）を新しい順に表示します。記録はスプレッドシートの「操作履歴」シートにも残ります。</div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:.7rem 0">
+        <button onclick="loadOpLog()" style="background:var(--gold);color:#1a1200;border:none;padding:.45rem .9rem;border-radius:4px;cursor:pointer;font-size:.74rem;font-weight:700;font-family:'Noto Sans JP',sans-serif">🔄 更新</button>
+        <select class="fc" id="oplog-op" style="width:auto" onchange="renderOpLog()"><option value="">操作：すべて</option></select>
+        <input class="fc" id="oplog-kw" style="width:auto;flex:1;min-width:140px" placeholder="スタッフ名・店名で絞り込み" oninput="renderOpLog()">
+        <span id="oplog-count" style="font-size:.7rem;color:var(--wh3)"></span>
+      </div>
+      <div class="tw" style="overflow:auto;max-height:62vh;border:1px solid rgba(201,168,76,.15)">
+        <table style="width:100%;border-collapse:collapse;font-size:.74rem">
+          <thead><tr style="position:sticky;top:0;background:var(--d2);z-index:1">
+            <th style="text-align:left;padding:.45rem">日時</th>
+            <th style="text-align:left;padding:.45rem">スタッフ</th>
+            <th style="text-align:left;padding:.45rem">操作</th>
+            <th style="text-align:left;padding:.45rem">対象</th>
+            <th style="text-align:left;padding:.45rem">内容</th>
+            <th style="text-align:left;padding:.45rem">支店</th>
+          </tr></thead>
+          <tbody id="oplog-body"><tr><td colspan="6" style="padding:1rem;color:var(--wh3)">「🔄 更新」を押すと読み込みます</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div id="m-etc" class="mcon">
     <div class="fp">
       <h3>🌐 公開URL設定</h3>
@@ -697,8 +731,18 @@ function updateUserBadge(){
   badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name} (${currentUser.role})`;
 }
 
+function logOp(op,target,detail){
+  try{
+    var u=(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'';
+    var b=(typeof currentUser!=='undefined'&&currentUser&&currentUser.branch)||'';
+    var gas=(typeof S!=='undefined'&&S&&S.gasUrl)||localStorage.getItem('gasUrl')||'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
+    if(!gas) return;
+    fetch(gas+'?action=logOp&user='+encodeURIComponent(u)+'&op='+encodeURIComponent(op||'')+'&target='+encodeURIComponent(target||'')+'&detail='+encodeURIComponent(detail||'')+'&branch='+encodeURIComponent(b),{keepalive:true,mode:'no-cors'}).catch(function(){});
+  }catch(e){}
+}
 function doLogout(){
   if (confirm('ログアウトしますか？')) {
+    try{ logOp('ログアウト','',''); }catch(e){}
     sessionStorage.removeItem('lmb_current_user');
     location.href = 'login.html';
   }
@@ -716,6 +760,7 @@ function switchModule(name, el){
 
   if (name === 'gascode') loadGasCode();
   if (name === 'etc') updateSysInfo();
+  if (name === 'oplog') loadOpLog();
 }
 
 // 進捗ステップ更新
@@ -845,6 +890,42 @@ function appendSyncLog(msg){
 <script>
 let gasCodeCache = null;
 
+let _opLogData = [];
+async function loadOpLog(){
+  const body = document.getElementById('oplog-body');
+  if (!S.gasUrl){ body.innerHTML = '<tr><td colspan="6" style="padding:1rem;color:var(--wh3)">先に「GAS設定」タブでURLを設定してください</td></tr>'; return; }
+  body.innerHTML = '<tr><td colspan="6" style="padding:1rem;color:var(--wh3)">読み込み中…</td></tr>';
+  try{
+    const r = await fetch(S.gasUrl + '?action=getOperationLog&limit=500');
+    const d = await r.json();
+    _opLogData = (d && d.log) ? d.log : [];
+    const sel = document.getElementById('oplog-op'); const cur = sel.value;
+    const ops = Array.from(new Set(_opLogData.map(x=>x.op).filter(Boolean)));
+    sel.innerHTML = '<option value="">操作：すべて</option>' + ops.map(o=>'<option value="'+escapeHtml(o)+'">'+escapeHtml(o)+'</option>').join('');
+    sel.value = cur;
+    renderOpLog();
+  }catch(e){
+    body.innerHTML = '<tr><td colspan="6" style="padding:1rem;color:#e57373">取得に失敗しました。GASを最新版で「新しいバージョン」として再デプロイ済みかご確認ください。</td></tr>';
+  }
+}
+function renderOpLog(){
+  const body = document.getElementById('oplog-body'); if (!body) return;
+  const kw = (document.getElementById('oplog-kw').value || '').trim();
+  const op = document.getElementById('oplog-op').value || '';
+  let rows = _opLogData;
+  if (op) rows = rows.filter(r => String(r.op||'') === op);
+  if (kw) rows = rows.filter(r => (String(r.user||'')+' '+String(r.target||'')+' '+String(r.detail||'')+' '+String(r.branch||'')).indexOf(kw) >= 0);
+  document.getElementById('oplog-count').textContent = rows.length + '件';
+  if (!rows.length){ body.innerHTML = '<tr><td colspan="6" style="padding:1rem;color:var(--wh3)">該当なし</td></tr>'; return; }
+  body.innerHTML = rows.map(r =>
+    '<tr style="border-top:1px solid rgba(201,168,76,.1)">' +
+    '<td style="padding:.4rem;white-space:nowrap">'+escapeHtml(r.ts)+'</td>' +
+    '<td style="padding:.4rem">'+escapeHtml(r.user)+'</td>' +
+    '<td style="padding:.4rem">'+escapeHtml(r.op)+'</td>' +
+    '<td style="padding:.4rem">'+escapeHtml(r.target)+'</td>' +
+    '<td style="padding:.4rem">'+escapeHtml(r.detail)+'</td>' +
+    '<td style="padding:.4rem">'+escapeHtml(r.branch)+'</td></tr>').join('');
+}
 async function loadGasCode(){
   if (gasCodeCache) return;
   const display = document.getElementById('gas-code-display');
@@ -1045,7 +1126,7 @@ window.addEventListener('DOMContentLoaded', function(){
 <script>
 /* タブの横スクロール目印（フェード＋矢印） */
 function enhanceScrollTabs(){
-  document.querySelectorAll('.master-tabs').forEach(function(tabs){
+  document.querySelectorAll('.master-tabs, .tw, .cust-table-wrap, .prod-table-wrap').forEach(function(tabs){
     var wrap = tabs.parentElement;
     if(!wrap || !wrap.classList.contains('tabs-wrap')){
       wrap = document.createElement('div'); wrap.className='tabs-wrap';
