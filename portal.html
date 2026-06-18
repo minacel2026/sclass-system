@@ -69,7 +69,7 @@
 body{background:var(--bk);color:var(--wh);font-family:'Noto Sans JP',sans-serif;font-weight:300;min-height:100vh}
 
 /* ─── ヘッダー ─── */
-header{background:linear-gradient(180deg,#0e0c06,var(--d1));border-bottom:1px solid var(--gold-d);padding:1.5rem 2rem;display:flex;align-items:center;gap:1rem}
+header{background:linear-gradient(180deg,#0e0c06,var(--d1));border-bottom:1px solid var(--gold-d);padding:1.5rem 2rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:200}
 .logo-mark{width:42px;height:42px;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--gold);transform:rotate(45deg);flex-shrink:0;cursor:pointer;transition:all .15s}
 .logo-mark span{transform:rotate(-45deg)}
 header a:hover .logo-mark{background:rgba(201,168,76,.15);border-color:var(--gold-l)}
@@ -725,15 +725,15 @@ updateStatus();
 
 
 <script>
-// ─── 新規注文アラート（受発注と同じ判定: GAS getNewOrders + 既読ID） ───
+// ─── 新規注文アラート（未処理＝新規受付の件数を表示。処理するまで消えない） ───
 (async function(){
   try {
     const gas = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
     if (!gas) return;                                          // GAS未設定なら何もしない
-    const since = localStorage.getItem('lmb_lastSeenOrderId') || '';
     async function check(){
       try {
-        const r = await fetch(gas + '?action=getNewOrders&since=' + encodeURIComponent(localStorage.getItem('lmb_lastSeenOrderId') || ''));
+        // 未処理（新規受付）の件数を取得。処理（状態変更）するまで通知は消えない
+        const r = await fetch(gas + '?action=getNewOrders&since=');
         const d = await r.json();
         const n = (d && d.orders) ? d.orders.length : 0;
         renderAlert(n);

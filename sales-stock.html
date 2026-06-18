@@ -244,6 +244,12 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .tabs-wrap::before{content:'\2039';left:0;justify-content:flex-start;padding-left:8px;background:linear-gradient(270deg,transparent,var(--d2) 78%)}
 .tabs-wrap.more-right::after{opacity:1}
 .tabs-wrap.more-left::before{opacity:1}
+
+/* ─── 携帯: 広い表を詰めて収まりやすく ─── */
+@media(max-width:560px){
+  .tw table,.cust-table-wrap table,.prod-table-wrap table{font-size:.72rem}
+  .tw th,.tw td,.cust-table-wrap th,.cust-table-wrap td,.prod-table-wrap th,.prod-table-wrap td{padding:.3rem .42rem}
+}
 </style>
 </head>
 <body>
@@ -770,6 +776,7 @@ async function gasGet(action, params){
   } catch(e){ toast('通信エラー: ' + e.message, 'error'); return null; }
 }
 async function gasPost(data){
+  try{ if(typeof currentUser!=='undefined'&&currentUser){ if(!data._actor)data._actor=currentUser.name; if(!data._actorBranch)data._actorBranch=currentUser.branch||''; } }catch(e){}
   if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
   try {
     await fetch(S.gasUrl, {
@@ -806,8 +813,18 @@ function updateUserBadge(){
   badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name} (${currentUser.role})`;
 }
 
+function logOp(op,target,detail){
+  try{
+    var u=(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'';
+    var b=(typeof currentUser!=='undefined'&&currentUser&&currentUser.branch)||'';
+    var gas=(typeof S!=='undefined'&&S&&S.gasUrl)||localStorage.getItem('gasUrl')||'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
+    if(!gas) return;
+    fetch(gas+'?action=logOp&user='+encodeURIComponent(u)+'&op='+encodeURIComponent(op||'')+'&target='+encodeURIComponent(target||'')+'&detail='+encodeURIComponent(detail||'')+'&branch='+encodeURIComponent(b),{keepalive:true,mode:'no-cors'}).catch(function(){});
+  }catch(e){}
+}
 function doLogout(){
   if (confirm('ログアウトしますか？')) {
+    try{ logOp('ログアウト','',''); }catch(e){}
     sessionStorage.removeItem('lmb_current_user');
     location.href = 'login.html';
   }
@@ -3180,7 +3197,7 @@ window.addEventListener('DOMContentLoaded', function(){ if (typeof syncFromGAS =
 
 /* ── タブの横スクロール目印（フェード＋矢印）── */
 function enhanceScrollTabs(){
-  document.querySelectorAll('.master-tabs').forEach(function(tabs){
+  document.querySelectorAll('.master-tabs, .tw, .cust-table-wrap, .prod-table-wrap').forEach(function(tabs){
     var wrap = tabs.parentElement;
     if(!wrap || !wrap.classList.contains('tabs-wrap')){
       wrap = document.createElement('div'); wrap.className='tabs-wrap';
