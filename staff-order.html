@@ -28,6 +28,10 @@ body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;backg
 .selbar .nm{font-size:.9rem;font-weight:700;color:var(--gold-l)}
 .selbar .meta{font-size:.62rem;color:#9a917c;margin-top:2px}
 .selbar button{background:transparent;border:1px solid var(--line);color:var(--gold-l);border-radius:6px;padding:5px 10px;font-size:.66rem;cursor:pointer}
+.sp-box{border:1px solid rgba(155,89,182,.5);background:rgba(155,89,182,.08);border-radius:10px;padding:11px 13px;margin-bottom:12px}
+.sp-title{font-size:.82rem;font-weight:700;color:#c39bd3}
+.sp-rem{font-size:.62rem;background:rgba(155,89,182,.25);color:#d7b8e8;border-radius:8px;padding:1px 7px;margin-left:6px}
+.sp-note{font-size:.62rem;color:#9a917c;margin:4px 0 4px}
 .prow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(201,168,76,.08)}
 .prow:last-child{border-bottom:none}
 .prow .dot{width:12px;height:12px;border-radius:50%;flex:none}
@@ -72,6 +76,8 @@ let UID = '', STAFF = 'スタッフ';
 let CUSTOMERS = [], PRODUCTS = [];
 let selCust = null;
 const qty = {};   // 商品名 -> 数量
+let sponsorData = null;        // 協賛残数 {ok,custId,byProduct,total}
+const spQty = {};              // 協賛(無料) 商品名 -> 数量
 
 function esc(t){ return String(t==null?'':t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 const yen = n => '¥' + Math.round(Number(n)||0).toLocaleString();
@@ -133,10 +139,17 @@ function filterCust(){
       + '<div class="rate">' + esc(custRate(c)) + '掛</div></div>';
   }).join('');
 }
-function pickCust(i){
+async function pickCust(i){
   selCust = CUSTOMERS[i];
   Object.keys(qty).forEach(k => delete qty[k]);
+  Object.keys(spQty).forEach(k => delete spQty[k]);
+  sponsorData = null;
   renderOrderStep();
+  // この顧客の協賛残数を取得（無料注文用）
+  try {
+    const sp = await fetch(GAS_URL + '?action=getSponsorByStore&store=' + encodeURIComponent(selCust.name) + '&_=' + Date.now(), { cache:'no-store' }).then(r => r.json());
+    if (sp && sp.ok && sp.total > 0){ sponsorData = sp; renderSponsorSection(); }
+  } catch(e){}
 }
 
 function renderOrderStep(){
@@ -145,6 +158,7 @@ function renderOrderStep(){
   let html = '<div class="selbar"><div><div class="nm">' + esc(selCust.name) + ' 様</div>'
     + '<div class="meta">' + esc(meta) + '｜' + custRate(selCust) + '掛適用</div></div>'
     + '<button onclick="renderCustomerStep()">変更</button></div>';
+  html += '<div id="sp-wrap"></div>';
   html += '<div class="step">② 商品を選ぶ</div>';
   html += '<input class="search" id="prod-q" placeholder="商品名で検索" oninput="filterProd()">';
   html += '<div class="list" id="prod-list"></div>';
@@ -178,21 +192,52 @@ function chg(name, d){
   if (el) el.textContent = nv;
   updateTotal();
 }
+function renderSponsorSection(){
+  const wrap = document.getElementById('sp-wrap');
+  if (!wrap) return;
+  if (!sponsorData || !(sponsorData.total > 0)){ wrap.innerHTML = ''; return; }
+  let html = '<div class="sp-box"><div class="sp-title">🎁 協賛で無料注文 <span class="sp-rem">残 ' + sponsorData.total + '本</span></div>'
+    + '<div class="sp-note">この顧客の協賛分。無料（¥0）で追加され、通常注文とは別に加算されます。</div>';
+  Object.keys(sponsorData.byProduct).forEach(p => {
+    const n = esc(p); const bal = sponsorData.byProduct[p];
+    html += '<div class="prow">'
+      + '<span class="dot" style="background:#9b59b6"></span>'
+      + '<div class="pn"><div class="t">' + n + '</div><div class="p">残 ' + bal + '本·¥0</div></div>'
+      + '<div class="qty"><button onclick="spChg(\'' + n + '\',-1)">－</button>'
+      + '<span class="v" id="sp-' + n + '">' + (spQty[p] || 0) + '</span>'
+      + '<button onclick="spChg(\'' + n + '\',1)">＋</button></div></div>';
+  });
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+function spChg(name, d){
+  const bal = (sponsorData && sponsorData.byProduct[name]) || 0;
+  const nv = Math.min(bal, Math.max(0, (spQty[name] || 0) + d));
+  if (nv === 0) delete spQty[name]; else spQty[name] = nv;
+  const el = document.getElementById('sp-' + name);
+  if (el) el.textContent = nv;
+  updateTotal();
+}
+function spCount(){ let n = 0; Object.keys(spQty).forEach(k => n += (spQty[k] || 0)); return n; }
+
 function updateTotal(){
   let total = 0, qt = 0;
   PRODUCTS.forEach(p => { const n = qty[p.name] || 0; if (n){ total += unitFor(p) * n; qt += n; } });
+  const free = spCount();
   document.getElementById('amt').textContent = yen(total);
-  document.getElementById('qtot').textContent = qt;
+  document.getElementById('qtot').textContent = qt + (free > 0 ? ('＋無料' + free) : '');
   const btn = document.getElementById('send');
-  if (btn) btn.disabled = (qt === 0);
-  return { total, qt };
+  if (btn) btn.disabled = (qt === 0 && free === 0);
+  return { total, qt, free };
 }
 
 async function submitOrder(){
   if (!selCust) return;
-  const { total, qt } = updateTotal();
-  if (qt === 0) return;
+  const { total, qt, free } = updateTotal();
+  if (qt === 0 && free === 0) return;
   const items = {};
+  const sponsorItems = {};
+  Object.keys(spQty).forEach(p => { if (spQty[p] > 0) sponsorItems[p] = spQty[p]; });
   PRODUCTS.forEach(p => { if (qty[p.name]) items[p.name] = qty[p.name]; });
   const pay = document.getElementById('pay').value;
   const btn = document.getElementById('send');
@@ -212,7 +257,8 @@ async function submitOrder(){
     status: '新規',
     note: 'スタッフ注文（' + STAFF + '）' + custRate(selCust) + '掛適用',
     uid: '',
-    custId: selCust.id || selCust._custId || '',
+    custId: (sponsorData && sponsorData.custId) || selCust.id || selCust._custId || '',
+    sponsorItems: sponsorItems,
     _actor: STAFF
   };
   try {
