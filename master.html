@@ -3630,6 +3630,15 @@ window.addEventListener('DOMContentLoaded', () => {
   initCustFormEnterNav();
   if (typeof renderReferrerList === 'function') renderReferrerList();
   if (typeof renderSponsorList === 'function') renderSponsorList();
+  // ハッシュ #uid でポータルの通知から「未登録UID」タブへ直接遷移
+  try {
+    if (location.hash === '#uid'){
+      const cTab = document.querySelector('.mtab');
+      if (typeof switchMaster === 'function') switchMaster('customers', cTab);
+      const uidTab = Array.from(document.querySelectorAll('#m-customers .tab')).find(t => /'uid'/.test(t.getAttribute('onclick')||''));
+      if (typeof switchCustTab === 'function') switchCustTab('uid', uidTab || null);
+    }
+  } catch(e){}
 });
 
 // ─── 顧客フォーム: キー操作で入力欄を移動 ─────
