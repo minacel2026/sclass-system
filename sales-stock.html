@@ -494,7 +494,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="frow">
         <div class="fg"><label>拠点フィルタ</label><select class="fc" id="st-br" style="height:38px;box-sizing:border-box" onchange="renderStock()"><option value="">両拠点</option><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>状態</label><select class="fc" id="st-state" style="height:38px;box-sizing:border-box" onchange="renderStock()"><option value="">すべて</option><option value="low">補充警告のみ</option><option value="out">在庫切れのみ</option></select></div>
-        <div class="fg" style="grid-column:span 2"><label>&nbsp;</label><button class="btn-s" style="width:100%;height:38px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:.4rem;padding:0 .65rem" onclick="migrateToReserve()" title="一度だけ実行：既存の未出荷注文の本数を実在庫へ戻し、引当方式へ移行します">⇄ 引当方式へ移行（初回のみ）</button></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn-s" style="width:100%;height:38px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:0 .5rem;white-space:nowrap;font-size:.68rem" onclick="migrateToReserve()" title="一度だけ実行：既存の未出荷注文の本数を実在庫へ戻し、引当方式へ移行します（初回のみ）">⇄ 引当方式へ移行</button></div>
       </div>
     </div>
     <div class="stock-grid" id="stock-grid"></div>
