@@ -141,6 +141,17 @@ textarea.fc{resize:vertical}
 .warn strong{color:var(--org)}
 .tip{background:rgba(82,153,224,.06);border:1px solid rgba(82,153,224,.2);padding:.7rem .9rem;font-size:.75rem;color:var(--wh2);line-height:1.6;margin:.5rem 0}
 .tip strong{color:var(--blu)}
+
+/* ───── タブ: 横スクロール可能の目印（フェード＋‹ ›） ───── */
+.master-tabs::-webkit-scrollbar{height:5px}
+.master-tabs::-webkit-scrollbar-thumb{background:rgba(201,168,76,.5);border-radius:3px}
+.master-tabs::-webkit-scrollbar-track{background:rgba(255,255,255,.06)}
+.tabs-wrap{position:relative}
+.tabs-wrap::before,.tabs-wrap::after{position:absolute;top:0;bottom:0;width:40px;pointer-events:none;opacity:0;transition:opacity .25s;z-index:3;display:flex;align-items:center;font-size:1.5rem;font-weight:700;color:var(--gold-l)}
+.tabs-wrap::after{content:'\203A';right:0;justify-content:flex-end;padding-right:8px;background:linear-gradient(90deg,transparent,var(--d2) 78%)}
+.tabs-wrap::before{content:'\2039';left:0;justify-content:flex-start;padding-left:8px;background:linear-gradient(270deg,transparent,var(--d2) 78%)}
+.tabs-wrap.more-right::after{opacity:1}
+.tabs-wrap.more-left::before{opacity:1}
 </style>
 </head>
 <body>
@@ -1029,6 +1040,29 @@ window.addEventListener('DOMContentLoaded', function(){
   var i=mods.indexOf(h);
   if(i>=0){ try{ switchModule(mods[i], document.querySelectorAll('.mtab')[i]); }catch(e){} }
 });
+</script>
+
+<script>
+/* タブの横スクロール目印（フェード＋矢印） */
+function enhanceScrollTabs(){
+  document.querySelectorAll('.master-tabs').forEach(function(tabs){
+    var wrap = tabs.parentElement;
+    if(!wrap || !wrap.classList.contains('tabs-wrap')){
+      wrap = document.createElement('div'); wrap.className='tabs-wrap';
+      tabs.parentNode.insertBefore(wrap, tabs); wrap.appendChild(tabs);
+    }
+    function upd(){
+      var maxScroll = tabs.scrollWidth - tabs.clientWidth;
+      wrap.classList.toggle('more-right', (maxScroll - tabs.scrollLeft) > 4);
+      wrap.classList.toggle('more-left', tabs.scrollLeft > 4);
+    }
+    tabs.addEventListener('scroll', upd, {passive:true});
+    window.addEventListener('resize', upd);
+    setTimeout(upd, 60); upd();
+  });
+}
+window.addEventListener('DOMContentLoaded', enhanceScrollTabs);
+window.addEventListener('load', enhanceScrollTabs);
 </script>
 </body>
 </html>
