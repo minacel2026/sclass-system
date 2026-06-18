@@ -81,7 +81,7 @@ function render(box, d, uid){
   // 実ページがある役割（=遷移可能）
   const cards = [];
   if (d.isStaff){
-    cards.push({ ic:'📝', t:'注文入力', d:'お客様の注文を登録', href:'order.html' + q });
+    cards.push({ ic:'📝', t:'注文入力', d:'お客様を選んで注文を登録', href:'staff-order.html' + q });
   }
   if (d.isCustomer){
     const store = (d.customer && d.customer.store) ? d.customer.store + ' 様' : 'マイページ';

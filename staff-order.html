@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>スタッフ注文 | LAMBORGHINI WINE</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+:root{ --gold:#C9A84C; --gold-l:#E8CC7A; --bg:#0a0a0c; --card:#141418; --line:rgba(201,168,76,.18); --ivory:#e8e0cc; }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;background:var(--bg);color:var(--ivory);min-height:100vh;padding-bottom:84px}
+.header{background:linear-gradient(180deg,#16161a,#0a0a0c);border-bottom:1px solid var(--line);padding:16px 16px 12px;text-align:center;position:sticky;top:0;z-index:100}
+.header h1{font-size:1rem;letter-spacing:.28em;color:var(--gold-l);font-weight:700}
+.header .sub{font-size:.6rem;letter-spacing:.25em;color:#8a8270;margin-top:2px}
+.wrap{max-width:600px;margin:0 auto;padding:14px 14px}
+.banner{background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);color:var(--gold);font-size:.66rem;text-align:center;padding:6px;border-radius:6px;margin-bottom:10px}
+.step{font-size:.72rem;color:var(--gold);letter-spacing:.12em;margin:6px 2px 8px;font-weight:700}
+.search{width:100%;background:#0d0d10;border:1px solid var(--line);color:var(--ivory);border-radius:8px;padding:11px 12px;font-size:.85rem;margin-bottom:10px}
+.search::placeholder{color:#6f6857}
+.list{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.crow{display:flex;justify-content:space-between;align-items:center;padding:11px 13px;border-bottom:1px solid rgba(201,168,76,.08);cursor:pointer}
+.crow:last-child{border-bottom:none}
+.crow:active{background:#1c1c20}
+.crow .nm{font-size:.86rem;color:var(--ivory);font-weight:600}
+.crow .meta{font-size:.62rem;color:#9a917c;margin-top:2px}
+.crow .rate{font-size:.66rem;color:var(--gold-l);white-space:nowrap}
+.selbar{display:flex;justify-content:space-between;align-items:center;background:rgba(201,168,76,.1);border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:10px}
+.selbar .nm{font-size:.9rem;font-weight:700;color:var(--gold-l)}
+.selbar .meta{font-size:.62rem;color:#9a917c;margin-top:2px}
+.selbar button{background:transparent;border:1px solid var(--line);color:var(--gold-l);border-radius:6px;padding:5px 10px;font-size:.66rem;cursor:pointer}
+.prow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(201,168,76,.08)}
+.prow:last-child{border-bottom:none}
+.prow .dot{width:12px;height:12px;border-radius:50%;flex:none}
+.prow .pn{flex:1}
+.prow .pn .t{font-size:.84rem;color:var(--ivory)}
+.prow .pn .p{font-size:.64rem;color:#9a917c;margin-top:1px}
+.qty{display:flex;align-items:center;gap:8px}
+.qty button{width:30px;height:30px;border-radius:6px;border:1px solid var(--line);background:#0d0d10;color:var(--gold-l);font-size:1rem;cursor:pointer}
+.qty .v{min-width:22px;text-align:center;font-size:.9rem;font-weight:700}
+.empty,.errbox,.loading{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:26px 14px;text-align:center;font-size:.8rem;color:#9a917c;line-height:1.8}
+.errbox{color:#ff8a80;border-color:rgba(255,99,99,.3)}
+.spinner{width:26px;height:26px;border:3px solid rgba(201,168,76,.2);border-top-color:var(--gold);border-radius:50%;margin:0 auto 12px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.payrow{display:flex;align-items:center;gap:10px;margin:12px 2px 4px}
+.payrow label{font-size:.72rem;color:#9a917c}
+.payrow select{flex:1;background:#0d0d10;border:1px solid var(--line);color:var(--ivory);border-radius:8px;padding:9px}
+.footer{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(0deg,#0a0a0c,rgba(10,10,12,.96));border-top:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:90}
+.footer .tot{flex:1}
+.footer .tot .l{font-size:.6rem;color:#9a917c}
+.footer .tot .v{font-size:1.25rem;font-weight:700;color:var(--gold-l)}
+.footer button{background:var(--gold);color:#1a1200;border:none;border-radius:8px;padding:13px 22px;font-size:.9rem;font-weight:700;cursor:pointer}
+.footer button:disabled{opacity:.4}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>スタッフ注文</h1>
+  <div class="sub">LAMBORGHINI WINE</div>
+</div>
+<div class="wrap" id="wrap">
+  <div class="loading"><div class="spinner"></div>読み込み中…</div>
+</div>
+<div class="footer" id="footer" style="display:none">
+  <div class="tot"><div class="l">合計（<span id="qtot">0</span>本）</div><div class="v" id="amt">¥0</div></div>
+  <button id="send" onclick="submitOrder()" disabled>注文送信</button>
+</div>
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
+const LIFF_ID = '';   // ★直接開く場合はこのページ用のLIFF IDを発行（line-homeから?uid=で渡る場合は空でOK）
+
+let UID = '', STAFF = 'スタッフ';
+let CUSTOMERS = [], PRODUCTS = [];
+let selCust = null;
+const qty = {};   // 商品名 -> 数量
+
+function esc(t){ return String(t==null?'':t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const yen = n => '¥' + Math.round(Number(n)||0).toLocaleString();
+function custRate(c){ const r = parseFloat(c.rate || c._rateRaw || '') ; return (r && r>0) ? r : 10; }
+function unitFor(p){ return Math.round((Number(p.price)||0) * custRate(selCust) / 10); }
+
+async function init(){
+  UID = new URLSearchParams(location.search).get('uid') || '';
+  try {
+    if (LIFF_ID){
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) { liff.login(); return; }
+      const prof = await liff.getProfile();
+      UID = prof.userId; STAFF = prof.displayName || STAFF;
+    }
+  } catch(e){
+    document.querySelector('.header').insertAdjacentHTML('afterend',
+      '<div class="wrap" style="padding-bottom:0"><div class="banner">⚠ ブラウザモードで動作中</div></div>');
+  }
+  const wrap = document.getElementById('wrap');
+  try {
+    const [rc, rp] = await Promise.all([
+      fetch(GAS_URL + '?action=getCustomers&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json()),
+      fetch(GAS_URL + '?action=getProducts&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json())
+    ]);
+    CUSTOMERS = (rc.customers || []).filter(c => c.name);
+    PRODUCTS = (rp.products || []).filter(p => p.name && p.active !== false)
+      .sort((a,b)=> (Number(a.sortOrder)||0) - (Number(b.sortOrder)||0));
+    renderCustomerStep();
+  } catch(e){
+    wrap.innerHTML = '<div class="errbox">データ取得に失敗しました。<br>GAS URL・通信環境をご確認ください。</div>';
+  }
+}
+
+function renderCustomerStep(){
+  selCust = null;
+  document.getElementById('footer').style.display = 'none';
+  const wrap = document.getElementById('wrap');
+  wrap.innerHTML =
+    '<div class="step">① お客様を選ぶ</div>'
+    + '<input class="search" id="cust-q" placeholder="店舗名・フリガナ・拠点・担当で検索" oninput="filterCust()">'
+    + '<div class="list" id="cust-list"></div>';
+  filterCust();
+}
+function filterCust(){
+  const q = (document.getElementById('cust-q').value || '').trim().toLowerCase();
+  const box = document.getElementById('cust-list');
+  let rows = CUSTOMERS;
+  if (q) rows = rows.filter(c => (
+    (c.name||'') + (c.kana||'') + (c.branch||'') + (c.staff||'') + (c.tel||'')
+  ).toLowerCase().indexOf(q) >= 0);
+  rows = rows.slice(0, 200);
+  if (!rows.length){ box.innerHTML = '<div class="empty">該当する顧客がありません</div>'; return; }
+  box.innerHTML = rows.map((c,i) => {
+    const idx = CUSTOMERS.indexOf(c);
+    const meta = [c.branch, c.staff].filter(Boolean).join('・');
+    return '<div class="crow" onclick="pickCust(' + idx + ')">'
+      + '<div><div class="nm">' + esc(c.name) + '</div><div class="meta">' + esc(meta) + '</div></div>'
+      + '<div class="rate">' + esc(custRate(c)) + '掛</div></div>';
+  }).join('');
+}
+function pickCust(i){
+  selCust = CUSTOMERS[i];
+  Object.keys(qty).forEach(k => delete qty[k]);
+  renderOrderStep();
+}
+
+function renderOrderStep(){
+  const wrap = document.getElementById('wrap');
+  const meta = [selCust.branch, selCust.staff].filter(Boolean).join('・');
+  let html = '<div class="selbar"><div><div class="nm">' + esc(selCust.name) + ' 様</div>'
+    + '<div class="meta">' + esc(meta) + '｜' + custRate(selCust) + '掛適用</div></div>'
+    + '<button onclick="renderCustomerStep()">変更</button></div>';
+  html += '<div class="step">② 商品を選ぶ</div>';
+  html += '<input class="search" id="prod-q" placeholder="商品名で検索" oninput="filterProd()">';
+  html += '<div class="list" id="prod-list"></div>';
+  html += '<div class="payrow"><label>支払方法</label><select id="pay"><option>請求書（掛け）</option><option>現金</option><option>銀行振込</option><option>代引き</option></select></div>';
+  wrap.innerHTML = html;
+  document.getElementById('footer').style.display = 'flex';
+  filterProd();
+  updateTotal();
+}
+function filterProd(){
+  const q = (document.getElementById('prod-q').value || '').trim().toLowerCase();
+  const box = document.getElementById('prod-list');
+  let rows = PRODUCTS;
+  if (q) rows = rows.filter(p => ((p.name||'') + (p.fullName||'') + (p.category||'')).toLowerCase().indexOf(q) >= 0);
+  if (!rows.length){ box.innerHTML = '<div class="empty">該当する商品がありません</div>'; return; }
+  box.innerHTML = rows.map(p => {
+    const n = esc(p.name);
+    return '<div class="prow">'
+      + '<span class="dot" style="background:' + (esc(p.color)||'#888') + '"></span>'
+      + '<div class="pn"><div class="t">' + n + '</div><div class="p">' + yen(unitFor(p)) + ' / 本</div></div>'
+      + '<div class="qty"><button onclick="chg(\'' + n + '\',-1)">－</button>'
+      + '<span class="v" id="q-' + n + '">' + (qty[p.name]||0) + '</span>'
+      + '<button onclick="chg(\'' + n + '\',1)">＋</button></div></div>';
+  }).join('');
+}
+function chg(name, d){
+  const cur = qty[name] || 0;
+  const nv = Math.max(0, cur + d);
+  if (nv === 0) delete qty[name]; else qty[name] = nv;
+  const el = document.getElementById('q-' + name);
+  if (el) el.textContent = nv;
+  updateTotal();
+}
+function updateTotal(){
+  let total = 0, qt = 0;
+  PRODUCTS.forEach(p => { const n = qty[p.name] || 0; if (n){ total += unitFor(p) * n; qt += n; } });
+  document.getElementById('amt').textContent = yen(total);
+  document.getElementById('qtot').textContent = qt;
+  const btn = document.getElementById('send');
+  if (btn) btn.disabled = (qt === 0);
+  return { total, qt };
+}
+
+async function submitOrder(){
+  if (!selCust) return;
+  const { total, qt } = updateTotal();
+  if (qt === 0) return;
+  const items = {};
+  PRODUCTS.forEach(p => { if (qty[p.name]) items[p.name] = qty[p.name]; });
+  const pay = document.getElementById('pay').value;
+  const btn = document.getElementById('send');
+  btn.disabled = true; btn.textContent = '送信中…';
+  const payload = {
+    action: 'saveOrder',
+    id: 'so-' + Date.now(),
+    timestamp: new Date().toLocaleString('ja-JP'),
+    branch: selCust.branch || '',
+    staff: STAFF,
+    store: selCust.name,
+    area: '',
+    items: items,
+    amount: total,
+    payMethod: pay,
+    payStatus: '未収',
+    status: '新規',
+    note: 'スタッフ注文（' + STAFF + '）' + custRate(selCust) + '掛適用',
+    uid: '',
+    custId: selCust.id || selCust._custId || '',
+    _actor: STAFF
+  };
+  try {
+    await fetch(GAS_URL, { method:'POST', mode:'no-cors', body: JSON.stringify(payload) });
+    const wrap = document.getElementById('wrap');
+    document.getElementById('footer').style.display = 'none';
+    wrap.innerHTML = '<div class="empty" style="color:#7ee2a8;border-color:rgba(80,200,120,.3)">'
+      + '✓ 注文を送信しました<br><br><strong style="color:var(--gold-l)">' + esc(selCust.name) + ' 様</strong><br>'
+      + qt + '本 / ' + yen(total) + '</div>'
+      + '<div style="display:flex;gap:10px;margin-top:12px">'
+      + '<button class="search" style="cursor:pointer;text-align:center" onclick="location.reload()">続けて別の注文</button></div>';
+  } catch(e){
+    btn.disabled = false; btn.textContent = '注文送信';
+    alert('送信に失敗しました。通信環境をご確認のうえ、もう一度お試しください。');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
