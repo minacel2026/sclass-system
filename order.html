@@ -146,7 +146,7 @@
   /* Product cards */
   .prod-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 8px;
     margin-top: 4px;
   }
@@ -946,15 +946,17 @@ function renderProducts() {
     const s = totalStock[p.name];
     const outOfStock = s <= 0;
     return `
-    <div class="prod-card ${qty > 0 ? 'selected' : ''} ${outOfStock ? 'out-of-stock' : ''}" id="card-${p.name}">
-      ${p.img ? `<img src="${p.img}" alt="${p.name}" style="width:100%;height:auto;border-radius:6px;margin-bottom:8px;display:block">` : `<div style="width:8px;height:8px;border-radius:50%;background:${p.color};margin-bottom:6px"></div>`}
-      <div class="prod-name">${p.name}</div>
-      <div class="prod-price">¥${lineCalc(p,1).subIncl.toLocaleString('ja-JP')}<span style="font-size:.6rem;color:var(--wh3)">税込</span></div>
-      <div class="prod-stock ${s <= 5 && s > 0 ? 'low' : ''}">${outOfStock ? '在庫切れ' : s <= 5 ? `残り${s}本` : `在庫あり`}</div>
+    <div class="prod-card ${qty > 0 ? 'selected' : ''} ${outOfStock ? 'out-of-stock' : ''}" id="card-${p.name}" style="display:flex;align-items:center;gap:12px">
+      ${p.img ? `<img src="${p.img}" alt="${p.name}" style="flex:none;width:60px;height:60px;object-fit:contain;background:#fff;border-radius:6px">` : `<div style="flex:none;width:60px;height:60px;border-radius:6px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center"><span style="width:12px;height:12px;border-radius:50%;background:${p.color}"></span></div>`}
+      <div style="flex:1;min-width:0">
+        <div class="prod-name">${p.name}</div>
+        <div class="prod-price">¥${lineCalc(p,1).subIncl.toLocaleString('ja-JP')}<span style="font-size:.6rem;color:var(--wh3)">税込</span></div>
+        <div class="prod-stock ${s <= 5 && s > 0 ? 'low' : ''}">${outOfStock ? '在庫切れ' : s <= 5 ? `残り${s}本` : `在庫あり`}</div>
+      </div>
       ${!outOfStock ? `
-      <div class="prod-qty">
+      <div class="prod-qty" style="flex:none;margin-top:0">
         <button class="qty-btn" onclick="event.stopPropagation();changeQty('${p.name}',-1)">－</button>
-        <input class="qty-val" id="qty-${p.name}" type="number" inputmode="numeric" min="0" value="${qty}" style="width:54px;background:transparent;border:none;padding:2px" onclick="event.stopPropagation()" onfocus="this.select()" onchange="setQty('${p.name}',this.value)">
+        <input class="qty-val" id="qty-${p.name}" type="number" inputmode="numeric" min="0" value="${qty}" style="width:42px;background:transparent;border:none;padding:2px;text-align:center" onclick="event.stopPropagation()" onfocus="this.select()" onchange="setQty('${p.name}',this.value)">
         <button class="qty-btn" onclick="event.stopPropagation();changeQty('${p.name}',1)">＋</button>
       </div>` : ''}
     </div>`;
