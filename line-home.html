@@ -28,6 +28,11 @@ body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;backg
 .spinner{width:28px;height:28px;border:3px solid rgba(201,168,76,.2);border-top-color:var(--gold);border-radius:50%;margin:0 auto 12px;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .note{font-size:.6rem;color:#6f6857;text-align:center;margin-top:20px;line-height:1.7}
+.uidbox{margin-top:16px;background:rgba(201,168,76,.07);border:1px solid var(--line);border-radius:12px;padding:15px 14px;text-align:center}
+.uidlbl{font-size:.66rem;color:#9a917c;letter-spacing:.04em}
+.uidval{font-size:.76rem;font-weight:700;color:var(--gold-l);word-break:break-all;margin:7px 0 11px;font-family:'SFMono-Regular',Consolas,monospace;background:rgba(0,0,0,.25);border-radius:7px;padding:8px}
+.uidcopy{background:var(--gold);color:#1a1408;border:none;border-radius:8px;padding:9px 20px;font-size:.74rem;font-weight:700;cursor:pointer}
+.uidnote{font-size:.6rem;color:#9a917c;margin-top:9px;line-height:1.6}
 </style>
 </head>
 <body>
@@ -45,6 +50,23 @@ const LIFF_ID = '2009445526-XWHFDyuf';   // ★このページ用のLIFF IDを L
 
 function esc(t){ return String(t==null?'':t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+// 【自分のLINE UID表示】紹介者・顧客の登録用
+function uidBar(uid){
+  return '<div class="uidbox"><div class="uidlbl">あなたのLINE UID</div>'
+    + '<div class="uidval" id="uidval">' + esc(uid) + '</div>'
+    + '<button class="uidcopy" onclick="copyUid(\'' + esc(uid) + '\')">📋 コピー</button>'
+    + '<div class="uidnote">このUIDをSclass担当へお伝えください（紹介者・顧客登録用）</div></div>';
+}
+function copyUid(t){
+  const done = () => { const b=document.querySelector('.uidcopy'); if(b){ b.textContent='✓ コピーしました'; setTimeout(()=>{ b.textContent='📋 コピー'; },1600); } };
+  if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done).catch(()=>fallbackCopy(t,done)); }
+  else fallbackCopy(t, done);
+}
+function fallbackCopy(t, cb){
+  const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.focus(); ta.select();
+  try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta); if(cb) cb();
+}
+
 async function init(){
   let uid = '';
   try {
@@ -61,6 +83,11 @@ async function init(){
   const box = document.getElementById('content');
   if (!uid){
     box.innerHTML = '<div class="errbox">LINEアカウント情報を取得できませんでした。<br>LINEアプリ内から開いてください。</div>';
+    return;
+  }
+  // UID表示モード（?me=1）: 自動遷移せずUIDだけ表示して登録を楽に
+  if (new URLSearchParams(location.search).get('me') === '1'){
+    box.innerHTML = '<div class="hello">アカウント情報<small>下記のUIDをSclass担当へお伝えください</small></div>' + uidBar(uid);
     return;
   }
   try {
@@ -93,7 +120,7 @@ function render(box, d, uid){
   }
 
   if (cards.length === 0){
-    box.innerHTML = '<div class="errbox">このLINEアカウントは未登録です。<br>お手数ですがSclass担当者までご連絡ください。</div>';
+    box.innerHTML = '<div class="errbox">このLINEアカウントは未登録です。<br>下記のUIDをSclass担当者へお伝えください。</div>' + uidBar(uid);
     return;
   }
 
@@ -111,6 +138,7 @@ function render(box, d, uid){
           + '<div class="tx"><div class="t">' + esc(c.t) + '</div><div class="d">' + esc(c.d) + '</div></div>'
           + '<div class="arw">›</div></a>';
   });
+  html += uidBar(uid);
   box.innerHTML = html;
 }
 

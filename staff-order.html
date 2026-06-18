@@ -28,6 +28,9 @@ body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;backg
 .selbar .nm{font-size:.9rem;font-weight:700;color:var(--gold-l)}
 .selbar .meta{font-size:.62rem;color:#9a917c;margin-top:2px}
 .selbar button{background:transparent;border:1px solid var(--line);color:var(--gold-l);border-radius:6px;padding:5px 10px;font-size:.66rem;cursor:pointer}
+.brbar{display:flex;align-items:center;gap:8px;font-size:.7rem;color:#cbb87a;background:rgba(201,168,76,.08);border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin-bottom:9px}
+.brbar b{color:var(--gold-l)}
+.brbar button{margin-left:auto;background:transparent;border:1px solid var(--line);color:var(--gold-l);border-radius:6px;padding:4px 9px;font-size:.64rem;cursor:pointer;white-space:nowrap}
 .sp-box{border:1px solid rgba(155,89,182,.5);background:rgba(155,89,182,.08);border-radius:10px;padding:11px 13px;margin-bottom:12px}
 .sp-title{font-size:.82rem;font-weight:700;color:#c39bd3}
 .sp-rem{font-size:.62rem;background:rgba(155,89,182,.25);color:#d7b8e8;border-radius:8px;padding:1px 7px;margin-left:6px}
@@ -74,6 +77,7 @@ const LIFF_ID = '';   // ★直接開く場合はこのページ用のLIFF IDを
 
 let UID = '', STAFF = 'スタッフ';
 let CUSTOMERS = [], PRODUCTS = [];
+let STAFF_BRANCH = '', showAllBranch = false;   // 拠点絞り込み
 let selCust = null;
 const qty = {};   // 商品名 -> 数量
 let sponsorData = null;        // 協賛残数 {ok,custId,byProduct,total}
@@ -99,10 +103,12 @@ async function init(){
   }
   const wrap = document.getElementById('wrap');
   try {
-    const [rc, rp] = await Promise.all([
+    const [rc, rp, rr] = await Promise.all([
       fetch(GAS_URL + '?action=getCustomers&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json()),
-      fetch(GAS_URL + '?action=getProducts&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json())
+      fetch(GAS_URL + '?action=getProducts&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json()),
+      UID ? fetch(GAS_URL + '?action=getRole&uid=' + encodeURIComponent(UID) + '&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json()).catch(()=>null) : Promise.resolve(null)
     ]);
+    if (rr && rr.staff){ if (rr.staff.branch) STAFF_BRANCH = String(rr.staff.branch).trim(); if (rr.staff.name) STAFF = rr.staff.name; }
     CUSTOMERS = (rc.customers || []).filter(c => c.name);
     PRODUCTS = (rp.products || []).filter(p => p.name && p.active !== false)
       .sort((a,b)=> (Number(a.sortOrder)||0) - (Number(b.sortOrder)||0));
@@ -118,14 +124,17 @@ function renderCustomerStep(){
   const wrap = document.getElementById('wrap');
   wrap.innerHTML =
     '<div class="step">① お客様を選ぶ</div>'
+    + (STAFF_BRANCH ? ('<div class="brbar">拠点：<b>' + esc(STAFF_BRANCH) + '</b>' + (showAllBranch ? '（全拠点を表示中）' : 'のお客様のみ') + '<button onclick="toggleBranch()">' + (showAllBranch ? '自拠点のみ' : '全拠点を表示') + '</button></div>') : '')
     + '<input class="search" id="cust-q" placeholder="店舗名・フリガナ・拠点・担当で検索" oninput="filterCust()">'
     + '<div class="list" id="cust-list"></div>';
   filterCust();
 }
+function toggleBranch(){ showAllBranch = !showAllBranch; renderCustomerStep(); }
 function filterCust(){
   const q = (document.getElementById('cust-q').value || '').trim().toLowerCase();
   const box = document.getElementById('cust-list');
   let rows = CUSTOMERS;
+  if (STAFF_BRANCH && !showAllBranch) rows = rows.filter(c => String(c.branch||'').trim() === STAFF_BRANCH);
   if (q) rows = rows.filter(c => (
     (c.name||'') + (c.kana||'') + (c.branch||'') + (c.staff||'') + (c.tel||'')
   ).toLowerCase().indexOf(q) >= 0);
