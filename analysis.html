@@ -286,7 +286,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>年</label><select class="fc" id="mn-year" onchange="renderMonthly()"></select></div>
         <div class="fg"><label>月</label><select class="fc" id="mn-month" onchange="renderMonthly()"></select></div>
         <div class="fg"><label>拠点</label><select class="fc" id="mn-branch" onchange="renderMonthly()"><option value="both">全拠点</option><option>仙台</option><option>京都</option></select></div>
-        <div class="fg"><label></label><button class="btn btn-g" onclick="exportMonthlyCSV()">📥 CSV出力</button></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn btn-g" style="padding:.42rem 1.1rem;font-size:.8rem;box-sizing:border-box" onclick="exportMonthlyCSV()">📥 CSV出力</button></div>
       </div>
     </div>
 
@@ -325,7 +325,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>年</label><select class="fc" id="an-year" onchange="renderAnnual()"></select></div>
         <div class="fg"><label>拠点</label><select class="fc" id="an-branch" onchange="renderAnnual()"><option value="both">全拠点</option><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>表示</label><select class="fc" id="an-mode" onchange="renderAnnual()"><option value="amount">売上金額</option><option value="qty">販売本数</option><option value="orders">注文件数</option><option value="profit">粗利</option></select></div>
-        <div class="fg"><label></label><button class="btn btn-g" onclick="exportAnnualCSV()">📥 CSV出力</button></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn btn-g" style="padding:.42rem 1.1rem;font-size:.8rem;box-sizing:border-box" onclick="exportAnnualCSV()">📥 CSV出力</button></div>
       </div>
     </div>
 
@@ -363,7 +363,9 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
           <option value="3m">直近3ヶ月</option>
           <option value="ytd">年初来</option>
           <option value="all">全期間</option>
+          <option value="custom">任意期間（日付指定）</option>
         </select></div>
+        <div class="fg" id="rg-range-wrap" style="display:none"><label>開始〜終了</label><div style="display:flex;gap:6px;align-items:center"><input class="fc" id="rg-from" type="date" onchange="renderRegional()" style="flex:1"><span style="color:var(--wh3)">〜</span><input class="fc" id="rg-to" type="date" onchange="renderRegional()" style="flex:1"></div></div>
         <div class="fg"><label>表示モード</label><select class="fc" id="rg-mode" onchange="renderRegional()">
           <option value="branch">拠点別</option>
           <option value="store">取引先別TOP20</option>
@@ -398,7 +400,9 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
           <option value="3m">直近3ヶ月</option>
           <option value="ytd">年初来</option>
           <option value="all">全期間</option>
+          <option value="custom">任意期間（日付指定）</option>
         </select></div>
+        <div class="fg" id="pr-range-wrap" style="display:none"><label>開始〜終了</label><div style="display:flex;gap:6px;align-items:center"><input class="fc" id="pr-from" type="date" onchange="renderProduct()" style="flex:1"><span style="color:var(--wh3)">〜</span><input class="fc" id="pr-to" type="date" onchange="renderProduct()" style="flex:1"></div></div>
         <div class="fg"><label>並び替え</label><select class="fc" id="pr-sort" onchange="renderProduct()">
           <option value="amount">売上順</option>
           <option value="qty">本数順</option>
@@ -612,7 +616,7 @@ function switchModule(name, el){
 }
 
 // 期間でフィルタするユーティリティ
-function filterByPeriod(orders, period){
+function filterByPeriod(orders, period, fromDate, toDate){
   const now = new Date();
   if (period === 'month'){
     const m = now.toISOString().slice(0,7);
@@ -630,6 +634,11 @@ function filterByPeriod(orders, period){
   if (period === 'ytd'){
     const yr = now.getFullYear() + '-01-01';
     return orders.filter(o => (o.date || '') >= yr);
+  }
+  if (period === 'custom'){
+    const f = fromDate || '0000-00-00';
+    const t = toDate || '9999-99-99';
+    return orders.filter(o => { const d = (o.date || ''); return d && d >= f && d <= t; });
   }
   return orders;
 }
@@ -903,8 +912,16 @@ function exportAnnualCSV(){
 function renderRegional(){
   const period = document.getElementById('rg-period').value;
   const mode = document.getElementById('rg-mode').value;
+  const _rw = document.getElementById('rg-range-wrap'); if (_rw) _rw.style.display = (period === 'custom') ? '' : 'none';
+  if (period === 'custom'){
+    const _f = document.getElementById('rg-from'), _t = document.getElementById('rg-to');
+    if (_f && !_f.value) _f.value = new Date().getFullYear() + '-01-01';
+    if (_t && !_t.value) _t.value = new Date().toISOString().slice(0,10);
+  }
+  const _from = document.getElementById('rg-from') ? document.getElementById('rg-from').value : '';
+  const _to   = document.getElementById('rg-to')   ? document.getElementById('rg-to').value   : '';
 
-  let orders = filterByPeriod(S.orders || [], period);
+  let orders = filterByPeriod(S.orders || [], period, _from, _to);
 
   // KPI
   const totalSales = orders.reduce((s,o) => s + calcAmt(o), 0);
@@ -1047,8 +1064,16 @@ function renderProduct(){
   const period = document.getElementById('pr-period').value;
   const sortKey = document.getElementById('pr-sort').value;
   const br = document.getElementById('pr-branch').value;
+  const _rw = document.getElementById('pr-range-wrap'); if (_rw) _rw.style.display = (period === 'custom') ? '' : 'none';
+  if (period === 'custom'){
+    const _f = document.getElementById('pr-from'), _t = document.getElementById('pr-to');
+    if (_f && !_f.value) _f.value = new Date().getFullYear() + '-01-01';
+    if (_t && !_t.value) _t.value = new Date().toISOString().slice(0,10);
+  }
+  const _from = document.getElementById('pr-from') ? document.getElementById('pr-from').value : '';
+  const _to   = document.getElementById('pr-to')   ? document.getElementById('pr-to').value   : '';
 
-  let orders = filterByPeriod(S.orders || [], period);
+  let orders = filterByPeriod(S.orders || [], period, _from, _to);
   if (br !== 'both') orders = orders.filter(o => o.branch === br);
 
   // 商品別集計
