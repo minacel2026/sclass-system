@@ -87,27 +87,23 @@ function render(box, d, uid){
     const store = (d.customer && d.customer.store) ? d.customer.store + ' 様' : 'マイページ';
     cards.push({ ic:'👤', t:'マイページ', d:store + '｜注文履歴・ご請求・協賛', href:'mypage.html' + q });
   }
-  // 紹介者ダッシュボードは準備中（次回更新で公開）。404防止のためリンクにしない
-  const refName = d.isReferrer ? ((d.referrer && d.referrer.name) ? d.referrer.name + ' 様' : '紹介者') : '';
-  const refPanel = d.isReferrer
-    ? '<div class="card" style="cursor:default;border-style:dashed">'
-      + '<div class="ic">🤝</div>'
-      + '<div class="tx"><div class="t">紹介ダッシュボード <span style="font-size:.6rem;color:#9a917c">準備中</span></div>'
-      + '<div class="d">' + esc(refName) + '｜紹介先・報酬・紹介リンクを近日公開</div></div></div>'
-    : '';
+  if (d.isReferrer){
+    const nm = (d.referrer && d.referrer.name) ? d.referrer.name + ' 様' : '紹介者';
+    cards.push({ ic:'🤝', t:'紹介ダッシュボード', d:nm + '｜紹介先・報酬・紹介リンク', href:'referrer.html' + q });
+  }
 
-  if (cards.length === 0 && !d.isReferrer){
+  if (cards.length === 0){
     box.innerHTML = '<div class="errbox">このLINEアカウントは未登録です。<br>お手数ですがSclass担当者までご連絡ください。</div>';
     return;
   }
 
-  // 遷移できる画面がちょうど1つ かつ 紹介者でない → 自動で開く（＝アカウントで自動切替）
-  if (cards.length === 1 && !d.isReferrer){
+  // 1つだけなら自動で開く（＝アカウントで自動切替）
+  if (cards.length === 1){
     location.replace(cards[0].href);
     return;
   }
 
-  // 複数 or 紹介者あり → カードで選択
+  // 複数（顧客兼紹介者など）はカードで選択
   let html = '<div class="hello">ようこそ<small>ご利用になる画面をお選びください</small></div>';
   cards.forEach(c => {
     html += '<a class="card" href="' + c.href + '">'
@@ -115,7 +111,6 @@ function render(box, d, uid){
           + '<div class="tx"><div class="t">' + esc(c.t) + '</div><div class="d">' + esc(c.d) + '</div></div>'
           + '<div class="arw">›</div></a>';
   });
-  html += refPanel;
   box.innerHTML = html;
 }
 
