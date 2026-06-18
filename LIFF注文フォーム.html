@@ -717,7 +717,7 @@ function renderProducts() {
     const outOfStock = s <= 0;
     return `
     <div class="prod-card ${qty > 0 ? 'selected' : ''} ${outOfStock ? 'out-of-stock' : ''}" id="card-${p.name}">
-      ${p.img ? `<img src="${p.img}" alt="${p.name}" style="width:100%;height:88px;object-fit:cover;border-radius:6px;margin-bottom:8px;display:block">` : `<div style="width:8px;height:8px;border-radius:50%;background:${p.color};margin-bottom:6px"></div>`}
+      ${p.img ? `<img src="${p.img}" alt="${p.name}" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:6px;margin-bottom:8px;display:block">` : `<div style="width:8px;height:8px;border-radius:50%;background:${p.color};margin-bottom:6px"></div>`}
       <div class="prod-name">${p.name}</div>
       <div class="prod-price">¥${Math.round(p.price * (parseFloat(window._custRate||'7')/10) * 1.1).toLocaleString('ja-JP', {maximumFractionDigits:0})}<span style="font-size:.6rem;color:var(--wh3)">税込</span></div>
       <div class="prod-stock ${s <= 5 && s > 0 ? 'low' : ''}">${outOfStock ? '在庫切れ' : s <= 5 ? `残り${s}本` : `在庫あり`}</div>

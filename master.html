@@ -956,16 +956,16 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
         </div>
         <div id="prod-crop-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9999;align-items:center;justify-content:center;padding:1rem">
           <div style="background:var(--d2);border:1px solid var(--gold-d);border-radius:12px;padding:1.2rem;max-width:330px;width:100%;text-align:center">
-            <div style="color:var(--gold-l);font-weight:600;margin-bottom:.8rem;font-size:.9rem">写真の位置・大きさを調整</div>
+            <div style="color:var(--gold-l);font-weight:600;margin-bottom:.8rem;font-size:.9rem">写真の位置・大きさを調整 <span style="font-size:.7rem;color:var(--wh3)">（全体表示v2）</span></div>
             <div style="display:flex;justify-content:center">
               <canvas id="prod-crop-canvas" width="260" height="260" onmousedown="_cropPointerDown(event)" onmousemove="_cropPointerMove(event)" onmouseup="_cropPointerUp()" onmouseleave="_cropPointerUp()" ontouchstart="_cropPointerDown(event)" ontouchmove="_cropPointerMove(event)" ontouchend="_cropPointerUp()" style="touch-action:none;border-radius:8px;cursor:move;background:#111;max-width:100%"></canvas>
             </div>
             <div style="display:flex;align-items:center;gap:8px;margin:.9rem 0 .3rem">
               <span style="font-size:.7rem;color:var(--wh3)">小</span>
-              <input type="range" id="prod-crop-zoom" min="100" max="400" value="100" oninput="onCropZoom(this.value)" style="flex:1">
+              <input type="range" id="prod-crop-zoom" min="100" max="500" value="100" oninput="onCropZoom(this.value)" style="flex:1">
               <span style="font-size:.7rem;color:var(--wh3)">大</span>
             </div>
-            <div style="font-size:.6rem;color:var(--wh3);margin-bottom:.9rem">ドラッグで位置調整 / スライダーで拡大縮小</div>
+            <div style="font-size:.6rem;color:var(--wh3);margin-bottom:.9rem">ドラッグで位置 / スライダーで拡大縮小（縮小すると余白を残して全体表示）</div>
             <div style="display:flex;gap:10px;justify-content:center">
               <button type="button" class="btn btn-p" onclick="confirmProductCrop()">決定</button>
               <button type="button" class="btn btn-g" onclick="cancelProductCrop()">やめる</button>
@@ -3055,7 +3055,7 @@ function onProductImageSelected(input){
 }
 function openProductCropper(img){
   var V = 260;
-  var base = Math.max(V/img.width, V/img.height);
+  var base = Math.min(V/img.width, V/img.height); // contain（全体が枠に収まる・余白可）
   _cropState = { img:img, V:V, base:base, zoom:1, ox:0, oy:0, drag:false, lx:0, ly:0 };
   _centerCrop();
   var z = document.getElementById('prod-crop-zoom'); if(z) z.value = 100;
@@ -3070,8 +3070,12 @@ function _centerCrop(){
 function _clampCrop(){
   var st=_cropState; if(!st) return;
   var dw=st.img.width*st.base*st.zoom, dh=st.img.height*st.base*st.zoom;
-  if(st.ox>0) st.ox=0; if(st.oy>0) st.oy=0;
-  if(st.ox<st.V-dw) st.ox=st.V-dw; if(st.oy<st.V-dh) st.oy=st.V-dh;
+  // 画像が枠より小さい軸: 余白を残して枠内に収める([0, V-draw])
+  // 画像が枠より大きい軸: 隙間が出ないようカバー([V-draw, 0])
+  if(dw<=st.V){ if(st.ox<0)st.ox=0; if(st.ox>st.V-dw)st.ox=st.V-dw; }
+  else        { if(st.ox>0)st.ox=0; if(st.ox<st.V-dw)st.ox=st.V-dw; }
+  if(dh<=st.V){ if(st.oy<0)st.oy=0; if(st.oy>st.V-dh)st.oy=st.V-dh; }
+  else        { if(st.oy>0)st.oy=0; if(st.oy<st.V-dh)st.oy=st.V-dh; }
 }
 function _drawCrop(){
   var st=_cropState; if(!st) return;
