@@ -1561,9 +1561,16 @@ function _ivPaidInPeriod(custName, from, to){
   });
   return s2;
 }
-function buildInvoicePreview(){
+async function buildInvoicePreview(){
   try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
   S.orders = dedupeOrders(S.orders);
+  // 商品マスター（正規名 fullName）を確保
+  if (!S.products || !S.products.length){
+    try { const rp = await gasGet('getProducts'); if (rp && rp.products && rp.products.length){ S.products = rp.products; saveState(); } } catch(e){}
+  }
+  const fullNameMap = {};
+  (S.products || []).forEach(p => { if (p && p.name) fullNameMap[p.name] = p.fullName || p.name; });
+  const prodName = k => fullNameMap[k] || k;
   const custId = document.getElementById('iv-cust').value;
   const c = (S.customers || []).find(x => (x.id || x.name) === custId);
   if (!c) return toast('取引先を選択してください', 'error');
@@ -1588,7 +1595,7 @@ function buildInvoicePreview(){
       const amt = Math.round(baseUnit * tm * qty);             // 税込金額
       salesIncl += amt;
       if (tm > 1) taxableIncl += amt;
-      lineRows.push({ date: d10(o.date), prod, qty, unitIncl, amt });
+      lineRows.push({ date: d10(o.date), prod: prodName(prod), qty, unitIncl, amt });
     });
   });
   const tax = Math.round(taxableIncl * 10 / 110);   // 内税
