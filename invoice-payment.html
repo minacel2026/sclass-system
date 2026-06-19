@@ -414,6 +414,11 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>振込先</label><select class="fc" id="iv-bank"></select></div>
         <div class="fg"><label>&nbsp;</label><button class="btn btn-p" onclick="buildInvoicePreview()" style="width:100%;display:block">プレビュー作成</button></div>
       </div>
+      <div class="frow" style="margin-top:.5rem">
+        <div class="fg"><label>前回請求額（自動／手修正可）</label><input class="fc" id="iv-prev" type="number" placeholder="自動算出"></div>
+        <div class="fg"><label>今回入金額（自動／手修正可）</label><input class="fc" id="iv-paid" type="number" placeholder="自動算出"></div>
+        <div class="fg" style="flex:2"><label>備考欄</label><input class="fc" id="iv-note" placeholder="（任意）"></div>
+      </div>
     </div>
 
     <div class="form-section">
@@ -571,6 +576,7 @@ const PROD_LIST = [
 ];
 const PRODS = PROD_LIST.map(p => p.key);
 const PRICE = Object.fromEntries(PROD_LIST.map(p => [p.key, p.price]));
+const DEFAULT_BANK = 'カ）エスクラスエイギョウブ\nPayPay銀行 ビジネス営業部\n普通 7215569';
 const COST  = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
 const REORDER = Object.fromEntries(PROD_LIST.map(p => [p.key, p.reorder]));
 
@@ -1505,62 +1511,118 @@ function onIvCustChange(){
   } else {
     document.getElementById('iv-bank').innerHTML = '<option value="">未設定</option>';
   }
+  const pe=document.getElementById('iv-prev'), pa=document.getElementById('iv-paid');
+  if(pe) pe.value=''; if(pa) pa.value='';
 }
 
+function _ivLastBilled(custId, custName, from){
+  const cand = (S.invoices||[]).filter(x => (x.custId===custId || x.custName===custName) && String(x.ivDate||'') < from);
+  if (!cand.length) return 0;
+  cand.sort((a,b)=> String(b.ivDate||'').localeCompare(String(a.ivDate||'')));
+  return Number(cand[0].billed != null ? cand[0].billed : cand[0].total) || 0;
+}
+function _ivPaidInPeriod(custName, from, to){
+  let s2 = 0;
+  (S.orders||[]).forEach(o=>{
+    if (o.store!==custName) return;
+    const paid = String(o.paidAt||'').slice(0,10);
+    if (paid && paid>=from && paid<=to) s2 += calcAmt(o);
+  });
+  return s2;
+}
 function buildInvoicePreview(){
-  // 最新の注文を読み込み＋重複排除（集金管理と同じデータsoにそろえる）
   try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
   S.orders = dedupeOrders(S.orders);
   const custId = document.getElementById('iv-cust').value;
   const c = (S.customers || []).find(x => (x.id || x.name) === custId);
   if (!c) return toast('取引先を選択してください', 'error');
-
   const from = document.getElementById('iv-from').value;
   const to   = document.getElementById('iv-to').value;
   if (!from || !to) return toast('対象期間を入力してください', 'error');
 
-  const orders = (S.orders || []).filter(o =>
-    o.store === c.name && o.date >= from && o.date <= to
-  );
-
+  const d10 = v => String(v||'').slice(0,10);
   const company = S.company || {};
-  let total = 0;
-  const lines = orders.map(o => {
-    const items = Object.entries(o.items || {}).filter(([,q]) => q > 0);
-    const itemsTxt = items.map(([p,q]) => `${p}×${q}`).join(', ');
-    const amt = calcAmt(o);
-    total += amt;
-    return `<tr><td>${o.date}</td><td>${itemsTxt}</td><td style="text-align:right">¥${fmt(amt)}</td></tr>`;
-  }).join('');
+  const orders = (S.orders || []).filter(o => o.store === c.name && d10(o.date) >= from && d10(o.date) <= to);
+
+  // 明細（商品ごと: 日付/商品名/数量/単価(税込)/金額）
+  let salesIncl = 0, taxableIncl = 0;
+  const lineRows = [];
+  orders.forEach(o => {
+    const cond = (Number(o.condition) || Number(c.rate) || 10) / 10;
+    const tm = (o.tax === 'taxあり' || o.tax === undefined) ? 1.1 : 1;   // 既定は税込
+    Object.entries(o.items || {}).forEach(([prod, qty]) => {
+      if (!qty || qty <= 0) return;
+      const baseUnit = Math.round((PRICE[prod] || 0) * cond);  // 税抜単価
+      const unitIncl = Math.round(baseUnit * tm);              // 税込単価
+      const amt = Math.round(baseUnit * tm * qty);             // 税込金額
+      salesIncl += amt;
+      if (tm > 1) taxableIncl += amt;
+      lineRows.push({ date: d10(o.date), prod, qty, unitIncl, amt });
+    });
+  });
+  const tax = Math.round(taxableIncl * 10 / 110);   // 内税
+  const subtotal = salesIncl - tax;
+
+  // 繰越（前回請求・今回入金は自動提案、空欄のときだけ自動セット＝手修正は保持）
+  const prevEl = document.getElementById('iv-prev'), paidEl = document.getElementById('iv-paid');
+  if (prevEl && prevEl.value === '') prevEl.value = _ivLastBilled(c.id||c.name, c.name, from);
+  if (paidEl && paidEl.value === '') paidEl.value = _ivPaidInPeriod(c.name, from, to);
+  const prevBilled = Number(prevEl ? prevEl.value : 0) || 0;
+  const paidNow    = Number(paidEl ? paidEl.value : 0) || 0;
+  const carry  = prevBilled - paidNow;
+  const billed = carry + salesIncl;
 
   const ivNo  = document.getElementById('iv-no').value;
   const ivDate = document.getElementById('iv-date').value;
   const ivDue  = document.getElementById('iv-due').value;
-  const bank   = document.getElementById('iv-bank').value;
+  let bank   = document.getElementById('iv-bank').value;
+  if (!bank) bank = company.bank || DEFAULT_BANK;
+  const note = (document.getElementById('iv-note')||{}).value || '';
+
+  const itemHtml = lineRows.length
+    ? lineRows.map(r => `<tr><td>${r.date}</td><td>${escapeHtml(r.prod)}</td><td style="text-align:right">${r.qty}</td><td style="text-align:right">¥${fmt(r.unitIncl)}</td><td style="text-align:right">¥${fmt(r.amt)}</td></tr>`).join('')
+    : '<tr><td colspan="5" style="text-align:center;color:#999">対象期間に注文がありません</td></tr>';
 
   document.getElementById('iv-preview').innerHTML = `
-    <h2>請求書</h2>
-    <div class="row"><span><strong>${escapeHtml(c.invName || c.name)}</strong> 御中</span><span>請求書No: ${escapeHtml(ivNo)}</span></div>
+    <h2 style="text-align:center;letter-spacing:.4em;margin-bottom:1rem">請求書</h2>
+    <div class="row"><span style="font-size:1.05rem"><strong>${escapeHtml(c.invName || c.name)}</strong> 御中</span><span>請求書No: ${escapeHtml(ivNo)}</span></div>
     <div class="row"><span></span><span>発行日: ${ivDate}</span></div>
     <div class="row"><span></span><span>支払期限: ${ivDue}</span></div>
-    <div style="margin-top:1rem;padding:.7rem;background:#fafafa;border:1px solid #ddd">
-      <div style="font-size:1rem;font-weight:700;margin-bottom:.4rem">${escapeHtml(company.name || '株式会社Sclass')}</div>
-      <div style="font-size:.78rem;color:#555">${escapeHtml(company.addr || '')}</div>
-      <div style="font-size:.78rem;color:#555">TEL: ${escapeHtml(company.tel || '')}</div>
-      ${company.invNum ? `<div style="font-size:.72rem;color:#777;margin-top:.3rem">登録番号: ${escapeHtml(company.invNum)}</div>` : ''}
+    <p style="margin:1rem 0 .5rem;font-size:.85rem">下記の通りご請求申し上げます。</p>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1rem">
+      <div style="flex:1;padding:.7rem;background:#fafafa;border:1px solid #ddd">
+        <div style="font-size:.7rem;color:#777;margin-bottom:.2rem">支払先</div>
+        <div style="font-size:.82rem;white-space:pre-line">${escapeHtml(bank)}</div>
+      </div>
+      <div style="text-align:right;min-width:38%">
+        <div style="font-size:.75rem;color:#777">ご請求金額</div>
+        <div style="font-size:1.5rem;font-weight:700;border-bottom:2px solid #333;padding-bottom:.2rem">¥${fmt(billed)}</div>
+      </div>
     </div>
-    <p style="margin:1.2rem 0 .5rem;font-size:.85rem">下記の通りご請求申し上げます。</p>
+    <table style="margin-bottom:1.2rem"><tbody>
+      <tr><td>前回請求額</td><td style="text-align:right">¥${fmt(prevBilled)}</td><td>今回入金額</td><td style="text-align:right">¥${fmt(paidNow)}</td></tr>
+      <tr><td>繰越金額</td><td style="text-align:right">¥${fmt(carry)}</td><td>今回売上額</td><td style="text-align:right">¥${fmt(salesIncl)}</td></tr>
+    </tbody></table>
     <table>
-      <thead><tr><th>日付</th><th>商品</th><th style="text-align:right">金額</th></tr></thead>
-      <tbody>${lines || '<tr><td colspan="3" style="text-align:center;color:#999">対象期間に注文がありません</td></tr>'}</tbody>
+      <thead><tr><th>日付</th><th>商品名</th><th style="text-align:right">数量</th><th style="text-align:right">単価(税込)</th><th style="text-align:right">金額</th></tr></thead>
+      <tbody>${itemHtml}</tbody>
     </table>
-    <div class="total">合計金額（税込）: ¥${fmt(total)}</div>
-    ${bank ? `<div style="margin-top:1rem;padding:.7rem;background:#f8f8f8;border:1px solid #ddd"><strong>振込先:</strong> ${escapeHtml(bank)}</div>` : ''}
-    <div style="margin-top:2rem;text-align:right;font-size:.7rem;color:#999">※ ${orders.length}件の注文に対する請求</div>
+    <table style="margin-top:.4rem;width:46%;margin-left:auto"><tbody>
+      <tr><td>小　計</td><td style="text-align:right">¥${fmt(subtotal)}</td></tr>
+      <tr><td>内 消費税</td><td style="text-align:right">¥${fmt(tax)}</td></tr>
+      <tr><td style="font-weight:700">合　計</td><td style="text-align:right;font-weight:700">¥${fmt(salesIncl)}</td></tr>
+    </tbody></table>
+    ${note ? `<div style="margin-top:1rem;font-size:.78rem"><strong>備考欄：</strong>${escapeHtml(note)}</div>` : ''}
+    <div style="margin-top:1.2rem;font-size:.78rem;color:#555">
+      <strong>${escapeHtml(company.name || '株式会社Sclass')}</strong>${company.tel ? '　TEL: '+escapeHtml(company.tel) : ''}${company.invNum ? `<br>登録番号: ${escapeHtml(company.invNum)}` : ''}
+    </div>
   `;
 
-  // プレビュー用に保持
-  window._currentInvoice = { ivNo, ivDate, ivDue, custId: c.id || c.name, custName: c.name, from, to, total, count: orders.length, bank };
+  window._currentInvoice = {
+    ivNo, ivDate, ivDue, custId: c.id || c.name, custName: c.name, from, to,
+    salesTotal: salesIncl, subtotal, tax, prevBilled, paidNow, carry, billed,
+    total: billed, count: orders.length, bank, note
+  };
 }
 
 function saveInvoice(){
