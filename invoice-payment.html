@@ -150,10 +150,41 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .invoice-preview table th{background:#f0f0f0;color:#222;border:1px solid #ccc;padding:.4rem}
 .invoice-preview table td{border:1px solid #ddd;padding:.4rem;background:#fff}
 .invoice-preview .total{font-size:1.2rem;font-weight:700;text-align:right;margin-top:1rem;padding-top:.5rem;border-top:2px solid #888;color:#000}
+.invoice-preview{max-width:820px;margin-left:auto;margin-right:auto}
+.invoice-preview .iv-doc{font-family:'Noto Sans JP',sans-serif;color:#222;font-size:12px;line-height:1.5}
+.invoice-preview .iv-head{display:flex;justify-content:space-between;gap:1.4rem;align-items:flex-start}
+.invoice-preview .iv-head-l{flex:1.15}
+.invoice-preview .iv-head-r{flex:.95;font-size:11px;line-height:1.7}
+.invoice-preview .iv-title{display:inline-block;background:#4f7d93;color:#fff;font-size:1.35rem;font-weight:700;letter-spacing:.45em;padding:.35rem 1.5rem;margin-bottom:1rem;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.invoice-preview .iv-cust{font-size:1rem;border-bottom:2px solid #333;padding-bottom:.25rem;margin-bottom:1rem}
+.invoice-preview .iv-custname{font-weight:700;font-size:1.25rem;margin-right:1rem}
+.invoice-preview .iv-payinfo{width:100%;border-collapse:collapse;margin-bottom:.7rem}
+.invoice-preview .iv-payinfo td{border:1px solid #cfdde3;padding:.45rem .6rem;vertical-align:middle;background:#fff}
+.invoice-preview .iv-lab{background:#4f7d93;color:#fff;font-weight:600;width:96px;text-align:center;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.invoice-preview .iv-bank{white-space:pre-line;font-size:11px}
+.invoice-preview .iv-lead{margin:.5rem 0 .4rem}
+.invoice-preview .iv-bigamt{font-size:1.5rem;font-weight:700;text-align:right}
+.invoice-preview .iv-co-name{font-size:1.05rem;font-weight:700;margin:.2rem 0 .3rem}
+.invoice-preview .iv-page{text-align:right;font-size:10px;margin-bottom:.4rem}
+.invoice-preview .iv-notes{margin-top:.6rem;font-size:9px;color:#555;line-height:1.5}
+.invoice-preview .iv-carry{width:100%;border-collapse:collapse;margin:1rem 0}
+.invoice-preview .iv-carry th{background:#4f7d93;color:#fff;border:1px solid #3f6e84;padding:.4rem .2rem;font-size:10.5px;font-weight:600;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.invoice-preview .iv-carry td{border:1px solid #cfdde3;padding:.45rem;text-align:right;font-size:12px;background:#fff}
+.invoice-preview .iv-items{width:100%;border-collapse:collapse}
+.invoice-preview .iv-items th{background:#4f7d93;color:#fff;border:1px solid #3f6e84;padding:.4rem;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.invoice-preview .iv-items td{border:1px solid #cfdde3;padding:.35rem .5rem;font-size:11px;background:#fff}
+.invoice-preview .iv-items td.num{text-align:right}
+.invoice-preview .iv-tot{width:55%;margin-left:auto;border-collapse:collapse;margin-top:.5rem}
+.invoice-preview .iv-tot td{border:1px solid #cfdde3;padding:.4rem .6rem;background:#fff}
+.invoice-preview .iv-tot td.num{text-align:right}
+.invoice-preview .iv-tot tr:last-child td{font-weight:700;background:#eef4f6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.invoice-preview .iv-remark{margin-top:.8rem;font-size:11px;border-top:1px solid #999;padding-top:.3rem}
 
 @media print{
   /* プレビュー部分のみを印刷（フォーム・タブ・ヘッダー等は出力しない） */
-  html,body{width:1041px !important;margin:0 !important;padding:0 !important;overflow:hidden !important}
+  @page{size:A4 portrait;margin:11mm}
+  html,body{width:auto !important;margin:0 !important;padding:0 !important;overflow:visible !important}
+  .invoice-preview{max-width:none !important}
   body *{visibility:hidden !important}
   .invoice-preview, .invoice-preview *{visibility:visible !important}
   .invoice-preview{position:absolute !important;left:0;top:0;width:100% !important;border:none !important;padding:0 !important;margin:0 !important;background:#fff !important}
@@ -1580,47 +1611,63 @@ function buildInvoicePreview(){
   const note = (document.getElementById('iv-note')||{}).value || '';
 
   const itemHtml = lineRows.length
-    ? lineRows.map(r => `<tr><td>${r.date}</td><td>${escapeHtml(r.prod)}</td><td style="text-align:right">${r.qty}</td><td style="text-align:right">¥${fmt(r.unitIncl)}</td><td style="text-align:right">¥${fmt(r.amt)}</td></tr>`).join('')
-    : '<tr><td colspan="5" style="text-align:center;color:#999">対象期間に注文がありません</td></tr>';
+    ? lineRows.map(r => `<tr><td>${r.date}</td><td>${escapeHtml(r.prod)}</td><td class="num">${r.qty} 本</td><td class="num">¥${fmt(r.unitIncl)}</td><td class="num">¥${fmt(r.amt)}</td><td></td></tr>`).join('')
+    : '<tr><td colspan="6" style="text-align:center;color:#999">対象期間に注文がありません</td></tr>';
+  const salesNet = salesIncl - tax;
+  const br = (company.branches && c.branch && company.branches[c.branch]) ? company.branches[c.branch] : null;
+  const coAddr = (br && br.addr) || company.addr || '';
+  const coTel  = (br && br.tel) || company.tel || '';
+  const wareki = ds => { const m=String(ds||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m?`令和${(+m[1])-2018}年 ${+m[2]}月${+m[3]}日`:(ds||''); };
+  const dotDate = ds => { const m=String(ds||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m?`${+m[1]}.${+m[2]}.${+m[3]}`:(ds||''); };
 
   document.getElementById('iv-preview').innerHTML = `
-    <h2 style="text-align:center;letter-spacing:.4em;margin-bottom:1rem">請求書</h2>
-    <div class="row"><span style="font-size:1.05rem"><strong>${escapeHtml(c.invName || c.name)}</strong> 御中</span><span>請求書No: ${escapeHtml(ivNo)}</span></div>
-    <div class="row"><span></span><span>発行日: ${ivDate}</span></div>
-    <div class="row"><span></span><span>支払期限: ${ivDue}</span></div>
-    <p style="margin:1rem 0 .5rem;font-size:.85rem">下記の通りご請求申し上げます。</p>
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1rem">
-      <div style="flex:1;padding:.7rem;background:#fafafa;border:1px solid #ddd">
-        <div style="font-size:.7rem;color:#777;margin-bottom:.2rem">支払先</div>
-        <div style="font-size:.82rem;white-space:pre-line">${escapeHtml(bank)}</div>
+    <div class="iv-doc">
+      <div class="iv-head">
+        <div class="iv-head-l">
+          <div class="iv-title">請　求　書</div>
+          <div class="iv-cust"><span class="iv-custname">${escapeHtml(c.invName || c.name)}</span> 御 中</div>
+          <table class="iv-payinfo">
+            <tr><td class="iv-lab">支払期限</td><td>${dotDate(ivDue)}</td></tr>
+            <tr><td class="iv-lab">支払先</td><td class="iv-bank">${escapeHtml(bank)}</td></tr>
+          </table>
+          <p class="iv-lead">下記の通りご請求申し上げます。</p>
+          <table class="iv-payinfo" style="width:auto;min-width:60%">
+            <tr><td class="iv-lab">請求金額</td><td class="iv-bigamt">¥${fmt(billed)}-</td></tr>
+          </table>
+        </div>
+        <div class="iv-head-r">
+          <div class="iv-page">1/1<br>請求日：${wareki(ivDate)}</div>
+          <div class="iv-co-name">${escapeHtml(company.name || '株式会社Sclass')}</div>
+          ${company.invNum ? `<div>登録番号：${escapeHtml(company.invNum)}</div>` : ''}
+          ${company.zip ? `<div>〒${escapeHtml(company.zip)}</div>` : ''}
+          ${coAddr ? `<div>${escapeHtml(coAddr)}</div>` : ''}
+          ${coTel ? `<div>☎ ${escapeHtml(coTel)}</div>` : ''}
+          ${company.email ? `<div>✉ ${escapeHtml(company.email)}</div>` : ''}
+          ${company.dept ? `<div>部署：${escapeHtml(company.dept)}</div>` : ''}
+          ${company.contact ? `<div>担当：${escapeHtml(company.contact)}</div>` : ''}
+          <div class="iv-notes">※請求書は月末時点の入金状況により作成しております。<br>※お手数をおかけしますが、お振込みの際は店名にてお願いいたします。</div>
+        </div>
       </div>
-      <div style="text-align:right;min-width:38%">
-        <div style="font-size:.75rem;color:#777">ご請求金額</div>
-        <div style="font-size:1.5rem;font-weight:700;border-bottom:2px solid #333;padding-bottom:.2rem">¥${fmt(billed)}</div>
-      </div>
-    </div>
-    <table style="margin-bottom:1.2rem"><tbody>
-      <tr><td>前回請求額</td><td style="text-align:right">¥${fmt(prevBilled)}</td><td>今回入金額</td><td style="text-align:right">¥${fmt(paidNow)}</td></tr>
-      <tr><td>繰越金額</td><td style="text-align:right">¥${fmt(carry)}</td><td>今回売上額</td><td style="text-align:right">¥${fmt(salesIncl)}</td></tr>
-    </tbody></table>
-    <table>
-      <thead><tr><th>日付</th><th>商品名</th><th style="text-align:right">数量</th><th style="text-align:right">単価(税込)</th><th style="text-align:right">金額</th></tr></thead>
-      <tbody>${itemHtml}</tbody>
-    </table>
-    <table style="margin-top:.4rem;width:46%;margin-left:auto"><tbody>
-      <tr><td>小　計</td><td style="text-align:right">¥${fmt(subtotal)}</td></tr>
-      <tr><td>内 消費税</td><td style="text-align:right">¥${fmt(tax)}</td></tr>
-      <tr><td style="font-weight:700">合　計</td><td style="text-align:right;font-weight:700">¥${fmt(salesIncl)}</td></tr>
-    </tbody></table>
-    ${note ? `<div style="margin-top:1rem;font-size:.78rem"><strong>備考欄：</strong>${escapeHtml(note)}</div>` : ''}
-    <div style="margin-top:1.2rem;font-size:.78rem;color:#555">
-      <strong>${escapeHtml(company.name || '株式会社Sclass')}</strong>${company.tel ? '　TEL: '+escapeHtml(company.tel) : ''}${company.invNum ? `<br>登録番号: ${escapeHtml(company.invNum)}` : ''}
+      <table class="iv-carry">
+        <thead><tr><th>前回請求額</th><th>今回入金額</th><th>繰越金額</th><th>今回売上額</th><th>消費税額</th><th>今回請求額</th></tr></thead>
+        <tbody><tr><td>¥${fmt(prevBilled)}</td><td>¥${fmt(paidNow)}</td><td>¥${fmt(carry)}</td><td>¥${fmt(salesNet)}</td><td>¥${fmt(tax)}</td><td>¥${fmt(billed)}</td></tr></tbody>
+      </table>
+      <table class="iv-items">
+        <thead><tr><th>日付</th><th>商品名</th><th>数量</th><th>単価(税込み)</th><th>金額(税込み)</th><th>備考</th></tr></thead>
+        <tbody>${itemHtml}</tbody>
+      </table>
+      <table class="iv-tot">
+        <tr><td>小　計</td><td>(税込み)</td><td class="num">¥${fmt(salesIncl)}</td></tr>
+        <tr><td>内 消費税</td><td>(10%)</td><td class="num">¥${fmt(tax)}</td></tr>
+        <tr><td>合　計</td><td>(税込)</td><td class="num">¥${fmt(salesIncl)}</td></tr>
+      </table>
+      <div class="iv-remark">備考欄：${escapeHtml(note)}</div>
     </div>
   `;
 
   window._currentInvoice = {
     ivNo, ivDate, ivDue, custId: c.id || c.name, custName: c.name, from, to,
-    salesTotal: salesIncl, subtotal, tax, prevBilled, paidNow, carry, billed,
+    salesTotal: salesNet, salesIncl, subtotal: salesIncl, tax, prevBilled, paidNow, carry, billed,
     total: billed, count: orders.length, bank, note
   };
 }
