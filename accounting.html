@@ -847,13 +847,14 @@ function saveCashEntry(){
   if (!date || !desc || amount <= 0) return toast('日付・摘要・金額を入力してください', 'error');
 
   if (!S.cashEntries) S.cashEntries = [];
-  S.cashEntries.push({
+  const entry = {
     id: 'cb-' + Date.now(), date, type, category: cat, branch,
     desc, amount, memo,
     addedBy: currentUser.name, addedAt: new Date().toISOString(),
-  });
+  };
+  S.cashEntries.push(entry);
   saveState();
-  if (S.gasUrl) gasPost({ action: 'saveCashEntry', date, type, category: cat, branch, desc, amount, memo });
+  if (S.gasUrl) gasPost({ action: 'saveCashEntry', ...entry });
 
   toast(`✓ ${type} ¥${fmt(amount)} を記録`);
   clearCashForm();
