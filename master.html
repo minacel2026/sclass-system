@@ -1149,6 +1149,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
         <div class="form-actions">
           <button class="btn btn-p" onclick="submitSponsorForm()">💾 保存</button>
           <button class="btn" onclick="clearSponsorForm()">クリア</button>
+          <button class="btn btn-g" onclick="cancelSponsorForm()">キャンセル</button>
           <button class="btn btn-d" id="spo-delete-btn" onclick="deleteSponsorRule()" style="display:none;margin-left:auto">🗑️ 削除</button>
         </div>
       </div>
@@ -3950,6 +3951,13 @@ function renderSponsorList(){
         </tbody>
       </table>
     </div>`;
+}
+
+// 編集／入力をキャンセルして一覧へ戻す（保存しない）
+function cancelSponsorForm(){
+  editingSponsorId = null;
+  clearSponsorForm();
+  switchSponsorTab('list', document.querySelectorAll('#m-sponsors .tab')[0]);
 }
 
 function clearSponsorForm(){
