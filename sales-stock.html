@@ -394,6 +394,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     <button class="mtab active" onclick="switchModule('orders',this)"><span class="mtab-ic">📋</span>注文一覧</button>
     <button class="mtab" onclick="switchModule('neworder',this)"><span class="mtab-ic">➕</span>注文登録</button>
     <button class="mtab" onclick="switchModule('stock',this)"><span class="mtab-ic">🍾</span>在庫管理</button>
+    <button class="mtab" onclick="switchModule('lending',this)"><span class="mtab-ic">🤝</span>貸借管理</button>
     <button class="mtab" onclick="switchModule('purchase',this)"><span class="mtab-ic">🚚</span>仕入管理</button>
     <button class="mtab" onclick="switchModule('inventory',this)"><span class="mtab-ic">📦</span>棚卸計算</button>
     <button class="mtab" onclick="switchModule('sponsor',this)"><span class="mtab-ic">🎁</span>協賛管理</button>
@@ -675,6 +676,42 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     </div>
   </div>
 
+  <!-- ════════ 貸借管理 ════════ -->
+  <div id="m-lending" class="mcon">
+    <div class="fp">
+      <div class="th-area"><h3>🤝 貸借先（外部会社）</h3><button class="btn-s" onclick="loadLending(true)">🔄 最新を取得</button></div>
+      <div class="frow">
+        <div class="fg"><label>会社名</label><input class="fc" id="lp-name" placeholder="例：○○商事"></div>
+        <div class="fg"><label>LINE UID（マイページ用・任意）</label><input class="fc" id="lp-uid" placeholder="後で設定可"></div>
+        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn" onclick="saveLendPartner()" style="height:30px;padding:0 1.2rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 貸借先を登録</button></div>
+      </div>
+      <div id="lend-partner-list" style="margin-top:.6rem"></div>
+    </div>
+
+    <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
+      <div class="th-area"><h3>📦 貸出・借入を記録</h3><span style="font-size:.68rem;color:var(--wh3)">貸出＝在庫が減る／借入＝在庫が増える（返却で戻る）</span></div>
+      <div class="frow">
+        <div class="fg"><label>種別</label><select class="fc" id="ln-kind"><option value="貸出">貸出（こちらが貸す）</option><option value="借入">借入（こちらが借りる）</option></select></div>
+        <div class="fg"><label>相手</label><select class="fc" id="ln-partner"><option value="">— 貸借先を選択 —</option></select></div>
+        <div class="fg"><label>拠点</label><select class="fc" id="ln-branch"><option>仙台</option><option>京都</option></select></div>
+        <div class="fg"><label>商品</label><select class="fc" id="ln-prod"><option value="">— 商品を選択 —</option></select></div>
+        <div class="fg"><label>数量（本）</label><input type="number" class="fc" id="ln-qty" min="1" placeholder="例:12"></div>
+        <div class="fg"><label>返却予定日（任意）</label><input type="date" class="fc" id="ln-due"></div>
+        <div class="fg" style="flex:1;min-width:140px"><label>メモ</label><input class="fc" id="ln-memo" placeholder="任意"></div>
+        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn" onclick="recordLending()" style="height:30px;padding:0 1.4rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 記録</button></div>
+      </div>
+    </div>
+
+    <div class="fp">
+      <div class="th-area"><h3>📊 貸借残数（相手ごと・未返却）</h3></div>
+      <div id="lend-balance"></div>
+    </div>
+    <div class="fp">
+      <div class="th-area"><h3>📋 貸借履歴</h3></div>
+      <div id="lend-list"></div>
+    </div>
+  </div>
+
 </main>
 
 <div id="toast"></div>
@@ -739,6 +776,7 @@ const COLOR   = Object.fromEntries(PROD_LIST.map(p => [p.key, p.color]));
 const S = {
   branch:'both', orders:[], customers:[], staff:[],
   stock:{仙台:{}, 京都:{}}, stockDetail:{仙台:{}, 京都:{}},
+  lendings:[], lendPartners:[],
   slog:[], collections:[], invoices:[],
   bankEntries:[], bankHistory:[], company:{}, products:null,
   purchases:[], suppliers:['マルシェジャパン','オーク酒販'],
@@ -765,7 +803,7 @@ function calcAmt(o){
 
 function saveState(){
   try {
-    const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
+    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
                   'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
@@ -773,7 +811,7 @@ function saveState(){
 }
 function loadState(){
   try {
-    const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
+    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
                   'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
     keys.forEach(k => {
@@ -887,6 +925,7 @@ function switchModule(name, el){
   if (name === 'purchase')  renderPurchase();
   if (name === 'inventory') renderInventory();
   if (name === 'sponsor')   renderSponsor();
+  if (name === 'lending')   loadLending();
 }
 
 // ─── KPI更新 ─────
@@ -3277,6 +3316,120 @@ function normalizeOrderItems(raw){
 
 // 既存の全注文の items を正規化（過去に番号で取り込まれた注文を救済）
 // 在庫の変動をスプレッドシートへ反映（同期しないとGAS同期で減算が元に戻ってしまう）
+// ════════ 在庫貸借管理 ════════
+function loadLending(force){
+  renderLendPartners(); fillLendSelectors(); renderLendBalance(); renderLendList();
+  if(!S.gasUrl) return;
+  (async()=>{
+    try{
+      const a=await gasGet('getLendPartners'); if(a&&a.partners) S.lendPartners=a.partners;
+      const b=await gasGet('getLendings');     if(b&&b.lendings) S.lendings=b.lendings;
+      saveState();
+      renderLendPartners(); fillLendSelectors(); renderLendBalance(); renderLendList();
+    }catch(e){ if(force) toast('最新の取得に失敗しました','error'); }
+  })();
+}
+
+function saveLendPartner(){
+  const name=(document.getElementById('lp-name').value||'').trim();
+  const uid=(document.getElementById('lp-uid').value||'').trim();
+  if(!name) return toast('会社名を入力してください','error');
+  const p={ id:'lp-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), name, uid, createdAt:new Date().toISOString() };
+  S.lendPartners=S.lendPartners||[]; S.lendPartners.push(p); saveState();
+  if(S.gasUrl) gasPost({action:'saveLendPartner', id:p.id, name:p.name, uid:p.uid});
+  document.getElementById('lp-name').value=''; document.getElementById('lp-uid').value='';
+  toast('✓ 貸借先を登録しました'); renderLendPartners(); fillLendSelectors();
+}
+function deleteLendPartner(id){
+  if(!confirm('この貸借先を削除しますか？（履歴は残ります）')) return;
+  S.lendPartners=(S.lendPartners||[]).filter(p=>p.id!==id); saveState();
+  if(S.gasUrl) gasPost({action:'deleteLendPartner', id});
+  renderLendPartners(); fillLendSelectors();
+}
+function renderLendPartners(){
+  const box=document.getElementById('lend-partner-list'); if(!box) return;
+  const list=S.lendPartners||[];
+  if(!list.length){ box.innerHTML='<div style="color:var(--wh3);font-size:.72rem;padding:.3rem">貸借先がまだありません</div>'; return; }
+  box.innerHTML='<table><thead><tr><th>会社名</th><th>LINE UID</th><th>操作</th></tr></thead><tbody>'
+    +list.map(p=>'<tr><td>'+escapeHtml(p.name)+'</td><td style="font-size:.64rem;color:var(--wh3);word-break:break-all">'+(escapeHtml(p.uid||'')||'—')+'</td><td><button class="btn-s" onclick="deleteLendPartner(\''+p.id+'\')">削除</button></td></tr>').join('')
+    +'</tbody></table>';
+}
+function fillLendSelectors(){
+  const ps=document.getElementById('ln-partner');
+  if(ps){ const keep=ps.value; ps.innerHTML='<option value="">— 貸借先を選択 —</option>'+(S.lendPartners||[]).map(p=>'<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.name)+'</option>').join(''); if(keep) ps.value=keep; }
+  const pr=document.getElementById('ln-prod');
+  if(pr){ const keep=pr.value; const pl=(S.products&&S.products.length)?S.products.filter(p=>p&&p.active!==false):(typeof PROD_LIST!=='undefined'?PROD_LIST:[]);
+    pr.innerHTML='<option value="">— 商品を選択 —</option>'+pl.map(p=>{const nm=(p&&p.name)?p.name:String(p);return '<option value="'+escapeHtml(String(nm))+'">'+escapeHtml(String(nm))+'</option>';}).join(''); if(keep) pr.value=keep; }
+}
+
+function _lendStockMove(branch, product, signedQty, type, note){
+  if(!S.stock[branch]) S.stock[branch]={};
+  S.stock[branch][product]=(S.stock[branch][product]||0)+signedQty;
+  if(!S.slog) S.slog=[];
+  S.slog.push({ date:today(), time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), branch, type, product, qty:Math.abs(signedQty), remaining:S.stock[branch][product], orderId:'', note });
+}
+
+function recordLending(){
+  const kind=document.getElementById('ln-kind').value;
+  const pid=document.getElementById('ln-partner').value;
+  const branch=document.getElementById('ln-branch').value;
+  const prod=document.getElementById('ln-prod').value;
+  const qty=parseInt(document.getElementById('ln-qty').value||'',10);
+  const due=document.getElementById('ln-due').value;
+  const memo=(document.getElementById('ln-memo').value||'').trim();
+  if(!pid) return toast('相手を選んでください','error');
+  if(!prod) return toast('商品を選んでください','error');
+  if(!(qty>0)) return toast('数量を入力してください','error');
+  const partner=(S.lendPartners||[]).find(p=>p.id===pid)||{};
+  const sign=(kind==='貸出')?-1:1;
+  _lendStockMove(branch, prod, sign*qty, kind, kind+'：'+(partner.name||'')+(memo?'（'+memo+'）':''));
+  const rec={ id:'ln-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:today(),
+    partnerId:pid, partnerName:partner.name||'', partnerUid:partner.uid||'',
+    kind, branch, product:prod, qty, dueDate:due, memo, status:'未返却', returnedDate:'',
+    createdAt:new Date().toISOString(), createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
+  S.lendings=S.lendings||[]; S.lendings.push(rec); saveState();
+  if(S.gasUrl){ gasPost({action:'saveLending', id:rec.id, date:rec.date, partnerId:rec.partnerId, partnerName:rec.partnerName, partnerUid:rec.partnerUid, kind:rec.kind, branch:rec.branch, product:rec.product, qty:rec.qty, dueDate:rec.dueDate, memo:rec.memo, status:rec.status, createdBy:rec.createdBy }); syncStockToGAS(); }
+  document.getElementById('ln-qty').value=''; document.getElementById('ln-memo').value=''; document.getElementById('ln-due').value='';
+  toast('✓ '+kind+'を記録しました（在庫'+(kind==='貸出'?'−':'+')+qty+'本）');
+  renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock();
+}
+
+function returnLending(id){
+  const rec=(S.lendings||[]).find(l=>l.id===id); if(!rec || rec.status==='返却済') return;
+  if(!confirm('「'+rec.partnerName+'」の'+rec.kind+'（'+rec.product+' '+rec.qty+'本）を返却済にしますか？\n在庫が'+(rec.kind==='貸出'?'戻ります(+)':'減ります(−)')+'。')) return;
+  const sign=(rec.kind==='貸出')?1:-1;
+  _lendStockMove(rec.branch, rec.product, sign*rec.qty, (rec.kind==='貸出'?'返却受':'借入返却'), '返却：'+rec.partnerName);
+  rec.status='返却済'; rec.returnedDate=today(); saveState();
+  if(S.gasUrl){ gasPost({action:'returnLending', id:rec.id, returnedDate:rec.returnedDate}); syncStockToGAS(); }
+  toast('✓ 返却を記録しました'); renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock();
+}
+
+function renderLendBalance(){
+  const box=document.getElementById('lend-balance'); if(!box) return;
+  const open=(S.lendings||[]).filter(l=>l.status!=='返却済');
+  if(!open.length){ box.innerHTML='<div style="color:var(--wh3);font-size:.74rem;padding:.4rem">未返却の貸借はありません</div>'; return; }
+  const by={};
+  open.forEach(l=>{ const k=l.partnerName||'(不明)'; by[k]=by[k]||{lent:0,borrowed:0}; if(l.kind==='貸出') by[k].lent+=Number(l.qty)||0; else by[k].borrowed+=Number(l.qty)||0; });
+  box.innerHTML='<table><thead><tr><th>相手</th><th style="text-align:right">貸出中（本）</th><th style="text-align:right">借入中（本）</th></tr></thead><tbody>'
+    +Object.keys(by).map(k=>'<tr><td>'+escapeHtml(k)+'</td><td style="text-align:right;color:#ffcf7a">'+by[k].lent+'</td><td style="text-align:right;color:#7ee2a8">'+by[k].borrowed+'</td></tr>').join('')
+    +'</tbody></table>';
+}
+function renderLendList(){
+  const box=document.getElementById('lend-list'); if(!box) return;
+  const list=(S.lendings||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  if(!list.length){ box.innerHTML='<div style="color:var(--wh3);font-size:.74rem;padding:.4rem">貸借の記録がありません</div>'; return; }
+  box.innerHTML='<table><thead><tr><th>日付</th><th>相手</th><th>種別</th><th>拠点</th><th>商品</th><th style="text-align:right">数量</th><th>返却予定</th><th>状態</th><th>操作</th></tr></thead><tbody>'
+    +list.map(l=>{ const done=l.status==='返却済';
+      return '<tr><td>'+escapeHtml(l.date)+'</td><td>'+escapeHtml(l.partnerName||'')+'</td>'
+        +'<td>'+(l.kind==='貸出'?'<span style="color:#ffcf7a">貸出</span>':'<span style="color:#7ee2a8">借入</span>')+'</td>'
+        +'<td>'+escapeHtml(l.branch||'')+'</td><td>'+escapeHtml(l.product||'')+'</td>'
+        +'<td style="text-align:right">'+(Number(l.qty)||0)+'</td>'
+        +'<td>'+escapeHtml(l.dueDate||'—')+'</td>'
+        +'<td>'+(done?'<span style="color:var(--wh3)">返却済'+(l.returnedDate?'('+escapeHtml(l.returnedDate)+')':'')+'</span>':'<span style="color:#ffcf7a">未返却</span>')+'</td>'
+        +'<td>'+(done?'—':'<button class="btn-s" onclick="returnLending(\''+l.id+'\')">返却</button>')+'</td></tr>';
+    }).join('')+'</tbody></table>';
+}
+
 function syncStockToGAS(){
   if (!S.gasUrl) return;
   const stockData = [];
@@ -3449,6 +3602,14 @@ window.addEventListener('DOMContentLoaded', () => {
   updateUserBadge();
   updateKPI();
   renderOrders();
+});
+window.addEventListener('DOMContentLoaded', () => {
+  const h = (location.hash || '').replace('#','');
+  const valid = ['orders','neworder','stock','purchase','inventory','sponsor','lending'];
+  if (h && valid.indexOf(h) >= 0){
+    const btn = document.querySelector('.mtab[onclick*="\'' + h + '\'"]');
+    if (typeof switchModule === 'function') switchModule(h, btn);
+  }
 });
 </script>
 
