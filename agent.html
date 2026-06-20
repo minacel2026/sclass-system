@@ -70,6 +70,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjt
 const LIFF_ID = '';   // ★この代理店マイページ用のLIFF IDを発行して貼り付け（空ならブラウザモード:?uid=でテスト）
 
 let _uid = '';
+let _name = '';
 let _products = [];   // 商品名リスト（GASから）
 let _agent = null;
 
@@ -78,6 +79,7 @@ const num = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g,'')); ret
 function esc(t){ return String(t==null?'':t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.style.opacity='1'; setTimeout(()=>t.style.opacity='0',2200); }
 function busy(on,msg){ const b=document.getElementById('busy'); if(msg) b.querySelector('.m').textContent=msg; b.style.display=on?'flex':'none'; }
+function copyUid(){ try{ navigator.clipboard.writeText(_uid).then(()=>toast('UIDをコピーしました'),()=>toast('コピーできませんでした')); }catch(e){ toast('コピーできませんでした'); } }
 
 // B方式（委託型）：Sclass入金額 = 売値 × 数量 × (掛率/10)、代理店手数料 = 残り
 function calcSclass(uri, qty, kake){ return Math.round(num(uri) * num(qty) * (num(kake)/10)); }
@@ -90,10 +92,12 @@ async function init(){
     if (!liff.isLoggedIn()) { liff.login(); return; }
     const prof = await liff.getProfile();
     _uid = prof.userId;
+    _name = prof.displayName || '';
   } catch(e) {
     document.querySelector('.header').insertAdjacentHTML('afterend',
       '<div class="wrap" style="padding-bottom:0"><div class="banner">⚠ ブラウザモードで動作中（LINE連携なし）</div></div>');
     _uid = new URLSearchParams(location.search).get('uid') || '';
+    _name = new URLSearchParams(location.search).get('name') || '';
   }
   if (!_uid){ document.getElementById('content').innerHTML = '<div class="errbox">LINEアカウント情報を取得できませんでした。<br>LINEアプリ内から開いてください。</div>'; return; }
   await load();
@@ -103,12 +107,20 @@ async function load(){
   const box = document.getElementById('content');
   box.innerHTML = '<div class="loading"><div class="spinner"></div>読み込み中…</div>';
   try {
-    const r = await fetch(GAS_URL + '?action=getAgentDashboard&uid=' + encodeURIComponent(_uid) + '&_=' + Date.now(), { cache:'no-store' });
+    const r = await fetch(GAS_URL + '?action=getAgentDashboard&uid=' + encodeURIComponent(_uid) + '&name=' + encodeURIComponent(_name) + '&_=' + Date.now(), { cache:'no-store' });
     const d = await r.json();
     if (!d || !d.ok){
-      box.innerHTML = (d && d.error === 'not_agent')
-        ? '<div class="errbox">代理店として登録が見つかりませんでした。<br>Sclass担当者までご連絡ください。</div>'
-        : '<div class="errbox">情報を取得できませんでした。時間をおいて再度お試しください。</div>';
+      if (d && d.error === 'not_agent'){
+        box.innerHTML = '<div class="errbox" style="color:var(--ivory);border-color:var(--line);text-align:left">'
+          + '<div style="text-align:center;color:var(--gold-l);font-weight:700;margin-bottom:8px">代理店として未登録です</div>'
+          + '下の「あなたのUID」をSclass担当者にお伝えください。担当者が登録すると、このページで実績入力ができるようになります。'
+          + '<div style="margin-top:12px;font-size:.6rem;color:#9a917c">あなたのUID</div>'
+          + '<div style="font-size:.78rem;color:var(--gold-l);word-break:break-all;background:#0e0e11;border:1px solid var(--line);border-radius:6px;padding:8px;margin-top:4px">' + esc(_uid) + '</div>'
+          + '<button class="btn" style="margin-top:10px" onclick="copyUid()">UIDをコピー</button>'
+          + '</div>';
+      } else {
+        box.innerHTML = '<div class="errbox">情報を取得できませんでした。時間をおいて再度お試しください。</div>';
+      }
       return;
     }
     _agent = d.agent || {};

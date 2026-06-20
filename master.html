@@ -409,6 +409,9 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     <button class="mtab" onclick="switchMaster('sponsors',this)">
       <span class="mtab-ic">🎁</span>協賛マスター
     </button>
+    <button class="mtab" onclick="switchMaster('agents',this)">
+      <span class="mtab-ic">🏷️</span>代理店マスター
+    </button>
     <button class="mtab" onclick="switchMaster('company',this)">
       <span class="mtab-ic">🏢</span>弊社情報
     </button>
@@ -1152,6 +1155,78 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     </div>
   </div>
 
+  <!-- ════════ 代理店マスター ════════ -->
+  <div id="m-agents" class="mcon">
+    <div class="tbar">
+      <div class="tab active" onclick="switchAgentTab('list',this)">一覧</div>
+      <div class="tab" onclick="switchAgentTab('new',this)">＋ 新規登録</div>
+      <div class="tab" onclick="switchAgentTab('deals',this)">入金管理</div>
+    </div>
+
+    <div id="agt-list" class="tcon active">
+      <div class="filter-bar">
+        <label>検索</label>
+        <input class="fc" id="agt-kw" placeholder="代理店名・メモ..." oninput="renderAgentList()" style="width:240px">
+        <button class="btn-s" onclick="loadAgentsTab(true)" style="margin-left:8px">🔄 最新を取得</button>
+        <span style="margin-left:auto;font-size:.72rem;color:var(--wh2)"><span id="agt-count">0</span> 社</span>
+      </div>
+      <div id="agt-grid" class="cust-grid"></div>
+    </div>
+
+    <div id="agt-new" class="tcon">
+      <div class="action-bar">
+        <button class="btn-s" onclick="switchAgentTab('list',document.querySelectorAll('#m-agents .tab')[0])">← 一覧に戻る</button>
+        <span id="agt-edit-status" style="color:var(--gold-l);font-size:.8rem"></span>
+      </div>
+      <div class="form-panel">
+        <h3>代理店情報</h3>
+        <div class="form-section">
+          <div class="form-section-title">▸ 基本情報</div>
+          <div class="frow">
+            <div class="fg"><label>代理店名 <span class="req">*</span></label><input class="fc" id="agt-name" placeholder="例：オーク酒販"></div>
+            <div class="fg"><label>状態</label><select class="fc" id="agt-status"><option value="有効">有効</option><option value="無効">無効</option></select></div>
+            <div class="fg"><label>既定掛率 <span class="hint">例:7=7掛</span></label><input class="fc" id="agt-kake" type="number" step="0.1" min="0" max="10" placeholder="7"></div>
+            <div class="fg fc-full"><label>メモ</label><input class="fc" id="agt-memo" placeholder="連絡先・締め日など"></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">▸ LINE連携（代理店マイページ用）</div>
+          <div class="frow">
+            <div class="fg fc-full">
+              <label>LINE UID <span class="req">*</span> <span class="hint">マイページで本人を特定するための番号</span></label>
+              <input class="fc" id="agt-uid" placeholder="Uxxxxxxxxxxxxxxxx">
+            </div>
+            <div class="fg fc-full">
+              <label>未登録で開いた人から選ぶ <span class="hint">代理店がLINEでマイページを開くとここに出ます</span></label>
+              <select class="fc" id="agt-uid-pick" onchange="pickAgentUid(this.value)"><option value="">— 申請UIDを選択（任意）—</option></select>
+            </div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-p" onclick="submitAgentForm()">💾 保存</button>
+          <button class="btn" onclick="clearAgentForm()">クリア</button>
+          <button class="btn btn-d" id="agt-delete-btn" onclick="deleteAgent()" style="display:none;margin-left:auto">🗑️ 削除</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="agt-deals" class="tcon">
+      <div class="filter-bar">
+        <label>代理店</label>
+        <select class="fc" id="agt-deal-filter" onchange="renderAgentDeals()"><option value="">すべて</option></select>
+        <label>状態</label>
+        <select class="fc" id="agt-deal-status" onchange="renderAgentDeals()">
+          <option value="">すべて</option>
+          <option value="未入金">未入金</option>
+          <option value="入金済">入金済</option>
+        </select>
+        <button class="btn-s" onclick="loadAgentsTab(true)" style="margin-left:8px">🔄 最新を取得</button>
+        <span style="margin-left:auto;font-size:.72rem;color:var(--wh2)">未入金合計 <span id="agt-unpaid-total" style="color:var(--gold-l)">¥0</span></span>
+      </div>
+      <div id="agt-deal-grid" class="cust-grid"></div>
+    </div>
+  </div>
+
 </main>
 
 <div id="toast"></div>
@@ -1197,6 +1272,7 @@ const S = {
   purchases:[], suppliers:['マルシェジャパン','オーク酒販'],
   cashEntries:[], dailyReps:[],
   referrers:[], sponsors:[],
+  agents:[], agentDeals:[], agentPending:[],
   gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
 };
 
@@ -1220,7 +1296,7 @@ function saveState(){
   try {
     const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
-                  'cashEntries','dailyReps','referrers','sponsors'];
+                  'cashEntries','dailyReps','referrers','sponsors','agents','agentDeals'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
   } catch(e){ console.warn('saveState error', e); }
 }
@@ -1228,7 +1304,7 @@ function loadState(){
   try {
     const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
-                  'cashEntries','dailyReps','referrers','sponsors'];
+                  'cashEntries','dailyReps','referrers','sponsors','agents','agentDeals'];
     keys.forEach(k => {
       const v = localStorage.getItem('lmb_' + k);
       if (v) try { S[k] = JSON.parse(v); } catch(e){}
@@ -1369,6 +1445,7 @@ function switchMaster(name, el){
   if (name === 'products')  renderProducts();
   if (name === 'referrers') renderReferrerList();
   if (name === 'sponsors')  renderSponsorList();
+  if (name === 'agents')    loadAgentsTab();
 }
 
 // ─── 全同期 ─────
@@ -1392,6 +1469,12 @@ async function syncAllFromGAS(){
   if (refs && refs.referrers) { S.referrers = refs.referrers; }
   const sps = await gasGet('getSponsors');
   if (sps && sps.sponsors) { S.sponsors = sps.sponsors; }
+  const ags = await gasGet('getAgents');
+  if (ags && ags.agents) { S.agents = ags.agents; }
+  const agd = await gasGet('getAgentDeals');
+  if (agd && agd.deals) { S.agentDeals = agd.deals; }
+  const agp = await gasGet('getAgentApplications');
+  if (agp && agp.pending) { S.agentPending = agp.pending; }
   const stf = await gasGet('getStaff');
   if (stf && stf.staff) S.staff = stf.staff;
   const co = await gasGet('getCompany');
@@ -1405,6 +1488,7 @@ async function syncAllFromGAS(){
   renderStaffList();
   if (typeof renderReferrerList === 'function') renderReferrerList();
   if (typeof renderSponsorList === 'function') renderSponsorList();
+  if (typeof renderAgentList === 'function') renderAgentList();
 }
 
 // ─── ユーティリティ ─────
@@ -3450,6 +3534,210 @@ function deleteReferrerById(id){
   if (S.gasUrl) gasPost({ action: 'deleteReferrer', id: id });
   toast('✓ 紹介者を削除しました');
   renderReferrerList();
+}
+
+// ════════════════════════════════════════
+// 代理店マスター（代理販売・委託型B）
+// ════════════════════════════════════════
+let editingAgentId = null;
+const _agtYen = n => '¥' + (Number(n)||0).toLocaleString();
+
+function switchAgentTab(name, el){
+  document.querySelectorAll('#m-agents .tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#m-agents .tcon').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const c=document.getElementById('agt-' + name); if(c) c.classList.add('active');
+  if (name === 'list'){ editingAgentId = null; clearAgentForm(); renderAgentList(); }
+  else if (name === 'new'){ renderAgentPendingPicker(); }
+  else if (name === 'deals'){ fillAgentDealFilter(); renderAgentDeals(); }
+}
+
+// タブを開いたとき：キャッシュで即描画→GASから最新取得
+async function loadAgentsTab(force){
+  renderAgentList();
+  if (!S.gasUrl) return;
+  try{
+    const a = await gasGet('getAgents');            if (a && a.agents) S.agents = a.agents;
+    const d = await gasGet('getAgentDeals');         if (d && d.deals)  S.agentDeals = d.deals;
+    const p = await gasGet('getAgentApplications');  if (p && p.pending) S.agentPending = p.pending;
+    saveState();
+    renderAgentList(); renderAgentPendingPicker();
+    const dealsTab=document.getElementById('agt-deals');
+    if (dealsTab && dealsTab.classList.contains('active')){ fillAgentDealFilter(); renderAgentDeals(); }
+  }catch(e){ if(force) toast('最新の取得に失敗しました','error'); }
+}
+
+// 代理店ごとの集計
+function _agentTotals(agentId){
+  let gross=0, sclass=0, paid=0, unpaid=0, n=0;
+  (S.agentDeals||[]).forEach(x=>{
+    if (String(x.agentId)!==String(agentId)) return;
+    n++; gross += (Number(x.uri)||0)*(Number(x.qty)||0);
+    const s = Number(x.sclassAmt)||0; sclass += s;
+    if (String(x.paid)==='入金済') paid += s; else unpaid += s;
+  });
+  return {gross, sclass, paid, unpaid, n};
+}
+
+function renderAgentList(){
+  const grid = document.getElementById('agt-grid'); if (!grid) return;
+  const kw = (document.getElementById('agt-kw')?.value||'').toLowerCase();
+  const list = (S.agents||[]).filter(a=>{
+    if (kw){ const blob=[a.name,a.memo].filter(Boolean).join(' ').toLowerCase(); if (blob.indexOf(kw)<0) return false; }
+    return true;
+  });
+  const cnt=document.getElementById('agt-count'); if(cnt) cnt.textContent=list.length;
+  grid.style.display='block';
+  if (!list.length){ grid.innerHTML='<div style="padding:2rem;text-align:center;color:var(--wh3);font-size:.8rem">代理店が登録されていません</div>'; return; }
+  grid.innerHTML = `
+    <div class="cust-table-wrap"><table class="cust-table"><thead><tr>
+      <th>代理店名</th><th>状態</th><th>既定掛率</th><th>取引</th><th>未収（Sclass入金待ち）</th><th>操作</th>
+    </tr></thead><tbody>
+      ${list.map(a=>{ const t=_agentTotals(a.id); return `
+        <tr onclick="editAgent('${escapeHtml(a.id)}')">
+          <td class="ct-name">${escapeHtml(a.name||'(名称なし)')}</td>
+          <td>${a.status==='無効'?'<span style="color:#ff8a80">無効</span>':'有効'}</td>
+          <td>${escapeHtml(String(a.defaultKake||'7'))}掛</td>
+          <td>${t.n}件</td>
+          <td style="color:var(--gold-l)">${_agtYen(t.unpaid)}</td>
+          <td class="ct-actions" onclick="event.stopPropagation()">
+            <button class="ct-btn edit" onclick="editAgent('${escapeHtml(a.id)}')">編集</button>
+            <button class="ct-btn del" onclick="deleteAgentById('${escapeHtml(a.id)}')">削除</button>
+          </td>
+        </tr>`; }).join('')}
+    </tbody></table></div>`;
+}
+
+function clearAgentForm(){
+  ['agt-name','agt-kake','agt-memo','agt-uid'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  const st=document.getElementById('agt-status'); if(st) st.value='有効';
+  const es=document.getElementById('agt-edit-status'); if(es) es.textContent='';
+  const db=document.getElementById('agt-delete-btn'); if(db) db.style.display='none';
+}
+function fillAgentForm(a){
+  document.getElementById('agt-name').value = a.name||'';
+  document.getElementById('agt-status').value = a.status||'有効';
+  document.getElementById('agt-kake').value = (a.defaultKake!=null&&a.defaultKake!=='')?a.defaultKake:'';
+  document.getElementById('agt-memo').value = a.memo||'';
+  document.getElementById('agt-uid').value = a.uid||'';
+}
+function editAgent(id){
+  const a=(S.agents||[]).find(x=>String(x.id)===String(id)); if(!a) return toast('代理店が見つかりません','error');
+  editingAgentId=id; renderAgentPendingPicker(); fillAgentForm(a);
+  switchAgentTab('new', document.querySelectorAll('#m-agents .tab')[1]);
+  document.getElementById('agt-edit-status').textContent='編集中: '+(a.name||'');
+  document.getElementById('agt-delete-btn').style.display='inline-block';
+}
+
+// 未登録（申請）UIDのプルダウン
+function renderAgentPendingPicker(){
+  const sel=document.getElementById('agt-uid-pick'); if(!sel) return;
+  const used={}; (S.agents||[]).forEach(a=>{ if(a.uid) used[a.uid]=1; });
+  const pend=(S.agentPending||[]).filter(p=>!used[p.uid]);
+  sel.innerHTML='<option value="">— 申請UIDを選択（任意・'+pend.length+'件）—</option>'+
+    pend.map(p=>'<option value="'+escapeHtml(p.uid)+'">'+escapeHtml((p.name||'(名前なし)')+' / '+String(p.uid).slice(0,12)+'…')+'</option>').join('');
+}
+function pickAgentUid(uid){
+  if(!uid) return;
+  document.getElementById('agt-uid').value=uid;
+  const p=(S.agentPending||[]).find(x=>x.uid===uid);
+  if(p && p.name && !document.getElementById('agt-name').value) document.getElementById('agt-name').value=p.name;
+}
+
+function submitAgentForm(){
+  if (typeof canEdit==='function' && !canEdit()) return toast('🔒 編集権限がありません','error');
+  const g=id=>(document.getElementById(id)||{}).value||'';
+  const name=g('agt-name').trim(); if(!name) return toast('代理店名は必須です','error');
+  const uid=g('agt-uid').trim();   if(!uid)  return toast('LINE UIDは必須です（マイページ本人特定に必要）','error');
+  const kake=g('agt-kake').trim();
+  const data={
+    id: editingAgentId || ('agt-'+Date.now()),
+    name, uid, status:g('agt-status')||'有効',
+    defaultKake: kake===''?'7':kake, memo:g('agt-memo').trim(),
+    updatedAt:new Date().toISOString(), updatedBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||''
+  };
+  S.agents=S.agents||[];
+  const idx=S.agents.findIndex(a=>String(a.id)===String(data.id));
+  if(idx>=0){ data.createdAt=S.agents[idx].createdAt; S.agents[idx]=data; }
+  else { data.createdAt=data.updatedAt; S.agents.push(data); }
+  saveState();
+  if(S.gasUrl) gasPost({ action:'saveAgent', ...data });
+  toast('✓ 代理店を保存しました');
+  switchAgentTab('list', document.querySelectorAll('#m-agents .tab')[0]);
+}
+
+function deleteAgent(){
+  if (typeof canDelete==='function' && !canDelete()) return toast('🔒 削除権限がありません','error');
+  if(!editingAgentId) return;
+  const a=(S.agents||[]).find(x=>String(x.id)===String(editingAgentId)); if(!a) return;
+  if(!confirm('代理店「'+(a.name||'')+'」を削除します。取引履歴は残りますが一覧から外れます。よろしいですか？')) return;
+  S.agents=(S.agents||[]).filter(x=>String(x.id)!==String(editingAgentId));
+  saveState();
+  if(S.gasUrl) gasPost({ action:'deleteAgent', id:editingAgentId });
+  toast('✓ 代理店を削除しました');
+  switchAgentTab('list', document.querySelectorAll('#m-agents .tab')[0]);
+}
+function deleteAgentById(id){
+  if (typeof canDelete==='function' && !canDelete()) return toast('🔒 削除権限がありません','error');
+  const a=(S.agents||[]).find(x=>String(x.id)===String(id)); if(!a) return;
+  if(!confirm('代理店「'+(a.name||'')+'」を削除しますか？')) return;
+  S.agents=(S.agents||[]).filter(x=>String(x.id)!==String(id));
+  saveState();
+  if(S.gasUrl) gasPost({ action:'deleteAgent', id:id });
+  toast('✓ 代理店を削除しました'); renderAgentList();
+}
+
+// ── 入金管理 ──
+function fillAgentDealFilter(){
+  const sel=document.getElementById('agt-deal-filter'); if(!sel) return;
+  const keep=sel.value;
+  sel.innerHTML='<option value="">すべて</option>'+(S.agents||[]).map(a=>'<option value="'+escapeHtml(a.id)+'">'+escapeHtml(a.name||'')+'</option>').join('');
+  sel.value=keep;
+}
+function _agentName(id){ const a=(S.agents||[]).find(x=>String(x.id)===String(id)); return a?a.name:'(不明)'; }
+
+function renderAgentDeals(){
+  const grid=document.getElementById('agt-deal-grid'); if(!grid) return;
+  const fa=document.getElementById('agt-deal-filter')?.value||'';
+  const fs=document.getElementById('agt-deal-status')?.value||'';
+  let deals=(S.agentDeals||[]).slice();
+  if(fa) deals=deals.filter(x=>String(x.agentId)===String(fa));
+  if(fs) deals=deals.filter(x=>String(x.paid||'未入金')===fs);
+  deals.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  let unpaid=0; deals.forEach(x=>{ if(String(x.paid)!=='入金済') unpaid+=Number(x.sclassAmt)||0; });
+  const ut=document.getElementById('agt-unpaid-total'); if(ut) ut.textContent=_agtYen(unpaid);
+  grid.style.display='block';
+  if(!deals.length){ grid.innerHTML='<div style="padding:2rem;text-align:center;color:var(--wh3);font-size:.8rem">取引がありません</div>'; return; }
+  grid.innerHTML=`
+    <div class="cust-table-wrap"><table class="cust-table"><thead><tr>
+      <th>日付</th><th>代理店</th><th>商品</th><th>数量</th><th>売値</th><th>掛率</th><th>Sclass入金額</th><th>状態</th><th>操作</th>
+    </tr></thead><tbody>
+      ${deals.map(x=>{ const isPaid=String(x.paid)==='入金済'; return `
+        <tr>
+          <td>${escapeHtml(String(x.date||''))}</td>
+          <td class="ct-name">${escapeHtml(_agentName(x.agentId))}</td>
+          <td>${escapeHtml(x.prod||'')}<br><span style="color:var(--wh3);font-size:.68rem">${escapeHtml(x.cust||'')}</span></td>
+          <td>${escapeHtml(String(x.qty||0))}本</td>
+          <td>${_agtYen(x.uri)}</td>
+          <td>${escapeHtml(String(x.kake||''))}掛</td>
+          <td style="color:var(--gold-l)">${_agtYen(x.sclassAmt)}</td>
+          <td>${isPaid?('<span style="color:#7ee2a8">入金済</span><br><span style="color:var(--wh3);font-size:.66rem">'+escapeHtml(x.paidDate||'')+'</span>'):'<span style="color:#ffcf7a">未入金</span>'}</td>
+          <td class="ct-actions">${isPaid
+              ? '<button class="ct-btn" onclick="markAgentDealPaid(\''+escapeHtml(x.id)+'\',false)">取消</button>'
+              : '<button class="ct-btn edit" onclick="markAgentDealPaid(\''+escapeHtml(x.id)+'\',true)">入金済にする</button>'}</td>
+        </tr>`; }).join('')}
+    </tbody></table></div>`;
+}
+
+function markAgentDealPaid(id, paid){
+  if (typeof canEdit==='function' && !canEdit()) return toast('🔒 権限がありません','error');
+  const x=(S.agentDeals||[]).find(d=>String(d.id)===String(id)); if(!x) return;
+  x.paid = paid?'入金済':'未入金';
+  x.paidDate = paid?(new Date().toISOString().slice(0,10)):'';
+  saveState();
+  if(S.gasUrl) gasPost({ action:'markAgentDealPaid', id:id, paid:x.paid, paidDate:x.paidDate });
+  toast(paid?'✓ 入金済にしました':'✓ 未入金に戻しました');
+  renderAgentDeals(); renderAgentList();
 }
 
 // ════════════════════════════════════════
