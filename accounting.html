@@ -161,6 +161,14 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 }
 .app-busy-spin{width:48px;height:48px;border:4px solid rgba(201,168,76,.25);border-top-color:#C9A84C;border-radius:50%;animation:app-busy-rot .8s linear infinite}
 @keyframes app-busy-rot{to{transform:rotate(360deg)}}
+
+/* 売上計上 サブタブ */
+.sales-subtabs{display:flex;gap:4px;border-bottom:1px solid rgba(201,168,76,.15)}
+.s-stab{padding:.55rem 1rem;cursor:pointer;font-size:.78rem;color:var(--wh2);background:transparent;border:none;border-bottom:2px solid transparent;font-family:'Noto Sans JP',sans-serif;font-weight:500;white-space:nowrap;transition:all .15s}
+.s-stab:hover{color:var(--wh)}
+.s-stab.active{color:var(--gold-l);border-bottom-color:var(--gold)}
+.s-scon{display:none}
+.s-scon.active{display:block}
 </style>
 </head>
 <body>
@@ -580,23 +588,47 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <span style="font-size:.78rem;color:var(--wh2);line-height:1.7">自社が売った売上（計上日＞納品日＞注文日の優先で計上）と、代理販売の<b>手数料売上（Sclass入金額）</b>を会計に計上します。代理店が売った総額（実績）は計上しません。注文に無い売上は下の<b>手動調整（A）</b>で追加・補正できます。</span>
     </div>
 
-    <div class="tw" style="margin-bottom:1rem">
-      <div class="th-area">
-        <h3>月次売上</h3>
-        <button class="btn-s" onclick="loadSalesTab(true)">🔄 最新を取得</button>
+    <div style="display:flex;align-items:center;margin-bottom:.8rem;flex-wrap:wrap;gap:.5rem">
+      <div class="sales-subtabs">
+        <button class="s-stab active" onclick="switchSalesSub('self',this)">🏢 自社販売実績</button>
+        <button class="s-stab" onclick="switchSalesSub('agent',this)">🏷️ 代理販売手数料</button>
+        <button class="s-stab" onclick="switchSalesSub('all',this)">Σ 合計</button>
       </div>
-      <div id="sales-month-grid"></div>
+      <button class="btn-s" onclick="loadSalesTab(true)" style="margin-left:auto">🔄 最新を取得</button>
     </div>
 
-    <div class="card">
-      <div class="form-section-title">▸ 自社実績売上の手動調整（A）— 注文に無い売上の追加・補正</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-        <div class="fg"><label>日付</label><input class="fc" type="date" id="sa-date"></div>
-        <div class="fg"><label>金額（±）<span style="color:var(--wh3);font-size:.66rem">追加は+／控除は-</span></label><input class="fc" type="number" id="sa-amount" placeholder="例:50000"></div>
-        <div class="fg" style="flex:1;min-width:160px"><label>メモ</label><input class="fc" id="sa-memo" placeholder="例:イベント現地販売・○○商店 直販"></div>
-        <div><button class="btn btn-p" onclick="saveSalesAdjust()">＋ 調整を記録</button></div>
+    <!-- 自社販売実績 -->
+    <div id="sales-self" class="s-scon active">
+      <div class="tw" style="margin-bottom:1rem">
+        <div class="th-area"><h3>自社販売実績（月次）</h3></div>
+        <div id="sales-self-grid"></div>
       </div>
-      <div id="sales-adjust-list" style="margin-top:.9rem"></div>
+      <div class="card">
+        <div class="form-section-title">▸ 自社実績売上の手動調整（A）— 注文に無い売上の追加・補正</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fg"><label>日付</label><input class="fc" type="date" id="sa-date"></div>
+          <div class="fg"><label>金額（±）<span style="color:var(--wh3);font-size:.66rem">追加は+／控除は-</span></label><input class="fc" type="number" id="sa-amount" placeholder="例:50000"></div>
+          <div class="fg" style="flex:1;min-width:160px"><label>メモ</label><input class="fc" id="sa-memo" placeholder="例:イベント現地販売・○○商店 直販"></div>
+          <div><button class="btn btn-p" onclick="saveSalesAdjust()">＋ 調整を記録</button></div>
+        </div>
+        <div id="sales-adjust-list" style="margin-top:.9rem"></div>
+      </div>
+    </div>
+
+    <!-- 代理販売手数料 -->
+    <div id="sales-agent" class="s-scon">
+      <div class="tw">
+        <div class="th-area"><h3>代理販売手数料売上（月次）</h3></div>
+        <div id="sales-agent-grid"></div>
+      </div>
+    </div>
+
+    <!-- 合計 -->
+    <div id="sales-all" class="s-scon">
+      <div class="tw">
+        <div class="th-area"><h3>合計（自社＋代理）</h3></div>
+        <div id="sales-month-grid"></div>
+      </div>
     </div>
   </div>
 
@@ -1545,14 +1577,14 @@ function _ymA(d){ return String(d||'').slice(0,7); }
 function _ymLabel(k){ const p=String(k).split('-'); return p.length>=2 ? (p[0]+'年'+p[1]+'月') : String(k); }
 
 async function loadSalesTab(force){
-  renderSalesMonthly(); renderSalesAdjustList();
+  renderSalesAll(); renderSalesAdjustList();
   const da=document.getElementById('sa-date'); if(da && !da.value) da.value=today();
   if(!S.gasUrl) return;
   try{
     const d=await gasGet('getAgentDeals');  if(d && d.deals)  S.agentDeals=d.deals;
     const s=await gasGet('getSalesAdjust');  if(s && s.items)  S.salesAdjust=s.items;
     saveState();
-    renderSalesMonthly(); renderSalesAdjustList();
+    renderSalesAll(); renderSalesAdjustList();
   }catch(e){ if(force) toast('最新の取得に失敗しました','error'); }
 }
 
@@ -1601,6 +1633,42 @@ function renderSalesMonthly(){
     +'<td>合計</td><td style="text-align:right">'+_yenA(tS)+'</td><td style="text-align:right">'+_yenA(tA)+'</td>'
     +'<td style="text-align:right;color:#7ee2a8">'+_yenA(tF)+'</td><td style="text-align:right;color:var(--gold-l)">'+_yenA(tS+tA+tF)+'</td>'
     +'</tr></tbody></table>';
+}
+
+function switchSalesSub(name, el){
+  document.querySelectorAll('#m-sales .s-stab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#m-sales .s-scon').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  const c=document.getElementById('sales-'+name); if(c) c.classList.add('active');
+}
+function renderSalesAll(){ renderSelfSalesMonthly(); renderAgentSalesMonthly(); renderSalesMonthly(); }
+
+// 自社販売実績（月次：自社実績＋手動調整）
+function renderSelfSalesMonthly(){
+  const grid=document.getElementById('sales-self-grid'); if(!grid) return;
+  const self=_selfSalesByMonth(), adj=_adjustByMonth();
+  const keys=Array.from(new Set([].concat(Object.keys(self),Object.keys(adj)))).sort((a,b)=>b.localeCompare(a));
+  if(!keys.length){ grid.innerHTML='<div style="padding:1.5rem;text-align:center;color:var(--wh3);font-size:.8rem">自社販売実績がありません</div>'; return; }
+  let tS=0,tA=0;
+  const rows=keys.map(k=>{ const s=self[k]||0,a=adj[k]||0,sub=s+a; tS+=s; tA+=a;
+    return '<tr><td>'+_ymLabel(k)+'</td><td style="text-align:right">'+_yenA(s)+'</td>'
+      +'<td style="text-align:right;color:'+(a<0?'#ff8a80':(a>0?'var(--gold-l)':'var(--wh3)'))+'">'+(a?_yenA(a):'—')+'</td>'
+      +'<td style="text-align:right;font-weight:700;color:var(--gold-l)">'+_yenA(sub)+'</td></tr>'; }).join('');
+  grid.innerHTML='<table><thead><tr><th>月</th><th style="text-align:right">自社実績売上（計上日/納品日）</th><th style="text-align:right">自社調整（手動）</th><th style="text-align:right">小計</th></tr></thead><tbody>'+rows
+    +'<tr style="border-top:2px solid var(--line);font-weight:700"><td>合計</td><td style="text-align:right">'+_yenA(tS)+'</td><td style="text-align:right">'+_yenA(tA)+'</td><td style="text-align:right;color:var(--gold-l)">'+_yenA(tS+tA)+'</td></tr></tbody></table>';
+}
+
+// 代理販売手数料売上（月次：Sclass入金額のみ）
+function renderAgentSalesMonthly(){
+  const grid=document.getElementById('sales-agent-grid'); if(!grid) return;
+  const fee=_agentFeeByMonth();
+  const keys=Object.keys(fee).sort((a,b)=>b.localeCompare(a));
+  if(!keys.length){ grid.innerHTML='<div style="padding:1.5rem;text-align:center;color:var(--wh3);font-size:.8rem">代理販売手数料売上がありません</div>'; return; }
+  let tF=0;
+  const rows=keys.map(k=>{ const f=fee[k]||0; tF+=f;
+    return '<tr><td>'+_ymLabel(k)+'</td><td style="text-align:right;color:#7ee2a8">'+_yenA(f)+'</td></tr>'; }).join('');
+  grid.innerHTML='<table><thead><tr><th>月</th><th style="text-align:right">代理販売手数料売上（Sclass入金額）</th></tr></thead><tbody>'+rows
+    +'<tr style="border-top:2px solid var(--line);font-weight:700"><td>合計</td><td style="text-align:right;color:#7ee2a8">'+_yenA(tF)+'</td></tr></tbody></table>';
 }
 
 function saveSalesAdjust(){
