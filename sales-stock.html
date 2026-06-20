@@ -1847,7 +1847,7 @@ function spBuildRecalcPlan(opts){
     if(nq===oq) return;
     const parts=k.split('|');
     const m=cor||{orderId:parts[0],sponsorId:parts[1],sponsorName:(ruleById[parts[1]]||{}).name||'',product:parts[2],custId:ex?ex.custId:'',custName:ex?ex.custName:'',date:ex?ex.date:start,targetProduct:''};
-    if(ex) ops.push({kind:'del',ids:ex.ids.slice()});
+    if(ex) ops.push({kind:'del',ids:ex.ids.slice(),oldQty:ex.qty,custId:ex.custId,custName:ex.custName,product:parts[2],sponsorId:parts[1],sponsorName:(ruleById[parts[1]]||{}).name||'',orderId:parts[0],date:ex.date});
     if(nq>0) ops.push({kind:'add',log:{
       id:'sp-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
       custId:m.custId, custName:m.custName, type:'earned', qty:nq, date:m.date||start,
@@ -1894,7 +1894,7 @@ function spRenderPreview(plan, scopeLabel){
     html+='<tr><td style="padding:.2rem .4rem">'+escapeHtml(r.store)+'</td><td style="padding:.2rem .4rem">'+escapeHtml(r.product)+'</td><td style="padding:.2rem .4rem">'+escapeHtml(r.rule||'')+'</td><td style="padding:.2rem .4rem;color:var(--wh2)">'+escapeHtml(String(r.date||''))+' / '+escapeHtml(String(r.orderId||''))+'</td><td style="padding:.2rem .4rem;text-align:right;color:'+col+'">'+r.oldQty+' → '+r.newQty+'</td></tr>';
   });
   html+='</tbody></table></div>'
-    +'<div style="font-size:.68rem;color:var(--wh3);margin:.5rem 0">※ B方式：補正後に残数がマイナスになる商品（使用済み超過）は、調整ログで自動的に0へ相殺します。手動調整（orderIdなし）の行は対象外です。</div>'
+    +'<div style="font-size:.68rem;color:var(--wh3);margin:.5rem 0">※ 監査向け：旧付与は削除せず「取消」行＋「訂正」行を追加して履歴を残します。残数がマイナスになる商品（使用済み超過）は調整ログで0へ相殺します。手動調整（orderIdなし）の行は対象外です。</div>'
     +'<div style="display:flex;gap:.5rem"><button class="btn btn-g" onclick="spApplyRecalc()">この内容で適用する</button><button class="btn-s" onclick="spCancelRecalc()">キャンセル</button></div></div>';
   box.innerHTML=html;
 }
@@ -1909,12 +1909,19 @@ async function spApplyRecalc(){
 
   spShowBusy('協賛データを反映中…');
   try{
-    // 削除（ローカル）
-    const del={}; plan.ops.forEach(op=>{ if(op.kind==='del') op.ids.forEach(id=>del[id]=1); });
-    S.sponsorLogs=S.sponsorLogs.filter(l=>!del[l.id]);
-    // 追加（補正後の正しい付与・ローカル）
+    // 監査向け：旧付与は削除せず「取消」行を追加して履歴を残す
     const added=[];
-    plan.ops.forEach(op=>{ if(op.kind==='add'){ S.sponsorLogs.push(op.log); added.push(op.log); } });
+    plan.ops.forEach(op=>{
+      if(op.kind==='del' && (op.oldQty||0)!==0){
+        const rev={ id:'sp-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+          custId:op.custId, custName:op.custName, type:'earned', qty:-(op.oldQty||0), date:plan.end,
+          orderId:op.orderId||'', sponsorId:op.sponsorId||'', sponsorName:op.sponsorName||'',
+          product:op.product||'', note:'取消（遡及再計算）：旧付与'+(op.oldQty||0)+'本を取消',
+          createdAt:new Date().toISOString(), createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
+        S.sponsorLogs.push(rev); added.push(rev);
+      }
+      if(op.kind==='add'){ op.log.note='訂正（遡及再計算）'; S.sponsorLogs.push(op.log); added.push(op.log); }
+    });
     // B方式: 影響顧客の残数を再計算し、マイナス（使用済み超過）は調整(earned)で0に相殺
     const custs={}; plan.rows.forEach(r=>{ if(r.custId) custs[r.custId]=r.store; });
     const adjusts=[];
@@ -1937,7 +1944,6 @@ async function spApplyRecalc(){
     // GAS同期（サーバー反映の完了まで待つ・進捗表示）
     if(S.gasUrl){
       const jobs=[];
-      Object.keys(del).forEach(id=>jobs.push(gasPost({action:'deleteSponsorLog', id:id})));
       added.concat(adjusts).forEach(log=>jobs.push(gasPost({action:'saveSponsorLog', ...log})));
       const total=jobs.length; let done=0;
       jobs.forEach(p=>{ if(p&&p.then) p.then(()=>{ done++; spShowBusy('サーバー反映中…（'+done+' / '+total+'）'); }); });
