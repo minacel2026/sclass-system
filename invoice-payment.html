@@ -411,7 +411,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     <button class="mtab" onclick="switchModule('invoice',this)"><span class="mtab-ic">📄</span>請求書</button>
     <button class="mtab" onclick="switchModule('referral',this)"><span class="mtab-ic">🤝</span>紹介料</button>
     <button class="mtab" onclick="switchModule('bank',this)"><span class="mtab-ic">🏦</span>通帳連携</button>
-    <button class="mtab" onclick="switchModule('history',this)"><span class="mtab-ic">📋</span>入金履歴</button>
+    <button class="mtab" onclick="switchModule('history',this)"><span class="mtab-ic">📒</span>入金台帳</button>
   </div>
 
   <!-- ════════ 集金管理 ════════ -->
@@ -582,6 +582,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>入金日 <span style="color:var(--red)">*</span></label><input class="fc" id="bk-date" type="date"></div>
         <div class="fg"><label>振込人</label><input class="fc" id="bk-name" placeholder="店舗名・振込人名"></div>
         <div class="fg"><label>金額 <span style="color:var(--red)">*</span></label><input class="fc" id="bk-amt" type="number" min="0" step="100"></div>
+        <div class="fg"><label>入金方法</label><select class="fc" id="bk-method"><option>振込</option><option>現金</option><option>カード</option><option>代引</option><option>その他</option></select></div>
         <div class="fg"><label>備考</label><input class="fc" id="bk-note" placeholder="任意"></div>
       </div>
       <div class="faction">
@@ -621,7 +622,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     <div class="tw">
       <table>
         <thead>
-          <tr><th>入金日</th><th>注文日</th><th>店舗名</th><th>支払方法</th><th class="col-amt">金額</th></tr>
+          <tr><th>入金日</th><th>入口</th><th>店舗名</th><th>入金方法</th><th class="col-amt">金額</th></tr>
         </thead>
         <tbody id="ht-tbody"></tbody>
       </table>
@@ -662,7 +663,7 @@ const REORDER = Object.fromEntries(PROD_LIST.map(p => [p.key, p.reorder]));
 const S = {
   branch:'both', orders:[], customers:[], staff:[],
   stock:{仙台:{}, 京都:{}}, stockDetail:{仙台:{}, 京都:{}},
-  slog:[], collections:[], invoices:[],
+  slog:[], collections:[], invoices:[], payments:[],
   bankEntries:[], bankHistory:[], company:{}, products:null,
   purchases:[], cashEntries:[], dailyReps:[],
   referrers:[], sponsors:[],
@@ -688,7 +689,7 @@ function calcAmt(o){
 function saveState(){
   try {
     const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
-                  'invoices','bankEntries','bankHistory','company','products','purchases',
+                  'invoices','payments','bankEntries','bankHistory','company','products','purchases',
                   'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
   } catch(e){ console.warn('saveState error', e); }
@@ -696,7 +697,7 @@ function saveState(){
 function loadState(){
   try {
     const keys = ['orders','customers','staff','stock','stockDetail','slog','collections',
-                  'invoices','bankEntries','bankHistory','company','products','purchases',
+                  'invoices','payments','bankEntries','bankHistory','company','products','purchases',
                   'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
     keys.forEach(k => {
       const v = localStorage.getItem('lmb_' + k);
@@ -987,6 +988,7 @@ function quickPaid(id){
   o.paidBy = currentUser.name;
   saveState();
   if (S.gasUrl && o.id) gasPost({ action: 'updatePayStatus', orderId: o.id, payStatus: '集金済み' });
+  upsertPaymentForOrder(o, o.paidMethod || '現金');
   toast('✓ 集金済みに更新');
   if (o.id) selectedPayments.delete(o.id);
   renderPayment();
@@ -1038,6 +1040,7 @@ function confirmCollect(){
   o.paidBy     = currentUser.name;
   saveState();
   if (S.gasUrl && o.id) gasPost({ action: 'updatePayStatus', orderId: o.id, payStatus: '集金済み' });
+  upsertPaymentForOrder(o, method);
   if (o.id) selectedPayments.delete(o.id);
   closeCollectModal();
   toast(`✓ 集金記録（${dateStr} / ${method}）`);
@@ -1052,6 +1055,7 @@ function revertCollect(id){
   delete o.paidAt; delete o.paidMethod; delete o.paidBy;
   saveState();
   if (S.gasUrl && o.id) gasPost({ action: 'updatePayStatus', orderId: o.id, payStatus: '未収' });
+  removePaymentForOrder(o.id);
   toast('✓ 未収に差し戻しました');
   renderPayment(); updateKPI();
 }
@@ -1454,6 +1458,7 @@ function bulkMarkPaid(){
       o.paidAt = new Date().toISOString();
       o.paidBy = currentUser.name;
       if (S.gasUrl) gasPost({ action: 'updatePayStatus', orderId: id, payStatus: '集金済み' });
+      upsertPaymentForOrder(o, '現金');
       count++;
     }
   });
@@ -1797,6 +1802,31 @@ function deleteInvoice(no){
 
 <!-- ═══ 通帳連携 ═══ -->
 <script>
+// ════════ 入金台帳（集金・通帳・手動を集約） ════════
+function recordPayment(rec){
+  if(!S.payments) S.payments=[];
+  rec.id = rec.id || ('pay-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000));
+  const i=S.payments.findIndex(p=>p.id===rec.id);
+  let full;
+  if(i>=0){ full=Object.assign({},S.payments[i],rec); S.payments[i]=full; }
+  else { full=rec; S.payments.push(full); }
+  saveState();
+  if(S.gasUrl) gasPost({ action:'savePayment', id:full.id, date:full.date||'', store:full.store||'', amount:full.amount||0, method:full.method||'', source:full.source||'', orderId:full.orderId||'', payer:full.payer||'', collector:full.collector||'', matched:full.matched?true:false, memo:full.memo||'' });
+  return full.id;
+}
+function upsertPaymentForOrder(o, method){
+  recordPayment({ id:'pay-ord-'+o.id, date:String(o.paidAt||today()).slice(0,10), store:o.store||'', amount:calcAmt(o), method:method||'現金', source:'集金', orderId:String(o.id), collector:(currentUser&&currentUser.name)||'', matched:true });
+}
+function removePaymentForOrder(orderId){
+  const id='pay-ord-'+orderId;
+  S.payments=(S.payments||[]).filter(p=>p.id!==id); saveState();
+  if(S.gasUrl) gasPost({ action:'deletePayment', id:id });
+}
+async function loadPayments(){
+  if(!S.gasUrl) return;
+  try{ const r=await gasGet('getPayments'); if(r&&r.payments){ S.payments=r.payments; saveState(); } }catch(e){}
+}
+
 function renderBank(){
   if (!document.getElementById('bk-date').value){
     document.getElementById('bk-date').value = today();
@@ -1830,15 +1860,17 @@ function addBankEntry(){
   if (!date || amt <= 0) return toast('日付と金額を入力してください', 'error');
 
   if (!S.bankEntries) S.bankEntries = [];
+  const _method = (document.getElementById('bk-method')||{}).value || '振込';
+  const _payId = recordPayment({ date, store:name, amount:amt, method:_method, source:'通帳', payer:name, matched:false, memo:note });
   S.bankEntries.push({
     id: 'bk-' + Date.now(),
-    date, name, amount: amt, note,
+    date, name, amount: amt, note, method:_method, payId:_payId,
     matchedTo: null,
     addedBy: currentUser.name,
     addedAt: new Date().toISOString(),
   });
   saveState();
-  toast(`✓ 入金 ¥${fmt(amt)} を登録`);
+  toast(`✓ 入金 ¥${fmt(amt)} を登録（${_method}）`);
   document.getElementById('bk-name').value = '';
   document.getElementById('bk-amt').value = '';
   document.getElementById('bk-note').value = '';
@@ -1864,6 +1896,7 @@ function autoMatch(){
       o.paidAt = b.date;
       o.paidBy = '通帳マッチ';
       b.matchedTo = `注文 ${o.id}`;
+      if (b.payId) recordPayment({ id:b.payId, orderId:String(o.id), store:o.store||b.name, matched:true });
       matched++;
     }
   });
@@ -1897,30 +1930,34 @@ function renderHistory(){
   const mStr = `${yr}-${String(mo+1).padStart(2,'0')}`;
   document.getElementById('ht-month-disp').textContent = `${yr}年${mo+1}月`;
 
-  let list = (S.orders || []).filter(o =>
-    o.payStatus === '集金済み' || o.payStatus === '入金済み'
-  );
-  if (!histShowAll){
-    list = list.filter(o => (o.paidAt || '').slice(0,7) === mStr);
-  }
-  list.sort((a,b) => (b.paidAt || '').localeCompare(a.paidAt || ''));
+  const pays = (S.payments || []).map(p => ({
+    date:(p.date || '').slice(0,10), store:p.store || '', method:p.method || '',
+    amount:Number(p.amount) || 0, src:p.source || '手動', orderId:String(p.orderId || '')
+  }));
+  const payOrderIds = new Set(pays.filter(p => p.orderId).map(p => p.orderId));
+  const legacy = (S.orders || [])
+    .filter(o => (o.payStatus === '集金済み' || o.payStatus === '入金済み') && !payOrderIds.has(String(o.id)))
+    .map(o => ({ date:(o.paidAt || '').slice(0,10), store:o.store || '', method:(o.paidMethod || o.payMethod || ''), amount:calcAmt(o), src:'(旧)', orderId:String(o.id || '') }));
+  let list = pays.concat(legacy);
+  if (!histShowAll){ list = list.filter(r => (r.date || '').slice(0,7) === mStr); }
+  list.sort((a,b) => (b.date || '').localeCompare(a.date || ''));
 
   document.getElementById('ht-cnt').textContent = list.length;
-  const total = list.reduce((s,o) => s + calcAmt(o), 0);
+  const total = list.reduce((sm,r) => sm + (Number(r.amount) || 0), 0);
   document.getElementById('ht-total').textContent = '¥' + fmt(total);
 
   const tbody = document.getElementById('ht-tbody');
   if (list.length === 0){
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">📋</div>入金履歴がありません</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">📒</div>入金がありません</div></td></tr>`;
     return;
   }
-  tbody.innerHTML = list.map(o => `
+  tbody.innerHTML = list.map(r => `
     <tr>
-      <td>${escapeHtml((o.paidAt || '').slice(0,10))}</td>
-      <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(o.date || '')}</td>
-      <td>${escapeHtml(o.store || '')}</td>
-      <td style="font-size:.72rem">${escapeHtml(o.paidMethod || o.payMethod || '')}</td>
-      <td class="col-amt" style="color:var(--grn)">¥${fmt(calcAmt(o))}</td>
+      <td>${escapeHtml(r.date)}</td>
+      <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(r.src)}</td>
+      <td>${escapeHtml(r.store)}</td>
+      <td style="font-size:.72rem">${escapeHtml(r.method)}</td>
+      <td class="col-amt" style="color:var(--grn)">¥${fmt(r.amount)}</td>
     </tr>
   `).join('');
 }
@@ -1945,6 +1982,7 @@ window.addEventListener('DOMContentLoaded', () => {
   updateUserBadge();
   updateKPI();
   renderPayment();
+  if (typeof loadPayments === 'function') loadPayments().then(function(){ try{ renderHistory(); }catch(e){} });
 });
 </script>
 
