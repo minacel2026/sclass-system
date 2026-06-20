@@ -250,6 +250,8 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   .tw table,.cust-table-wrap table,.prod-table-wrap table{font-size:.72rem}
   .tw th,.tw td,.cust-table-wrap th,.cust-table-wrap td,.prod-table-wrap th,.prod-table-wrap td{padding:.3rem .42rem}
 }
+.sp-busy-spin{width:48px;height:48px;border:4px solid rgba(201,168,76,.25);border-top-color:#C9A84C;border-radius:50%;animation:sp-busy-rot .8s linear infinite}
+@keyframes sp-busy-rot{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -675,6 +677,13 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 </main>
 
 <div id="toast"></div>
+
+<!-- 反映中オーバーレイ -->
+<div id="sp-busy" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.74);z-index:99999;flex-direction:column;align-items:center;justify-content:center;gap:1rem">
+  <div class="sp-busy-spin"></div>
+  <div id="sp-busy-msg" style="color:#E8C97A;font-size:1rem;letter-spacing:.06em">反映中…</div>
+  <div style="color:rgba(240,235,224,.55);font-size:.72rem">画面を閉じずにそのままお待ちください</div>
+</div>
 
 <!-- ─── 新規注文ポップアップ通知 ─── -->
 <div class="notify-popup" id="notify-popup" onclick="onNotifyClick()">
@@ -1776,6 +1785,14 @@ function calcPendingSponsorPoints(items, c){
 // ════════ 協賛 遡及再計算・整合性調整（プレビュー付き / B方式：使用済みも含め補正、差分は調整ログで相殺）════════
 let _spPendingPlan = null;
 
+// 反映中オーバーレイ
+function spShowBusy(msg){
+  const o=document.getElementById('sp-busy'); if(!o) return;
+  const m=document.getElementById('sp-busy-msg'); if(m) m.textContent=msg||'反映中…';
+  o.style.display='flex';
+}
+function spHideBusy(){ const o=document.getElementById('sp-busy'); if(o) o.style.display='none'; }
+
 // 期間・スコープで「正しい付与(earned)」を注文ごとに再計算し、既存付与との差分プランを返す（適用はしない）
 function spBuildRecalcPlan(opts){
   const scope = opts.scope || 'all';
@@ -1882,49 +1899,63 @@ function spRenderPreview(plan, scopeLabel){
 
 function spCancelRecalc(){ _spPendingPlan=null; const b=document.getElementById('sp-rc-preview'); if(b) b.innerHTML=''; }
 
-function spApplyRecalc(){
+async function spApplyRecalc(){
   if(typeof canDelete==='function' && !canDelete()){ toast('🔒 権限がありません','error'); return; }
   const plan=_spPendingPlan; if(!plan||!plan.rows.length){ toast('適用する内容がありません','error'); return; }
   if(!confirm('この内容で協賛付与を遡って補正します（'+plan.start+'〜'+plan.end+'・'+plan.rows.length+'件）。\nこの操作は取り消せません。よろしいですか？')) return;
   if(!S.sponsorLogs) S.sponsorLogs=[];
 
-  // 削除
-  const del={}; plan.ops.forEach(op=>{ if(op.kind==='del') op.ids.forEach(id=>del[id]=1); });
-  if(S.gasUrl) Object.keys(del).forEach(id=>{ try{ gasPost({action:'deleteSponsorLog', id:id}); }catch(e){} });
-  S.sponsorLogs=S.sponsorLogs.filter(l=>!del[l.id]);
-  // 追加（補正後の正しい付与）
-  const added=[];
-  plan.ops.forEach(op=>{ if(op.kind==='add'){ S.sponsorLogs.push(op.log); added.push(op.log); } });
-  // B方式: 影響顧客の残数を再計算し、マイナス（使用済み超過）は調整(earned)で0に相殺
-  const custs={}; plan.rows.forEach(r=>{ if(r.custId) custs[r.custId]=r.store; });
-  const adjusts=[];
-  Object.keys(custs).forEach(cid=>{
-    const byProd={};
-    S.sponsorLogs.filter(l=>String(l.custId)===String(cid)).forEach(l=>{
-      const p=l.product||'商品指定なし'; byProd[p]=byProd[p]||0;
-      if(l.type==='earned') byProd[p]+=(l.qty||0); if(l.type==='used') byProd[p]-=(l.qty||0);
+  spShowBusy('協賛データを反映中…');
+  try{
+    // 削除（ローカル）
+    const del={}; plan.ops.forEach(op=>{ if(op.kind==='del') op.ids.forEach(id=>del[id]=1); });
+    S.sponsorLogs=S.sponsorLogs.filter(l=>!del[l.id]);
+    // 追加（補正後の正しい付与・ローカル）
+    const added=[];
+    plan.ops.forEach(op=>{ if(op.kind==='add'){ S.sponsorLogs.push(op.log); added.push(op.log); } });
+    // B方式: 影響顧客の残数を再計算し、マイナス（使用済み超過）は調整(earned)で0に相殺
+    const custs={}; plan.rows.forEach(r=>{ if(r.custId) custs[r.custId]=r.store; });
+    const adjusts=[];
+    Object.keys(custs).forEach(cid=>{
+      const byProd={};
+      S.sponsorLogs.filter(l=>String(l.custId)===String(cid)).forEach(l=>{
+        const p=l.product||'商品指定なし'; byProd[p]=byProd[p]||0;
+        if(l.type==='earned') byProd[p]+=(l.qty||0); if(l.type==='used') byProd[p]-=(l.qty||0);
+      });
+      Object.keys(byProd).forEach(p=>{ if(byProd[p]<0){
+        const fix={ id:'sp-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+          custId:cid, custName:custs[cid], type:'earned', qty:-byProd[p], date:plan.end, orderId:'',
+          product:p, note:'調整：使用済み超過の相殺（遡及再計算B）', createdAt:new Date().toISOString(),
+          createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
+        S.sponsorLogs.push(fix); adjusts.push(fix);
+      }});
     });
-    Object.keys(byProd).forEach(p=>{ if(byProd[p]<0){
-      const fix={ id:'sp-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
-        custId:cid, custName:custs[cid], type:'earned', qty:-byProd[p], date:plan.end, orderId:'',
-        product:p, note:'調整：使用済み超過の相殺（遡及再計算B）', createdAt:new Date().toISOString(),
-        createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
-      S.sponsorLogs.push(fix); adjusts.push(fix);
-    }});
-  });
-  // 追加分をGAS同期
-  if(S.gasUrl) added.concat(adjusts).forEach(log=>{ try{ gasPost({action:'saveSponsorLog', ...log}); }catch(e){} });
+    saveState();   // 先にローカル保存（端末内は即時反映）
 
-  saveState();
-  _spPendingPlan=null;
-  const b=document.getElementById('sp-rc-preview'); if(b) b.innerHTML='';
-  toast('✓ 遡及補正を適用しました（'+plan.rows.length+'件'+(adjusts.length?' / 調整 '+adjusts.length+'件':'')+'）');
-  renderSponsor();
-  if(typeof updateKPI==='function') updateKPI();
+    // GAS同期（サーバー反映の完了まで待つ・進捗表示）
+    if(S.gasUrl){
+      const jobs=[];
+      Object.keys(del).forEach(id=>jobs.push(gasPost({action:'deleteSponsorLog', id:id})));
+      added.concat(adjusts).forEach(log=>jobs.push(gasPost({action:'saveSponsorLog', ...log})));
+      const total=jobs.length; let done=0;
+      jobs.forEach(p=>{ if(p&&p.then) p.then(()=>{ done++; spShowBusy('サーバー反映中…（'+done+' / '+total+'）'); }); });
+      await Promise.allSettled(jobs);
+    }
+
+    _spPendingPlan=null;
+    const b=document.getElementById('sp-rc-preview'); if(b) b.innerHTML='';
+    renderSponsor();
+    if(typeof updateKPI==='function') updateKPI();
+    toast('✓ 反映が完了しました（'+plan.rows.length+'件'+(adjusts.length?' / 調整 '+adjusts.length+'件':'')+'）');
+  } catch(e){
+    toast('反映中にエラー: '+(e&&e.message||e),'error');
+  } finally {
+    spHideBusy();
+  }
 }
 
 // 手動調整：実績入力開始時点の残数合わせ（開始残数のセット）。orderIdなしで記録。
-function spManualAdjust(){
+async function spManualAdjust(){
   if(typeof canDelete==='function' && !canDelete()){ toast('🔒 権限がありません','error'); return; }
   const cid=(document.getElementById('sp-adj-cust')||{}).value||'';
   const prod=((document.getElementById('sp-adj-prod')||{}).value||'').trim();
@@ -1940,13 +1971,20 @@ function spManualAdjust(){
     date:(new Date().toISOString().slice(0,10)), orderId:'', product:prod,
     note:'手動調整（開始残数）'+(memo?'：'+memo:''), createdAt:new Date().toISOString(),
     createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
-  S.sponsorLogs.push(log);
-  if(S.gasUrl){ try{ gasPost({action:'saveSponsorLog', ...log}); }catch(e){} }
-  saveState();
-  ['sp-adj-prod','sp-adj-qty','sp-adj-memo'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  toast('✓ 調整を追加しました（'+prod+' '+(qty>0?'+':'')+qty+'本）');
-  renderSponsor();
-  if(typeof updateKPI==='function') updateKPI();
+  spShowBusy('調整を反映中…');
+  try{
+    S.sponsorLogs.push(log);
+    saveState();
+    if(S.gasUrl){ await gasPost({action:'saveSponsorLog', ...log}); }
+    ['sp-adj-prod','sp-adj-qty','sp-adj-memo'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    renderSponsor();
+    if(typeof updateKPI==='function') updateKPI();
+    toast('✓ 調整を反映しました（'+prod+' '+(qty>0?'+':'')+qty+'本）');
+  } catch(e){
+    toast('反映中にエラー: '+(e&&e.message||e),'error');
+  } finally {
+    spHideBusy();
+  }
 }
 
 // セレクタ（ルール・顧客・商品候補）を埋める
