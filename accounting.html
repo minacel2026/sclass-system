@@ -1012,6 +1012,33 @@ function deleteCashEntry(id){
   updateKPI();
 }
 
+function _cbAccountOf(method){
+  if(method==='立替（現金）'||method==='現金') return '現金';
+  if(method==='口座振替'||method==='銀行振込') return '預金';
+  return null; // カード系（立替（カード）/会社カード/クレジットカード）は出納帳対象外
+}
+function _cbExpenseRows(){
+  const out=[];
+  (S.expenses||[]).forEach(e=>{
+    if(e.status==='却下') return;
+    const acc=_cbAccountOf(e.payMethod); if(!acc) return;
+    out.push({ id:'EX-'+e.id, date:String(e.date||'').slice(0,10), type:'支出', category:e.category||'経費',
+      branch:'', desc:(e.desc||'経費')+'（経費精算）', amount:Number(e.amount)||0, account:acc, _ledger:true });
+  });
+  (S.pettyEntries||[]).forEach(p=>{
+    if(p.type!=='使用') return;
+    out.push({ id:'PT-'+p.id, date:String(p.date||'').slice(0,10), type:'支出', category:'小口現金',
+      branch:p.branch||'', desc:(p.desc||'小口使用')+'（小口現金）', amount:Number(p.amount)||0, account:'現金', _ledger:true });
+  });
+  (S.payables||[]).forEach(p=>{
+    if(p.status!=='支払済') return;
+    const acc=_cbAccountOf(p.method); if(!acc) return;
+    out.push({ id:'PA-'+p.id, date:String(p.paidAt||p.paidDate||p.date||'').slice(0,10), type:'支出', category:p.category||'請求書支払',
+      branch:'', desc:(p.from||'支払')+'（請求書支払）', amount:Number(p.amount)||0, account:acc, _ledger:true });
+  });
+  return out;
+}
+
 function renderCashbook(){
   if (!document.getElementById('cb-date').value){
     document.getElementById('cb-date').value = today();
@@ -1033,7 +1060,7 @@ function renderCashbook(){
       branch:'', desc:(p.store||'')+((p.payer && p.payer!==p.store) ? (' / '+p.payer) : ''),
       amount:Number(p.amount)||0, memo:p.memo||'', account:acc, _ledger:true };
   });
-  let list = manual.concat(ledger);
+  let list = manual.concat(ledger).concat(_cbExpenseRows());
   list = list.filter(e => e.account === faccount);
   list = list.filter(e => (e.date || '').slice(0,7) === mStr);
   if (fbranch) list = list.filter(e => e.branch === fbranch);
