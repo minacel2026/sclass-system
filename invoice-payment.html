@@ -612,6 +612,35 @@ const PROD_LIST = [
   {key:'GIFTBOX',      name:'GIFTBOX',      color:'#c9a84c', cost:9000,  price:20000,  reorder:5},
   {key:'コラチョロサ', name:'コラチョロサ', color:'#fd79a8', cost:8000,  price:17000,  reorder:6},
 ];
+
+// 正式名称テーブル（書類＝請求書・紹介料 で使用。注文・協賛マスター等の業務は略称のまま）
+// キーは注文データの商品キー（略称）。新旧どちらの呼び方でも当たるよう両方を登録。
+const PROD_FULLNAME = {
+  'イエロー':'Extra Brut（イエロー）',
+  'オレンジ':'Demi Sec Prosecco D.O.C（オレンジ）',
+  'ブルー':'Extra Dry Prosecco D.O.C（ブルー）',
+  'ブラック':'Brut Vino（ブラック）',
+  'プラチナ':'Extra Dry Platinum Prosecco D.O.C（プラチナ）',
+  'ゴールド':'Extra Dry Gold（ゴールド）',
+  'ルミナス':'Luminous Brut（ルミナス）',
+  'レジェンド':'The Legend（レジェンド）',
+  'チェングレット':'CENTANNI GRECHETTO（チェンタンニグレケット）',
+  'チェンタンニグレケット':'CENTANNI GRECHETTO（チェンタンニグレケット）',
+  'チェングロッソ':'CENTANNI ROSSO（チェンタンニロッソ）',
+  'チェンタンニロッソ':'CENTANNI ROSSO（チェンタンニロッソ）',
+  'エラ':'ERA UMBRIA ROSSO（エラ）',
+  'カンポレオーネ':'CAMPOLEONE UMBRIA ROSSO（カンポレオーネ）',
+  'トラミ':'TORAMI UMBRIA ROSSO（トラミ）',
+  'さくら':'Extra Brut Rose（ロゼ）',
+  'ロゼ':'Extra Brut Rose（ロゼ）',
+  'メト':'Lamborghini the Legend -Metodo Classico Millesimato-（メト）'
+};
+function prodFull(k){
+  const stripNo = s => String(s||'').replace(/^\s*\d+\s*[:：]\s*/, '');
+  let mp = '';
+  try { const m = (S.products||[]).find(p => p && p.name === k); if (m && m.fullName) mp = stripNo(m.fullName); } catch(e){}
+  return PROD_FULLNAME[k] || mp || stripNo(k);   // 固定表 → マスター正規名 → 略称 の順
+}
 const PRODS = PROD_LIST.map(p => p.key);
 const PRICE = Object.fromEntries(PROD_LIST.map(p => [p.key, p.price]));
 const DEFAULT_BANK = 'カ）エスクラスエイギョウブ\nPayPay銀行\nビジネス営業部\n普通　7215569';
@@ -1241,7 +1270,7 @@ function computeReferralData(r, month){
       if (!qty) return;
       const unit = referralUnit(r, cust, prod);
       const amt = unit * qty;
-      const row = { store: o.store, date: oDate.replace(/-/g,'/'), prod, qty, unit, amt, rate: (r.calcType==='B' ? (parseFloat(cust.rate||'7')||7) : ''), paid: paidInM ? paid.replace(/-/g,'/') : (paid && paid < mStart ? '' : (paid||'').replace(/-/g,'/')) };
+      const row = { store: o.store, date: oDate.replace(/-/g,'/'), prod: prodFull(prod), qty, unit, amt, rate: (r.calcType==='B' ? (parseFloat(cust.rate||'7')||7) : ''), paid: paidInM ? paid.replace(/-/g,'/') : (paid && paid < mStart ? '' : (paid||'').replace(/-/g,'/')) };
       if (isCur){ rows.cur.push(row); curSum += amt; } else { rows.carry.push(row); carrySum += amt; }
       if (paidInM) paidSum += amt;
     });
@@ -1577,28 +1606,7 @@ async function buildInvoicePreview(){
   if (!S.products || !S.products.length){
     try { const rp = await gasGet('getProducts'); if (rp && rp.products && rp.products.length){ S.products = rp.products; saveState(); } } catch(e){}
   }
-  const stripNo = s => String(s||'').replace(/^\s*\d+\s*[:：]\s*/, '');
-  const FULLNAME = {
-    'イエロー':'Extra Brut（イエロー）',
-    'オレンジ':'Demi Sec Prosecco D.O.C（オレンジ）',
-    'ブルー':'Extra Dry Prosecco D.O.C（ブルー）',
-    'ブラック':'Brut Vino（ブラック）',
-    'プラチナ':'Extra Dry Platinum Prosecco D.O.C（プラチナ）',
-    'ゴールド':'Extra Dry Gold（ゴールド）',
-    'ルミナス':'Luminous Brut（ルミナス）',
-    'レジェンド':'The Legend（レジェンド）',
-    'チェンタンニロッソ':'CENTANNI ROSSO（チェンタンニロッソ）',
-    'チェンタンニグレケット':'CENTANNI GRECHETTO（チェンタンニグレケット）',
-    'エラ':'ERA UMBRIA ROSSO（エラ）',
-    'カンポレオーネ':'CAMPOLEONE UMBRIA ROSSO（カンポレオーネ）',
-    'トラミ':'TORAMI UMBRIA ROSSO（トラミ）',
-    'ロゼ':'Extra Brut Rose（ロゼ）',
-    'メト':'Lamborghini the Legend -Metodo Classico Millesimato-（メト）'
-  };
-  const fullNameMap = {};
-  (S.products || []).forEach(p => { if (p && p.name && p.fullName) fullNameMap[p.name] = stripNo(p.fullName); });
-  Object.assign(fullNameMap, FULLNAME);   // ★ユーザー指定の正規名を最優先
-  const prodName = k => stripNo(fullNameMap[k] || k);
+  const prodName = k => prodFull(k);   // 共通の正式名称テーブルを使用（書類は正式名称）
   const custId = document.getElementById('iv-cust').value;
   const c = (S.customers || []).find(x => (x.id || x.name) === custId);
   if (!c) return toast('取引先を選択してください', 'error');
