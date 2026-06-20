@@ -151,7 +151,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 
 /* ─── ボタン ─── */
 .faction{display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap}
-.btn{padding:.5rem 1.4rem;border:1px solid;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:.82rem;letter-spacing:.05em;transition:all .2s;font-weight:500}
+.btn{padding:.5rem 1.4rem;border:1px solid;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:.82rem;letter-spacing:.05em;transition:all .2s;font-weight:500;white-space:nowrap}
 .btn-p{background:var(--gold);border-color:var(--gold);color:var(--bk)}
 .btn-p:hover{background:var(--gold-l)}
 .btn-g{background:transparent;border-color:rgba(201,168,76,.4);color:var(--wh2)}
@@ -633,7 +633,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>開始日</label><input type="date" class="fc" id="sp-rc-start"></div>
         <div class="fg"><label>終了日（変更日）</label><input type="date" class="fc" id="sp-rc-end"></div>
         <div class="fg"><label>ルール（ア用）</label><select class="fc" id="sp-rc-rule"><option value="">— ルールを選択 —</option></select></div>
-        <div class="fg" style="display:flex;align-items:flex-end;gap:.4rem">
+        <div class="fg" style="display:flex;align-items:flex-end;gap:.4rem;grid-column:span 2">
           <button class="btn btn-g" onclick="spRunRecalc('rule')" title="選択した1ルールだけ再計算">選択ルールで再計算（ア）</button>
           <button class="btn btn-g" onclick="spRunRecalc('all')" title="適用中の全ルールを再計算">全ルールで再計算（イ）</button>
         </div>
@@ -642,10 +642,10 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="th-area" style="margin-top:.6rem"><h4 style="margin:0;color:var(--gold-l);font-size:.82rem">手動調整（実績入力開始時の開始残数合わせ）</h4></div>
       <div class="frow">
         <div class="fg"><label>顧客</label><select class="fc" id="sp-adj-cust"><option value="">— 顧客を選択 —</option></select></div>
-        <div class="fg"><label>商品</label><input class="fc" id="sp-adj-prod" placeholder="例：イエロー"></div>
+        <div class="fg"><label>商品</label><select class="fc" id="sp-adj-prod"><option value="">— 商品を選択 —</option></select></div>
         <div class="fg"><label>調整本数（±）</label><input type="number" class="fc" id="sp-adj-qty" placeholder="例：3 / -2"></div>
         <div class="fg"><label>メモ</label><input class="fc" id="sp-adj-memo" placeholder="例：移行時の繰越"></div>
-        <div class="fg" style="display:flex;align-items:flex-end"><button class="btn" onclick="spManualAdjust()" style="width:100%">調整を追加</button></div>
+        <div class="fg" style="justify-content:flex-end"><button class="btn" onclick="spManualAdjust()" style="width:100%;height:30px;padding:0 1.4rem;display:flex;align-items:center;justify-content:center">調整を追加</button></div>
       </div>
     </div>
 
@@ -1995,6 +1995,11 @@ function spFillRecalcSelectors(){
   if(rsel){ const keep=rsel.value; rsel.innerHTML='<option value="">— ルールを選択 —</option>'+(S.sponsors||[]).map(s=>'<option value="'+escapeHtml(String(s.id))+'">'+escapeHtml(s.name||String(s.id))+'（対象:'+escapeHtml(s.targetProduct==='all'?'全商品':(s.targetProduct||''))+'）</option>').join(''); rsel.value=keep; }
   const csel=document.getElementById('sp-adj-cust');
   if(csel){ const keep=csel.value; csel.innerHTML='<option value="">— 顧客を選択 —</option>'+(S.customers||[]).filter(c=>c.sponsorEnabled).map(c=>'<option value="'+escapeHtml(String(c.id))+'">'+escapeHtml(c.name||'')+'</option>').join(''); csel.value=keep; }
+  const psel=document.getElementById('sp-adj-prod');
+  if(psel){ const keep=psel.value;
+    const _pl=(S.products&&S.products.length)?S.products.filter(p=>p&&p.active!==false):PROD_LIST;
+    psel.innerHTML='<option value="">— 商品を選択 —</option>'+_pl.map(p=>{const nm=(p&&p.name)?p.name:String(p);return '<option value="'+escapeHtml(String(nm))+'">'+escapeHtml(String(nm))+'</option>';}).join('');
+    psel.value=keep; }
 }
 
 // 旧ロジック（全商品合計→商品指定なし）で付与された協賛データを削除
