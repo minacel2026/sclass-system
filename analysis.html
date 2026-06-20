@@ -172,7 +172,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     SYSTEM:  'Sclass-Lambo',
     BUILD:   '2026-06-17',
     WMID:    'SCLASS-mqhnot4m-20tkul',                 // ← この端末固有の透かしID（変更不要）
-    GAS_URL: 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
+    GAS_URL: 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec',
     ALLOWED: ['minacel2026.github.io'], // ← 自分の本番ドメイン（独自ドメインがあれば追加）
     SECRET_KEY: '',                  // ← 空=無効。GAS側 SECRET_KEY と同じ文字列を入れると有効化
     HARD_BLOCK: false                // true=許可外ドメインで画面を停止 / false=通知のみ（推奨: まず false）
@@ -542,7 +542,7 @@ const COST  = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
 const S = {
   branch:'both', orders:[], customers:[], staff:[],
   stock:{仙台:{}, 京都:{}}, slog:[], invoices:[],
-  dailyReps:[], gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
+  dailyReps:[], gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec',
 };
 
 function today(){ return new Date().toISOString().slice(0,10); }
@@ -624,7 +624,7 @@ function logOp(op,target,detail){
   try{
     var u=(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'';
     var b=(typeof currentUser!=='undefined'&&currentUser&&currentUser.branch)||'';
-    var gas=(typeof S!=='undefined'&&S&&S.gasUrl)||localStorage.getItem('gasUrl')||'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
+    var gas=(typeof S!=='undefined'&&S&&S.gasUrl)||localStorage.getItem('gasUrl')||'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
     if(!gas) return;
     fetch(gas+'?action=logOp&user='+encodeURIComponent(u)+'&op='+encodeURIComponent(op||'')+'&target='+encodeURIComponent(target||'')+'&detail='+encodeURIComponent(detail||'')+'&branch='+encodeURIComponent(b),{keepalive:true,mode:'no-cors'}).catch(function(){});
   }catch(e){}

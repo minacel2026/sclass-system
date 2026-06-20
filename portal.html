@@ -174,7 +174,7 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
     SYSTEM:  'Sclass-Lambo',
     BUILD:   '2026-06-17',
     WMID:    'SCLASS-mqhnot4m-20tkul',                 // ← この端末固有の透かしID（変更不要）
-    GAS_URL: 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
+    GAS_URL: 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec',
     ALLOWED: ['minacel2026.github.io'], // ← 自分の本番ドメイン（独自ドメインがあれば追加）
     SECRET_KEY: '',                  // ← 空=無効。GAS側 SECRET_KEY と同じ文字列を入れると有効化
     HARD_BLOCK: false                // true=許可外ドメインで画面を停止 / false=通知のみ（推奨: まず false）
@@ -507,7 +507,7 @@ const S = {
   suppliers:['マルシェジャパン','オーク酒販'],
   cashEntries:[],       // 現金出納帳
   dailyReps:[],         // 営業日報
-  gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
+  gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec',
 };
 
 // ─── 共通ヘルパー関数 ───────────────────────────────
@@ -559,7 +559,7 @@ function loadState() {
         try { S[k] = JSON.parse(v); } catch(e) {}
       }
     });
-    S.gasUrl = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
+    S.gasUrl = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
   } catch(e) { console.warn('loadState error', e); }
 }
 
@@ -682,7 +682,7 @@ function logOp(op,target,detail){
   try{
     var u=(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'';
     var b=(typeof currentUser!=='undefined'&&currentUser&&currentUser.branch)||'';
-    var gas=(typeof S!=='undefined'&&S&&S.gasUrl)||localStorage.getItem('gasUrl')||'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
+    var gas=(typeof S!=='undefined'&&S&&S.gasUrl)||localStorage.getItem('gasUrl')||'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
     if(!gas) return;
     fetch(gas+'?action=logOp&user='+encodeURIComponent(u)+'&op='+encodeURIComponent(op||'')+'&target='+encodeURIComponent(target||'')+'&detail='+encodeURIComponent(detail||'')+'&branch='+encodeURIComponent(b),{keepalive:true,mode:'no-cors'}).catch(function(){});
   }catch(e){}
@@ -767,7 +767,7 @@ updateStatus();
 // ─── 新規注文アラート（未処理＝新規受付の件数を表示。処理するまで消えない） ───
 (async function(){
   try {
-    const gas = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
+    const gas = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
     if (!gas) return;                                          // GAS未設定なら何もしない
     async function check(){
       try {
@@ -819,7 +819,7 @@ updateStatus();
 // ─── 未登録ユーザーからの連絡アラート（GAS getPendingUids） ───
 (async function(){
   try {
-    const gas = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
+    const gas = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
     if (!gas) return;
     async function checkPending(){
       try {
