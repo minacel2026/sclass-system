@@ -590,7 +590,7 @@ const COST  = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
 const S = {
   branch:'both', orders:[], customers:[], staff:[],
   stock:{仙台:{}, 京都:{}}, slog:[], invoices:[],
-  dailyReps:[], gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec',
+  dailyReps:[], agentDeals:[], salesAdjust:[], gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec',
 };
 
 function today(){ return new Date().toISOString().slice(0,10); }
@@ -621,7 +621,7 @@ function calcCost(o){
 
 function loadState(){
   try {
-    const keys = ['orders','customers','staff','stock','slog','invoices','dailyReps','referrers','sponsors'];
+    const keys = ['orders','customers','staff','stock','slog','invoices','dailyReps','referrers','sponsors','agentDeals','salesAdjust'];
     keys.forEach(k => {
       const v = localStorage.getItem('lmb_' + k);
       if (v) try { S[k] = JSON.parse(v); } catch(e){}
@@ -631,7 +631,7 @@ function loadState(){
 
 function saveState(){
   try {
-    const keys = ['orders','customers','staff','stock','slog','invoices','dailyReps','referrers','sponsors'];
+    const keys = ['orders','customers','staff','stock','slog','invoices','dailyReps','referrers','sponsors','agentDeals','salesAdjust'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
   } catch(e){ console.warn('saveState error', e); }
 }
@@ -794,38 +794,45 @@ function renderMonthly(){
   const mStr = `${yr}-${String(mo).padStart(2,'0')}`;
   document.getElementById('mn-title').textContent = `${yr}年${mo}月 月次P&L${br !== 'both' ? ' / ' + br : ''}`;
 
-  let orders = (S.orders || []).filter(o => (o.date || '').slice(0,7) === mStr);
+  const _bookYm = o => String(o.bookDate||o.deliveryDate||o.date||o.orderDate||o.timestamp||o.paidAt||'').slice(0,7);
+  let orders = (S.orders || []).filter(o => _bookYm(o) === mStr);
   if (br !== 'both') orders = orders.filter(o => o.branch === br);
 
-  // 集計
-  const sales = orders.reduce((s,o) => s + calcAmt(o), 0);
+  // 集計（売上計上基準：計上日＞納品日＞注文日。会計の売上計上と一致）
+  const selfSales = orders.reduce((s,o) => s + calcAmt(o), 0);
   const cost  = orders.reduce((s,o) => s + calcCost(o), 0);
-  const taxIn = Math.round(sales * 10 / 110); // 仮受消費税
-  const salesEx = sales - taxIn; // 税抜売上
-  const profit = salesEx - cost;
+  const agentFee = (br === 'both') ? (S.agentDeals||[]).filter(x => String(x.date||'').slice(0,7) === mStr).reduce((s,x) => s + (Number(x.sclassAmt)||0), 0) : 0;
+  const adj = (br === 'both') ? (S.salesAdjust||[]).filter(a => String(a.date||'').slice(0,7) === mStr).reduce((s,a) => s + (Number(a.amount)||0), 0) : 0;
+  const sales = selfSales + agentFee + adj; // 総売上（会計の売上計上と一致）
+  const taxIn = Math.round(selfSales * 10 / 110); // 自社販売の仮受消費税
+  const salesEx = selfSales - taxIn; // 自社税抜売上
+  const profit = salesEx - cost; // 自社粗利
   const margin = salesEx > 0 ? (profit / salesEx * 100) : 0;
   const totalQty = orders.reduce((s,o) => s + Object.values(o.items || {}).reduce((a,b) => a + b, 0), 0);
   const ordersCnt = orders.length;
-  const avgOrd = ordersCnt > 0 ? Math.round(sales / ordersCnt) : 0;
+  const avgOrd = ordersCnt > 0 ? Math.round(selfSales / ordersCnt) : 0;
 
   // KPI
   document.getElementById('mn-kpi').innerHTML = `
-    <div class="kpi"><div class="kpi-lbl">売上（税込）</div><div class="kpi-val">¥${fmt(sales)}</div></div>
-    <div class="kpi"><div class="kpi-lbl">原価合計</div><div class="kpi-val kv-r">¥${fmt(cost)}</div></div>
-    <div class="kpi"><div class="kpi-lbl">粗利</div><div class="kpi-val kv-gr">¥${fmt(profit)}</div></div>
-    <div class="kpi"><div class="kpi-lbl">粗利率</div><div class="kpi-val kv-b">${margin.toFixed(1)}%</div></div>
+    <div class="kpi"><div class="kpi-lbl">総売上（計上）</div><div class="kpi-val">¥${fmt(sales)}</div><div class="kpi-sub">自社¥${fmt(selfSales)}＋代理¥${fmt(agentFee)}${adj ? ('＋調整¥'+fmt(adj)) : ''}</div></div>
+    <div class="kpi"><div class="kpi-lbl">自社原価</div><div class="kpi-val kv-r">¥${fmt(cost)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">自社粗利</div><div class="kpi-val kv-gr">¥${fmt(profit)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">自社粗利率</div><div class="kpi-val kv-b">${margin.toFixed(1)}%</div></div>
+    <div class="kpi"><div class="kpi-lbl">代理手数料</div><div class="kpi-val kv-p">¥${fmt(agentFee)}</div></div>
     <div class="kpi"><div class="kpi-lbl">注文件数</div><div class="kpi-val kv-o">${ordersCnt}</div></div>
-    <div class="kpi"><div class="kpi-lbl">客単価</div><div class="kpi-val kv-p">¥${fmt(avgOrd)}</div></div>
   `;
 
   // P&L表
   document.getElementById('mn-tbody').innerHTML = `
-    <tr><td>売上高（税込）</td><td class="col-amt">¥${fmt(sales)}</td></tr>
+    <tr><td>自社販売 売上高（税込）</td><td class="col-amt">¥${fmt(selfSales)}</td></tr>
     <tr class="indent"><td>　うち仮受消費税</td><td class="col-amt" style="color:var(--wh3)">¥${fmt(taxIn)}</td></tr>
-    <tr class="subtotal"><td>売上高（税抜）</td><td class="col-amt">¥${fmt(salesEx)}</td></tr>
+    <tr class="subtotal"><td>自社販売 売上高（税抜）</td><td class="col-amt">¥${fmt(salesEx)}</td></tr>
     <tr class="cost"><td>売上原価</td><td class="col-amt">¥${fmt(cost)}</td></tr>
-    <tr class="profit"><td>売上総利益（粗利）</td><td class="col-amt">¥${fmt(profit)}</td></tr>
+    <tr class="profit"><td>自社販売 粗利</td><td class="col-amt">¥${fmt(profit)}</td></tr>
     <tr><td>粗利率</td><td class="col-amt">${margin.toFixed(1)}%</td></tr>
+    <tr><td>代理販売手数料</td><td class="col-amt">¥${fmt(agentFee)}</td></tr>
+    ${adj ? `<tr><td>自社調整</td><td class="col-amt">¥${fmt(adj)}</td></tr>` : ''}
+    <tr class="subtotal"><td>総売上（会計計上ベース）</td><td class="col-amt">¥${fmt(sales)}</td></tr>
     <tr><td>販売本数</td><td class="col-amt">${fmt(totalQty)} 本</td></tr>
     <tr><td>注文件数</td><td class="col-amt">${ordersCnt} 件</td></tr>
   `;
@@ -1394,6 +1401,7 @@ function deleteDailyRep(id){
 window.addEventListener('DOMContentLoaded', () => {
   updateUserBadge();
   renderMonthly();
+  (async()=>{ if(S.gasUrl && typeof gasGet==='function'){ try{ const a=await gasGet('getAgentDeals'); if(a&&a.deals){S.agentDeals=a.deals;saveState();} }catch(e){} try{ const sa=await gasGet('getSalesAdjust'); if(sa&&sa.items){S.salesAdjust=sa.items;saveState();} }catch(e){} renderMonthly(); } })();
 });
 </script>
 
