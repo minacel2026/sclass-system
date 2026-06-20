@@ -153,11 +153,12 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .invoice-preview{max-width:820px;margin-left:auto;margin-right:auto}
 .invoice-preview .iv-doc{font-family:'Noto Sans JP',sans-serif;color:#222;font-size:12px;line-height:1.5}
 .invoice-preview .iv-head{display:flex;justify-content:space-between;gap:1.4rem;align-items:flex-start}
-.invoice-preview .iv-head-l{flex:1}
-.invoice-preview .iv-head-r{flex:1;font-size:11px;line-height:1.9}
+.invoice-preview .iv-head-l{flex:0 0 38%}
+.invoice-preview .iv-head-r{flex:0 0 38%;font-size:11px;line-height:1.9}
 .invoice-preview .iv-title{display:inline-block;background:#066685;color:#fff;font-size:1.35rem;font-weight:700;letter-spacing:.45em;padding:.4rem 1.6rem;margin-bottom:1rem;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.invoice-preview .iv-cust{font-size:1rem;border-bottom:2px solid #066685;padding-bottom:.3rem;margin-bottom:1.1rem;text-align:center}
-.invoice-preview .iv-custname{font-weight:700;font-size:1.25rem;margin-right:1rem}
+.invoice-preview .iv-cust{position:relative;font-size:1rem;border-bottom:2px solid #066685;padding-bottom:.3rem;margin-bottom:1.1rem;text-align:center}
+.invoice-preview .iv-custname{font-weight:700;font-size:1.25rem}
+.invoice-preview .iv-ochu{position:absolute;right:.4rem;bottom:.3rem;font-size:1rem;font-weight:400}
 .invoice-preview .iv-payinfo{width:100%;border-collapse:collapse;margin-bottom:.6rem}
 .invoice-preview .iv-payinfo td{border:1px solid #9fc0cd;padding:.5rem .7rem;vertical-align:middle;background:#eaf1f4;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .invoice-preview .iv-payinfo td.iv-lab{background:#066685;color:#fff;font-weight:600;width:96px;text-align:center;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -1514,17 +1515,19 @@ function initInvoice(){
   sel.innerHTML = '<option value="">選択...</option>' +
     (S.customers || []).map(c => `<option value="${escapeHtml(c.id || c.name)}">${escapeHtml(c.name)}</option>`).join('');
 
+  // 対象期間：終了＝今日／開始＝今日の1か月前（常に上書き）
+  const _t = today();
+  const _pad2 = n => String(n).padStart(2,'0');
+  const _f = new Date(_t + 'T00:00:00'); _f.setMonth(_f.getMonth() - 1);
+  document.getElementById('iv-to').value = _t;
+  document.getElementById('iv-from').value = `${_f.getFullYear()}-${_pad2(_f.getMonth()+1)}-${_pad2(_f.getDate())}`;
+
   if (!document.getElementById('iv-date').value){
     document.getElementById('iv-date').value = today();
     // 期日は当月末
     const d = new Date();
     const due = new Date(d.getFullYear(), d.getMonth() + 1, 0);
     document.getElementById('iv-due').value = due.toISOString().slice(0,10);
-    // 対象期間は前月
-    const fromDate = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-    const toDate = new Date(d.getFullYear(), d.getMonth(), 0);
-    document.getElementById('iv-from').value = fromDate.toISOString().slice(0,10);
-    document.getElementById('iv-to').value = toDate.toISOString().slice(0,10);
   }
 
   if (!document.getElementById('iv-no').value){
@@ -1633,7 +1636,7 @@ async function buildInvoicePreview(){
       <div class="iv-head">
         <div class="iv-head-l">
           <div class="iv-title">請　求　書</div>
-          <div class="iv-cust"><span class="iv-custname">${escapeHtml(c.invName || c.name)}</span> 御 中</div>
+          <div class="iv-cust"><span class="iv-custname">${escapeHtml((c.invName || c.name || '').replace(/[\s　]*御\s*中[\s　]*$/,''))}</span><span class="iv-ochu">御 中</span></div>
           <table class="iv-payinfo">
             <tr><td class="iv-lab">支払期限</td><td>${dotDate(ivDue)}</td></tr>
             <tr><td class="iv-lab">支払先</td><td class="iv-bank">${escapeHtml(bank)}</td></tr>
