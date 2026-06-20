@@ -624,6 +624,28 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       </div>
     </div>
 
+    <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
+      <div class="th-area"><h3>🔁 遡及再計算・整合性調整</h3><span style="font-size:.68rem;color:var(--wh3)">ルール修正後、過去の出荷済分を正しい付与へ補正（実行前にプレビュー）</span></div>
+      <div class="frow">
+        <div class="fg"><label>開始日</label><input type="date" class="fc" id="sp-rc-start"></div>
+        <div class="fg"><label>終了日（変更日）</label><input type="date" class="fc" id="sp-rc-end"></div>
+        <div class="fg"><label>ルール（ア用）</label><select class="fc" id="sp-rc-rule"><option value="">— ルールを選択 —</option></select></div>
+        <div class="fg" style="display:flex;align-items:flex-end;gap:.4rem">
+          <button class="btn btn-g" onclick="spRunRecalc('rule')" title="選択した1ルールだけ再計算">選択ルールで再計算（ア）</button>
+          <button class="btn btn-g" onclick="spRunRecalc('all')" title="適用中の全ルールを再計算">全ルールで再計算（イ）</button>
+        </div>
+      </div>
+      <div id="sp-rc-preview"></div>
+      <div class="th-area" style="margin-top:.6rem"><h4 style="margin:0;color:var(--gold-l);font-size:.82rem">手動調整（実績入力開始時の開始残数合わせ）</h4></div>
+      <div class="frow">
+        <div class="fg"><label>顧客</label><select class="fc" id="sp-adj-cust"><option value="">— 顧客を選択 —</option></select></div>
+        <div class="fg"><label>商品</label><input class="fc" id="sp-adj-prod" placeholder="例：イエロー"></div>
+        <div class="fg"><label>調整本数（±）</label><input type="number" class="fc" id="sp-adj-qty" placeholder="例：3 / -2"></div>
+        <div class="fg"><label>メモ</label><input class="fc" id="sp-adj-memo" placeholder="例：移行時の繰越"></div>
+        <div class="fg" style="display:flex;align-items:flex-end"><button class="btn" onclick="spManualAdjust()" style="width:100%">調整を追加</button></div>
+      </div>
+    </div>
+
     <div class="sponsor-cols">
     <div class="tw">
       <div class="th-area"><h3>協賛残数一覧</h3><span id="sp-cnt" style="font-size:.72rem;color:var(--wh2)"></span><button class="btn-s" style="margin-left:auto" onclick="cleanupOldSponsorLogs()">🧹 旧協賛データを整理</button></div>
@@ -1751,6 +1773,190 @@ function calcPendingSponsorPoints(items, c){
   return result;
 }
 
+// ════════ 協賛 遡及再計算・整合性調整（プレビュー付き / B方式：使用済みも含め補正、差分は調整ログで相殺）════════
+let _spPendingPlan = null;
+
+// 期間・スコープで「正しい付与(earned)」を注文ごとに再計算し、既存付与との差分プランを返す（適用はしない）
+function spBuildRecalcPlan(opts){
+  const scope = opts.scope || 'all';
+  const start = String(opts.start||'').slice(0,10).replace(/\//g,'-');
+  const end   = String(opts.end||'').slice(0,10).replace(/\//g,'-');
+  const inR = d => { const x=String(d||'').slice(0,10).replace(/\//g,'-'); return (!start||x>=start)&&(!end||x<=end); };
+  const validOn = (s,dt) => {
+    const en=String((s&&(s.enabled||s.status))||'有効');
+    if(en==='無効'||en==='停止'||en==='終了') return false;
+    const d=String(dt||'').slice(0,10).replace(/\//g,'-');
+    const sd=s.startDate?String(s.startDate).slice(0,10).replace(/\//g,'-'):'';
+    const ed=s.endDate?String(s.endDate).slice(0,10).replace(/\//g,'-'):'';
+    if(sd&&d&&d<sd) return false; if(ed&&d&&d>ed) return false; return true;
+  };
+  const custByName={}; (S.customers||[]).forEach(c=>custByName[c.name]=c);
+  const ruleById={};   (S.sponsors||[]).forEach(s=>ruleById[String(s.id)]=s);
+
+  const correct={};
+  (S.orders||[]).forEach(o=>{
+    if(shipStatus(o)!=='出荷済') return; if(!inR(o.date)) return;
+    const c=custByName[o.store]; if(!c||!c.sponsorEnabled) return;
+    (Array.isArray(c.sponsorIds)?c.sponsorIds:[]).forEach(id=>{
+      if(scope!=='all'&&String(id)!==String(scope)) return;
+      const s=ruleById[String(id)]; if(!s||!validOn(s,o.date)) return;
+      const trig=parseInt(s.triggerQty)||0; if(!trig) return;
+      const rq=parseInt(s.rewardQty)||1, tp=s.targetProduct||'all';
+      const grant=(prod,buyQ)=>{ const pts=Math.floor(Math.abs(buyQ||0)/trig)*rq; if(!pts)return;
+        const key=o.id+'|'+s.id+'|'+prod;
+        if(!correct[key]) correct[key]={custId:c.id,custName:c.name,sponsorId:String(s.id),sponsorName:s.name,product:prod,qty:0,date:o.date,orderId:o.id,targetProduct:tp};
+        correct[key].qty+=pts; };
+      if(tp==='all') Object.entries(o.items||{}).forEach(e=>grant(e[0],e[1]));
+      else grant(tp,(o.items||{})[tp]||0);
+    });
+  });
+
+  const existing={};
+  (S.sponsorLogs||[]).forEach(l=>{
+    if(l.type!=='earned'||!l.orderId) return;          // 手動調整(orderIdなし)は対象外
+    if(!inR(l.date)) return;
+    if(scope!=='all'&&String(l.sponsorId)!==String(scope)) return;
+    const key=l.orderId+'|'+(l.sponsorId||'')+'|'+(l.product||'');
+    if(!existing[key]) existing[key]={qty:0,ids:[],custId:l.custId,custName:l.custName,date:l.date};
+    existing[key].qty+=(l.qty||0); existing[key].ids.push(l.id);
+  });
+
+  const ops=[], rows=[], keys={};
+  Object.keys(correct).forEach(k=>keys[k]=1); Object.keys(existing).forEach(k=>keys[k]=1);
+  Object.keys(keys).forEach(k=>{
+    const cor=correct[k], ex=existing[k], nq=cor?cor.qty:0, oq=ex?ex.qty:0;
+    if(nq===oq) return;
+    const parts=k.split('|');
+    const m=cor||{orderId:parts[0],sponsorId:parts[1],sponsorName:(ruleById[parts[1]]||{}).name||'',product:parts[2],custId:ex?ex.custId:'',custName:ex?ex.custName:'',date:ex?ex.date:start,targetProduct:''};
+    if(ex) ops.push({kind:'del',ids:ex.ids.slice()});
+    if(nq>0) ops.push({kind:'add',log:{
+      id:'sp-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+      custId:m.custId, custName:m.custName, type:'earned', qty:nq, date:m.date||start,
+      orderId:m.orderId, sponsorId:m.sponsorId, sponsorName:m.sponsorName,
+      product:m.product, targetProduct:m.targetProduct||'', note:'遡及再計算で補正',
+      createdAt:new Date().toISOString(), createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||''
+    }});
+    rows.push({custId:m.custId, store:m.custName||m.custId||'(不明)', product:m.product, rule:m.sponsorName, orderId:m.orderId, date:m.date, oldQty:oq, newQty:nq});
+  });
+  return {ops,rows,scope,start,end};
+}
+
+// ボタン: scope='all'（全ルール=イ） / 'rule'（選択ルール=ア）
+function spRunRecalc(which){
+  const start=(document.getElementById('sp-rc-start')||{}).value||'';
+  const end  =(document.getElementById('sp-rc-end')||{}).value||'';
+  if(!start||!end){ toast('開始日・終了日を指定してください','error'); return; }
+  if(start>end){ toast('開始日は終了日より前にしてください','error'); return; }
+  let scope='all', scopeLabel='全ルール（イ）';
+  if(which==='rule'){
+    scope=(document.getElementById('sp-rc-rule')||{}).value||'';
+    if(!scope){ toast('再計算するルールを選んでください','error'); return; }
+    const r=(S.sponsors||[]).find(x=>String(x.id)===String(scope));
+    scopeLabel='ルール「'+((r&&r.name)||scope)+'」（ア）';
+  }
+  const plan=spBuildRecalcPlan({scope,start,end});
+  _spPendingPlan=plan;
+  spRenderPreview(plan, scopeLabel);
+}
+
+function spRenderPreview(plan, scopeLabel){
+  const box=document.getElementById('sp-rc-preview'); if(!box) return;
+  if(!plan.rows.length){
+    box.innerHTML='<div style="padding:.6rem;color:var(--wh2)">対象期間（'+plan.start+'〜'+plan.end+'・'+scopeLabel+'）で<strong>変更はありません</strong>。すでに整合しています。</div>';
+    _spPendingPlan=null; return;
+  }
+  let net=0; plan.rows.forEach(r=>net+=(r.newQty-r.oldQty));
+  let html='<div style="border:1px solid rgba(201,168,76,.3);border-radius:6px;padding:.6rem;margin-top:.5rem">'
+    +'<div style="font-weight:600;color:var(--gold-l);margin-bottom:.4rem">プレビュー（'+plan.start+'〜'+plan.end+'・'+scopeLabel+'）　該当 '+plan.rows.length+'件 / 付与本数 純'+(net>=0?'+':'')+net+'本</div>'
+    +'<div style="max-height:220px;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem">'
+    +'<thead><tr><th style="text-align:left;padding:.2rem .4rem">店舗</th><th style="text-align:left;padding:.2rem .4rem">商品</th><th style="text-align:left;padding:.2rem .4rem">ルール</th><th style="text-align:left;padding:.2rem .4rem">日付/注文</th><th style="text-align:right;padding:.2rem .4rem">旧→新</th></tr></thead><tbody>';
+  plan.rows.forEach(r=>{
+    const col=r.newQty>r.oldQty?'var(--grn)':'var(--org)';
+    html+='<tr><td style="padding:.2rem .4rem">'+escapeHtml(r.store)+'</td><td style="padding:.2rem .4rem">'+escapeHtml(r.product)+'</td><td style="padding:.2rem .4rem">'+escapeHtml(r.rule||'')+'</td><td style="padding:.2rem .4rem;color:var(--wh2)">'+escapeHtml(String(r.date||''))+' / '+escapeHtml(String(r.orderId||''))+'</td><td style="padding:.2rem .4rem;text-align:right;color:'+col+'">'+r.oldQty+' → '+r.newQty+'</td></tr>';
+  });
+  html+='</tbody></table></div>'
+    +'<div style="font-size:.68rem;color:var(--wh3);margin:.5rem 0">※ B方式：補正後に残数がマイナスになる商品（使用済み超過）は、調整ログで自動的に0へ相殺します。手動調整（orderIdなし）の行は対象外です。</div>'
+    +'<div style="display:flex;gap:.5rem"><button class="btn btn-g" onclick="spApplyRecalc()">この内容で適用する</button><button class="btn-s" onclick="spCancelRecalc()">キャンセル</button></div></div>';
+  box.innerHTML=html;
+}
+
+function spCancelRecalc(){ _spPendingPlan=null; const b=document.getElementById('sp-rc-preview'); if(b) b.innerHTML=''; }
+
+function spApplyRecalc(){
+  if(typeof canDelete==='function' && !canDelete()){ toast('🔒 権限がありません','error'); return; }
+  const plan=_spPendingPlan; if(!plan||!plan.rows.length){ toast('適用する内容がありません','error'); return; }
+  if(!confirm('この内容で協賛付与を遡って補正します（'+plan.start+'〜'+plan.end+'・'+plan.rows.length+'件）。\nこの操作は取り消せません。よろしいですか？')) return;
+  if(!S.sponsorLogs) S.sponsorLogs=[];
+
+  // 削除
+  const del={}; plan.ops.forEach(op=>{ if(op.kind==='del') op.ids.forEach(id=>del[id]=1); });
+  if(S.gasUrl) Object.keys(del).forEach(id=>{ try{ gasPost({action:'deleteSponsorLog', id:id}); }catch(e){} });
+  S.sponsorLogs=S.sponsorLogs.filter(l=>!del[l.id]);
+  // 追加（補正後の正しい付与）
+  const added=[];
+  plan.ops.forEach(op=>{ if(op.kind==='add'){ S.sponsorLogs.push(op.log); added.push(op.log); } });
+  // B方式: 影響顧客の残数を再計算し、マイナス（使用済み超過）は調整(earned)で0に相殺
+  const custs={}; plan.rows.forEach(r=>{ if(r.custId) custs[r.custId]=r.store; });
+  const adjusts=[];
+  Object.keys(custs).forEach(cid=>{
+    const byProd={};
+    S.sponsorLogs.filter(l=>String(l.custId)===String(cid)).forEach(l=>{
+      const p=l.product||'商品指定なし'; byProd[p]=byProd[p]||0;
+      if(l.type==='earned') byProd[p]+=(l.qty||0); if(l.type==='used') byProd[p]-=(l.qty||0);
+    });
+    Object.keys(byProd).forEach(p=>{ if(byProd[p]<0){
+      const fix={ id:'sp-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+        custId:cid, custName:custs[cid], type:'earned', qty:-byProd[p], date:plan.end, orderId:'',
+        product:p, note:'調整：使用済み超過の相殺（遡及再計算B）', createdAt:new Date().toISOString(),
+        createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
+      S.sponsorLogs.push(fix); adjusts.push(fix);
+    }});
+  });
+  // 追加分をGAS同期
+  if(S.gasUrl) added.concat(adjusts).forEach(log=>{ try{ gasPost({action:'saveSponsorLog', ...log}); }catch(e){} });
+
+  saveState();
+  _spPendingPlan=null;
+  const b=document.getElementById('sp-rc-preview'); if(b) b.innerHTML='';
+  toast('✓ 遡及補正を適用しました（'+plan.rows.length+'件'+(adjusts.length?' / 調整 '+adjusts.length+'件':'')+'）');
+  renderSponsor();
+  if(typeof updateKPI==='function') updateKPI();
+}
+
+// 手動調整：実績入力開始時点の残数合わせ（開始残数のセット）。orderIdなしで記録。
+function spManualAdjust(){
+  if(typeof canDelete==='function' && !canDelete()){ toast('🔒 権限がありません','error'); return; }
+  const cid=(document.getElementById('sp-adj-cust')||{}).value||'';
+  const prod=((document.getElementById('sp-adj-prod')||{}).value||'').trim();
+  const qty=parseInt((document.getElementById('sp-adj-qty')||{}).value||'',10);
+  const memo=((document.getElementById('sp-adj-memo')||{}).value||'').trim();
+  if(!cid){ toast('顧客を選んでください','error'); return; }
+  if(!prod){ toast('商品名を入力してください','error'); return; }
+  if(isNaN(qty)||qty===0){ toast('調整本数（±）を入力してください','error'); return; }
+  const c=(S.customers||[]).find(x=>String(x.id)===String(cid));
+  if(!S.sponsorLogs) S.sponsorLogs=[];
+  const log={ id:'sp-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+    custId:cid, custName:(c&&c.name)||'', type:(qty>0?'earned':'used'), qty:Math.abs(qty),
+    date:(new Date().toISOString().slice(0,10)), orderId:'', product:prod,
+    note:'手動調整（開始残数）'+(memo?'：'+memo:''), createdAt:new Date().toISOString(),
+    createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
+  S.sponsorLogs.push(log);
+  if(S.gasUrl){ try{ gasPost({action:'saveSponsorLog', ...log}); }catch(e){} }
+  saveState();
+  ['sp-adj-prod','sp-adj-qty','sp-adj-memo'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  toast('✓ 調整を追加しました（'+prod+' '+(qty>0?'+':'')+qty+'本）');
+  renderSponsor();
+  if(typeof updateKPI==='function') updateKPI();
+}
+
+// セレクタ（ルール・顧客・商品候補）を埋める
+function spFillRecalcSelectors(){
+  const rsel=document.getElementById('sp-rc-rule');
+  if(rsel){ const keep=rsel.value; rsel.innerHTML='<option value="">— ルールを選択 —</option>'+(S.sponsors||[]).map(s=>'<option value="'+escapeHtml(String(s.id))+'">'+escapeHtml(s.name||String(s.id))+'（対象:'+escapeHtml(s.targetProduct==='all'?'全商品':(s.targetProduct||''))+'）</option>').join(''); rsel.value=keep; }
+  const csel=document.getElementById('sp-adj-cust');
+  if(csel){ const keep=csel.value; csel.innerHTML='<option value="">— 顧客を選択 —</option>'+(S.customers||[]).filter(c=>c.sponsorEnabled).map(c=>'<option value="'+escapeHtml(String(c.id))+'">'+escapeHtml(c.name||'')+'</option>').join(''); csel.value=keep; }
+}
+
 // 旧ロジック（全商品合計→商品指定なし）で付与された協賛データを削除
 function cleanupOldSponsorLogs(){
   if (typeof canDelete === 'function' && !canDelete()) return toast('🔒 削除権限がありません', 'error');
@@ -1774,6 +1980,7 @@ function cleanupOldSponsorLogs(){
 }
 
 function renderSponsor(){
+  if(typeof spFillRecalcSelectors==='function') spFillRecalcSelectors();
   const kw = (document.getElementById('sp-kw')?.value || '').toLowerCase();
   const state = document.getElementById('sp-state')?.value || 'all';
 
