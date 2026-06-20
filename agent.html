@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>代理店マイページ | LAMBORGHINI WINE</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+:root{ --gold:#C9A84C; --gold-l:#E8CC7A; --bg:#0a0a0c; --card:#141418; --line:rgba(201,168,76,.18); --ivory:#e8e0cc; --green:#7ee2a8; --amber:#ffcf7a; --red:#ff8a80; }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;background:var(--bg);color:var(--ivory);min-height:100vh}
+.header{background:linear-gradient(180deg,#16161a,#0a0a0c);border-bottom:1px solid var(--line);padding:18px 16px 14px;text-align:center;position:sticky;top:0;z-index:100}
+.header h1{font-size:1.05rem;letter-spacing:.28em;color:var(--gold-l);font-weight:700}
+.header .sub{font-size:.6rem;letter-spacing:.3em;color:#8a8270;margin-top:2px}
+.wrap{max-width:560px;margin:0 auto;padding:14px 14px 60px}
+.banner{background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);color:var(--gold);font-size:.68rem;text-align:center;padding:6px;border-radius:6px;margin-bottom:10px}
+.hello{font-size:.95rem;font-weight:700;color:var(--gold-l);margin:6px 2px 4px}
+.hello small{display:block;font-size:.64rem;color:#9a917c;font-weight:400;margin-top:3px;letter-spacing:.04em}
+.summary{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.sumcard{flex:1 1 calc(50% - 4px);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 8px;text-align:center}
+.sumcard .lbl{font-size:.6rem;color:#9a917c;letter-spacing:.05em}
+.sumcard .val{font-size:1.1rem;font-weight:700;margin-top:4px}
+.sumcard .val.gold{color:var(--gold-l)} .sumcard .val.green{color:var(--green)} .sumcard .val.amber{color:var(--amber)}
+.sec-title{font-size:.72rem;color:var(--gold);letter-spacing:.12em;margin:18px 2px 8px;display:flex;align-items:center;gap:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px;margin-bottom:10px}
+.fg{margin-bottom:9px}
+.fg label{display:block;font-size:.66rem;color:#9a917c;margin-bottom:4px;letter-spacing:.04em}
+.fg input,.fg select{width:100%;background:#0e0e11;border:1px solid var(--line);border-radius:7px;color:var(--ivory);padding:.6rem .7rem;font-size:.86rem;font-family:inherit}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--gold)}
+.frow{display:flex;gap:8px}.frow .fg{flex:1}
+.calcbox{background:rgba(201,168,76,.07);border:1px dashed var(--line);border-radius:8px;padding:9px 11px;font-size:.72rem;color:#cfc6ad;margin:4px 0 10px;line-height:1.7}
+.calcbox b{color:var(--gold-l)}
+.btn{width:100%;background:var(--gold);color:#1a1200;border:none;padding:.72rem;border-radius:8px;font-size:.86rem;font-weight:700;cursor:pointer;letter-spacing:.05em}
+.btn:disabled{opacity:.5}
+.deal{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:9px}
+.deal .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.deal .nm{font-size:.88rem;font-weight:700;color:var(--ivory)}
+.deal .nm small{display:block;font-size:.64rem;color:#9a917c;font-weight:400;margin-top:2px}
+.deal .amt{font-size:.95rem;font-weight:700;color:var(--gold-l);text-align:right;white-space:nowrap}
+.deal .bt{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;font-size:.66rem;color:#9a917c}
+.pill{font-size:.6rem;padding:.12rem .5rem;border-radius:999px;font-weight:700}
+.pill.unpaid{background:rgba(255,138,128,.15);color:var(--red)}
+.pill.paid{background:rgba(126,226,168,.16);color:var(--green)}
+.empty,.errbox,.loading{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:26px 14px;text-align:center;font-size:.8rem;color:#9a917c;line-height:1.8}
+.errbox{color:var(--red);border-color:rgba(255,99,99,.3)}
+.spinner{width:28px;height:28px;border:3px solid rgba(201,168,76,.2);border-top-color:var(--gold);border-radius:50%;margin:0 auto 12px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.note{font-size:.6rem;color:#6f6857;text-align:center;margin-top:18px;line-height:1.7}
+#busy{display:none;position:fixed;inset:0;background:rgba(0,0,0,.74);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:.8rem}
+#busy .spinner{margin:0}
+#busy .m{color:var(--gold-l);font-size:.9rem;letter-spacing:.06em}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1b1b1f;border:1px solid var(--line);color:var(--gold-l);padding:.7rem 1.2rem;border-radius:8px;font-size:.8rem;z-index:9998;opacity:0;transition:opacity .2s;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>代理店マイページ</h1>
+  <div class="sub">LAMBORGHINI WINE</div>
+</div>
+<div class="wrap">
+  <div id="content"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
+  <div class="note">入力いただいた実績をもとにSclassへのご入金額を計算します。<br>「入金済」はSclassでご入金を確認した時点で反映されます。表示は概算です。</div>
+</div>
+
+<div id="busy"><div class="spinner"></div><div class="m">保存中…</div></div>
+<div id="toast"></div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec';
+const LIFF_ID = '';   // ★この代理店マイページ用のLIFF IDを発行して貼り付け（空ならブラウザモード:?uid=でテスト）
+
+let _uid = '';
+let _products = [];   // 商品名リスト（GASから）
+let _agent = null;
+
+const fmt = n => '¥' + Number(n||0).toLocaleString();
+const num = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; };
+function esc(t){ return String(t==null?'':t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.style.opacity='1'; setTimeout(()=>t.style.opacity='0',2200); }
+function busy(on,msg){ const b=document.getElementById('busy'); if(msg) b.querySelector('.m').textContent=msg; b.style.display=on?'flex':'none'; }
+
+// B方式（委託型）：Sclass入金額 = 売値 × 数量 × (掛率/10)、代理店手数料 = 残り
+function calcSclass(uri, qty, kake){ return Math.round(num(uri) * num(qty) * (num(kake)/10)); }
+function calcFee(uri, qty, kake){ return Math.round(num(uri) * num(qty)) - calcSclass(uri,qty,kake); }
+
+async function init(){
+  try {
+    if (!LIFF_ID) throw new Error('LIFF_ID未設定');
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    const prof = await liff.getProfile();
+    _uid = prof.userId;
+  } catch(e) {
+    document.querySelector('.header').insertAdjacentHTML('afterend',
+      '<div class="wrap" style="padding-bottom:0"><div class="banner">⚠ ブラウザモードで動作中（LINE連携なし）</div></div>');
+    _uid = new URLSearchParams(location.search).get('uid') || '';
+  }
+  if (!_uid){ document.getElementById('content').innerHTML = '<div class="errbox">LINEアカウント情報を取得できませんでした。<br>LINEアプリ内から開いてください。</div>'; return; }
+  await load();
+}
+
+async function load(){
+  const box = document.getElementById('content');
+  box.innerHTML = '<div class="loading"><div class="spinner"></div>読み込み中…</div>';
+  try {
+    const r = await fetch(GAS_URL + '?action=getAgentDashboard&uid=' + encodeURIComponent(_uid) + '&_=' + Date.now(), { cache:'no-store' });
+    const d = await r.json();
+    if (!d || !d.ok){
+      box.innerHTML = (d && d.error === 'not_agent')
+        ? '<div class="errbox">代理店として登録が見つかりませんでした。<br>Sclass担当者までご連絡ください。</div>'
+        : '<div class="errbox">情報を取得できませんでした。時間をおいて再度お試しください。</div>';
+      return;
+    }
+    _agent = d.agent || {};
+    _products = Array.isArray(d.products) ? d.products : [];
+    render(box, d);
+  } catch(e){
+    box.innerHTML = '<div class="errbox">通信エラーが発生しました。<br>電波状況をご確認のうえ開き直してください。</div>';
+  }
+}
+
+function render(box, d){
+  const deals = Array.isArray(d.deals) ? d.deals : [];
+  let gross=0, sclass=0, paid=0, unpaid=0;
+  deals.forEach(x=>{
+    const g = num(x.uri)*num(x.qty);
+    gross += g; sclass += num(x.sclassAmt);
+    if (String(x.paid)==='入金済' || x.paid===true) paid += num(x.sclassAmt); else unpaid += num(x.sclassAmt);
+  });
+
+  let html = '';
+  html += '<div class="hello">' + esc(_agent.name || '代理店') + ' 様<small>委託販売（売値の掛率分をSclassへご入金）</small></div>';
+
+  html += '<div class="summary">';
+  html += '<div class="sumcard"><div class="lbl">累計売上</div><div class="val gold">' + fmt(gross) + '</div></div>';
+  html += '<div class="sumcard"><div class="lbl">Sclass入金予定</div><div class="val gold">' + fmt(sclass) + '</div></div>';
+  html += '<div class="sumcard"><div class="lbl">入金済</div><div class="val green">' + fmt(paid) + '</div></div>';
+  html += '<div class="sumcard"><div class="lbl">未入金</div><div class="val amber">' + fmt(unpaid) + '</div></div>';
+  html += '</div>';
+
+  // 入力フォーム
+  html += '<div class="sec-title">＋ 取引実績を入力</div>';
+  html += '<div class="card">';
+  html += '<div class="frow"><div class="fg"><label>日付</label><input type="date" id="f-date"></div>'
+        + '<div class="fg"><label>掛率（例:7=7掛）</label><input type="number" id="f-kake" step="0.1" min="0" max="10" placeholder="' + esc(_agent.defaultKake||'7') + '" value="' + esc(_agent.defaultKake||'7') + '"></div></div>';
+  const opts = '<option value="">— 商品を選択 —</option>' + _products.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join('');
+  html += '<div class="fg"><label>商品</label><select id="f-prod">' + opts + '</select></div>';
+  html += '<div class="frow"><div class="fg"><label>数量（本）</label><input type="number" id="f-qty" min="1" step="1" placeholder="例:6"></div>'
+        + '<div class="fg"><label>売値（1本・税込）</label><input type="number" id="f-uri" min="0" step="1" placeholder="例:10000"></div></div>';
+  html += '<div class="fg"><label>顧客名</label><input type="text" id="f-cust" placeholder="例:○○商店"></div>';
+  html += '<div class="calcbox" id="f-calc">売上 <b>¥0</b>　／　Sclass入金額 <b>¥0</b>　／　代理店手数料 <b>¥0</b></div>';
+  html += '<button class="btn" id="f-save" onclick="saveDeal()">この実績を保存</button>';
+  html += '</div>';
+
+  // 実績一覧
+  html += '<div class="sec-title">取引履歴（' + deals.length + '件）</div>';
+  if (!deals.length){
+    html += '<div class="empty">まだ取引実績がありません。<br>上のフォームから入力してください。</div>';
+  } else {
+    deals.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))).forEach(x=>{
+      const g = num(x.uri)*num(x.qty);
+      const isPaid = String(x.paid)==='入金済' || x.paid===true;
+      html += '<div class="deal"><div class="top">'
+        + '<div class="nm">' + esc(x.prod||'—') + '<small>' + esc(String(x.date||'')) + '　' + esc(x.cust||'') + '</small></div>'
+        + '<div class="amt">' + fmt(x.sclassAmt) + '<br><span class="pill ' + (isPaid?'paid':'unpaid') + '">' + (isPaid?'入金済':'未入金') + '</span></div>'
+        + '</div>'
+        + '<div class="bt"><span>数量 ' + esc(String(x.qty||0)) + '本</span><span>売値 ' + fmt(x.uri) + '</span><span>掛率 ' + esc(String(x.kake||'')) + '掛</span><span>売上 ' + fmt(g) + '</span><span>手数料 ' + fmt(num(g)-num(x.sclassAmt)) + '</span></div>'
+        + '</div>';
+    });
+  }
+  box.innerHTML = html;
+
+  // 既定日付＝今日、リアルタイム計算
+  const dt=document.getElementById('f-date'); if(dt) dt.value = new Date().toISOString().slice(0,10);
+  ['f-qty','f-uri','f-kake'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input', updateCalc); });
+}
+
+function updateCalc(){
+  const uri=document.getElementById('f-uri').value, qty=document.getElementById('f-qty').value, kake=document.getElementById('f-kake').value;
+  const g=Math.round(num(uri)*num(qty)), s=calcSclass(uri,qty,kake), f=g-s;
+  document.getElementById('f-calc').innerHTML='売上 <b>'+fmt(g)+'</b>　／　Sclass入金額 <b>'+fmt(s)+'</b>　／　代理店手数料 <b>'+fmt(f)+'</b>';
+}
+
+async function saveDeal(){
+  const date=document.getElementById('f-date').value;
+  const prod=document.getElementById('f-prod').value;
+  const qty=num(document.getElementById('f-qty').value);
+  const uri=num(document.getElementById('f-uri').value);
+  const cust=document.getElementById('f-cust').value.trim();
+  const kake=num(document.getElementById('f-kake').value);
+  if(!date) return toast('日付を入力してください');
+  if(!prod) return toast('商品を選んでください');
+  if(qty<=0) return toast('数量を入力してください');
+  if(uri<=0) return toast('売値を入力してください');
+  if(!cust) return toast('顧客名を入力してください');
+  if(kake<=0||kake>10) return toast('掛率は0〜10で入力してください（例:7=7掛）');
+
+  const payload = {
+    action:'saveAgentDeal', uid:_uid,
+    date:date, prod:prod, qty:qty, uri:uri, cust:cust, kake:kake,
+    sclassAmt: calcSclass(uri,qty,kake), fee: calcFee(uri,qty,kake)
+  };
+  busy(true,'保存中…');
+  try{
+    // GASはプリフライト非対応のため Content-Type は付けない（注文フォームと同じ方式）
+    await fetch(GAS_URL, { method:'POST', mode:'no-cors', body:JSON.stringify(payload) });
+    toast('✓ 実績を保存しました');
+    await load();   // 再取得して一覧・合計を更新
+  }catch(e){
+    toast('保存に失敗しました。電波状況をご確認ください');
+  }finally{
+    busy(false);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
