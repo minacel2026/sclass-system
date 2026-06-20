@@ -1161,6 +1161,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
       <div class="tab active" onclick="switchAgentTab('list',this)">一覧</div>
       <div class="tab" onclick="switchAgentTab('new',this)">＋ 新規登録</div>
       <div class="tab" onclick="switchAgentTab('deals',this)">入金管理</div>
+      <div class="tab" onclick="switchAgentTab('monthly',this)">月次集計</div>
     </div>
 
     <div id="agt-list" class="tcon active">
@@ -1224,6 +1225,21 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
         <span style="margin-left:auto;font-size:.72rem;color:var(--wh2)">未入金合計 <span id="agt-unpaid-total" style="color:var(--gold-l)">¥0</span></span>
       </div>
       <div id="agt-deal-grid" class="cust-grid"></div>
+    </div>
+
+    <div id="agt-monthly" class="tcon">
+      <div class="filter-bar">
+        <label>代理店</label>
+        <select class="fc" id="agt-month-filter" onchange="renderAgentMonthly()"><option value="">すべて</option></select>
+        <label>集計基準</label>
+        <select class="fc" id="agt-month-basis" onchange="renderAgentMonthly()">
+          <option value="deal">取引月（売上が立った月）</option>
+          <option value="paid">入金月（入金日ベース）</option>
+        </select>
+        <button class="btn-s" onclick="loadAgentsTab(true)" style="margin-left:8px">🔄 最新を取得</button>
+        <span style="margin-left:auto;font-size:.72rem;color:var(--wh2)">未入金合計 <span id="agt-month-unpaid" style="color:var(--gold-l)">¥0</span></span>
+      </div>
+      <div id="agt-month-grid" class="cust-grid"></div>
     </div>
   </div>
 
@@ -3550,6 +3566,7 @@ function switchAgentTab(name, el){
   if (name === 'list'){ editingAgentId = null; clearAgentForm(); renderAgentList(); }
   else if (name === 'new'){ renderAgentPendingPicker(); }
   else if (name === 'deals'){ fillAgentDealFilter(); renderAgentDeals(); }
+  else if (name === 'monthly'){ fillAgentMonthFilter(); renderAgentMonthly(); }
 }
 
 // タブを開いたとき：キャッシュで即描画→GASから最新取得
@@ -3710,7 +3727,7 @@ function renderAgentDeals(){
   if(!deals.length){ grid.innerHTML='<div style="padding:2rem;text-align:center;color:var(--wh3);font-size:.8rem">取引がありません</div>'; return; }
   grid.innerHTML=`
     <div class="cust-table-wrap"><table class="cust-table"><thead><tr>
-      <th>日付</th><th>代理店</th><th>商品</th><th>数量</th><th>売値</th><th>掛率</th><th>Sclass入金額</th><th>状態</th><th>操作</th>
+      <th>日付</th><th>代理店</th><th>商品</th><th>数量</th><th>売値</th><th>掛率</th><th>売上(実績)</th><th>Sclass入金額</th><th>状態</th><th>操作</th>
     </tr></thead><tbody>
       ${deals.map(x=>{ const isPaid=String(x.paid)==='入金済'; return `
         <tr>
@@ -3720,6 +3737,7 @@ function renderAgentDeals(){
           <td>${escapeHtml(String(x.qty||0))}本</td>
           <td>${_agtYen(x.uri)}</td>
           <td>${escapeHtml(String(x.kake||''))}掛</td>
+          <td>${_agtYen((Number(x.uri)||0)*(Number(x.qty)||0))}</td>
           <td style="color:var(--gold-l)">${_agtYen(x.sclassAmt)}</td>
           <td>${isPaid?('<span style="color:#7ee2a8">入金済</span><br><span style="color:var(--wh3);font-size:.66rem">'+escapeHtml(x.paidDate||'')+'</span>'):'<span style="color:#ffcf7a">未入金</span>'}</td>
           <td class="ct-actions">${isPaid
@@ -3738,6 +3756,84 @@ function markAgentDealPaid(id, paid){
   if(S.gasUrl) gasPost({ action:'markAgentDealPaid', id:id, paid:x.paid, paidDate:x.paidDate });
   toast(paid?'✓ 入金済にしました':'✓ 未入金に戻しました');
   renderAgentDeals(); renderAgentList();
+}
+
+
+// ── 月次集計（代理店入金・未入金） ──
+function _ym(k){ const p=String(k).split('-'); return p.length>=2 ? (p[0]+'年'+p[1]+'月') : String(k); }
+function fillAgentMonthFilter(){
+  const sel=document.getElementById('agt-month-filter'); if(!sel) return;
+  const keep=sel.value;
+  sel.innerHTML='<option value="">すべて</option>'+(S.agents||[]).map(a=>'<option value="'+escapeHtml(a.id)+'">'+escapeHtml(a.name||'')+'</option>').join('');
+  sel.value=keep;
+}
+function renderAgentMonthly(){
+  const grid=document.getElementById('agt-month-grid'); if(!grid) return;
+  const fa=document.getElementById('agt-month-filter')?.value||'';
+  const basis=document.getElementById('agt-month-basis')?.value||'deal';
+  let deals=(S.agentDeals||[]).slice();
+  if(fa) deals=deals.filter(x=>String(x.agentId)===String(fa));
+
+  // 未入金合計（常に全体）
+  let totalUnpaid=0; deals.forEach(x=>{ if(String(x.paid)!=='入金済') totalUnpaid+=Number(x.sclassAmt)||0; });
+  const utEl=document.getElementById('agt-month-unpaid'); if(utEl) utEl.textContent=_agtYen(totalUnpaid);
+  grid.style.display='block';
+
+  if(basis==='paid'){
+    // 入金月（入金日ベース）：実際にSclassが受領した額
+    const months={};
+    deals.forEach(x=>{
+      if(String(x.paid)!=='入金済') return;
+      const m=String(x.paidDate||'').slice(0,7); if(!m) return;
+      if(!months[m]) months[m]={n:0,amt:0};
+      months[m].n++; months[m].amt+=Number(x.sclassAmt)||0;
+    });
+    const keys=Object.keys(months).sort((a,b)=>b.localeCompare(a));
+    let tn=0,ta=0; keys.forEach(k=>{tn+=months[k].n;ta+=months[k].amt;});
+    if(!keys.length){ grid.innerHTML='<div style="padding:2rem;text-align:center;color:var(--wh3);font-size:.8rem">入金済の取引がありません</div>'; return; }
+    grid.innerHTML=`
+      <div class="cust-table-wrap"><table class="cust-table"><thead><tr>
+        <th>入金月</th><th>入金件数</th><th>入金額（Sclass受領）</th>
+      </tr></thead><tbody>
+        ${keys.map(k=>`<tr><td class="ct-name">${_ym(k)}</td><td>${months[k].n}件</td><td style="color:#7ee2a8">${_agtYen(months[k].amt)}</td></tr>`).join('')}
+        <tr style="font-weight:700;border-top:2px solid var(--line)"><td class="ct-name">合計</td><td>${tn}件</td><td style="color:#7ee2a8">${_agtYen(ta)}</td></tr>
+      </tbody></table>
+      <div style="margin-top:8px;font-size:.74rem;color:var(--wh2)">※ 別途、未入金（未受領）合計：<span style="color:var(--gold-l)">${_agtYen(totalUnpaid)}</span></div></div>`;
+    return;
+  }
+
+  // 取引月（売上が立った月）
+  const months={};
+  deals.forEach(x=>{
+    const m=String(x.date||'').slice(0,7); if(!m) return;
+    if(!months[m]) months[m]={n:0,gross:0,sclass:0,paid:0,unpaid:0};
+    const o=months[m]; o.n++;
+    o.gross+=(Number(x.uri)||0)*(Number(x.qty)||0);
+    const s=Number(x.sclassAmt)||0; o.sclass+=s;
+    if(String(x.paid)==='入金済') o.paid+=s; else o.unpaid+=s;
+  });
+  const keys=Object.keys(months).sort((a,b)=>b.localeCompare(a));
+  let tn=0,tg=0,ts=0,tp=0,tu=0;
+  keys.forEach(k=>{const o=months[k];tn+=o.n;tg+=o.gross;ts+=o.sclass;tp+=o.paid;tu+=o.unpaid;});
+  if(!keys.length){ grid.innerHTML='<div style="padding:2rem;text-align:center;color:var(--wh3);font-size:.8rem">取引がありません</div>'; return; }
+  grid.innerHTML=`
+    <div class="cust-table-wrap"><table class="cust-table"><thead><tr>
+      <th>取引月</th><th>件数</th><th>売上</th><th>Sclass入金予定</th><th>入金済</th><th>未入金</th>
+    </tr></thead><tbody>
+      ${keys.map(k=>{const o=months[k];return `
+        <tr>
+          <td class="ct-name">${_ym(k)}</td>
+          <td>${o.n}件</td>
+          <td>${_agtYen(o.gross)}</td>
+          <td>${_agtYen(o.sclass)}</td>
+          <td style="color:#7ee2a8">${_agtYen(o.paid)}</td>
+          <td style="color:${o.unpaid>0?'#ffcf7a':'var(--wh3)'}">${_agtYen(o.unpaid)}</td>
+        </tr>`;}).join('')}
+      <tr style="font-weight:700;border-top:2px solid var(--line)">
+        <td class="ct-name">合計</td><td>${tn}件</td><td>${_agtYen(tg)}</td><td>${_agtYen(ts)}</td>
+        <td style="color:#7ee2a8">${_agtYen(tp)}</td><td style="color:var(--gold-l)">${_agtYen(tu)}</td>
+      </tr>
+    </tbody></table></div>`;
 }
 
 // ════════════════════════════════════════
@@ -3976,6 +4072,15 @@ window.addEventListener('DOMContentLoaded', () => {
   initCustFormEnterNav();
   if (typeof renderReferrerList === 'function') renderReferrerList();
   if (typeof renderSponsorList === 'function') renderSponsorList();
+  // ハッシュでタブを開く（ポータルのチップから）
+  try {
+    const h = (location.hash || '').replace('#','');
+    const valid = ['customers','staff','products','referrers','sponsors','agents','company'];
+    if (valid.indexOf(h) >= 0){
+      const tab = document.querySelector('.mtab[onclick*="\'' + h + '\'"]');
+      if (typeof switchMaster === 'function') switchMaster(h, tab);
+    }
+  } catch(e){}
   // ハッシュ #uid でポータルの通知から「未登録UID」タブへ直接遷移
   try {
     if (location.hash === '#uid'){

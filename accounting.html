@@ -309,6 +309,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   <!-- ═══ 親タブ ═══ -->
   <div class="master-tabs">
     <button class="mtab active" onclick="switchModule('cashbook',this)"><span class="mtab-ic">💵</span>現金出納帳</button>
+    <button class="mtab" onclick="switchModule('sales',this)"><span class="mtab-ic">📈</span>売上計上</button>
     <button class="mtab" onclick="switchModule('expense',this)"><span class="mtab-ic">📝</span>経費精算</button>
     <button class="mtab" onclick="switchModule('petty',this)"><span class="mtab-ic">👛</span>小口現金</button>
     <button class="mtab" onclick="switchModule('amex',this)"><span class="mtab-ic">💳</span>AMEX</button>
@@ -571,6 +572,34 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     </div>
   </div>
 
+
+  <!-- ════════ 売上計上 ════════ -->
+  <div id="m-sales" class="mcon">
+    <div class="card" style="margin-bottom:1rem">
+      <strong>📈 売上計上</strong><br>
+      <span style="font-size:.78rem;color:var(--wh2);line-height:1.7">自社が売った売上（注文ベース）と、代理販売の<b>手数料売上（Sclass入金額）</b>を会計に計上します。代理店が売った総額（実績）は計上しません。注文に無い売上は下の<b>手動調整（A）</b>で追加・補正できます。</span>
+    </div>
+
+    <div class="tw" style="margin-bottom:1rem">
+      <div class="th-area">
+        <h3>月次売上</h3>
+        <button class="btn-s" onclick="loadSalesTab(true)">🔄 最新を取得</button>
+      </div>
+      <div id="sales-month-grid"></div>
+    </div>
+
+    <div class="card">
+      <div class="form-section-title">▸ 自社実績売上の手動調整（A）— 注文に無い売上の追加・補正</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div class="fg"><label>日付</label><input class="fc" type="date" id="sa-date"></div>
+        <div class="fg"><label>金額（±）<span style="color:var(--wh3);font-size:.66rem">追加は+／控除は-</span></label><input class="fc" type="number" id="sa-amount" placeholder="例:50000"></div>
+        <div class="fg" style="flex:1;min-width:160px"><label>メモ</label><input class="fc" id="sa-memo" placeholder="例:イベント現地販売・○○商店 直販"></div>
+        <div><button class="btn btn-p" onclick="saveSalesAdjust()">＋ 調整を記録</button></div>
+      </div>
+      <div id="sales-adjust-list" style="margin-top:.9rem"></div>
+    </div>
+  </div>
+
 </main>
 
 <div id="toast"></div>
@@ -605,6 +634,7 @@ const S = {
   stock:{仙台:{}, 京都:{}}, slog:[], collections:[], invoices:[],
   bankEntries:[], company:{}, products:null,
   purchases:[], cashEntries:[], expenses:[], pettyEntries:[],
+  agentDeals:[], salesAdjust:[],
   amexEntries:[], payables:[], dailyReps:[],
   gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbzeHrI9eyBT2cDS2vuF8pjtlZ-mEPiTzlWqcuiVto8UsE-XJtccc304tIRcR__hhUvL/exec',
 };
@@ -630,7 +660,7 @@ function saveState(){
     const keys = ['orders','customers','staff','stock','slog','collections',
                   'invoices','bankEntries','company','products','purchases',
                   'cashEntries','expenses','pettyEntries','amexEntries','payables',
-                  'dailyReps','referrers','sponsors'];
+                  'dailyReps','referrers','sponsors','agentDeals','salesAdjust'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
   } catch(e){ console.warn('saveState error', e); }
 }
@@ -639,7 +669,7 @@ function loadState(){
     const keys = ['orders','customers','staff','stock','slog','collections',
                   'invoices','bankEntries','company','products','purchases',
                   'cashEntries','expenses','pettyEntries','amexEntries','payables',
-                  'dailyReps','referrers','sponsors'];
+                  'dailyReps','referrers','sponsors','agentDeals','salesAdjust'];
     keys.forEach(k => {
       const v = localStorage.getItem('lmb_' + k);
       if (v) try { S[k] = JSON.parse(v); } catch(e){}
@@ -741,6 +771,7 @@ function switchModule(name, el){
   if (el) el.classList.add('active');
   document.getElementById('m-' + name).classList.add('active');
 
+  if (name === 'sales')    loadSalesTab();
   if (name === 'cashbook') renderCashbook();
   if (name === 'expense')  renderExpenses();
   if (name === 'petty')    renderPetty();
@@ -1479,10 +1510,9 @@ window.addEventListener('DOMContentLoaded', () => {
 <script>
 // ポータルのチップから #ハッシュ指定でタブ直行（例: accounting.html#cashbook）
 window.addEventListener('DOMContentLoaded', function(){
-  var mods=['cashbook','expense','petty','amex','payables'];
+  var mods=['cashbook','sales','expense','petty','amex','payables'];
   var h=(location.hash||'').replace('#','');
-  var i=mods.indexOf(h);
-  if(i>=0){ try{ switchModule(mods[i], document.querySelectorAll('.mtab')[i]); }catch(e){} }
+  if(mods.indexOf(h)>=0){ try{ var btn=document.querySelector('.mtab[onclick*="\'' + h + '\'"]'); switchModule(h, btn); }catch(e){} }
 });
 </script>
 
@@ -1508,5 +1538,110 @@ function enhanceScrollTabs(){
 window.addEventListener('DOMContentLoaded', enhanceScrollTabs);
 window.addEventListener('load', enhanceScrollTabs);
 </script>
+<script>
+// ════════ 売上計上（自社実績＋代理販売手数料売上） ════════
+function _yenA(n){ return '¥' + (Number(n)||0).toLocaleString(); }
+function _ymA(d){ return String(d||'').slice(0,7); }
+function _ymLabel(k){ const p=String(k).split('-'); return p.length>=2 ? (p[0]+'年'+p[1]+'月') : String(k); }
+
+async function loadSalesTab(force){
+  renderSalesMonthly(); renderSalesAdjustList();
+  const da=document.getElementById('sa-date'); if(da && !da.value) da.value=today();
+  if(!S.gasUrl) return;
+  try{
+    const d=await gasGet('getAgentDeals');  if(d && d.deals)  S.agentDeals=d.deals;
+    const s=await gasGet('getSalesAdjust');  if(s && s.items)  S.salesAdjust=s.items;
+    saveState();
+    renderSalesMonthly(); renderSalesAdjustList();
+  }catch(e){ if(force) toast('最新の取得に失敗しました','error'); }
+}
+
+// 自社実績売上（注文ベース・売った月＝注文日）
+function _selfSalesByMonth(){
+  const m={};
+  (S.orders||[]).forEach(o=>{
+    const amt=calcAmt(o); if(!amt) return;
+    const ym=_ymA(o.date||o.orderDate||o.timestamp||o.paidAt); if(!ym) return;
+    m[ym]=(m[ym]||0)+amt;
+  });
+  return m;
+}
+function _adjustByMonth(){
+  const m={};
+  (S.salesAdjust||[]).forEach(a=>{ const ym=_ymA(a.date); if(!ym) return; m[ym]=(m[ym]||0)+(Number(a.amount)||0); });
+  return m;
+}
+function _agentFeeByMonth(){
+  const m={};
+  (S.agentDeals||[]).forEach(x=>{ const ym=_ymA(x.date); if(!ym) return; m[ym]=(m[ym]||0)+(Number(x.sclassAmt)||0); });
+  return m;
+}
+
+function renderSalesMonthly(){
+  const grid=document.getElementById('sales-month-grid'); if(!grid) return;
+  const self=_selfSalesByMonth(), adj=_adjustByMonth(), fee=_agentFeeByMonth();
+  const keys=Array.from(new Set([].concat(Object.keys(self),Object.keys(adj),Object.keys(fee)))).sort((a,b)=>b.localeCompare(a));
+  if(!keys.length){ grid.innerHTML='<div style="padding:1.5rem;text-align:center;color:var(--wh3);font-size:.8rem">売上データがありません</div>'; return; }
+  let tS=0,tA=0,tF=0;
+  const rows=keys.map(k=>{
+    const s=self[k]||0, a=adj[k]||0, f=fee[k]||0, tot=s+a+f; tS+=s; tA+=a; tF+=f;
+    return '<tr>'
+      +'<td>'+_ymLabel(k)+'</td>'
+      +'<td style="text-align:right">'+_yenA(s)+'</td>'
+      +'<td style="text-align:right;color:'+(a<0?'#ff8a80':(a>0?'var(--gold-l)':'var(--wh3)'))+'">'+(a?_yenA(a):'—')+'</td>'
+      +'<td style="text-align:right;color:#7ee2a8">'+_yenA(f)+'</td>'
+      +'<td style="text-align:right;font-weight:700;color:var(--gold-l)">'+_yenA(tot)+'</td>'
+      +'</tr>';
+  }).join('');
+  grid.innerHTML='<table><thead><tr>'
+    +'<th>月</th><th style="text-align:right">自社実績売上（注文）</th><th style="text-align:right">自社調整（手動）</th>'
+    +'<th style="text-align:right">代理販売手数料売上</th><th style="text-align:right">合計売上</th>'
+    +'</tr></thead><tbody>'+rows
+    +'<tr style="border-top:2px solid var(--line);font-weight:700">'
+    +'<td>合計</td><td style="text-align:right">'+_yenA(tS)+'</td><td style="text-align:right">'+_yenA(tA)+'</td>'
+    +'<td style="text-align:right;color:#7ee2a8">'+_yenA(tF)+'</td><td style="text-align:right;color:var(--gold-l)">'+_yenA(tS+tA+tF)+'</td>'
+    +'</tr></tbody></table>';
+}
+
+function saveSalesAdjust(){
+  const date=(document.getElementById('sa-date')||{}).value||'';
+  const amount=parseFloat((document.getElementById('sa-amount')||{}).value||'');
+  const memo=((document.getElementById('sa-memo')||{}).value||'').trim();
+  if(!date) return toast('日付を入力してください','error');
+  if(isNaN(amount)||amount===0) return toast('金額を入力してください（±）','error');
+  const entry={ id:'sa-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:date, amount:amount, memo:memo,
+    createdAt:new Date().toISOString(), createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
+  S.salesAdjust=S.salesAdjust||[]; S.salesAdjust.push(entry);
+  saveState();
+  if(S.gasUrl) gasPost({ action:'saveSalesAdjust', ...entry });
+  const ae=document.getElementById('sa-amount'); if(ae) ae.value='';
+  const me=document.getElementById('sa-memo'); if(me) me.value='';
+  toast('✓ 売上調整を記録しました');
+  renderSalesMonthly(); renderSalesAdjustList();
+  if(typeof updateKPI==='function') updateKPI();
+}
+function deleteSalesAdjust(id){
+  if(!confirm('この調整を削除しますか？')) return;
+  S.salesAdjust=(S.salesAdjust||[]).filter(a=>a.id!==id);
+  saveState();
+  if(S.gasUrl) gasPost({ action:'deleteSalesAdjust', id:id });
+  toast('✓ 削除しました');
+  renderSalesMonthly(); renderSalesAdjustList();
+}
+function renderSalesAdjustList(){
+  const box=document.getElementById('sales-adjust-list'); if(!box) return;
+  const list=(S.salesAdjust||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  if(!list.length){ box.innerHTML='<div style="color:var(--wh3);font-size:.74rem;padding:.4rem">調整はまだありません</div>'; return; }
+  box.innerHTML='<table><thead><tr><th>日付</th><th style="text-align:right">金額</th><th>メモ</th><th>操作</th></tr></thead><tbody>'
+    +list.map(a=>'<tr>'
+      +'<td>'+escapeHtml(a.date)+'</td>'
+      +'<td style="text-align:right;color:'+((Number(a.amount)||0)<0?'#ff8a80':'var(--gold-l)')+'">'+_yenA(a.amount)+'</td>'
+      +'<td>'+escapeHtml(a.memo||'')+'</td>'
+      +'<td><button class="btn-s" onclick="deleteSalesAdjust(\''+a.id+'\')">削除</button></td>'
+      +'</tr>').join('')
+    +'</tbody></table>';
+}
+</script>
+
 </body>
 </html>
