@@ -386,6 +386,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>区分 <span class="req">*</span></label><select class="fc" id="cb-type" onchange="cbToggleCategory()"><option value="収入">収入</option><option value="支出" selected>支出</option></select></div>
         <div class="fg"><label>カテゴリ</label><select class="fc" id="cb-category"></select></div>
         <div class="fg"><label>拠点</label><select class="fc" id="cb-branch"><option>仙台</option><option>京都</option></select></div>
+        <div class="fg"><label>口座</label><select class="fc" id="cb-account"><option>現金</option><option>預金</option></select></div>
       </div>
       <div class="frow" style="margin-top:.5rem">
         <div class="fg" style="grid-column:span 2"><label>摘要 <span class="req">*</span></label><input class="fc" id="cb-desc" placeholder="例：○○のお茶代、集金 ○○"></div>
@@ -403,6 +404,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="month-disp" id="cb-month-disp">----年--月</div>
       <button class="dnav" onclick="shiftCBMonth(1)">›</button>
       <button class="btn-s" onclick="setCBMonthToday()">今月</button>
+      <select class="fc" id="cb-faccount" onchange="renderCashbook()" style="width:90px"><option>現金</option><option>預金</option></select>
       <select class="fc" id="cb-fbranch" onchange="renderCashbook()" style="width:120px"><option value="">全拠点</option><option>仙台</option><option>京都</option></select>
       <select class="fc" id="cb-ftype" onchange="renderCashbook()" style="width:100px"><option value="">すべて</option><option>収入</option><option>支出</option></select>
       <button class="btn-s" onclick="exportCashbookCSV()" style="margin-left:auto">📥 CSV出力</button>
@@ -713,7 +715,7 @@ const S = {
   branch:'both', orders:[], customers:[], staff:[],
   stock:{仙台:{}, 京都:{}}, slog:[], collections:[], invoices:[],
   bankEntries:[], company:{}, products:null,
-  purchases:[], cashEntries:[], expenses:[], pettyEntries:[],
+  purchases:[], cashEntries:[], expenses:[], pettyEntries:[], payments:[],
   agentDeals:[], salesAdjust:[],
   amexEntries:[], payables:[], dailyReps:[],
   gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec',
@@ -739,7 +741,7 @@ function saveState(){
   try {
     const keys = ['orders','customers','staff','stock','slog','collections',
                   'invoices','bankEntries','company','products','purchases',
-                  'cashEntries','expenses','pettyEntries','amexEntries','payables',
+                  'cashEntries','payments','expenses','pettyEntries','amexEntries','payables',
                   'dailyReps','referrers','sponsors','agentDeals','salesAdjust'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
   } catch(e){ console.warn('saveState error', e); }
@@ -748,7 +750,7 @@ function loadState(){
   try {
     const keys = ['orders','customers','staff','stock','slog','collections',
                   'invoices','bankEntries','company','products','purchases',
-                  'cashEntries','expenses','pettyEntries','amexEntries','payables',
+                  'cashEntries','payments','expenses','pettyEntries','amexEntries','payables',
                   'dailyReps','referrers','sponsors','agentDeals','salesAdjust'];
     keys.forEach(k => {
       const v = localStorage.getItem('lmb_' + k);
@@ -925,7 +927,8 @@ function updateKPI(){
 async function syncFromGAS(){
   if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
   toast('同期中...');
-  // 各種データ取得（実装は省略・必要に応じて拡張）
+  try{ const r=await gasGet('getPayments'); if(r&&r.payments){ S.payments=r.payments; saveState(); } }catch(e){}
+  try{ const c=await gasGet('getCashEntries'); if(c&&c.entries){ S.cashEntries=c.entries; saveState(); } }catch(e){}
   toast('✓ 同期完了');
   updateKPI();
   renderCashbook();
@@ -986,6 +989,7 @@ function saveCashEntry(){
   const entry = {
     id: 'cb-' + Date.now(), date, type, category: cat, branch,
     desc, amount, memo,
+    account: (document.getElementById('cb-account')||{}).value || '現金',
     addedBy: currentUser.name, addedAt: new Date().toISOString(),
   };
   S.cashEntries.push(entry);
@@ -1021,7 +1025,16 @@ function renderCashbook(){
   const fbranch = document.getElementById('cb-fbranch')?.value || '';
   const ftype   = document.getElementById('cb-ftype')?.value || '';
 
-  let list = [...(S.cashEntries || [])];
+  const faccount = document.getElementById('cb-faccount')?.value || '現金';
+  const manual = (S.cashEntries || []).map(e => Object.assign({}, e, { account: e.account || '現金', _ledger:false }));
+  const ledger = (S.payments || []).map(p => {
+    const acc = (p.method === '現金' || p.method === '代引') ? '現金' : '預金';
+    return { id:'L-'+p.id, date:String(p.date||'').slice(0,10), type:'収入', category:'入金('+(p.source||'手動')+')',
+      branch:'', desc:(p.store||'')+((p.payer && p.payer!==p.store) ? (' / '+p.payer) : ''),
+      amount:Number(p.amount)||0, memo:p.memo||'', account:acc, _ledger:true };
+  });
+  let list = manual.concat(ledger);
+  list = list.filter(e => e.account === faccount);
   list = list.filter(e => (e.date || '').slice(0,7) === mStr);
   if (fbranch) list = list.filter(e => e.branch === fbranch);
   if (ftype)   list = list.filter(e => e.type === ftype);
@@ -1045,7 +1058,7 @@ function renderCashbook(){
         <td class="col-amt" style="color:var(--grn)">${isIncome ? '¥' + fmt(e.amount) : '—'}</td>
         <td class="col-amt" style="color:var(--red)">${!isIncome ? '¥' + fmt(e.amount) : '—'}</td>
         <td class="col-amt" style="color:${runningBalance < 0 ? 'var(--red)' : 'var(--gold-l)'}">¥${fmt(runningBalance)}</td>
-        <td><button class="act-btn dn" onclick="deleteCashEntry('${e.id}')">削</button></td>
+        <td>${e._ledger ? '<span style="font-size:.6rem;color:var(--wh3)">自動</span>' : `<button class="act-btn dn" onclick="deleteCashEntry('${e.id}')">削</button>`}</td>
       </tr>`;
     }).join('');
   }
@@ -1584,6 +1597,7 @@ window.addEventListener('DOMContentLoaded', () => {
   updateStaffOptions();
   updateKPI();
   renderCashbook();
+  (async()=>{ if(S.gasUrl){ try{ const r=await gasGet('getPayments'); if(r&&r.payments){ S.payments=r.payments; saveState(); renderCashbook(); } }catch(e){} } })();
 });
 </script>
 
