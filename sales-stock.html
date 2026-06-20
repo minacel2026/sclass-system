@@ -493,6 +493,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
           <div id="no-delivery-info" style="margin-top:.3rem;padding:.4rem .6rem;background:rgba(155,127,212,.05);border:1px dashed rgba(155,127,212,.2);border-radius:3px;font-size:.7rem;color:var(--wh3);display:none"></div>
         </div>
         <div class="fg"><label>配達希望日</label><input class="fc" id="no-deldate" type="date"></div>
+        <div class="fg"><label>売上計上日 <span style="color:var(--wh3);font-size:.66rem">空欄=納品日で計上</span></label><input class="fc" id="no-bookdate" type="date"></div>
         <div class="fg"><label>配達時間帯</label><select class="fc" id="no-deltime"><option value="">指定なし</option><option>午前中</option><option>14-16時</option><option>16-18時</option><option>18-20時</option></select></div>
         <div class="fg" style="grid-column:span 2"><label>配達メモ</label><input class="fc" id="no-delnote" placeholder="例：夜間搬入希望"></div>
       </div>
@@ -1339,6 +1340,7 @@ function openOrderForEdit(id){
   document.getElementById('no-date').value      = o.date     || today();
   const pay = document.getElementById('no-pay'); if (pay) pay.value = o.payMethod || '現金';
   const dd = document.getElementById('no-deldate');  if (dd) dd.value = o.deliveryDate || '';
+  const bk = document.getElementById('no-bookdate'); if (bk) bk.value = o.bookDate || '';
   const dt = document.getElementById('no-deltime');  if (dt) dt.value = o.deliveryTime || '';
   const dn = document.getElementById('no-delnote');  if (dn) dn.value = o.deliveryNote || '';
   const nt = document.getElementById('no-note');     if (nt) nt.value = o.note || '';
@@ -2410,6 +2412,7 @@ function clearNewOrder(){
   const tx = document.getElementById('no-tax'); if (tx) tx.value = '税込';
   document.getElementById('no-date').value = today();
   document.getElementById('no-deldate').value = '';
+  var _bk=document.getElementById('no-bookdate'); if(_bk) _bk.value='';
   document.getElementById('no-deltime').value = '';
   // 配達先プルダウンを初期化
   rebuildDeliveryOptions(null);
@@ -2560,6 +2563,7 @@ function submitNewOrder(){
     status: editIdForSave ? (editPrevStatus || '新規受付') : '新規受付',
     tax: 'taxあり',
     deliveryDate: document.getElementById('no-deldate').value,
+    bookDate: document.getElementById('no-bookdate').value,
     deliveryTime: document.getElementById('no-deltime').value,
     deliveryNote: document.getElementById('no-delnote').value,
     deliveryName: deliveryName,       // 配達先名称（空＝店舗住所と同じ）
@@ -2603,6 +2607,7 @@ function submitNewOrder(){
 
   saveState();
   if (S.gasUrl) gasPost({ action: 'saveOrder', ...order });
+  if (S.gasUrl && order.id) gasPost({ action: 'saveOrderDates', orderId: order.id, deliveryDate: order.deliveryDate || '', bookDate: order.bookDate || '' });
   if (shipStockTouched) syncStockToGAS();  // 実在庫が動いた時だけスプシへ反映
 
   let sponsorMsg = '';

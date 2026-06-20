@@ -577,7 +577,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   <div id="m-sales" class="mcon">
     <div class="card" style="margin-bottom:1rem">
       <strong>📈 売上計上</strong><br>
-      <span style="font-size:.78rem;color:var(--wh2);line-height:1.7">自社が売った売上（注文ベース）と、代理販売の<b>手数料売上（Sclass入金額）</b>を会計に計上します。代理店が売った総額（実績）は計上しません。注文に無い売上は下の<b>手動調整（A）</b>で追加・補正できます。</span>
+      <span style="font-size:.78rem;color:var(--wh2);line-height:1.7">自社が売った売上（計上日＞納品日＞注文日の優先で計上）と、代理販売の<b>手数料売上（Sclass入金額）</b>を会計に計上します。代理店が売った総額（実績）は計上しません。注文に無い売上は下の<b>手動調整（A）</b>で追加・補正できます。</span>
     </div>
 
     <div class="tw" style="margin-bottom:1rem">
@@ -1556,12 +1556,12 @@ async function loadSalesTab(force){
   }catch(e){ if(force) toast('最新の取得に失敗しました','error'); }
 }
 
-// 自社実績売上（注文ベース・売った月＝注文日）
+// 自社実績売上（売上計上日＞納品日＞注文日 の優先で計上月を決定）
 function _selfSalesByMonth(){
   const m={};
   (S.orders||[]).forEach(o=>{
     const amt=calcAmt(o); if(!amt) return;
-    const ym=_ymA(o.date||o.orderDate||o.timestamp||o.paidAt); if(!ym) return;
+    const ym=_ymA(o.bookDate||o.deliveryDate||o.date||o.orderDate||o.timestamp||o.paidAt); if(!ym) return;
     m[ym]=(m[ym]||0)+amt;
   });
   return m;
@@ -1594,7 +1594,7 @@ function renderSalesMonthly(){
       +'</tr>';
   }).join('');
   grid.innerHTML='<table><thead><tr>'
-    +'<th>月</th><th style="text-align:right">自社実績売上（注文）</th><th style="text-align:right">自社調整（手動）</th>'
+    +'<th>月</th><th style="text-align:right">自社実績売上（計上日/納品日）</th><th style="text-align:right">自社調整（手動）</th>'
     +'<th style="text-align:right">代理販売手数料売上</th><th style="text-align:right">合計売上</th>'
     +'</tr></thead><tbody>'+rows
     +'<tr style="border-top:2px solid var(--line);font-weight:700">'
