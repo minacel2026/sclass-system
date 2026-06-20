@@ -159,9 +159,18 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   .tw table,.cust-table-wrap table,.prod-table-wrap table{font-size:.72rem}
   .tw th,.tw td,.cust-table-wrap th,.cust-table-wrap td,.prod-table-wrap th,.prod-table-wrap td{padding:.3rem .42rem}
 }
+.app-busy-spin{width:48px;height:48px;border:4px solid rgba(201,168,76,.25);border-top-color:#C9A84C;border-radius:50%;animation:app-busy-rot .8s linear infinite}
+@keyframes app-busy-rot{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
+<!-- 読み込み中/反映中オーバーレイ（共通） -->
+<div id="app-busy" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99999;flex-direction:column;align-items:center;justify-content:center;gap:1rem">
+  <div class="app-busy-spin"></div>
+  <div id="app-busy-msg" style="color:#E8C97A;font-size:1rem;letter-spacing:.06em">読み込み中…</div>
+  <div style="color:rgba(240,235,224,.5);font-size:.72rem">画面を閉じずにそのままお待ちください</div>
+</div>
+
 <!-- ▼ copy-protection (auto-embedded) ▼ -->
 <script>
 /* ============================================================
@@ -668,6 +677,22 @@ window.PRICE=PRICE; window.COST=COST;
 window.calcAmt=calcAmt; window.today=today; window.fmt=fmt; window.yen=yen;
 window.saveState=saveState; window.loadState=loadState;
 window.toast=toast; window.gasGet=gasGet; window.gasPost=gasPost;
+</script>
+<script>
+/* 読み込み中/反映中オーバーレイ：gasGet=読み込み中／gasPost=反映中 を自動表示（共通部品・連続呼び出しのちらつき防止つき） */
+(function(){
+  var _n=0,_t=null,_h=null,_msg='読み込み中…';
+  function show(){ var o=document.getElementById('app-busy'); if(!o) return; var m=document.getElementById('app-busy-msg'); if(m) m.textContent=_msg; o.style.display='flex'; }
+  function hide(){ var o=document.getElementById('app-busy'); if(o) o.style.display='none'; }
+  function begin(msg){ _n++; _msg=msg||_msg; if(_h){clearTimeout(_h);_h=null;} if(_t)clearTimeout(_t); _t=setTimeout(function(){ if(_n>0) show(); },100); }
+  function end(){ _n=Math.max(0,_n-1); if(_n===0){ if(_h)clearTimeout(_h); _h=setTimeout(function(){ if(_n===0){ if(_t){clearTimeout(_t);_t=null;} hide(); } },250); } else { show(); } }
+  window.appBusyShow=function(msg){ _msg=msg||_msg; if(_h){clearTimeout(_h);_h=null;} show(); };
+  window.appBusyHide=function(){ _n=0; if(_t){clearTimeout(_t);_t=null;} if(_h){clearTimeout(_h);_h=null;} hide(); };
+  if(typeof window.gasGet==='function'){ var _g=window.gasGet; window.gasGet=async function(){ begin('読み込み中…'); try{ return await _g.apply(this,arguments); } finally{ end(); } }; }
+  if(typeof window.gasPost==='function'){ var _p=window.gasPost; window.gasPost=async function(){ begin('反映中…'); try{ return await _p.apply(this,arguments); } finally{ end(); } }; }
+})();
+</script>
+<script>
 
 loadState();
 </script>
