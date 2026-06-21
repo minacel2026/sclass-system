@@ -579,7 +579,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 
     <div id="entry-purchase" style="display:none">
     <div class="form-section">
-      <div class="form-section-title">▸ 新規仕入登録（複数商品をまとめて登録）</div>
+      <div class="form-section-title">▸ 新規仕入登録（1商品はそのまま「登録」／複数は「明細に追加」）</div>
       <div class="frow" style="align-items:flex-end;flex-wrap:wrap;gap:.5rem">
         <div class="fg" style="flex:1 1 110px"><label>仕入日 <span class="req">*</span></label><input class="fc" id="pu-date" type="date"></div>
         <div class="fg" style="flex:1 1 120px"><label>仕入先</label><select class="fc" id="pu-supplier"><option>マルシェジャパン</option><option>オーク酒販</option><option>その他</option></select></div>
@@ -602,7 +602,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       </div>
 
       <div class="faction">
-        <button class="btn btn-p" onclick="submitPurchase()">まとめて登録（在庫加算）</button>
+        <button class="btn btn-p" onclick="submitPurchase()">登録（在庫加算）</button>
       </div>
     </div>
     </div>
@@ -3112,7 +3112,7 @@ function renderPurchaseDraft(){
   const tbody = document.getElementById('pu-draft-tbody');
   if (!tbody) return;
   if (purchaseDraft.length === 0){
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--wh3);padding:.7rem">「＋ 明細に追加」で仕入商品を追加してください</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--wh3);padding:.7rem">複数商品をまとめる時だけ「＋ 明細に追加」。1商品ならそのまま下の「登録」でOK</td></tr>';
     return;
   }
   let total = 0;
@@ -3145,14 +3145,20 @@ function submitPurchase(){
   const note     = document.getElementById('pu-note').value;
 
   if (!date) return toast('仕入日を入力してください', 'error');
-  if (purchaseDraft.length === 0) return toast('明細に商品を追加してください', 'error');
+  // 現在の入力行も登録対象に含める（単品なら「明細に追加」不要でそのまま登録できる）
+  const items = purchaseDraft.slice();
+  const _cp = (document.getElementById('pu-product')||{}).value;
+  const _cq = parseInt(document.getElementById('pu-qty').value) || 0;
+  const _cc = parseInt(document.getElementById('pu-cost').value) || 0;
+  if (_cp && _cq > 0) items.push({ product: _cp, qty: _cq, cost: _cc });
+  if (items.length === 0) return toast('商品と本数を入力してください', 'error');
 
   if (!S.purchases) S.purchases = [];
   if (!S.stock[branch]) S.stock[branch] = {};
   if (!S.slog) S.slog = [];
 
   let totalQty = 0;
-  purchaseDraft.forEach(it => {
+  items.forEach(it => {
     const purchase = {
       id: 'pu-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
       date, supplier, branch, product: it.product, qty: it.qty, cost: it.cost, note,
@@ -3174,7 +3180,7 @@ function submitPurchase(){
 
   saveState();
   syncStockToGAS();  // 仕入入庫をスプシへ反映
-  toast(`✓ ${purchaseDraft.length}品目 計${totalQty}本を入庫しました`);
+  toast(`✓ ${items.length}品目 計${totalQty}本を入庫しました`);
 
   // ドラフトとフォームをリセット
   purchaseDraft = [];
@@ -3550,7 +3556,11 @@ function loadConsign(force){
 }
 function fillConsignSelectors(){
   const ps=document.getElementById('cg-partner');
-  if(ps){ const keep=ps.value; ps.innerHTML='<option value="">— 委託先を選択 —</option>'+(S.customers||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(c=>'<option value="'+escapeHtml(String(c.id))+'">'+escapeHtml(c.name||'')+'</option>').join(''); if(keep) ps.value=keep; }
+  if(ps){ const keep=ps.value;
+    const _all=(S.customers||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+    const _flagged=_all.filter(c=>c.consignEnabled);
+    const _list=_flagged.length?_flagged:_all; // 委託先フラグ優先・無ければ全顧客
+    ps.innerHTML='<option value="">— 委託先を選択 —</option>'+_list.map(c=>'<option value="'+escapeHtml(String(c.id))+'">'+escapeHtml(c.name||'')+(c.consignEnabled?'':' （未設定）')+'</option>').join(''); if(keep) ps.value=keep; }
   const pr=document.getElementById('cg-prod');
   if(pr){ const keep=pr.value; const pl=(S.products&&S.products.length)?S.products.filter(p=>p&&p.active!==false):(typeof PROD_LIST!=='undefined'?PROD_LIST:[]);
     pr.innerHTML='<option value="">— 商品を選択 —</option>'+pl.map(p=>{const nm=(p&&p.name)?p.name:String(p);return '<option value="'+escapeHtml(String(nm))+'">'+escapeHtml(String(nm))+'</option>';}).join(''); if(keep) pr.value=keep; }

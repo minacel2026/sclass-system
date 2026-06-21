@@ -621,6 +621,14 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           </div>
         </div>
         <div class="form-section">
+          <div class="form-section-title">▸ 委託販売</div>
+          <div class="sponsor-toggle">
+            <input type="checkbox" id="cf-consign">
+            <label for="cf-consign" style="font-size:.78rem;color:var(--wh);cursor:pointer">この顧客は委託先（預け在庫・販売報告の対象）</label>
+          </div>
+          <div style="font-size:.66rem;color:var(--wh3);margin-top:.3rem">▸ ONにすると、注文登録の「委託納品」や委託管理の選択肢に表示されます。</div>
+        </div>
+        <div class="form-section">
           <div class="form-section-title">▸ 協賛設定</div>
           <div class="sponsor-toggle">
             <input type="checkbox" id="cf-sponsor" onchange="toggleCustSponsor()">
@@ -1676,7 +1684,7 @@ function renderCustList(){
             return `
             <tr onclick="openCustRow(${realIdx})">
               <td>${escapeHtml(c.branch || '—')}</td>
-              <td class="ct-name">${escapeHtml(c.name || '無名')}${c.sponsorEnabled ? ' <span class="ct-spo">協賛</span>' : ''}</td>
+              <td class="ct-name">${escapeHtml(c.name || '無名')}${c.sponsorEnabled ? ' <span class="ct-spo">協賛</span>' : ''}${c.consignEnabled ? ' <span class="ct-spo" style="background:rgba(126,226,168,.18);color:#7ee2a8">委託</span>' : ''}</td>
               <td>${escapeHtml(c.tel || '—')}</td>
               <td>${escapeHtml(c.owner || '—')}</td>
               <td>${escapeHtml(c.staff || '—')}</td>
@@ -1810,6 +1818,7 @@ function fillCustForm(c){
   g('cf-common-price-mode').value = c.commonPriceMode || '新値';
   g('cf-common-tax').value        = c.commonTaxType   || '税込';
   g('cf-sponsor').checked=!!c.sponsorEnabled;
+  document.getElementById('cf-consign').checked=!!c.consignEnabled;
   g('cf-sponsor-trigger').value=c.sponsorTrigger||'';
   g('cf-sponsor-reward').value=c.sponsorReward||'';
   g('cf-sponsor-product').value=c.sponsorProduct||'';
@@ -1862,6 +1871,7 @@ function clearCustForm(){
   document.getElementById('cf-common-price-mode').value = '新値';
   document.getElementById('cf-common-tax').value = '税込';
   document.getElementById('cf-sponsor').checked = false;
+  document.getElementById('cf-consign').checked = false;
   document.getElementById('cf-sponsor-instant').checked = false;
   document.getElementById('cf-free-shipping').checked = false;
   document.getElementById('cf-ship-include-sponsor').value = 'あり';
@@ -2200,6 +2210,7 @@ function submitCustForm(){
     productRates: getCustProdRates(),
     note: g('cf-note'),
     sponsorEnabled: document.getElementById('cf-sponsor').checked,
+    consignEnabled: document.getElementById('cf-consign').checked,
     sponsorTrigger: g('cf-sponsor-trigger'),
     sponsorReward:  g('cf-sponsor-reward'),
     sponsorProduct: g('cf-sponsor-product'),
