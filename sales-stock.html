@@ -798,6 +798,11 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 
   <!-- ════════ 委託管理 ════════ -->
   <div id="m-consign" class="mcon">
+    <div class="fp" style="border:1px solid rgba(201,168,76,.5)">
+      <div class="th-area"><h3>📨 委託先からの販売報告（未処理）</h3></div>
+      <div class="hint-box">▸ 委託先がマイページから「○本売れました」と報告した一覧です。承認すると売上計上され、預け在庫が減ります。</div>
+      <div id="consign-reports" style="margin-top:.6rem"></div>
+    </div>
     <div class="fp">
       <div class="th-area"><h3>📦 委託先ごとの預け在庫</h3><button class="btn-s" onclick="loadConsign(true)">🔄 最新を取得</button></div>
       <div class="hint-box">▸ 委託納品の入力は「注文登録」タブに統合（取引種別＝委託納品）。ここでは預け在庫の残数・販売報告（売上計上）・返品ができます。</div>
@@ -873,7 +878,7 @@ const COLOR   = Object.fromEntries(PROD_LIST.map(p => [p.key, p.color]));
 const S = {
   branch:'both', orders:[], customers:[], staff:[],
   stock:{仙台:{}, 京都:{}}, stockDetail:{仙台:{}, 京都:{}},
-  lendings:[], lendPartners:[],
+  lendings:[], lendPartners:[], consignments:[], consignReports:[],
   slog:[], collections:[], invoices:[],
   bankEntries:[], bankHistory:[], company:{}, products:null,
   purchases:[], suppliers:['マルシェジャパン','オーク酒販'],
@@ -900,7 +905,7 @@ function calcAmt(o){
 
 function saveState(){
   try {
-    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','consignments','collections',
+    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','consignments','consignReports','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
                   'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
@@ -908,7 +913,7 @@ function saveState(){
 }
 function loadState(){
   try {
-    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','consignments','collections',
+    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','consignments','consignReports','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
                   'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
     keys.forEach(k => {
@@ -3532,13 +3537,14 @@ function renderLendList(){
 
 // ════════ 委託販売（預け在庫） ════════
 function loadConsign(force){
-  fillConsignSelectors(); renderConsignBalance(); renderConsignList();
+  fillConsignSelectors(); renderConsignReports(); renderConsignBalance(); renderConsignList();
   if(!S.gasUrl) return;
   (async()=>{
     try{
       const a=await gasGet('getConsignments'); if(a&&a.consignments) S.consignments=a.consignments;
+      const c=await gasGet('getConsignReports'); if(c&&c.reports) S.consignReports=c.reports;
       saveState();
-      fillConsignSelectors(); renderConsignBalance(); renderConsignList();
+      fillConsignSelectors(); renderConsignReports(); renderConsignBalance(); renderConsignList();
     }catch(e){ if(force) toast('最新の取得に失敗しました','error'); }
   })();
 }
@@ -3581,6 +3587,56 @@ function consignBalance(){
   });
   return bal;
 }
+// 委託売上（注文＋委託販売ログ）を生成。スタッフ手動・マイページ承認の両方から使用
+function _createConsignSale(partnerId, partnerName, branch, product, qty, price){
+  const amount=qty*price;
+  const o={ id:'cg-sale-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:today(),
+    store:partnerName, branch:branch||'仙台', items:{[product]:qty}, amount:amount, tax:'taxあり', condition:10,
+    status:'出荷済', deliveryDate:today(), bookDate:today(), consignSale:true,
+    note:'委託販売報告', timestamp:new Date().toISOString(),
+    createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
+  S.orders=S.orders||[]; S.orders.push(o);
+  const rec={ id:'cg-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:today(),
+    partnerId:String(partnerId), partnerName:partnerName, branch:branch||'', product:product, qty:qty, unitPrice:price,
+    type:'販売', orderId:o.id, memo:'', createdBy:o.createdBy };
+  S.consignments=S.consignments||[]; S.consignments.push(rec); saveState();
+  if(S.gasUrl){ try{ gasPost({action:'saveOrder', ...o}); }catch(e){} gasPost({action:'saveConsignment', id:rec.id, date:rec.date, partnerId:rec.partnerId, partnerName:rec.partnerName, branch:rec.branch, product:rec.product, qty:rec.qty, unitPrice:rec.unitPrice, type:rec.type, orderId:rec.orderId, memo:rec.memo, createdBy:rec.createdBy }); }
+  return o;
+}
+function renderConsignReports(){
+  const box=document.getElementById('consign-reports'); if(!box) return;
+  const pending=(S.consignReports||[]).filter(r=>r.status==='未処理').sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  if(!pending.length){ box.innerHTML='<div style="color:var(--wh3);font-size:.74rem;padding:.4rem">未処理の販売報告はありません</div>'; return; }
+  box.innerHTML='<table><thead><tr><th>日付</th><th>委託先</th><th>商品</th><th style="text-align:right">報告本数</th><th>操作</th></tr></thead><tbody>'
+    +pending.map(r=>'<tr><td>'+escapeHtml(r.date)+'</td><td>'+escapeHtml(r.partnerName||'')+'</td><td>'+escapeHtml(r.product||'')+'</td>'
+      +'<td style="text-align:right;color:#ffcf7a">'+(Number(r.qty)||0)+'</td>'
+      +'<td style="white-space:nowrap"><button class="btn-s" onclick="approveConsignReport(\''+r.id+'\')">承認(売上計上)</button> '
+      +'<button class="btn-s" style="border-color:rgba(255,99,99,.5);color:#ff8a80" onclick="rejectConsignReport(\''+r.id+'\')">却下</button></td></tr>').join('')
+    +'</tbody></table>';
+}
+function approveConsignReport(id){
+  if(!canEdit()) return toast('🔒 編集権限がありません','error');
+  const rep=(S.consignReports||[]).find(r=>r.id===id); if(!rep||rep.status!=='未処理') return;
+  const bal=consignBalance(); const key=String(rep.partnerId)+'||'+rep.product; const b=bal[key];
+  const avail=b?b.qty:0;
+  if(rep.qty>avail) return toast('預け在庫（'+avail+'本）を超える報告です。確認してください','error');
+  let price=(b&&b.unitPrice)||0;
+  const pa=prompt('「'+rep.partnerName+'」'+rep.product+' '+rep.qty+'本を承認＝売上計上します。\n請求単価（税込・1本）', String(price));
+  if(pa===null) return; price=parseInt(pa,10)||0;
+  const o=_createConsignSale(rep.partnerId, rep.partnerName, (b&&b.branch)||'仙台', rep.product, rep.qty, price);
+  rep.status='承認'; rep.orderId=o.id; saveState();
+  if(S.gasUrl){ gasPost({action:'updateConsignReport', id:rep.id, status:'承認', orderId:o.id}); }
+  toast('✓ 承認：'+rep.product+' '+rep.qty+'本／売上¥'+fmt(rep.qty*price)+'計上');
+  renderConsignReports(); renderConsignBalance(); renderConsignList(); if(typeof renderOrders==='function') renderOrders();
+}
+function rejectConsignReport(id){
+  if(!canEdit()) return toast('🔒 編集権限がありません','error');
+  const rep=(S.consignReports||[]).find(r=>r.id===id); if(!rep||rep.status!=='未処理') return;
+  if(!confirm('「'+rep.partnerName+'」'+rep.product+' '+rep.qty+'本の報告を却下しますか？')) return;
+  rep.status='却下'; saveState();
+  if(S.gasUrl){ gasPost({action:'updateConsignReport', id:rep.id, status:'却下'}); }
+  toast('却下しました'); renderConsignReports();
+}
 function reportConsignSale(partnerId, product){
   if(!canEdit()) return toast('🔒 編集権限がありません','error');
   const bal=consignBalance(); const key=String(partnerId)+'||'+product; const b=bal[key];
@@ -3593,19 +3649,8 @@ function reportConsignSale(partnerId, product){
   let price=b.unitPrice||0;
   const pa=prompt('請求単価（税込・1本）', String(price));
   if(pa===null) return; price=parseInt(pa,10)||0;
-  const amount=sold*price;
-  const o={ id:'cg-sale-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:today(),
-    store:b.partnerName, branch:b.branch||'仙台', items:{[product]:sold}, amount:amount, tax:'taxあり', condition:10,
-    status:'出荷済', deliveryDate:today(), bookDate:today(), consignSale:true,
-    note:'委託販売報告', timestamp:new Date().toISOString(),
-    createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
-  S.orders=S.orders||[]; S.orders.push(o);
-  const rec={ id:'cg-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:today(),
-    partnerId:String(partnerId), partnerName:b.partnerName, branch:b.branch||'', product:product, qty:sold, unitPrice:price,
-    type:'販売', orderId:o.id, memo:'', createdBy:o.createdBy };
-  S.consignments=S.consignments||[]; S.consignments.push(rec); saveState();
-  if(S.gasUrl){ try{ gasPost({action:'saveOrder', ...o}); }catch(e){} gasPost({action:'saveConsignment', id:rec.id, date:rec.date, partnerId:rec.partnerId, partnerName:rec.partnerName, branch:rec.branch, product:rec.product, qty:rec.qty, unitPrice:rec.unitPrice, type:rec.type, orderId:rec.orderId, memo:rec.memo, createdBy:rec.createdBy }); }
-  toast('✓ 販売報告：'+product+' '+sold+'本／売上¥'+fmt(amount)+'（請求・計上へ反映）');
+  _createConsignSale(partnerId, b.partnerName, b.branch||'仙台', product, sold, price);
+  toast('✓ 販売報告：'+product+' '+sold+'本／売上¥'+fmt(sold*price)+'（請求・計上へ反映）');
   renderConsignBalance(); renderConsignList(); if(typeof renderOrders==='function') renderOrders();
 }
 function returnConsign(partnerId, product){
