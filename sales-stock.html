@@ -443,6 +443,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     <button class="mtab" onclick="switchModule('neworder',this)"><span class="mtab-ic">➕</span>注文登録</button>
     <button class="mtab" onclick="switchModule('stock',this)"><span class="mtab-ic">🍾</span>在庫管理</button>
     <button class="mtab" onclick="switchModule('lending',this)"><span class="mtab-ic">🤝</span>貸借管理</button>
+    <button class="mtab" onclick="switchModule('consign',this)"><span class="mtab-ic">📦</span>委託管理</button>
     <button class="mtab" onclick="switchModule('purchase',this)"><span class="mtab-ic">🚚</span>仕入管理</button>
     <button class="mtab" onclick="switchModule('inventory',this)"><span class="mtab-ic">📦</span>棚卸計算</button>
     <button class="mtab" onclick="switchModule('sponsor',this)"><span class="mtab-ic">🎁</span>協賛管理</button>
@@ -498,6 +499,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
           <option value="purchase">仕入</option>
           <option value="lend">貸出</option>
           <option value="borrow">借入</option>
+          <option value="consign">委託納品（預け在庫）</option>
         </select>
       </div>
     </div>
@@ -616,6 +618,21 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>返却予定日（任意）</label><input type="date" class="fc" id="ln-due"></div>
         <div class="fg" style="flex:1;min-width:140px"><label>メモ</label><input class="fc" id="ln-memo" placeholder="任意"></div>
         <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn" onclick="recordLending()" style="height:30px;padding:0 1.4rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 記録</button></div>
+      </div>
+    </div>
+    </div>
+
+    <div id="entry-consign" style="display:none">
+    <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
+      <div class="th-area"><h3>📦 委託納品を記録</h3><span style="font-size:.68rem;color:var(--wh3)">在庫を委託先へ預ける（倉庫在庫−）。売上は「売れた分」を委託管理で計上します</span></div>
+      <div class="frow">
+        <div class="fg"><label>委託先（顧客）</label><select class="fc" id="cg-partner"><option value="">— 委託先を選択 —</option></select></div>
+        <div class="fg"><label>拠点</label><select class="fc" id="cg-branch"><option>仙台</option><option>京都</option></select></div>
+        <div class="fg"><label>商品</label><select class="fc" id="cg-prod"><option value="">— 商品を選択 —</option></select></div>
+        <div class="fg"><label>数量（本）</label><input type="number" class="fc" id="cg-qty" min="1" placeholder="例:10"></div>
+        <div class="fg"><label>請求単価（税込・1本）</label><input type="number" class="fc" id="cg-price" min="0" placeholder="売れた分の請求に使用"></div>
+        <div class="fg" style="flex:1;min-width:140px"><label>メモ</label><input class="fc" id="cg-memo" placeholder="任意"></div>
+        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn" onclick="recordConsign()" style="height:30px;padding:0 1.4rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 預け納品</button></div>
       </div>
     </div>
     </div>
@@ -779,6 +796,19 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     </div>
   </div>
 
+  <!-- ════════ 委託管理 ════════ -->
+  <div id="m-consign" class="mcon">
+    <div class="fp">
+      <div class="th-area"><h3>📦 委託先ごとの預け在庫</h3><button class="btn-s" onclick="loadConsign(true)">🔄 最新を取得</button></div>
+      <div class="hint-box">▸ 委託納品の入力は「注文登録」タブに統合（取引種別＝委託納品）。ここでは預け在庫の残数・販売報告（売上計上）・返品ができます。</div>
+      <div id="consign-balance" style="margin-top:.6rem"></div>
+    </div>
+    <div class="fp">
+      <div class="th-area"><h3>📋 委託履歴（納品・販売・返品）</h3></div>
+      <div id="consign-list"></div>
+    </div>
+  </div>
+
 </main>
 
 <div id="toast"></div>
@@ -870,7 +900,7 @@ function calcAmt(o){
 
 function saveState(){
   try {
-    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','collections',
+    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','consignments','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
                   'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
@@ -878,7 +908,7 @@ function saveState(){
 }
 function loadState(){
   try {
-    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','collections',
+    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','consignments','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
                   'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
     keys.forEach(k => {
@@ -993,6 +1023,7 @@ function switchModule(name, el){
   if (name === 'inventory') renderInventory();
   if (name === 'sponsor')   renderSponsor();
   if (name === 'lending')   loadLending();
+  if (name === 'consign')   loadConsign();
 }
 
 // ─── KPI更新 ─────
@@ -1255,6 +1286,7 @@ function shipStatus(o){
 // 出荷ステータスを変更（注文一覧のステータス列ドロップダウンから直接）
 // 出荷済への遷移時：実在庫を減算し協賛(付与/使用)を記録。出荷済からの取消時：在庫と協賛を巻き戻す。
 function applyShipEffects(order){
+  if (order && order.consignSale) return;  // 委託売上は在庫不変（委託納品で出庫済）
   const branch = order.branch || '仙台';
   const time = order.time || new Date().toTimeString().slice(0,5);
   if (!S.slog) S.slog = [];
@@ -1289,6 +1321,7 @@ function applyShipEffects(order){
 }
 
 function reverseShipEffects(order){
+  if (order && order.consignSale) return;  // 委託売上は在庫不変
   const branch = order.branch || '仙台';
   ['items','sponsorItems'].forEach(k => {
     Object.entries(order[k] || {}).forEach(([p, q]) => {
@@ -1356,7 +1389,7 @@ function deleteOrder(id){
   const order = (S.orders || []).find(o => o.id === id);
   if (!order) return toast('注文が見つかりません', 'error');
 
-  const wasShipped = shipStatus(order) === '出荷済';
+  const wasShipped = shipStatus(order) === '出荷済' && !order.consignSale;
   const totalQty = Object.values(order.items || {}).reduce((s,q) => s + (q||0), 0)
                  + Object.values(order.sponsorItems || {}).reduce((s,q) => s + (q||0), 0);
   const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === id);
@@ -2565,7 +2598,7 @@ function submitNewOrder(){
     const old = (S.orders || []).find(o => o.id === editingOrderId);
     if (old){
       editPrevStatus = old.status || null;
-      if (shipStatus(old) === '出荷済'){
+      if (shipStatus(old) === '出荷済' && !old.consignSale){
         Object.entries(old.items || {}).forEach(([p, q]) => {
           if (!S.stock[old.branch]) S.stock[old.branch] = {};
           S.stock[old.branch][p] = (S.stock[old.branch][p] || 0) + (q || 0);
@@ -3497,11 +3530,135 @@ function renderLendList(){
     }).join('')+'</tbody></table>';
 }
 
+// ════════ 委託販売（預け在庫） ════════
+function loadConsign(force){
+  fillConsignSelectors(); renderConsignBalance(); renderConsignList();
+  if(!S.gasUrl) return;
+  (async()=>{
+    try{
+      const a=await gasGet('getConsignments'); if(a&&a.consignments) S.consignments=a.consignments;
+      saveState();
+      fillConsignSelectors(); renderConsignBalance(); renderConsignList();
+    }catch(e){ if(force) toast('最新の取得に失敗しました','error'); }
+  })();
+}
+function fillConsignSelectors(){
+  const ps=document.getElementById('cg-partner');
+  if(ps){ const keep=ps.value; ps.innerHTML='<option value="">— 委託先を選択 —</option>'+(S.customers||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(c=>'<option value="'+escapeHtml(String(c.id))+'">'+escapeHtml(c.name||'')+'</option>').join(''); if(keep) ps.value=keep; }
+  const pr=document.getElementById('cg-prod');
+  if(pr){ const keep=pr.value; const pl=(S.products&&S.products.length)?S.products.filter(p=>p&&p.active!==false):(typeof PROD_LIST!=='undefined'?PROD_LIST:[]);
+    pr.innerHTML='<option value="">— 商品を選択 —</option>'+pl.map(p=>{const nm=(p&&p.name)?p.name:String(p);return '<option value="'+escapeHtml(String(nm))+'">'+escapeHtml(String(nm))+'</option>';}).join(''); if(keep) pr.value=keep; }
+}
+function recordConsign(){
+  if(!canEdit()) return toast('🔒 編集権限がありません','error');
+  const pid=document.getElementById('cg-partner').value;
+  const branch=document.getElementById('cg-branch').value;
+  const prod=document.getElementById('cg-prod').value;
+  const qty=parseInt(document.getElementById('cg-qty').value||'',10);
+  const price=parseInt(document.getElementById('cg-price').value||'0',10)||0;
+  const memo=(document.getElementById('cg-memo').value||'').trim();
+  if(!pid) return toast('委託先を選んでください','error');
+  if(!prod) return toast('商品を選んでください','error');
+  if(!(qty>0)) return toast('数量を入力してください','error');
+  const partner=(S.customers||[]).find(c=>String(c.id)===String(pid))||{};
+  _lendStockMove(branch, prod, -qty, '委託納品', '委託納品：'+(partner.name||'')+(memo?'（'+memo+'）':''));
+  const rec={ id:'cg-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:today(),
+    partnerId:String(pid), partnerName:partner.name||'', branch:branch, product:prod, qty:qty, unitPrice:price,
+    type:'納品', orderId:'', memo:memo, createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
+  S.consignments=S.consignments||[]; S.consignments.push(rec); saveState();
+  if(S.gasUrl){ gasPost({action:'saveConsignment', id:rec.id, date:rec.date, partnerId:rec.partnerId, partnerName:rec.partnerName, branch:rec.branch, product:rec.product, qty:rec.qty, unitPrice:rec.unitPrice, type:rec.type, orderId:rec.orderId, memo:rec.memo, createdBy:rec.createdBy }); syncStockToGAS(); }
+  document.getElementById('cg-qty').value=''; document.getElementById('cg-memo').value='';
+  toast('✓ 委託納品を記録しました（在庫−'+qty+'本／預け在庫+'+qty+'本）');
+  renderConsignBalance(); renderConsignList(); if(typeof renderStock==='function') renderStock();
+}
+function consignBalance(){
+  const bal={};
+  (S.consignments||[]).forEach(r=>{
+    const key=String(r.partnerId)+'||'+r.product;
+    if(!bal[key]) bal[key]={partnerId:String(r.partnerId), partnerName:r.partnerName||'', branch:r.branch||'', product:r.product, qty:0, unitPrice:Number(r.unitPrice)||0};
+    if(r.type==='納品'){ bal[key].qty+=Number(r.qty)||0; if(r.unitPrice) bal[key].unitPrice=Number(r.unitPrice)||bal[key].unitPrice; if(r.branch) bal[key].branch=r.branch; }
+    else { bal[key].qty-=Number(r.qty)||0; }
+  });
+  return bal;
+}
+function reportConsignSale(partnerId, product){
+  if(!canEdit()) return toast('🔒 編集権限がありません','error');
+  const bal=consignBalance(); const key=String(partnerId)+'||'+product; const b=bal[key];
+  if(!b || b.qty<=0) return toast('預け在庫がありません','error');
+  const ans=prompt('「'+b.partnerName+'」の '+product+'：売れた本数を入力（預け在庫 '+b.qty+'本）');
+  if(ans===null) return;
+  const sold=parseInt(ans,10);
+  if(!(sold>0)) return toast('本数が不正です','error');
+  if(sold>b.qty) return toast('預け在庫（'+b.qty+'本）を超えています','error');
+  let price=b.unitPrice||0;
+  const pa=prompt('請求単価（税込・1本）', String(price));
+  if(pa===null) return; price=parseInt(pa,10)||0;
+  const amount=sold*price;
+  const o={ id:'cg-sale-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:today(),
+    store:b.partnerName, branch:b.branch||'仙台', items:{[product]:sold}, amount:amount, tax:'taxあり', condition:10,
+    status:'出荷済', deliveryDate:today(), bookDate:today(), consignSale:true,
+    note:'委託販売報告', timestamp:new Date().toISOString(),
+    createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
+  S.orders=S.orders||[]; S.orders.push(o);
+  const rec={ id:'cg-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:today(),
+    partnerId:String(partnerId), partnerName:b.partnerName, branch:b.branch||'', product:product, qty:sold, unitPrice:price,
+    type:'販売', orderId:o.id, memo:'', createdBy:o.createdBy };
+  S.consignments=S.consignments||[]; S.consignments.push(rec); saveState();
+  if(S.gasUrl){ try{ gasPost({action:'saveOrder', ...o}); }catch(e){} gasPost({action:'saveConsignment', id:rec.id, date:rec.date, partnerId:rec.partnerId, partnerName:rec.partnerName, branch:rec.branch, product:rec.product, qty:rec.qty, unitPrice:rec.unitPrice, type:rec.type, orderId:rec.orderId, memo:rec.memo, createdBy:rec.createdBy }); }
+  toast('✓ 販売報告：'+product+' '+sold+'本／売上¥'+fmt(amount)+'（請求・計上へ反映）');
+  renderConsignBalance(); renderConsignList(); if(typeof renderOrders==='function') renderOrders();
+}
+function returnConsign(partnerId, product){
+  if(!canEdit()) return toast('🔒 編集権限がありません','error');
+  const bal=consignBalance(); const key=String(partnerId)+'||'+product; const b=bal[key];
+  if(!b || b.qty<=0) return toast('預け在庫がありません','error');
+  const ans=prompt('「'+b.partnerName+'」の '+product+'：返品する本数（預け在庫 '+b.qty+'本）→ 倉庫在庫に戻ります');
+  if(ans===null) return;
+  const ret=parseInt(ans,10);
+  if(!(ret>0)) return toast('本数が不正です','error');
+  if(ret>b.qty) return toast('預け在庫（'+b.qty+'本）を超えています','error');
+  _lendStockMove(b.branch||'仙台', product, ret, '委託返品', '委託返品：'+b.partnerName);
+  const rec={ id:'cg-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:today(),
+    partnerId:String(partnerId), partnerName:b.partnerName, branch:b.branch||'', product:product, qty:ret, unitPrice:0,
+    type:'返品', orderId:'', memo:'', createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
+  S.consignments=S.consignments||[]; S.consignments.push(rec); saveState();
+  if(S.gasUrl){ gasPost({action:'saveConsignment', id:rec.id, date:rec.date, partnerId:rec.partnerId, partnerName:rec.partnerName, branch:rec.branch, product:rec.product, qty:rec.qty, unitPrice:rec.unitPrice, type:rec.type, orderId:rec.orderId, memo:rec.memo, createdBy:rec.createdBy }); syncStockToGAS(); }
+  toast('✓ 返品を記録しました（在庫+'+ret+'本）');
+  renderConsignBalance(); renderConsignList(); if(typeof renderStock==='function') renderStock();
+}
+function renderConsignBalance(){
+  const box=document.getElementById('consign-balance'); if(!box) return;
+  const bal=consignBalance();
+  const rows=Object.keys(bal).map(k=>bal[k]).filter(b=>b.qty>0).sort((a,b)=>String(a.partnerName).localeCompare(String(b.partnerName)));
+  if(!rows.length){ box.innerHTML='<div style="color:var(--wh3);font-size:.74rem;padding:.4rem">預け在庫はありません</div>'; return; }
+  box.innerHTML='<table><thead><tr><th>委託先</th><th>拠点</th><th>商品</th><th style="text-align:right">預け在庫（本）</th><th style="text-align:right">請求単価</th><th>操作</th></tr></thead><tbody>'
+    +rows.map(b=>'<tr><td>'+escapeHtml(b.partnerName)+'</td><td>'+escapeHtml(b.branch||'')+'</td><td>'+escapeHtml(b.product)+'</td>'
+      +'<td style="text-align:right;color:#ffcf7a">'+b.qty+'</td>'
+      +'<td style="text-align:right">¥'+fmt(b.unitPrice||0)+'</td>'
+      +'<td style="white-space:nowrap"><button class="btn-s" onclick="reportConsignSale(\''+escapeHtml(b.partnerId)+'\',\''+escapeHtml(b.product)+'\')">販売報告</button> '
+      +'<button class="btn-s" onclick="returnConsign(\''+escapeHtml(b.partnerId)+'\',\''+escapeHtml(b.product)+'\')">返品</button></td></tr>').join('')
+    +'</tbody></table>';
+}
+function renderConsignList(){
+  const box=document.getElementById('consign-list'); if(!box) return;
+  const list=(S.consignments||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  if(!list.length){ box.innerHTML='<div style="color:var(--wh3);font-size:.74rem;padding:.4rem">委託の記録がありません</div>'; return; }
+  const col={'納品':'#7ee2a8','販売':'#ffcf7a','返品':'#9bd3ff'};
+  box.innerHTML='<table><thead><tr><th>日付</th><th>委託先</th><th>種別</th><th>拠点</th><th>商品</th><th style="text-align:right">本数</th><th style="text-align:right">単価</th></tr></thead><tbody>'
+    +list.map(l=>'<tr><td>'+escapeHtml(l.date)+'</td><td>'+escapeHtml(l.partnerName||'')+'</td>'
+      +'<td><span style="color:'+(col[l.type]||'#fff')+'">'+escapeHtml(l.type)+'</span></td>'
+      +'<td>'+escapeHtml(l.branch||'')+'</td><td>'+escapeHtml(l.product||'')+'</td>'
+      +'<td style="text-align:right">'+(Number(l.qty)||0)+'</td>'
+      +'<td style="text-align:right">'+(l.unitPrice?'¥'+fmt(l.unitPrice):'—')+'</td></tr>').join('')+'</tbody></table>';
+}
+
 function switchEntryKind(kind){
   var show=function(id,on){ var e=document.getElementById(id); if(e) e.style.display=on?'':'none'; };
   show('entry-order', kind==='order');
   show('entry-purchase', kind==='purchase');
   show('entry-lending', (kind==='lend'||kind==='borrow'));
+  show('entry-consign', kind==='consign');
+  if(kind==='consign'){ if(typeof fillConsignSelectors==='function'){ try{ fillConsignSelectors(); }catch(e){} } }
   if(kind==='purchase'){ if(typeof renderPurchase==='function'){ try{ renderPurchase(); }catch(e){} } }
   if(kind==='lend'||kind==='borrow'){
     if(typeof fillLendSelectors==='function'){ try{ fillLendSelectors(); }catch(e){} }
@@ -3685,7 +3842,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 window.addEventListener('DOMContentLoaded', () => {
   const h = (location.hash || '').replace('#','');
-  const valid = ['orders','neworder','stock','purchase','inventory','sponsor','lending'];
+  const valid = ['orders','neworder','stock','purchase','inventory','sponsor','lending','consign'];
   if (h && valid.indexOf(h) >= 0){
     const btn = document.querySelector('.mtab[onclick*="\'' + h + '\'"]');
     if (typeof switchModule === 'function') switchModule(h, btn);
