@@ -521,9 +521,9 @@ textarea.fc{resize:vertical}
   <!-- ════════ LIFF登録 ════════ -->
   <div id="m-liff" class="mcon">
     <div class="guide-card">
-      <h4><span class="step-num">1</span>LIFFアプリを2つ作成</h4>
+      <h4><span class="step-num">1</span>LIFFアプリを3つ作成</h4>
       <div class="guide-body">
-        <p>LIFFは <a href="https://developers.line.biz/console/" target="_blank">LINE Developers Console</a> で作成します。注文フォーム用と顧客マイページ用の2つが必要。</p>
+        <p>LIFFは <a href="https://developers.line.biz/console/" target="_blank">LINE Developers Console</a> で作成します。注文フォーム用・顧客マイページ用・スタッフマイページ用の3つが必要。</p>
       </div>
     </div>
 
@@ -562,12 +562,31 @@ textarea.fc{resize:vertical}
     </div>
 
     <div class="guide-card">
+      <h4><span class="step-num">C</span>LIFF #3: スタッフマイページ</h4>
+      <div class="guide-body">
+        <table class="kv-table">
+          <tr><th>LIFFアプリ名</th><td>スタッフマイページ</td></tr>
+          <tr><th>サイズ</th><td><strong>Full</strong></td></tr>
+          <tr><th>エンドポイントURL</th><td><span style="font-family:monospace;color:var(--gold-l)" id="liff-url-staff">https://your-domain.com/staff-mypage.html</span></td></tr>
+          <tr><th>Scope</th><td>profile, openid</td></tr>
+          <tr><th>ボットリンク機能</th><td>Off（社内用）</td></tr>
+        </table>
+        <div class="tip" style="margin-top:.5rem">スタッフ専用の閲覧ページです。顧客マイページと<strong>同じLINEログインチャネル</strong>に追加してください（UID判定が顧客と同じ <code>getRole</code> の仕組みになります）。</div>
+      </div>
+      <div class="fg" style="margin-top:.7rem">
+        <label>LIFF ID（スタッフマイページ用）</label>
+        <input type="text" class="fc mono" id="liff-id-staff" placeholder="2009445526-MNWNJ6Ta">
+      </div>
+    </div>
+
+    <div class="guide-card">
       <h4><span class="step-num">2</span>HTMLにLIFF IDを埋め込む</h4>
       <div class="guide-body">
         <p>取得したLIFF IDを各HTMLファイルに設定する必要があります：</p>
         <ul>
           <li><code>order.html</code> の <code>liff.init({liffId: '...'})</code> 部分</li>
           <li><code>mypage.html</code> の同じ箇所</li>
+          <li><code>staff-mypage.html</code> の同じ箇所</li>
         </ul>
         <div class="tip" style="margin-top:.5rem">
           下のボタンで自動で埋め込まれた設定情報を保存できます。HTMLファイルへの直接編集は別途必要です。
@@ -732,6 +751,7 @@ const S = {
   sheetId: localStorage.getItem('lmb_sheetId') || '',
   liffOrderId: localStorage.getItem('lmb_liffOrderId') || '',
   liffPortalId: localStorage.getItem('lmb_liffPortalId') || '',
+  liffStaffId: localStorage.getItem('lmb_liffStaffId') || '',
   urlOrderForm: localStorage.getItem('lmb_urlOrderForm') || '',
   urlCustomerPortal: localStorage.getItem('lmb_urlCustomerPortal') || '',
   urlWebsite: localStorage.getItem('lmb_urlWebsite') || '',
@@ -1046,6 +1066,7 @@ function copyWebhookUrl(){
 function loadLiffSettings(){
   document.getElementById('liff-id-order').value = S.liffOrderId || '';
   document.getElementById('liff-id-portal').value = S.liffPortalId || '';
+  document.getElementById('liff-id-staff').value = S.liffStaffId || '';
   document.getElementById('liff-url-order').textContent = S.urlOrderForm || 'https://your-domain.com/order.html';
   document.getElementById('liff-url-portal').textContent = S.urlCustomerPortal || 'https://your-domain.com/mypage.html';
 }
@@ -1053,10 +1074,13 @@ function loadLiffSettings(){
 function saveLiffSettings(){
   const order  = document.getElementById('liff-id-order').value.trim();
   const portal = document.getElementById('liff-id-portal').value.trim();
+  const staff  = document.getElementById('liff-id-staff').value.trim();
   S.liffOrderId = order;
   S.liffPortalId = portal;
+  S.liffStaffId = staff;
   localStorage.setItem('lmb_liffOrderId', order);
   localStorage.setItem('lmb_liffPortalId', portal);
+  localStorage.setItem('lmb_liffStaffId', staff);
   toast('✓ LIFF IDを保存');
   updateProgress();
 }
