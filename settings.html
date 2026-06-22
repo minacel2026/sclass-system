@@ -533,7 +533,7 @@ textarea.fc{resize:vertical}
         <table class="kv-table">
           <tr><th>LIFFアプリ名</th><td>注文フォーム</td></tr>
           <tr><th>サイズ</th><td><strong>Full</strong></td></tr>
-          <tr><th>エンドポイントURL</th><td><span style="font-family:monospace;color:var(--gold-l)" id="liff-url-order">https://your-domain.com/liff-order-form.html</span></td></tr>
+          <tr><th>エンドポイントURL</th><td><span style="font-family:monospace;color:var(--gold-l)" id="liff-url-order">https://your-domain.com/order.html</span></td></tr>
           <tr><th>Scope</th><td>profile, openid</td></tr>
           <tr><th>ボットリンク機能</th><td>On (Aggressive)</td></tr>
         </table>
@@ -550,7 +550,7 @@ textarea.fc{resize:vertical}
         <table class="kv-table">
           <tr><th>LIFFアプリ名</th><td>マイページ</td></tr>
           <tr><th>サイズ</th><td><strong>Full</strong></td></tr>
-          <tr><th>エンドポイントURL</th><td><span style="font-family:monospace;color:var(--gold-l)" id="liff-url-portal">https://your-domain.com/customer_portal.html</span></td></tr>
+          <tr><th>エンドポイントURL</th><td><span style="font-family:monospace;color:var(--gold-l)" id="liff-url-portal">https://your-domain.com/mypage.html</span></td></tr>
           <tr><th>Scope</th><td>profile, openid</td></tr>
           <tr><th>ボットリンク機能</th><td>On (Aggressive)</td></tr>
         </table>
@@ -566,8 +566,8 @@ textarea.fc{resize:vertical}
       <div class="guide-body">
         <p>取得したLIFF IDを各HTMLファイルに設定する必要があります：</p>
         <ul>
-          <li><code>liff-order-form.html</code> の <code>liff.init({liffId: '...'})</code> 部分</li>
-          <li><code>customer_portal.html</code> の同じ箇所</li>
+          <li><code>order.html</code> の <code>liff.init({liffId: '...'})</code> 部分</li>
+          <li><code>mypage.html</code> の同じ箇所</li>
         </ul>
         <div class="tip" style="margin-top:.5rem">
           下のボタンで自動で埋め込まれた設定情報を保存できます。HTMLファイルへの直接編集は別途必要です。
@@ -677,11 +677,11 @@ textarea.fc{resize:vertical}
       <h3>🌐 公開URL設定</h3>
       <div class="fg">
         <label>注文フォームの公開URL</label>
-        <input type="text" class="fc mono" id="url-order-form" placeholder="https://your-domain.com/liff-order-form.html">
+        <input type="text" class="fc mono" id="url-order-form" placeholder="https://your-domain.com/order.html">
       </div>
       <div class="fg">
         <label>マイページの公開URL</label>
-        <input type="text" class="fc mono" id="url-customer-portal" placeholder="https://your-domain.com/customer_portal.html">
+        <input type="text" class="fc mono" id="url-customer-portal" placeholder="https://your-domain.com/mypage.html">
       </div>
       <div class="fg">
         <label>会社Webサイト</label>
@@ -1046,8 +1046,8 @@ function copyWebhookUrl(){
 function loadLiffSettings(){
   document.getElementById('liff-id-order').value = S.liffOrderId || '';
   document.getElementById('liff-id-portal').value = S.liffPortalId || '';
-  document.getElementById('liff-url-order').textContent = S.urlOrderForm || 'https://your-domain.com/liff-order-form.html';
-  document.getElementById('liff-url-portal').textContent = S.urlCustomerPortal || 'https://your-domain.com/customer_portal.html';
+  document.getElementById('liff-url-order').textContent = S.urlOrderForm || 'https://your-domain.com/order.html';
+  document.getElementById('liff-url-portal').textContent = S.urlCustomerPortal || 'https://your-domain.com/mypage.html';
 }
 
 function saveLiffSettings(){
