@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>スタッフマイページ | LAMBORGHINI WINE</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+:root{ --gold:#C9A84C; --gold-l:#E8CC7A; --bg:#0a0a0c; --card:#141418; --line:rgba(201,168,76,.18); --ivory:#e8e0cc; }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;background:var(--bg);color:var(--ivory);min-height:100vh}
+.header{background:linear-gradient(180deg,#16161a,#0a0a0c);border-bottom:1px solid var(--line);padding:18px 16px 14px;text-align:center;position:sticky;top:0;z-index:100}
+.header h1{font-size:1.05rem;letter-spacing:.3em;color:var(--gold-l);font-weight:700}
+.header .sub{font-size:.6rem;letter-spacing:.3em;color:#8a8270;margin-top:2px}
+.wrap{max-width:560px;margin:0 auto;padding:14px 14px 60px}
+.banner{background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);color:var(--gold);font-size:.68rem;text-align:center;padding:6px;border-radius:6px;margin-bottom:10px}
+.hello{font-size:.95rem;font-weight:700;color:var(--gold-l);margin:6px 2px 4px}
+.hello small{display:block;font-size:.64rem;color:#9a917c;font-weight:400;margin-top:3px;letter-spacing:.04em}
+.brbar{display:flex;align-items:center;gap:8px;font-size:.7rem;color:#b9b09a;margin:8px 2px 12px}
+.brbar b{color:var(--gold-l)}
+.brbar button{margin-left:auto;background:rgba(201,168,76,.1);border:1px solid var(--line);color:var(--gold-l);font-size:.66rem;padding:4px 10px;border-radius:6px;cursor:pointer}
+.summary{display:flex;gap:8px;margin:12px 0 4px}
+.sumcard{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 8px;text-align:center}
+.sumcard .lbl{font-size:.6rem;color:#9a917c;letter-spacing:.04em}
+.sumcard .val{font-size:1.12rem;font-weight:700;margin-top:5px;line-height:1.2}
+.sumcard .val.gold{color:var(--gold-l)} .sumcard .val.green{color:#7ee2a8} .sumcard .val.red{color:#ff8a80}
+.sumcard .sub2{font-size:.58rem;color:#8a8270;margin-top:3px}
+.sec-title{font-size:.72rem;color:var(--gold);letter-spacing:.12em;margin:18px 2px 8px;display:flex;align-items:center;gap:6px}
+.sec-title .cnt{color:#9a917c;font-weight:400}
+.order{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-bottom:9px}
+.order .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.order .nm{font-size:.86rem;font-weight:700;color:var(--ivory)}
+.order .date{font-size:.66rem;color:#9a917c}
+.order .items{font-size:.74rem;line-height:1.55;color:#b9b09a;margin-bottom:5px}
+.order .bottom{display:flex;justify-content:space-between;align-items:flex-end}
+.order .meta{font-size:.64rem;color:#9a917c}
+.order .amt{font-size:1rem;font-weight:700;color:var(--gold-l)}
+.badge{font-size:.62rem;padding:2px 9px;border-radius:99px;font-weight:700;white-space:nowrap}
+.badge.unpaid{background:rgba(255,99,99,.15);color:#ff8a80;border:1px solid rgba(255,99,99,.35)}
+.badge.paid{background:rgba(80,200,120,.13);color:#7ee2a8;border:1px solid rgba(80,200,120,.35)}
+.badge.other{background:rgba(201,168,76,.13);color:var(--gold-l);border:1px solid var(--line)}
+.empty,.errbox,.loading,.todo{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:24px 14px;text-align:center;font-size:.8rem;color:#9a917c;line-height:1.8}
+.errbox{color:#ff8a80;border-color:rgba(255,99,99,.3)}
+.todo{padding:16px 14px;text-align:left;font-size:.74rem;color:#9a917c;line-height:1.8}
+.todo b{color:var(--gold-l)}
+.spinner{width:28px;height:28px;border:3px solid rgba(201,168,76,.2);border-top-color:var(--gold);border-radius:50%;margin:0 auto 12px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.note{font-size:.6rem;color:#6f6857;text-align:center;margin-top:18px;line-height:1.7}
+</style>
+<!-- ═══ スプレッドシート同期インジケータ（全画面共通） ═══ -->
+<script>
+(function(){
+  if (window.__lmbSyncInstalled) return;
+  window.__lmbSyncInstalled = true;
+  try{
+    var st=document.createElement('style');
+    st.textContent='@keyframes lmbSyncSpin{to{transform:rotate(360deg)}}'
+      +'#lmb-sync-badge{position:fixed;top:14px;left:50%;transform:translate(-50%,-14px);z-index:2147483646;'
+      +'display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:30px;background:rgba(22,19,14,.94);'
+      +'border:1px solid rgba(201,168,76,.55);color:#ecdfba;font-size:.78rem;font-weight:600;'
+      +'font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN",sans-serif;letter-spacing:.02em;'
+      +'box-shadow:0 8px 28px rgba(0,0,0,.45);opacity:0;pointer-events:none;white-space:nowrap;'
+      +'transition:opacity .25s ease,transform .25s ease}'
+      +'#lmb-sync-badge.show{opacity:1;transform:translate(-50%,0)}'
+      +'#lmb-sync-badge .lmb-si{width:14px;height:14px;flex:0 0 auto;border:2px solid rgba(201,168,76,.3);'
+      +'border-top-color:#c9a84c;border-radius:50%;animation:lmbSyncSpin .7s linear infinite}';
+    (document.head||document.documentElement).appendChild(st);
+  }catch(e){}
+  function el(){
+    var e=document.getElementById('lmb-sync-badge');
+    if(!e){ e=document.createElement('div'); e.id='lmb-sync-badge';
+      e.innerHTML='<span class="lmb-si"></span><span>スプレッドシート同期中…</span>';
+      (document.body||document.documentElement).appendChild(e); }
+    return e;
+  }
+  var n=0, t=null;
+  function show(){ if(t){clearTimeout(t);t=null;} try{el().classList.add('show');}catch(e){} }
+  function hide(){ var e=document.getElementById('lmb-sync-badge'); if(e) e.classList.remove('show'); }
+  window.__lmbSyncStart=function(){ n++; show(); };
+  window.__lmbSyncEnd=function(){ n=Math.max(0,n-1); if(n===0){ if(t)clearTimeout(t); t=setTimeout(hide,350); } };
+  if(window.fetch && !window.fetch.__lmbWrap){
+    var of=window.fetch.bind(window);
+    var wf=function(input,init){
+      var u=''; try{ u=(typeof input==='string')?input:((input&&input.url)||''); }catch(e){}
+      var gas=/script\.google\.com|\/macros\/s\//.test(u);
+      if(gas) window.__lmbSyncStart();
+      var p;
+      try{ p=of(input,init); }catch(e){ if(gas) window.__lmbSyncEnd(); throw e; }
+      if(gas){ try{ if(p&&p.then) p.then(function(){window.__lmbSyncEnd();},function(){window.__lmbSyncEnd();}); else window.__lmbSyncEnd(); }catch(e){ window.__lmbSyncEnd(); } }
+      return p;
+    };
+    wf.__lmbWrap=true;
+    window.fetch=wf;
+  }
+})();
+</script>
+
+</head>
+<body>
+<div class="header">
+  <h1>スタッフマイページ</h1>
+  <div class="sub">LAMBORGHINI WINE</div>
+</div>
+<div class="wrap">
+  <div id="content"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
+  <div class="note">売上・未収は受発注データからの<b style="color:#8a8270">概算</b>です。<br>確定値は会計・請求画面（invoice-payment / accounting）をご確認ください。</div>
+</div>
+<script>
+/* GAS URLは引継ぎ資料の本番URL。settings画面で保存した localStorage('gasUrl') を優先（資料の運用ルールに準拠）。 */
+const GAS_URL = (function(){
+  try { var u = localStorage.getItem('gasUrl'); if (u) return u; } catch(e){}
+  return 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
+})();
+const LIFF_ID = '';   // ★このページ用のLIFF IDを LINE Developers で発行して貼り付け（空ならブラウザモード:?uid=でテスト）
+
+/* ───── ユーティリティ ───── */
+const fmt = n => Number(n || 0).toLocaleString();
+function esc(t){ return String(t==null?'':t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// 日付を YYYY-MM-DD に正規化（invoice-payment/sales-stock と同じ方式）
+function normDate(d){
+  if (!d) return '';
+  const s = String(d);
+  const m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  return m ? (m[1] + '-' + ('0'+m[2]).slice(-2) + '-' + ('0'+m[3]).slice(-2)) : s.slice(0,10);
+}
+// 表示用 M/D
+function dateText(d){
+  const s = normDate(d);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? (Number(m[2]) + '/' + Number(m[3])) : s;
+}
+// 日本時間の今日・今月（端末TZに依存しない）
+function jstYMD(){
+  const p = new Intl.DateTimeFormat('ja-JP', { timeZone:'Asia/Tokyo', year:'numeric', month:'2-digit', day:'2-digit' })
+    .formatToParts(new Date()).reduce((a,x)=>(a[x.type]=x.value,a),{});
+  return p.year + '-' + p.month + '-' + p.day;
+}
+function badge(st){
+  const s = String(st || '');
+  if (s.startsWith('未')) return '<span class="badge unpaid">' + esc(s) + '</span>';
+  if (s.includes('済')) return '<span class="badge paid">' + esc(s) + '</span>';
+  return '<span class="badge other">' + esc(s || '—') + '</span>';
+}
+function itemsText(raw){
+  try {
+    const o = (typeof raw === 'string') ? JSON.parse(raw) : raw;
+    if (o && typeof o === 'object'){
+      return Object.entries(o).map(([k,v]) => esc(k) + ' × ' + esc(v) + '本').join('　');
+    }
+  } catch(e){}
+  return esc(raw || '');
+}
+
+/* ───── 状態 ───── */
+let STAFF = { name:'', branch:'', role:'' };
+let ORDERS = [];
+let showAllBranch = false;   // 全拠点スタッフ／管理者は切替可能
+
+/* ───── 初期化 ───── */
+async function init(){
+  let uid = '';
+  try {
+    if (!LIFF_ID) throw new Error('LIFF_ID未設定');
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    const prof = await liff.getProfile();
+    uid = prof.userId;
+  } catch(e) {
+    document.querySelector('.header').insertAdjacentHTML('afterend',
+      '<div class="wrap" style="padding-bottom:0"><div class="banner">⚠ ブラウザモードで動作中（LINE連携なし）</div></div>');
+    uid = new URLSearchParams(location.search).get('uid') || '';
+  }
+  const box = document.getElementById('content');
+  if (!uid){
+    box.innerHTML = '<div class="errbox">LINEアカウント情報を取得できませんでした。<br>LINEアプリ内から開いてください。</div>';
+    return;
+  }
+  try {
+    // 本人特定（顧客・紹介者と同じ getRole）
+    const rr = await fetch(GAS_URL + '?action=getRole&uid=' + encodeURIComponent(uid) + '&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json());
+    if (!rr || !rr.ok || !rr.isStaff || !rr.staff){
+      box.innerHTML = '<div class="errbox">このLINEアカウントはスタッフとして登録されていません。<br>マスター管理のスタッフ編集「LINE UID」欄にあなたのUIDを登録してください。</div>';
+      return;
+    }
+    STAFF.name   = rr.staff.name || 'スタッフ';
+    STAFF.branch = String(rr.staff.branch || '').trim();   // 空＝全拠点
+    STAFF.role   = rr.staff.role || '';
+
+    // 注文一覧（全件）→ クライアントで拠点・期間フィルタ
+    const ro = await fetch(GAS_URL + '?action=getOrders&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json());
+    ORDERS = (ro && ro.orders) ? ro.orders.map(o => {
+      o.date = normDate(o.date);
+      o.amount = Number(o.amount) || 0;
+      return o;
+    }) : [];
+
+    // 全拠点スタッフ（branch空）は初期から全拠点表示
+    if (!STAFF.branch) showAllBranch = true;
+
+    render();
+  } catch(e){
+    box.innerHTML = '<div class="errbox">通信エラーが発生しました。<br>電波状況をご確認のうえ開き直してください。</div>';
+  }
+}
+
+function visibleOrders(){
+  if (showAllBranch || !STAFF.branch) return ORDERS;
+  return ORDERS.filter(o => String(o.branch || '').trim() === STAFF.branch);
+}
+
+function render(){
+  const box = document.getElementById('content');
+  const today = jstYMD();
+  const month = today.slice(0,7);   // YYYY-MM
+  const rows = visibleOrders();
+
+  // 集計
+  const todays = rows.filter(o => o.date === today);
+  const monthly = rows.filter(o => o.date.slice(0,7) === month);
+  const todayAmt = todays.reduce((s,o) => s + o.amount, 0);
+  const monthAmt = monthly.reduce((s,o) => s + o.amount, 0);
+  const unpaidAmt = rows.filter(o => String(o.payStatus || '').startsWith('未')).reduce((s,o) => s + o.amount, 0);
+
+  const scopeLbl = (showAllBranch || !STAFF.branch) ? '全拠点' : STAFF.branch;
+
+  let html = '';
+  html += '<div class="hello">' + esc(STAFF.name) + ' 様<small>本日 ' + today.replace(/-/g,'/') + ' ／ 表示範囲：' + esc(scopeLbl) + '</small></div>';
+
+  // 拠点切替（自拠点を持つスタッフのみ）
+  if (STAFF.branch){
+    html += '<div class="brbar">拠点：<b>' + esc(STAFF.branch) + '</b>'
+          + '<button onclick="toggleBranch()">' + (showAllBranch ? '自拠点のみ' : '全拠点を表示') + '</button></div>';
+  }
+
+  // サマリー3枚
+  html += '<div class="summary">';
+  html += '<div class="sumcard"><div class="lbl">今日の新規受付</div><div class="val gold">' + todays.length + '件</div><div class="sub2">¥' + fmt(todayAmt) + '</div></div>';
+  html += '<div class="sumcard"><div class="lbl">当月売上（概算）</div><div class="val green">¥' + fmt(monthAmt) + '</div><div class="sub2">' + monthly.length + '件</div></div>';
+  html += '<div class="sumcard"><div class="lbl">未収残高</div><div class="val ' + (unpaidAmt > 0 ? 'red' : 'gold') + '">¥' + fmt(unpaidAmt) + '</div><div class="sub2">' + rows.filter(o=>String(o.payStatus||'').startsWith('未')).length + '件</div></div>';
+  html += '</div>';
+
+  // 今日の新規受付
+  html += '<div class="sec-title">▸ 今日の新規受付 <span class="cnt">' + todays.length + '件</span></div>';
+  if (!todays.length){
+    html += '<div class="empty">本日の新規受付はまだありません。</div>';
+  } else {
+    html += todays.sort((a,b)=> String(b.date).localeCompare(String(a.date))).map(orderCard).join('');
+  }
+
+  // 当月の注文（新しい順・最大40件）
+  html += '<div class="sec-title">▸ 当月の注文 <span class="cnt">' + monthly.length + '件</span></div>';
+  if (!monthly.length){
+    html += '<div class="empty">当月の注文はまだありません。</div>';
+  } else {
+    html += monthly
+      .slice()
+      .sort((a,b)=> String(b.date).localeCompare(String(a.date)))
+      .slice(0,40)
+      .map(orderCard).join('');
+    if (monthly.length > 40) html += '<div class="empty" style="padding:12px">ほか ' + (monthly.length - 40) + ' 件（一覧は受発注画面でご確認ください）</div>';
+  }
+
+  // 委託の未処理報告：本番GASに読み取りAPIが未実装のため準備中表示
+  html += '<div class="sec-title">▸ 委託の未処理報告</div>';
+  html += '<div class="todo">現在のGASには委託報告の取得APIが未実装のため、本欄は<b>準備中</b>です。<br>'
+        + 'ガステンプレート.gs に <b>getConsignReports</b> アクション（委託報告シートの未承認分を返す）を追加すれば、ここに自拠点の未処理件数を表示できます。</div>';
+
+  box.innerHTML = html;
+}
+
+function orderCard(o){
+  return '<div class="order">'
+    + '<div class="top"><span class="nm">' + esc(o.store || '—') + '</span>' + badge(o.payStatus) + '</div>'
+    + '<div class="items">' + itemsText(o.items) + '</div>'
+    + '<div class="bottom">'
+    +   '<span class="meta">' + esc(dateText(o.date)) + (o.branch ? '・' + esc(o.branch) : '') + (o.staff ? '・' + esc(o.staff) : '') + (o.status ? '・' + esc(o.status) : '') + '</span>'
+    +   '<span class="amt">¥' + fmt(o.amount) + '</span>'
+    + '</div></div>';
+}
+
+function toggleBranch(){ showAllBranch = !showAllBranch; render(); }
+
+init();
+</script>
+</body>
+</html>
