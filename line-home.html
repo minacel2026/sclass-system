@@ -157,6 +157,7 @@ function render(box, d, uid){
   const cards = [];
   if (d.isStaff){
     cards.push({ ic:'📝', t:'注文入力', d:'お客様を選んで注文を登録', href:'staff-order.html' + q });
+    cards.push({ ic:'📊', t:'スタッフマイページ', d:'自拠点の今日の受付・当月売上・未収', href:'staff-mypage.html' + q });
   }
   if (d.isCustomer){
     const store = (d.customer && d.customer.store) ? d.customer.store + ' 様' : 'マイページ';
