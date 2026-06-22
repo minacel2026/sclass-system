@@ -339,6 +339,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     <button class="mtab" onclick="switchModule('regional',this)"><span class="mtab-ic">🗾</span>地域分析</button>
     <button class="mtab" onclick="switchModule('product',this)"><span class="mtab-ic">🍾</span>商品分析</button>
     <button class="mtab" onclick="switchModule('dailyrep',this)"><span class="mtab-ic">📝</span>営業日報</button>
+    <button class="mtab" onclick="switchModule('branchsum',this)"><span class="mtab-ic">📍</span>拠点サマリー</button>
   </div>
 
   <!-- ════════ 月次P&L ════════ -->
@@ -378,6 +379,20 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <tfoot id="mn-prod-tfoot"></tfoot>
       </table>
     </div>
+  </div>
+
+  <!-- ════════ 拠点サマリー ════════ -->
+  <div id="m-branchsum" class="mcon">
+    <div class="hint-box">
+      <strong>📍 拠点サマリー</strong><br>
+      仙台・京都ごとに、月別の <b>売上／入金済／未収／入金率／売掛残（未収の累計）</b> を一覧します。売上は会計と同じ計上基準、入金は注文の集金状況（集金済み・入金済み）から算出します。
+    </div>
+    <div class="fp">
+      <div class="frow">
+        <div class="fg"><label>年</label><select class="fc" id="bs-year" onchange="renderBranchSummary()"></select></div>
+      </div>
+    </div>
+    <div id="bs-body"></div>
   </div>
 
   <!-- ════════ 年次管理 ════════ -->
@@ -707,6 +722,55 @@ function switchModule(name, el){
   if (name === 'regional') renderRegional();
   if (name === 'product')  renderProduct();
   if (name === 'dailyrep') initDailyRep();
+  if (name === 'branchsum') renderBranchSummary();
+}
+
+// 拠点サマリー（仙台/京都の売上・入金・未収・売掛残）
+function renderBranchSummary(){
+  const ysel = document.getElementById('bs-year');
+  if (ysel && !ysel.options.length){
+    const years = new Set((S.orders||[]).map(o => _bookY(o)).filter(Boolean));
+    years.add(String(new Date().getFullYear()));
+    [...years].sort().reverse().forEach(y => { const o=document.createElement('option'); o.value=o.textContent=y; ysel.appendChild(o); });
+    ysel.value = String(new Date().getFullYear());
+  }
+  const yr = (ysel && ysel.value) || String(new Date().getFullYear());
+  const isPaid = o => (o.payStatus === '集金済み' || o.payStatus === '入金済み');
+  const branches = ['仙台','京都'];
+  let html = '';
+  branches.forEach(b => {
+    const rows = []; let cum = 0, tS = 0, tP = 0;
+    for (let m = 1; m <= 12; m++){
+      const ym = `${yr}-${String(m).padStart(2,'0')}`;
+      const os = (S.orders||[]).filter(o => o.branch === b && _bookYm(o) === ym);
+      const sales = os.reduce((s,o) => s + calcAmt(o), 0);
+      const paid  = os.filter(isPaid).reduce((s,o) => s + calcAmt(o), 0);
+      const unpaid = sales - paid;
+      cum += unpaid; tS += sales; tP += paid;
+      if (sales !== 0) rows.push({ m, sales, paid, unpaid, rate: sales>0 ? paid/sales*100 : 0, cum });
+    }
+    const tU = tS - tP, tR = tS>0 ? tP/tS*100 : 0;
+    html += `
+      <div class="tw" style="margin-bottom:1.3rem">
+        <div class="th-area"><h3>📍 ${b}（${yr}年）</h3></div>
+        <div class="kpi-row" style="margin:.5rem 0 .2rem">
+          <div class="kpi"><div class="kpi-lbl">年間売上</div><div class="kpi-val">¥${fmt(tS)}</div></div>
+          <div class="kpi"><div class="kpi-lbl">入金済</div><div class="kpi-val kv-gr">¥${fmt(tP)}</div></div>
+          <div class="kpi"><div class="kpi-lbl">未収（売掛残）</div><div class="kpi-val kv-r">¥${fmt(tU)}</div></div>
+          <div class="kpi"><div class="kpi-lbl">入金率</div><div class="kpi-val kv-b">${tR.toFixed(1)}%</div></div>
+        </div>
+        <table>
+          <thead><tr><th>月</th><th class="col-amt">売上</th><th class="col-amt">入金済</th><th class="col-amt">未収</th><th>入金率</th><th class="col-amt">売掛残（累計）</th></tr></thead>
+          <tbody>
+            ${rows.length === 0
+              ? `<tr><td colspan="6"><div class="empty"><div class="empty-icon">📭</div>${yr}年の${b}データがありません</div></td></tr>`
+              : rows.map(r => `<tr><td>${r.m}月</td><td class="col-amt">¥${fmt(r.sales)}</td><td class="col-amt kv-gr">¥${fmt(r.paid)}</td><td class="col-amt ${r.unpaid>0?'kv-r':''}">¥${fmt(r.unpaid)}</td><td>${r.rate.toFixed(0)}%</td><td class="col-amt">¥${fmt(r.cum)}</td></tr>`).join('')}
+          </tbody>
+          ${rows.length ? `<tfoot><tr class="subtotal"><td>合計</td><td class="col-amt">¥${fmt(tS)}</td><td class="col-amt">¥${fmt(tP)}</td><td class="col-amt">¥${fmt(tU)}</td><td>${tR.toFixed(0)}%</td><td class="col-amt">¥${fmt(tU)}</td></tr></tfoot>` : ''}
+        </table>
+      </div>`;
+  });
+  document.getElementById('bs-body').innerHTML = html;
 }
 
 // 期間でフィルタするユーティリティ
@@ -1411,7 +1475,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <script>
 // ポータルのチップから #ハッシュ指定でタブ直行（例: analysis.html#monthly）
 window.addEventListener('DOMContentLoaded', function(){
-  var mods=['monthly','annual','regional','product','dailyrep'];
+  var mods=['monthly','annual','regional','product','dailyrep','branchsum'];
   var h=(location.hash||'').replace('#','');
   var i=mods.indexOf(h);
   if(i>=0){ try{ switchModule(mods[i], document.querySelectorAll('.mtab')[i]); }catch(e){} }
