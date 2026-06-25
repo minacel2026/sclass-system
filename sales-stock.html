@@ -2956,11 +2956,22 @@ function renderStock(){
   const branches = br ? [br] : ['仙台','京都'];
   const grid = document.getElementById('stock-grid');
 
+  // 在庫内訳の積み上げバー（旧=琥珀/協賛=紫/新=緑）
+  function stockBar(o, s, n){
+    const t = o + s + n;
+    if (t <= 0) return '<div style="height:7px;border-radius:4px;background:rgba(255,255,255,.07);margin-top:4px"></div>';
+    const seg = (v, c) => v > 0 ? `<span style="flex:${v};background:${c}"></span>` : '';
+    return `<div style="display:flex;height:7px;border-radius:4px;overflow:hidden;margin-top:4px;gap:1px">${seg(o,'#d9a23a')}${seg(s,'#c39bd3')}${seg(n,'#6cc78f')}</div>`;
+  }
+  const chip = (v, c, bg) => `<span style="display:inline-block;min-width:34px;padding:1px 6px;border-radius:99px;background:${bg};color:${c};font-weight:700;font-size:.78rem">${v}</span>`;
+
   function buildTable(branch){
+    let tOld = 0, tSp = 0, tNew = 0;
     const rows = PROD_LIST.map(p => {
       const ro = REORDER[p.key];
       const bk = _bkt(branch, p.key);
-      const q = S.stock[branch]?.[p.key] || 0;   // = bk.old+bk.sp+bk.new
+      const q = bk.old + bk.sp + bk.new;   // = S.stock合計
+      tOld += bk.old; tSp += bk.sp; tNew += bk.new;
       const rsv = reservedFor(branch, p.key);
       const avail = q - rsv;
       if (state === 'low' && (avail >= ro || avail <= 0)) return '';
@@ -2969,10 +2980,10 @@ function renderStock(){
       const rsvTxt = rsv > 0 ? ` <span style="color:var(--org);font-size:.85em;cursor:pointer;text-decoration:underline dotted" onclick="showReserveDetail('${branch}','${p.key}')" title="クリックで引当の内訳（どの注文か）を表示">（引当 −${rsv}）</span>` : '';
       return `
       <tr class="${cls}">
-        <td><span class="st-pname"><span class="st-pdot" style="background:${p.color}"></span>${p.name}</span></td>
-        <td class="col-num" style="color:#d9a23a" title="旧値在庫">${bk.old}</td>
-        <td class="col-num" style="color:#c39bd3" title="協賛在庫">${bk.sp}</td>
-        <td class="col-num" style="color:var(--grn)" title="新値在庫">${bk.new}</td>
+        <td><span class="st-pname"><span class="st-pdot" style="background:${p.color}"></span>${p.name}</span>${stockBar(bk.old, bk.sp, bk.new)}</td>
+        <td class="col-num" title="旧値在庫">${chip(bk.old, '#e8b85a', 'rgba(217,162,58,.16)')}</td>
+        <td class="col-num" title="協賛在庫">${chip(bk.sp, '#d3a8e0', 'rgba(195,155,211,.18)')}</td>
+        <td class="col-num" title="新値在庫">${chip(bk.new, '#8fe0ab', 'rgba(108,199,143,.16)')}</td>
         <td class="st-qty ${cls}">${q}本${rsvTxt} → 出荷可能 ${avail}本</td>
         <td>
           <div class="st-adj">
@@ -2983,11 +2994,20 @@ function renderStock(){
         </td>
       </tr>`;
     }).join('');
+    const tTot = tOld + tSp + tNew;
+    const sumCard = (lbl, v, c, bg) => `<div style="flex:1;background:${bg};border:1px solid ${c}55;border-radius:8px;padding:6px 8px;text-align:center"><div style="font-size:.6rem;color:#b9b09a;letter-spacing:.05em">${lbl}</div><div style="font-size:1.15rem;font-weight:700;color:${c};line-height:1.3">${fmt(v)}<span style="font-size:.62rem;color:#9a917c">本</span></div></div>`;
+    const summary = `<div style="display:flex;gap:.45rem;margin:.3rem 0 .6rem">
+        ${sumCard('🟠 旧値', tOld, '#e8b85a', 'rgba(217,162,58,.10)')}
+        ${sumCard('🟣 協賛', tSp, '#d3a8e0', 'rgba(195,155,211,.10)')}
+        ${sumCard('🟢 新値', tNew, '#8fe0ab', 'rgba(108,199,143,.10)')}
+        ${sumCard('合計', tTot, '#E8CC7A', 'rgba(201,168,76,.10)')}
+      </div>`;
     return `
     <div class="stock-col">
-      <h3 class="stock-col-title">${branch}（旧値→協賛→新値の順で引き当て／補充閾値以下はオレンジ・在庫切れは赤）</h3>
+      <h3 class="stock-col-title">${branch}（引き当て順：🟠旧値 → 🟣協賛 → 🟢新値／補充閾値以下はオレンジ・在庫切れは赤）</h3>
+      ${summary}
       <table class="stock-table">
-        <thead><tr><th>商品</th><th class="col-num">旧値</th><th class="col-num">協賛</th><th class="col-num">新値</th><th class="col-num">合計（引当→出荷可能）</th><th class="col-num">調整</th></tr></thead>
+        <thead><tr><th>商品（内訳バー）</th><th class="col-num">🟠旧値</th><th class="col-num">🟣協賛</th><th class="col-num">🟢新値</th><th class="col-num">合計（引当→出荷可能）</th><th class="col-num">調整</th></tr></thead>
         <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:var(--wh3);padding:.7rem">該当なし</td></tr>'}</tbody>
       </table>
     </div>`;
