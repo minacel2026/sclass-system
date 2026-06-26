@@ -641,7 +641,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
           <div class="fg"><label>登録先 拠点</label><select class="fc" id="si-br" onchange="renderStockInit()"><option>仙台</option><option>京都</option></select></div>
         </div>
         <div class="hint-box" style="margin:.4rem 0">各商品の <b style="color:#d9a23a">旧値</b>・<b style="color:#c39bd3">協賛</b>・<b style="color:var(--grn)">新値</b> の本数を入力し「この拠点に保存」。協賛は無料在庫（棚卸の評価額は0）。出荷時は旧値→協賛→新値の順に減ります。</div>
-        <div class="tw"><table class="stock-table"><thead><tr><th>商品</th><th class="col-num">旧値</th><th class="col-num">協賛</th><th class="col-num">新値</th><th class="col-num">合計</th></tr></thead><tbody id="si-tbody"></tbody></table></div>
+        <div class="tw"><table class="stock-table" style="width:100%"><thead><tr><th style="text-align:left">商品</th><th style="text-align:center;width:110px;color:#e8b85a">🟠 旧値</th><th style="text-align:center;width:110px;color:#d3a8e0">🟣 協賛</th><th style="text-align:center;width:110px;color:#8fe0ab">🟢 新値</th><th style="text-align:center;width:80px">合計</th></tr></thead><tbody id="si-tbody"></tbody></table></div>
         <div class="faction" style="margin-top:.6rem"><button class="btn btn-g" onclick="saveStockInit()">💾 この拠点に保存（上書き）</button></div>
       </div>
     </details>
@@ -3645,14 +3645,21 @@ function renderStockInit(){
   const br = (document.getElementById('si-br') || {}).value || '仙台';
   tb.innerHTML = PROD_LIST.map(p => {
     const b = _bkt(br, p.key);
+    const inp = (id, v, brd) => `<input type="number" id="si-${id}-${p.key}" value="${v}" step="1" oninput="siRecalc('${p.key}')" style="width:84px;text-align:center;border:1px solid ${brd};border-radius:6px">`;
     return `<tr>
-      <td><span class="st-pname"><span class="st-pdot" style="background:${p.color}"></span>${p.name}</span></td>
-      <td class="col-num"><input type="number" id="si-old-${p.key}" value="${b.old}" step="1" style="width:70px"></td>
-      <td class="col-num"><input type="number" id="si-sp-${p.key}" value="${b.sp}" step="1" style="width:70px"></td>
-      <td class="col-num"><input type="number" id="si-new-${p.key}" value="${b.new}" step="1" style="width:70px"></td>
-      <td class="col-num" id="si-tot-${p.key}">${b.old + b.sp + b.new}</td>
+      <td style="text-align:left"><span class="st-pname"><span class="st-pdot" style="background:${p.color}"></span>${p.name}</span></td>
+      <td style="text-align:center">${inp('old', b.old, 'rgba(217,162,58,.55)')}</td>
+      <td style="text-align:center">${inp('sp',  b.sp,  'rgba(195,155,211,.55)')}</td>
+      <td style="text-align:center">${inp('new', b.new, 'rgba(108,199,143,.55)')}</td>
+      <td style="text-align:center;font-weight:700;color:var(--gold-l)" id="si-tot-${p.key}">${b.old + b.sp + b.new}</td>
     </tr>`;
   }).join('');
+}
+// 入力に応じて行の合計をその場で更新
+function siRecalc(key){
+  const g = id => parseInt((document.getElementById('si-' + id + '-' + key) || {}).value) || 0;
+  const t = document.getElementById('si-tot-' + key);
+  if (t) t.textContent = g('old') + g('sp') + g('new');
 }
 function saveStockInit(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
