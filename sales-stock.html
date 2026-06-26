@@ -1095,75 +1095,109 @@ function updateKPI(){
 }
 
 // ─── GAS同期 ─────
+function showSyncOverlay(msg){
+  var o=document.getElementById('lmb-sync-overlay');
+  if(!o){
+    o=document.createElement('div'); o.id='lmb-sync-overlay';
+    o.innerHTML='<div class="lso-box"><div class="lso-spin"></div><div class="lso-txt">スプレッドシート同期中…</div><div class="lso-sub">最新データを読み込んでいます</div></div>';
+    (document.body||document.documentElement).appendChild(o);
+    var st=document.createElement('style');
+    st.textContent='@keyframes lmbSyncSpin{to{transform:rotate(360deg)}}'
+      +'#lmb-sync-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(8,8,8,.93);font-family:"Noto Sans JP",sans-serif}'
+      +'#lmb-sync-overlay .lso-box{text-align:center;color:#ecdfba}'
+      +'#lmb-sync-overlay .lso-spin{width:46px;height:46px;margin:0 auto 16px;border:3px solid rgba(201,168,76,.25);border-top-color:#c9a84c;border-radius:50%;animation:lmbSyncSpin .8s linear infinite}'
+      +'#lmb-sync-overlay .lso-txt{font-size:1rem;font-weight:600;letter-spacing:.04em}'
+      +'#lmb-sync-overlay .lso-sub{font-size:.72rem;color:#9a8b52;margin-top:6px}';
+    (document.head||document.documentElement).appendChild(st);
+  }
+  if(msg){ var t=o.querySelector('.lso-txt'); if(t) t.textContent=msg; }
+  o.style.display='flex';
+  if(window.__lsoTimer) clearTimeout(window.__lsoTimer);
+  window.__lsoTimer=setTimeout(function(){ hideSyncOverlay(); try{ toast('同期に時間がかかっています。操作は可能です','error'); }catch(e){} },20000); // 20秒で必ず解除（失敗時もアプリは操作可能）
+}
+function hideSyncOverlay(){
+  if(window.__lsoTimer){ clearTimeout(window.__lsoTimer); window.__lsoTimer=null; }
+  var o=document.getElementById('lmb-sync-overlay'); if(o) o.style.display='none';
+}
+
 async function syncFromGAS(){
   if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
-  toast('同期中...');
-  // GASのバージョン確認（在庫同期が効く版かどうか）
+  showSyncOverlay();
   try {
-    const pong = await gasGet('ping');
-    if (pong && !pong.updateAllStock){
-      toast('⚠️ GASが古い版です。在庫がスプシに反映されません。最新のgas-templateを貼り付けて「デプロイを管理→新バージョン」で更新してください', 'error');
+    // ── 独立データは並列で読み込み（版確認・顧客・注文・在庫・協賛）──
+    //   各タスクは自分の置き場だけをGASの値で上書き。相互依存なし＝保存される数字は従来と同一。
+    var pPing = gasGet('ping');
+    var pCust = gasGet('getCustomers');
+    var pOrds = gasGet('getOrders');
+    var pStock = gasGet('getStock');
+    var pSp = gasGet('getSponsorLogs');
+
+    try { const pong = await pPing; if (pong && !pong.updateAllStock){ toast('⚠️ GASが古い版です。在庫がスプシに反映されません。最新のgas-templateを貼り付けて「デプロイを管理→新バージョン」で更新してください', 'error'); } } catch(e){}
+
+    const cust = await pCust;
+    if (cust && cust.customers) S.customers = cust.customers;
+
+    const ords = await pOrds;
+    if (ords && ords.orders) {
+      const _nd = function(d){ if(!d) return ''; const s=String(d); const m=s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/); return m ? (m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2)+s.slice(m[0].length)) : s; };
+      S.orders = ords.orders.map(function(o){
+        o.date = _nd(o.date);
+        if (!o.timestamp) o.timestamp = o.date;
+        o.items = (typeof normalizeOrderItems === 'function') ? normalizeOrderItems(o.items) : o.items;
+        o.amount = Number(o.amount) || 0;
+        return o;
+      });
     }
-  } catch(e){}
-  const cust = await gasGet('getCustomers');
-  if (cust && cust.customers) S.customers = cust.customers;
-  const ords = await gasGet('getOrders');
-  if (ords && ords.orders) {
-    const _nd = function(d){ if(!d) return ''; const s=String(d); const m=s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/); return m ? (m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2)+s.slice(m[0].length)) : s; };
-    S.orders = ords.orders.map(function(o){
-      o.date = _nd(o.date);
-      if (!o.timestamp) o.timestamp = o.date;
-      o.items = (typeof normalizeOrderItems === 'function') ? normalizeOrderItems(o.items) : o.items;
-      o.amount = Number(o.amount) || 0;
-      return o;
-    });
+
+    const stock = await pStock;
+    if (stock && stock.stock){
+      stock.stock.forEach(s => {
+        if (!S.stock[s.branch]) S.stock[s.branch] = {};
+        if (!S.stockDetail[s.branch]) S.stockDetail[s.branch] = {};
+        const hasBkt = (s.qtyOld !== undefined || s.qtySp !== undefined || s.qtyNew !== undefined);
+        if (hasBkt){
+          S.stockDetail[s.branch][s.product] = { old: parseInt(s.qtyOld)||0, sp: parseInt(s.qtySp)||0, new: parseInt(s.qtyNew)||0 };
+        } else {
+          S.stockDetail[s.branch][s.product] = { old:0, sp:0, new: parseInt(s.qty)||0 };
+        }
+        const b = S.stockDetail[s.branch][s.product];
+        S.stock[s.branch][s.product] = b.old + b.sp + b.new;
+      });
+    }
+
+    const spLogs = await pSp;
+    if (spLogs && Array.isArray(spLogs.logs)){
+      const serverIds = new Set(spLogs.logs.map(l => String(l.id)));
+      const localOnly = (S.sponsorLogs || []).filter(l => !serverIds.has(String(l.id)));
+      if (S.gasUrl) localOnly.forEach(function(log){ try { gasPost({ action: 'saveSponsorLog', ...log }); } catch(e){} });
+      S.sponsorLogs = spLogs.logs.concat(localOnly);
+    }
+
+    // ── 新着注文は getOrders 完了後（S.orders へ追加）＝直列を維持（数字を狂わせない要） ──
+    const ord = await gasGet('getNewOrders', { since: '' });
+    if (ord && Array.isArray(ord.orders)){
+      let added = 0;
+      ord.orders.forEach(function(o){
+        o.items = normalizeOrderItems(o.items);
+        normalizeGasOrderDate(o);
+        const exists = (S.orders || []).find(x =>
+          String(x.id) === String(o.id) ||
+          (x.timestamp && o.timestamp && String(x.timestamp) === String(o.timestamp) && String(x.store) === String(o.store))
+        );
+        if (!exists){ if (!S.orders) S.orders = []; S.orders.push(o); added++; }
+      });
+      if (typeof dedupeOrders === 'function') S.orders = dedupeOrders(S.orders);
+      if (added) { window._syncAddedOrders = added; }
+    }
+
+    saveState();
+    localStorage.setItem('lmb_lastSync', new Date().toISOString());
+    toast(window._syncAddedOrders ? `✓ 同期完了（注文${window._syncAddedOrders}件を取り込み）` : '✓ 同期完了');
+    window._syncAddedOrders = 0;
+    updateKPI(); renderOrders(); renderStock();
+  } finally {
+    hideSyncOverlay();
   }
-  const stock = await gasGet('getStock');
-  if (stock && stock.stock){
-    stock.stock.forEach(s => {
-      if (!S.stock[s.branch]) S.stock[s.branch] = {};
-      if (!S.stockDetail[s.branch]) S.stockDetail[s.branch] = {};
-      const hasBkt = (s.qtyOld !== undefined || s.qtySp !== undefined || s.qtyNew !== undefined);
-      if (hasBkt){
-        S.stockDetail[s.branch][s.product] = { old: parseInt(s.qtyOld)||0, sp: parseInt(s.qtySp)||0, new: parseInt(s.qtyNew)||0 };
-      } else {
-        // 旧GAS（内訳なし）: 合計を新値バケツへ
-        S.stockDetail[s.branch][s.product] = { old:0, sp:0, new: parseInt(s.qty)||0 };
-      }
-      const b = S.stockDetail[s.branch][s.product];
-      S.stock[s.branch][s.product] = b.old + b.sp + b.new;
-    });
-  }
-  // 協賛ログ同期: サーバーlog + ローカル未同期分をマージ（IDで重複排除）
-  const spLogs = await gasGet('getSponsorLogs');
-  if (spLogs && Array.isArray(spLogs.logs)){
-    const serverIds = new Set(spLogs.logs.map(l => String(l.id)));
-    const localOnly = (S.sponsorLogs || []).filter(l => !serverIds.has(String(l.id)));
-    // ローカルのみのログをサーバーへ送る（取りこぼし防止）
-    if (S.gasUrl) localOnly.forEach(function(log){ try { gasPost({ action: 'saveSponsorLog', ...log }); } catch(e){} });
-    S.sponsorLogs = spLogs.logs.concat(localOnly);
-  }
-  // 注文受付シートの注文を取り込む（手動同期では since を無視して全件、漏れを補完）
-  const ord = await gasGet('getNewOrders', { since: '' });
-  if (ord && Array.isArray(ord.orders)){
-    let added = 0;
-    ord.orders.forEach(function(o){
-      o.items = normalizeOrderItems(o.items);
-      normalizeGasOrderDate(o);
-      const exists = (S.orders || []).find(x =>
-        String(x.id) === String(o.id) ||
-        (x.timestamp && o.timestamp && String(x.timestamp) === String(o.timestamp) && String(x.store) === String(o.store))
-      );
-      if (!exists){ if (!S.orders) S.orders = []; S.orders.push(o); added++; }
-    });
-    if (typeof dedupeOrders === 'function') S.orders = dedupeOrders(S.orders);
-    if (added) { /* 取込件数はトーストで通知 */ window._syncAddedOrders = added; }
-  }
-  saveState();
-  localStorage.setItem('lmb_lastSync', new Date().toISOString());
-  toast(window._syncAddedOrders ? `✓ 同期完了（注文${window._syncAddedOrders}件を取り込み）` : '✓ 同期完了');
-  window._syncAddedOrders = 0;
-  updateKPI(); renderOrders(); renderStock();
 }
 </script>
 
