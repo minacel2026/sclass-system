@@ -621,14 +621,6 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           </div>
         </div>
         <div class="form-section">
-          <div class="form-section-title">▸ 委託販売</div>
-          <div class="sponsor-toggle">
-            <input type="checkbox" id="cf-consign">
-            <label for="cf-consign" style="font-size:.78rem;color:var(--wh);cursor:pointer">この顧客は委託先（預け在庫・販売報告の対象）</label>
-          </div>
-          <div style="font-size:.66rem;color:var(--wh3);margin-top:.3rem">▸ ONにすると、注文登録の「委託納品」や委託管理の選択肢に表示されます。</div>
-        </div>
-        <div class="form-section">
           <div class="form-section-title">▸ 協賛設定</div>
           <div class="sponsor-toggle">
             <input type="checkbox" id="cf-sponsor" onchange="toggleCustSponsor()">
@@ -1319,14 +1311,15 @@ const PROD_LIST = [
   {key:'ルミナス',     name:'ルミナス',     fullName:'007: Luminous',                    category:'スパークリング', cost:25000, costOld:25000, price:55000,  priceOld:55000,  reorder:6,  img:''},
   {key:'レジェンド',   name:'レジェンド',   fullName:'008: Legend',                      category:'スパークリング', cost:25000, costOld:25000, price:55000,  priceOld:55000,  reorder:6,  img:''},
   {key:'さくら',       name:'さくら',       fullName:'009: Sakura',                      category:'スパークリング', cost:12000, costOld:12000, price:25000,  priceOld:25000,  reorder:6,  img:''},
-  {key:'チェングレット', name:'チェングレット', fullName:'010: Cheng Leggero',             category:'スティルワイン', cost:3000, costOld:3000,  price:6800,   priceOld:6800,   reorder:12, img:''},
-  {key:'チェングロッソ', name:'チェングロッソ', fullName:'011: Cheng Grosso',              category:'スティルワイン', cost:3000, costOld:3000,  price:6800,   priceOld:6800,   reorder:12, img:''},
+  {key:'チェングレケット', name:'チェングレケット', fullName:'010: Cheng Leggero',             category:'スティルワイン', cost:3000, costOld:3000,  price:6800,   priceOld:6800,   reorder:12, img:''},
+  {key:'チェンロッソ', name:'チェンロッソ', fullName:'011: Cheng Grosso',              category:'スティルワイン', cost:3000, costOld:3000,  price:6800,   priceOld:6800,   reorder:12, img:''},
   {key:'トレスコーネ', name:'トレスコーネ', fullName:'012: Trescone',                    category:'スティルワイン', cost:3500, costOld:3500,  price:7800,   priceOld:7800,   reorder:12, img:''},
   {key:'エラ',         name:'エラ',         fullName:'013: Ella',                        category:'スティルワイン', cost:4500, costOld:4500,  price:10000,  priceOld:10000,  reorder:10, img:''},
   {key:'トラミ',       name:'トラミ',       fullName:'014: Trami',                       category:'スティルワイン', cost:6000, costOld:6000,  price:13000,  priceOld:13000,  reorder:10, img:''},
   {key:'カンポレオーネ', name:'カンポレオーネ', fullName:'015: Campoleone',                category:'スティルワイン', cost:4500, costOld:4500,  price:10000,  priceOld:10000,  reorder:10, img:''},
   {key:'GIFTBOX',      name:'GIFTBOX',      fullName:'016: GIFTBOX',                     category:'ギフト',       cost:9000, costOld:9000,  price:20000,  priceOld:20000,  reorder:5,  img:''},
   {key:'コラチョロサ', name:'コラチョロサ', fullName:'017: Cora Chollosa',               category:'スティルワイン', cost:8000, costOld:8000,  price:17000,  priceOld:17000,  reorder:6,  img:''},
+  {key:'レジェ･メトドクラシコ', name:'レジェ･メトドクラシコ', fullName:'018: Legend Metodo Classico', category:'スパークリング', cost:25000, costOld:25000, price:55000,  priceOld:55000,  reorder:6,  img:''},
 ];
 
 const PRODS   = PROD_LIST.map(p => p.key);
@@ -1684,7 +1677,7 @@ function renderCustList(){
             return `
             <tr onclick="openCustRow(${realIdx})">
               <td>${escapeHtml(c.branch || '—')}</td>
-              <td class="ct-name">${escapeHtml(c.name || '無名')}${c.sponsorEnabled ? ' <span class="ct-spo">協賛</span>' : ''}${c.consignEnabled ? ' <span class="ct-spo" style="background:rgba(126,226,168,.18);color:#7ee2a8">委託</span>' : ''}</td>
+              <td class="ct-name">${escapeHtml(c.name || '無名')}${c.sponsorEnabled ? ' <span class="ct-spo">協賛</span>' : ''}</td>
               <td>${escapeHtml(c.tel || '—')}</td>
               <td>${escapeHtml(c.owner || '—')}</td>
               <td>${escapeHtml(c.staff || '—')}</td>
@@ -1818,7 +1811,6 @@ function fillCustForm(c){
   g('cf-common-price-mode').value = c.commonPriceMode || '新値';
   g('cf-common-tax').value        = c.commonTaxType   || '税込';
   g('cf-sponsor').checked=!!c.sponsorEnabled;
-  document.getElementById('cf-consign').checked=!!c.consignEnabled;
   g('cf-sponsor-trigger').value=c.sponsorTrigger||'';
   g('cf-sponsor-reward').value=c.sponsorReward||'';
   g('cf-sponsor-product').value=c.sponsorProduct||'';
@@ -1871,7 +1863,6 @@ function clearCustForm(){
   document.getElementById('cf-common-price-mode').value = '新値';
   document.getElementById('cf-common-tax').value = '税込';
   document.getElementById('cf-sponsor').checked = false;
-  document.getElementById('cf-consign').checked = false;
   document.getElementById('cf-sponsor-instant').checked = false;
   document.getElementById('cf-free-shipping').checked = false;
   document.getElementById('cf-ship-include-sponsor').value = 'あり';
@@ -2210,7 +2201,6 @@ function submitCustForm(){
     productRates: getCustProdRates(),
     note: g('cf-note'),
     sponsorEnabled: document.getElementById('cf-sponsor').checked,
-    consignEnabled: document.getElementById('cf-consign').checked,
     sponsorTrigger: g('cf-sponsor-trigger'),
     sponsorReward:  g('cf-sponsor-reward'),
     sponsorProduct: g('cf-sponsor-product'),

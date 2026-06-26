@@ -16,14 +16,15 @@ const PROD_LIST = [
   {key:'ルミナス',     name:'ルミナス',     fullName:'007: Luminous',                    category:'スパークリング', cost:25000, price:55000,  reorder:6,  img:''},
   {key:'レジェンド',   name:'レジェンド',   fullName:'008: Legend',                      category:'スパークリング', cost:25000, price:55000,  reorder:6,  img:''},
   {key:'さくら',       name:'さくら',       fullName:'009: Sakura',                      category:'スパークリング', cost:12000, price:25000,  reorder:6,  img:''},
-  {key:'チェングレット', name:'チェングレット', fullName:'010: Cheng Leggero',             category:'スティルワイン', cost:3000,  price:6800,   reorder:12, img:''},
-  {key:'チェングロッソ', name:'チェングロッソ', fullName:'011: Cheng Grosso',              category:'スティルワイン', cost:3000,  price:6800,   reorder:12, img:''},
+  {key:'チェングレケット', name:'チェングレケット', fullName:'010: Cheng Leggero',             category:'スティルワイン', cost:3000,  price:6800,   reorder:12, img:''},
+  {key:'チェンロッソ', name:'チェンロッソ', fullName:'011: Cheng Grosso',              category:'スティルワイン', cost:3000,  price:6800,   reorder:12, img:''},
   {key:'トレスコーネ', name:'トレスコーネ', fullName:'012: Trescone',                    category:'スティルワイン', cost:3500,  price:7800,   reorder:12, img:''},
   {key:'エラ',         name:'エラ',         fullName:'013: Ella',                        category:'スティルワイン', cost:4500,  price:10000,  reorder:10, img:''},
   {key:'トラミ',       name:'トラミ',       fullName:'014: Trami',                       category:'スティルワイン', cost:6000,  price:13000,  reorder:10, img:''},
   {key:'カンポレオーネ', name:'カンポレオーネ', fullName:'015: Campoleone',                category:'スティルワイン', cost:4500,  price:10000,  reorder:10, img:''},
   {key:'GIFTBOX',      name:'GIFTBOX',      fullName:'016: GIFTBOX',                     category:'ギフト',       cost:9000,  price:20000,  reorder:5,  img:''},
   {key:'コラチョロサ', name:'コラチョロサ', fullName:'017: Cora Chollosa',               category:'スティルワイン', cost:8000,  price:17000,  reorder:6,  img:''},
+  {key:'レジェ･メトドクラシコ', name:'レジェ･メトドクラシコ', fullName:'018: Legend Metodo Classico', category:'スパークリング', cost:25000, price:55000,  reorder:6,  img:''},
 ];
 
 // ─── 商品マスタから派生する定数 ────────────────────
