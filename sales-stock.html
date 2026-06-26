@@ -167,6 +167,23 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   #stock-grid .stock-table th.col-num,#stock-grid .stock-table td.col-num{width:26px}
   #stock-grid .stock-table td.c-total,#stock-grid .stock-table th:nth-child(5){width:48px}
 }
+@media (max-width:768px){
+  /* KPIを圧縮して、その下のタブを早く見せる */
+  main .kpi-row{grid-template-columns:repeat(3,1fr)!important;gap:.35rem!important;margin-bottom:.6rem!important}
+  main .kpi-row .kpi{padding:.4rem .35rem!important}
+  main .kpi-row .kpi-lbl{font-size:.54rem!important;letter-spacing:0!important}
+  main .kpi-row .kpi-val{font-size:1.05rem!important}
+  main .kpi-row .kpi-sub{font-size:.5rem!important}
+  /* タブを見やすく：横スクロールしつつ現在地を明確に */
+  .master-tabs{gap:3px;padding:4px;margin-bottom:.8rem;border-color:rgba(201,168,76,.35)}
+  .mtab{min-width:80px;font-size:.74rem;padding:.55rem .45rem;color:var(--wh)}
+  .mtab .mtab-ic{font-size:1.05rem}
+  .mtab.active{background:var(--gold)!important;color:#1a1408!important;font-weight:700!important;box-shadow:none!important}
+}
+@media (max-width:380px){
+  main .kpi-row{grid-template-columns:repeat(2,1fr)!important}
+  .mtab{min-width:72px;font-size:.7rem}
+}
 .st-pdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:.45rem;vertical-align:middle}
 .st-qty{font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--wh);letter-spacing:.04em;text-align:right;white-space:nowrap}
 .st-qty.low{color:var(--org)}
