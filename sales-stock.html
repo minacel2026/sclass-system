@@ -843,6 +843,22 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 
     <div class="hint-box">▸ 貸出・借入の入力は「注文登録」タブに統合しました（取引種別＝貸出／借入）。ここでは貸借先の登録・残数・履歴を確認できます。</div>
 
+    <details class="fp" id="lend-opening" style="margin-bottom:1rem">
+      <summary style="cursor:pointer;font-weight:700;color:var(--gold-l)">⊕ 貸借残 初期登録（在庫に影響しません・残数のみ登録）</summary>
+      <div style="margin-top:.6rem">
+        <div class="hint-box" style="margin:.2rem 0 .5rem">稼働開始時点で既に貸出中／借入中だった残数を、相手・商品ごとに登録します。<b>在庫は一切動きません</b>（4/1期首在庫に貸借中も含めて数えているため）。通常運用の貸出/借入は「注文登録」タブで行ってください（そちらは在庫が動きます）。</div>
+        <div class="frow">
+          <div class="fg"><label>相手（貸借先）</label><select class="fc" id="lo-partner"></select></div>
+          <div class="fg"><label>種別</label><select class="fc" id="lo-kind"><option value="貸出">貸出中（こちらが貸している）</option><option value="借入">借入中（こちらが借りている）</option></select></div>
+          <div class="fg"><label>拠点</label><select class="fc" id="lo-branch"><option>仙台</option><option>京都</option></select></div>
+          <div class="fg"><label>商品</label><select class="fc" id="lo-prod"></select></div>
+          <div class="fg"><label>本数</label><input class="fc" id="lo-qty" type="number" min="1" step="1" placeholder="例：10"></div>
+          <div class="fg"><label>メモ（任意）</label><input class="fc" id="lo-memo" placeholder="例：期首残"></div>
+        </div>
+        <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="recordLendingOpening()">＋ 残数のみ登録（在庫を動かさない）</button></div>
+      </div>
+    </details>
+
     <div class="fp">
       <div class="th-area"><h3>📊 貸借残数（相手ごと・未返却）</h3></div>
       <div id="lend-balance"></div>
@@ -3542,14 +3558,14 @@ function normalizeOrderItems(raw){
 // 在庫の変動をスプレッドシートへ反映（同期しないとGAS同期で減算が元に戻ってしまう）
 // ════════ 在庫貸借管理 ════════
 function loadLending(force){
-  renderLendPartners(); fillLendSelectors(); renderLendBalance(); renderLendList();
+  renderLendPartners(); fillLendSelectors(); renderLendBalance(); renderLendList(); renderLendOpeningForm();
   if(!S.gasUrl) return;
   (async()=>{
     try{
       const a=await gasGet('getLendPartners'); if(a&&a.partners) S.lendPartners=a.partners;
       const b=await gasGet('getLendings');     if(b&&b.lendings) S.lendings=b.lendings;
       saveState();
-      renderLendPartners(); fillLendSelectors(); renderLendBalance(); renderLendList();
+      renderLendPartners(); fillLendSelectors(); renderLendBalance(); renderLendList(); renderLendOpeningForm();
     }catch(e){ if(force) toast('最新の取得に失敗しました','error'); }
   })();
 }
@@ -3616,6 +3632,39 @@ function recordLending(){
   document.getElementById('ln-qty').value=''; document.getElementById('ln-memo').value=''; document.getElementById('ln-due').value='';
   toast('✓ '+kind+'を記録しました（在庫'+(kind==='貸出'?'−':'+')+qty+'本）');
   renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock();
+}
+
+// 貸借残 初期登録：在庫を動かさず（_lendStockMoveを呼ばない）、残数レコードだけ作成
+function recordLendingOpening(){
+  if (typeof canEdit === 'function' && !canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const kind=(document.getElementById('lo-kind')||{}).value||'貸出';
+  const pid=(document.getElementById('lo-partner')||{}).value;
+  const branch=(document.getElementById('lo-branch')||{}).value||'仙台';
+  const prod=(document.getElementById('lo-prod')||{}).value;
+  const qty=parseInt((document.getElementById('lo-qty')||{}).value||'',10);
+  const memo=((document.getElementById('lo-memo')||{}).value||'').trim();
+  if(!pid) return toast('相手を選んでください','error');
+  if(!prod) return toast('商品を選んでください','error');
+  if(!(qty>0)) return toast('本数を入力してください','error');
+  const partner=(S.lendPartners||[]).find(p=>p.id===pid)||{};
+  // ★在庫は動かさない（_lendStockMove を呼ばない）＝在庫初期登録に影響しない
+  const rec={ id:'ln-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:today(),
+    partnerId:pid, partnerName:partner.name||'', partnerUid:partner.uid||'',
+    kind, branch, product:prod, qty, dueDate:'', memo:(memo||'期首残'), status:'未返却', returnedDate:'',
+    opening:true, createdAt:new Date().toISOString(), createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
+  S.lendings=S.lendings||[]; S.lendings.push(rec); saveState();
+  if(S.gasUrl){ gasPost({action:'saveLending', id:rec.id, date:rec.date, partnerId:rec.partnerId, partnerName:rec.partnerName, partnerUid:rec.partnerUid, kind:rec.kind, branch:rec.branch, product:rec.product, qty:rec.qty, dueDate:rec.dueDate, memo:rec.memo, status:rec.status, createdBy:rec.createdBy }); }
+  // syncStockToGAS / renderStock は呼ばない（在庫は不変）
+  document.getElementById('lo-qty').value=''; document.getElementById('lo-memo').value='';
+  toast('✓ 貸借残を初期登録しました（在庫は変わりません）');
+  renderLendBalance(); renderLendList();
+}
+// 初期登録フォームの相手・商品プルダウンを生成
+function renderLendOpeningForm(){
+  const ps=document.getElementById('lo-partner');
+  if(ps){ const keep=ps.value; ps.innerHTML='<option value="">— 貸借先を選択 —</option>'+(S.lendPartners||[]).map(p=>'<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.name)+'</option>').join(''); if(keep) ps.value=keep; }
+  const pr=document.getElementById('lo-prod');
+  if(pr && !pr.options.length){ pr.innerHTML=PROD_LIST.map(p=>'<option>'+p.name+'</option>').join(''); }
 }
 
 function returnLending(id){
