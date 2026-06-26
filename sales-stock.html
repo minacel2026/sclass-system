@@ -141,20 +141,31 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .stock-table tbody tr.low{background:rgba(230,126,34,.06)}
 .stock-table tbody tr.out{background:rgba(231,76,60,.08)}
 .st-pname{color:var(--wh);white-space:nowrap}
+.t-mini{display:none}
 @media (max-width:768px){
-  /* 在庫テーブルをスマホでカード表示にして横スクロールを無くす */
-  .stock-cols{display:block!important}
-  .stock-table{min-width:0!important;width:100%!important;display:block;font-size:.84rem}
-  .stock-table thead{display:none}
-  .stock-table tbody{display:block}
-  .stock-table tr{display:block;height:auto!important;border:1px solid rgba(201,168,76,.18);border-radius:10px;background:var(--d2);padding:.5rem .7rem;margin-bottom:.5rem}
-  .stock-table td{display:flex;justify-content:space-between;align-items:center;gap:.6rem;height:auto!important;border:none!important;padding:.2rem 0!important;text-align:right!important;white-space:normal!important}
-  .stock-table td::before{content:attr(data-label);color:var(--gold-d);font-size:.74rem;font-weight:600;white-space:nowrap;text-align:left}
-  .stock-table td.c-name{display:block;padding-bottom:.4rem!important;border-bottom:1px solid rgba(255,255,255,.07)!important;margin-bottom:.3rem}
-  .stock-table td.c-name::before{content:none}
-  .stock-table td.c-adj .st-adj{justify-content:flex-end;flex-wrap:nowrap}
-  .stock-table td.c-adj input{width:48px}
-  .stock-table td.c-adj select{width:52px!important}
+  /* 在庫一覧（#stock-grid）だけ：横スクロールせず小さい文字で1行に収める */
+  #stock-grid .stock-cols{display:block!important}
+  #stock-grid .stock-table{min-width:0!important;width:100%!important;table-layout:fixed;font-size:.66rem}
+  #stock-grid .stock-table th,#stock-grid .stock-table td{padding:.3rem .15rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #stock-grid .stock-table td::before{content:none}
+  /* 携帯では調整列を隠す（調整は使わない方針／必要時はPCか上の初期登録・拠点間移動から） */
+  #stock-grid .stock-table .c-adj{display:none!important}
+  /* 合計は短縮表示に切替 */
+  #stock-grid .t-full{display:none}
+  #stock-grid .t-mini{display:inline}
+  /* 列幅：商品を広め、旧/協/新は最小、合計は短め */
+  #stock-grid .stock-table th.col-num,#stock-grid .stock-table td.col-num{width:30px;text-align:right}
+  #stock-grid .stock-table td.c-total,#stock-grid .stock-table th:nth-child(5){width:54px;text-align:right}
+  #stock-grid .st-pname{font-size:.7rem}
+  #stock-grid .st-pdot{width:6px;height:6px}
+  #stock-grid .stock-table td.col-num span{min-width:0!important;padding:0 2px!important;font-size:.66rem!important}
+  #stock-grid .stock-table td.c-name>div{height:4px!important;margin-top:2px!important}
+  #stock-grid .stock-col-title{font-size:.72rem!important}
+}
+@media (max-width:380px){
+  #stock-grid .stock-table{font-size:.6rem}
+  #stock-grid .stock-table th.col-num,#stock-grid .stock-table td.col-num{width:26px}
+  #stock-grid .stock-table td.c-total,#stock-grid .stock-table th:nth-child(5){width:48px}
 }
 .st-pdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:.45rem;vertical-align:middle}
 .st-qty{font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--wh);letter-spacing:.04em;text-align:right;white-space:nowrap}
@@ -3020,7 +3031,7 @@ function renderStock(){
         <td class="col-num c-old" data-label="🟠 旧値" title="旧値在庫">${chip(bk.old, '#e8b85a', 'rgba(217,162,58,.16)')}</td>
         <td class="col-num c-sp" data-label="🟣 協賛" title="協賛在庫">${chip(bk.sp, '#d3a8e0', 'rgba(195,155,211,.18)')}</td>
         <td class="col-num c-new" data-label="🟢 新値" title="新値在庫">${chip(bk.new, '#8fe0ab', 'rgba(108,199,143,.16)')}</td>
-        <td class="st-qty c-total ${cls}" data-label="在庫">${q}本${rsvTxt} → 出荷可能 ${avail}本</td>
+        <td class="st-qty c-total ${cls}" data-label="在庫"><span class="t-full">${q}本${rsvTxt} → 出荷可能 ${avail}本</span><span class="t-mini">${q}${rsv>0?`<span style="color:var(--org)">(-${rsv})</span>`:''}→${avail}</span></td>
         <td class="c-adj" data-label="調整">
           <div class="st-adj">
             <select id="adjb-${p.key}-${branch}" style="width:44px;font-size:.7rem;padding:.2rem 0" title="調整するバケツ（旧値/協賛/新値）"><option value="old">旧</option><option value="sp">協</option><option value="new" selected>新</option></select>
@@ -3043,7 +3054,7 @@ function renderStock(){
       <h3 class="stock-col-title">${branch}（引き当て順：🟠旧値 → 🟣協賛 → 🟢新値／補充閾値以下はオレンジ・在庫切れは赤）</h3>
       ${summary}
       <table class="stock-table">
-        <thead><tr><th>商品（内訳バー）</th><th class="col-num">🟠旧値</th><th class="col-num">🟣協賛</th><th class="col-num">🟢新値</th><th class="col-num">合計（引当→出荷可能）</th><th class="col-num">調整</th></tr></thead>
+        <thead><tr><th>商品（内訳バー）</th><th class="col-num">🟠旧値</th><th class="col-num">🟣協賛</th><th class="col-num">🟢新値</th><th class="col-num">合計（引当→出荷可能）</th><th class="col-num c-adj">調整</th></tr></thead>
         <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:var(--wh3);padding:.7rem">該当なし</td></tr>'}</tbody>
       </table>
     </div>`;
