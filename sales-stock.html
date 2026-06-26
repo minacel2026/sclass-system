@@ -169,12 +169,12 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 }
 @media (max-width:768px){
   /* ダッシュボードKPIだけ2段：上2つ（注文・売上＝等幅）／下3つ（今月・警告・切れ＝等幅） */
-  #dash-kpi{display:grid!important;grid-template-columns:repeat(6,1fr)!important;gap:.4rem!important;margin-bottom:.6rem!important;overflow:visible!important}
-  #dash-kpi .kpi{padding:.45rem .55rem!important;min-width:0!important;grid-column:span 2}
+  #dash-kpi{display:grid!important;grid-template-columns:repeat(6,1fr)!important;gap:.3rem .4rem!important;margin-bottom:.55rem!important;overflow:visible!important}
+  #dash-kpi .kpi{grid-column:span 2;display:flex!important;align-items:baseline;gap:.3rem;padding:.28rem .5rem!important;min-width:0!important;border-radius:6px}
   #dash-kpi .kpi:nth-child(1),#dash-kpi .kpi:nth-child(2){grid-column:span 3}
-  #dash-kpi .kpi-lbl{font-size:.56rem!important;letter-spacing:0!important}
-  #dash-kpi .kpi-val{font-size:1.1rem!important;line-height:1.15}
-  #dash-kpi .kpi-sub{font-size:.52rem!important}
+  #dash-kpi .kpi-lbl{font-size:.62rem!important;letter-spacing:0!important;white-space:nowrap;margin:0!important}
+  #dash-kpi .kpi-val{font-size:.92rem!important;line-height:1;white-space:nowrap;margin:0!important}
+  #dash-kpi .kpi-sub{font-size:.56rem!important;margin:0!important}
   /* タブを見やすく：横スクロールしつつ現在地を明確に */
   .master-tabs{gap:3px;padding:4px;margin-bottom:.8rem;border-color:rgba(201,168,76,.35)}
   .mtab{min-width:80px;font-size:.74rem;padding:.55rem .45rem;color:var(--wh)}
