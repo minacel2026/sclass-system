@@ -24,7 +24,7 @@ const PROD_LIST = [
   {key:'カンポレオーネ', name:'カンポレオーネ', fullName:'015: Campoleone',                category:'スティルワイン', cost:4500,  price:10000,  reorder:10, img:''},
   {key:'GIFTBOX',      name:'GIFTBOX',      fullName:'016: GIFTBOX',                     category:'ギフト',       cost:9000,  price:20000,  reorder:5,  img:''},
   {key:'コラチョロサ', name:'コラチョロサ', fullName:'017: Cora Chollosa',               category:'スティルワイン', cost:8000,  price:17000,  reorder:6,  img:''},
-  {key:'レジェ･メトドクラシコ', name:'レジェ･メトドクラシコ', fullName:'018: Legend Metodo Classico', category:'スパークリング', cost:25000, price:55000,  reorder:6,  img:''},
+  {key:'レジェ･メトドクラシコ', name:'レジェ･メトドクラシコ', fullName:'018: Legend Metodo Classico', category:'スパークリング', cost:44000, price:100000,  reorder:6,  img:''},
 ];
 
 // ─── 商品マスタから派生する定数 ────────────────────

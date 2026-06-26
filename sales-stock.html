@@ -135,9 +135,9 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .stock-col{border:1px solid rgba(201,168,76,.18);overflow-x:auto}
 .stock-col-title{font-size:.85rem;color:var(--gold-l);font-weight:600;padding:.5rem .8rem;background:var(--d3);border-bottom:1px solid rgba(201,168,76,.25);margin:0;letter-spacing:.05em}
 .stock-table{width:100%;border-collapse:collapse;font-size:.8rem}
-.stock-table th{background:var(--d2);padding:.4rem .6rem;text-align:left;font-size:.66rem;color:var(--gold-d);font-weight:500;border-bottom:1px solid rgba(201,168,76,.15);white-space:nowrap}
+.stock-table th{background:var(--d2);padding:.4rem .4rem;text-align:left;font-size:.66rem;color:var(--gold-d);font-weight:500;border-bottom:1px solid rgba(201,168,76,.15);white-space:nowrap}
 .stock-table th.col-num{text-align:right}
-.stock-table td{padding:.35rem .6rem;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle;height:46px;box-sizing:border-box}
+.stock-table td{padding:.35rem .4rem;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle;height:46px;box-sizing:border-box}
 .stock-table tbody tr.low{background:rgba(230,126,34,.06)}
 .stock-table tbody tr.out{background:rgba(231,76,60,.08)}
 .st-pname{color:var(--wh);white-space:nowrap}
@@ -145,9 +145,9 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .st-qty{font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--wh);letter-spacing:.04em;text-align:right;white-space:nowrap}
 .st-qty.low{color:var(--org)}
 .st-qty.out{color:var(--red)}
-.st-adj{display:flex;gap:.25rem;align-items:center;justify-content:flex-end;flex-wrap:nowrap}
-.st-adj button{white-space:nowrap}
-.st-adj input{background:var(--d3);border:1px solid rgba(201,168,76,.2);color:var(--wh);padding:.25rem;font-size:.72rem;font-family:'Bebas Neue',sans-serif;text-align:center;width:44px}
+.st-adj{display:flex;gap:.2rem;align-items:center;justify-content:flex-end;flex-wrap:nowrap}
+.st-adj button{white-space:nowrap;padding:.25rem .5rem}
+.st-adj input{background:var(--d3);border:1px solid rgba(201,168,76,.2);color:var(--wh);padding:.25rem;font-size:.72rem;font-family:'Bebas Neue',sans-serif;text-align:center;width:36px}
 @media(max-width:640px){.stock-cols{grid-template-columns:1fr}}
 
 /* ─── ボタン ─── */
@@ -845,7 +845,7 @@ const PROD_LIST = [
   {key:'カンポレオーネ', name:'カンポレオーネ', color:'#00b894', cost:4500, costOld:4500,  price:10000, priceOld:10000,  reorder:10},
   {key:'GIFTBOX',      name:'GIFTBOX',      color:'#c9a84c', cost:9000, costOld:9000,  price:20000, priceOld:20000,  reorder:5},
   {key:'コラチョロサ', name:'コラチョロサ', color:'#fd79a8', cost:8000, costOld:8000,  price:17000, priceOld:17000,  reorder:6},
-  {key:'レジェ･メトドクラシコ', name:'レジェ･メトドクラシコ', color:'#9b59b6', cost:25000, costOld:25000, price:55000, priceOld:55000,  reorder:6},
+  {key:'レジェ･メトドクラシコ', name:'レジェ･メトドクラシコ', color:'#9b59b6', cost:44000, costOld:44000, price:100000, priceOld:100000,  reorder:6},
 ];
 
 const PRODS   = PROD_LIST.map(p => p.key);
@@ -2966,7 +2966,7 @@ function renderStock(){
     const seg = (v, c) => v > 0 ? `<span style="flex:${v};background:${c}"></span>` : '';
     return `<div style="display:flex;height:7px;border-radius:4px;overflow:hidden;margin-top:4px;gap:1px">${seg(o,'#d9a23a')}${seg(s,'#c39bd3')}${seg(n,'#6cc78f')}</div>`;
   }
-  const chip = (v, c, bg) => `<span style="display:inline-block;min-width:34px;padding:1px 6px;border-radius:99px;background:${bg};color:${c};font-weight:700;font-size:.78rem">${v}</span>`;
+  const chip = (v, c, bg) => `<span style="display:inline-block;min-width:28px;padding:1px 5px;border-radius:99px;background:${bg};color:${c};font-weight:700;font-size:.78rem">${v}</span>`;
 
   function buildTable(branch){
     let tOld = 0, tSp = 0, tNew = 0;
@@ -2990,7 +2990,7 @@ function renderStock(){
         <td class="st-qty ${cls}">${q}本${rsvTxt} → 出荷可能 ${avail}本</td>
         <td>
           <div class="st-adj">
-            <select id="adjb-${p.key}-${branch}" style="width:64px;font-size:.7rem"><option value="old">旧値</option><option value="sp">協賛</option><option value="new" selected>新値</option></select>
+            <select id="adjb-${p.key}-${branch}" style="width:44px;font-size:.7rem;padding:.2rem 0" title="調整するバケツ（旧値/協賛/新値）"><option value="old">旧</option><option value="sp">協</option><option value="new" selected>新</option></select>
             <input type="number" placeholder="±" id="adj-${p.key}-${branch}" step="1">
             <button class="act-btn" onclick="adjustStock('${p.key}','${branch}')">調整</button>
           </div>
