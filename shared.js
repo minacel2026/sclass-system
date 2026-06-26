@@ -50,7 +50,7 @@ const S = {
   suppliers:['マルシェジャパン','オーク酒販'],
   cashEntries:[],       // 現金出納帳
   dailyReps:[],         // 営業日報
-  gasUrl: localStorage.getItem('gasUrl') || '',
+  gasUrl: (function(){var U='https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';try{if(localStorage.getItem('gasUrl')!==U)localStorage.setItem('gasUrl',U);}catch(e){}return U;})(),
 };
 
 // ─── 共通ヘルパー関数 ───────────────────────────────
