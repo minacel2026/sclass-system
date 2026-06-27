@@ -1170,6 +1170,7 @@ async function syncFromGAS(){
     }
 
     const stock = await pStock;
+    if (stock && stock.rev != null) S.stockRev = Number(stock.rev);   // 在庫版番号を記憶（競合検知用）
     if (stock && stock.stock){
       stock.stock.forEach(s => {
         if (!S.stock[s.branch]) S.stock[s.branch] = {};
@@ -3136,9 +3137,10 @@ function renderStock(){
   renderTransferForm();
 }
 
-function adjustStock(product, branch){
+async function adjustStock(product, branch){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
   const inp = document.getElementById(`adj-${product}-${branch}`);
   const delta = parseInt(inp.value) || 0;
   if (delta === 0) return;
@@ -3847,9 +3849,10 @@ function updateTransferPreview(){
   box.innerHTML = `現在：${from}の${lbl} <b>${bf[bkt]}</b>本 ／ ${to}の${lbl} <b>${bt[bkt]}</b>本`
     + (qty>0 ? `　→　移動後：${from} <b>${bf[bkt]-qty}</b>本 ／ ${to} <b>${bt[bkt]+qty}</b>本` : '');
 }
-function transferStock(){
+async function transferStock(){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
   const from = (document.getElementById('tr-from')||{}).value;
   const to   = (document.getElementById('tr-to')||{}).value;
   const prod = (document.getElementById('tr-prod')||{}).value;
@@ -3881,9 +3884,10 @@ function transferStock(){
   renderTransferForm();
   updateKPI();
 }
-function saveStockInit(){
+async function saveStockInit(){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
   const br = (document.getElementById('si-br') || {}).value || '仙台';
   if (!confirm(`${br}の在庫を、入力した旧値・協賛・新値で上書きします。よろしいですか？`)) return;
   PROD_LIST.forEach(p => {
@@ -3912,6 +3916,21 @@ function syncStockToGAS(){
     });
   });
   try { gasPost({ action: 'updateAllStock', stockData: stockData }); } catch(e){}
+  // 在庫を書き換えたのでローカルの版番号も+1（サーバの版上げをミラー）。未取得時は触らない
+  if (S.stockRev != null) S.stockRev = Number(S.stockRev) + 1;
+}
+
+// 同時編集ガード：保存直前にサーバの在庫版番号を取得し、自分が読んだ版と違えば競合とみなす
+async function guardStockWrite(){
+  if (!S.gasUrl) return true;            // GAS未接続時は素通り
+  try {
+    const r = await gasGet('getStockRev');
+    if (r && typeof r.rev !== 'undefined' && S.stockRev != null && Number(r.rev) !== Number(S.stockRev)){
+      toast('⚠️ 他の端末で在庫が更新されています。先に「GAS同期」で最新を取り込んでから操作してください', 'error');
+      return false;
+    }
+  } catch(e){ /* 取得失敗時は止めない（運用を妨げない） */ }
+  return true;
 }
 
 // 注文の重複を排除（同IDは最新を残す／別IDでも内容が同一なら統合）
