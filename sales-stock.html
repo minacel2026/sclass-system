@@ -141,6 +141,8 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .stock-table tbody tr.low{background:rgba(230,126,34,.06)}
 .stock-table tbody tr.out{background:rgba(231,76,60,.08)}
 .st-pname{color:var(--wh);white-space:nowrap}
+/* 調整権限なし（社長・閲覧者）には在庫調整・初期登録・拠点間移動・貸借残初期登録・協賛手動調整を非表示 */
+body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #lend-opening,body.no-adjust #sp-manual-adjust,body.no-adjust .st-adj,body.no-adjust .c-adj{display:none!important}
 .t-mini{display:none}
 @media (max-width:768px){
   /* 在庫一覧（#stock-grid）だけ：横スクロールせず小さい文字で1行に収める */
@@ -793,14 +795,14 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         </div>
       </div>
       <div id="sp-rc-preview"></div>
-      <div class="th-area" style="margin-top:.6rem"><h4 style="margin:0;color:var(--gold-l);font-size:.82rem">手動調整（実績入力開始時の開始残数合わせ）</h4></div>
+      <div id="sp-manual-adjust"><div class="th-area" style="margin-top:.6rem"><h4 style="margin:0;color:var(--gold-l);font-size:.82rem">手動調整（実績入力開始時の開始残数合わせ）</h4></div>
       <div class="frow">
         <div class="fg"><label>顧客</label><select class="fc" id="sp-adj-cust"><option value="">— 顧客を選択 —</option></select></div>
         <div class="fg"><label>商品</label><select class="fc" id="sp-adj-prod"><option value="">— 商品を選択 —</option></select></div>
         <div class="fg"><label>調整本数（±）</label><input type="number" class="fc" id="sp-adj-qty" placeholder="例：3 / -2"></div>
         <div class="fg"><label>メモ</label><input class="fc" id="sp-adj-memo" placeholder="例：移行時の繰越"></div>
         <div class="fg" style="justify-content:flex-end"><button class="btn" onclick="spManualAdjust()" style="width:100%;height:30px;padding:0 1.4rem;display:flex;align-items:center;justify-content:center">調整を追加</button></div>
-      </div>
+      </div></div>
     </div>
 
     <div class="sponsor-cols">
@@ -1037,7 +1039,7 @@ const currentUser = JSON.parse(sessionStorage.getItem('lmb_current_user') || 'nu
 function updateUserBadge(){
   const badge = document.getElementById('user-badge');
   if (!badge) return;
-  const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁'};
+  const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁',president:'🤵'};
   badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name} (${currentUser.role})`;
 }
 
@@ -1062,8 +1064,10 @@ function escapeHtml(s){
   return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function canEdit(){ return currentUser && ['admin','manager','staff'].includes(currentUser.role); }
-function canDelete(){ return currentUser && ['admin','manager'].includes(currentUser.role); }
+function canEdit(){ return currentUser && ['admin','manager','staff','president'].includes(currentUser.role); }
+function canDelete(){ return currentUser && ['admin','manager','president'].includes(currentUser.role); }
+// 在庫の直接調整・初期登録・マスタ変更の権限（社長・閲覧者は不可）。取引（注文/返却等）は canEdit 側で許可。
+function canAdjust(){ return currentUser && ['admin','manager','staff'].includes(currentUser.role); }
 
 // ─── 親タブ切替 ─────
 function switchModule(name, el){
@@ -2205,7 +2209,7 @@ async function spApplyRecalc(){
 
 // 手動調整：実績入力開始時点の残数合わせ（開始残数のセット）。orderIdなしで記録。
 async function spManualAdjust(){
-  if(typeof canDelete==='function' && !canDelete()){ toast('🔒 権限がありません','error'); return; }
+  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   const cid=(document.getElementById('sp-adj-cust')||{}).value||'';
   const prod=((document.getElementById('sp-adj-prod')||{}).value||'').trim();
   const qty=parseInt((document.getElementById('sp-adj-qty')||{}).value||'',10);
@@ -3133,6 +3137,7 @@ function renderStock(){
 }
 
 function adjustStock(product, branch){
+  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   const inp = document.getElementById(`adj-${product}-${branch}`);
   const delta = parseInt(inp.value) || 0;
@@ -3636,7 +3641,7 @@ function recordLending(){
 
 // 貸借残 初期登録：在庫を動かさず（_lendStockMoveを呼ばない）、残数レコードだけ作成
 function recordLendingOpening(){
-  if (typeof canEdit === 'function' && !canEdit()) return toast('🔒 編集権限がありません', 'error');
+  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   const kind=(document.getElementById('lo-kind')||{}).value||'貸出';
   const pid=(document.getElementById('lo-partner')||{}).value;
   const branch=(document.getElementById('lo-branch')||{}).value||'仙台';
@@ -3843,6 +3848,7 @@ function updateTransferPreview(){
     + (qty>0 ? `　→　移動後：${from} <b>${bf[bkt]-qty}</b>本 ／ ${to} <b>${bt[bkt]+qty}</b>本` : '');
 }
 function transferStock(){
+  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   const from = (document.getElementById('tr-from')||{}).value;
   const to   = (document.getElementById('tr-to')||{}).value;
@@ -3876,6 +3882,7 @@ function transferStock(){
   updateKPI();
 }
 function saveStockInit(){
+  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   const br = (document.getElementById('si-br') || {}).value || '仙台';
   if (!confirm(`${br}の在庫を、入力した旧値・協賛・新値で上書きします。よろしいですか？`)) return;
@@ -4101,6 +4108,11 @@ function enhanceScrollTabs(){
     setTimeout(upd, 60); upd();
   });
 }
+// 調整権限に応じて調整系UIの表示/非表示を切替（社長＝取引可・調整不可は調整パネルを隠す）
+function applyRoleUI(){
+  try{ document.body.classList.toggle('no-adjust', !(typeof canAdjust==='function' && canAdjust())); }catch(e){}
+}
+window.addEventListener('DOMContentLoaded', applyRoleUI);
 window.addEventListener('DOMContentLoaded', enhanceScrollTabs);
 window.addEventListener('load', enhanceScrollTabs);
 </script>
