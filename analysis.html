@@ -605,7 +605,7 @@ const COST  = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
 const S = {
   branch:'both', orders:[], customers:[], staff:[],
   stock:{仙台:{}, 京都:{}}, slog:[], invoices:[],
-  dailyReps:[], agentDeals:[], salesAdjust:[], gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec',
+  dailyReps:[], agentDeals:[], salesAdjust:[], gasUrl: (function(){var U='https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';try{if(localStorage.getItem('gasUrl')!==U)localStorage.setItem('gasUrl',U);}catch(e){}return U;})(),
 };
 
 function today(){ return new Date().toISOString().slice(0,10); }

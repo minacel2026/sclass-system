@@ -108,8 +108,9 @@ body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;backg
 <script>
 /* GAS URLは引継ぎ資料の本番URL。settings画面で保存した localStorage('gasUrl') を優先（資料の運用ルールに準拠）。 */
 const GAS_URL = (function(){
-  try { var u = localStorage.getItem('gasUrl'); if (u) return u; } catch(e){}
-  return 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
+  var U = 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
+  try { if (localStorage.getItem('gasUrl') !== U) localStorage.setItem('gasUrl', U); } catch(e){}
+  return U;
 })();
 const LIFF_ID = '2009445526-MNWNJ6Ta';   // スタッフマイページ（LINE Developers で発行）
 

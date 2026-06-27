@@ -747,7 +747,7 @@ const S = {
   bankEntries:[], bankHistory:[], company:{}, products:null,
   purchases:[], cashEntries:[], dailyReps:[],
   expenses:[], pettyCash:[], amexEntries:[], billPays:[],
-  gasUrl: localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec',
+  gasUrl: (function(){var U='https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';try{if(localStorage.getItem('gasUrl')!==U)localStorage.setItem('gasUrl',U);}catch(e){}return U;})(),
   sheetId: localStorage.getItem('lmb_sheetId') || '',
   liffOrderId: localStorage.getItem('lmb_liffOrderId') || '',
   liffPortalId: localStorage.getItem('lmb_liffPortalId') || '',
@@ -895,19 +895,17 @@ function loadGasSettings(){
 }
 
 function saveGasSettings(){
-  const url = document.getElementById('gas-url').value.trim();
+  // GAS URLはアプリ内蔵の現行URLに固定（古いURL混入＝別PCの404を防ぐため、手入力では変更しない）
+  const url = 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
   const sid = document.getElementById('sheet-id').value.trim();
-
-  if (url && !url.startsWith('https://script.google.com/')){
-    return toast('GAS URLの形式が正しくありません', 'error');
-  }
   S.gasUrl = url;
   S.sheetId = sid;
   localStorage.setItem('gasUrl', url);
   localStorage.setItem('lmb_sheetId', sid);
   localStorage.setItem('oneSignalAppId', (document.getElementById('os-appid').value || '').trim());
+  document.getElementById('gas-url').value = url;
   document.getElementById('webhook-url').value = url;
-  toast('✓ 保存しました');
+  toast('✓ 保存しました（GAS URLは現行に固定）');
   updateProgress();
 }
 
