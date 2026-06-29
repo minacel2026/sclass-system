@@ -1290,7 +1290,7 @@ async function loadBackupOptions(){
     if(r && r.ok && r.backups){
       if(!r.backups.length){ sel.innerHTML='<option value="">バックアップがありません</option>'; return; }
       sel.innerHTML='<option value="">— 戻したい時点を選ぶ —</option>'+
-        r.backups.map(function(b){ return '<option value="'+esc(b.id)+'" data-name="'+esc(b.name)+'">'+esc(b.created)+'　('+esc(b.name)+')</option>'; }).join('');
+        r.backups.map(function(b){ return '<option value="'+escapeHtml(b.id)+'" data-name="'+escapeHtml(b.name)+'">'+escapeHtml(b.created)+'　('+escapeHtml(b.name)+')</option>'; }).join('');
     } else { sel.innerHTML='<option value="">取得失敗</option>'; }
   }catch(e){ sel.innerHTML='<option value="">取得エラー</option>'; }
 }
@@ -1331,17 +1331,17 @@ async function loadRestoreRequests(){
       var c=color[q.status]||'var(--wh2)';
       var btns='';
       if(q.status!=='対応済み'){
-        btns='<button onclick="updateRestoreStatus(\''+esc(q.id)+'\',\'対応中\')" style="background:transparent;color:#6fa8dc;border:1px solid #6fa8dc55;padding:.2rem .5rem;border-radius:3px;cursor:pointer;font-size:.66rem;margin-right:.3rem">対応中</button>'+
-             '<button onclick="updateRestoreStatus(\''+esc(q.id)+'\',\'対応済み\')" style="background:transparent;color:#7bbf7b;border:1px solid #7bbf7b55;padding:.2rem .5rem;border-radius:3px;cursor:pointer;font-size:.66rem">対応済み</button>';
+        btns='<button onclick="updateRestoreStatus(\''+escapeHtml(q.id)+'\',\'対応中\')" style="background:transparent;color:#6fa8dc;border:1px solid #6fa8dc55;padding:.2rem .5rem;border-radius:3px;cursor:pointer;font-size:.66rem;margin-right:.3rem">対応中</button>'+
+             '<button onclick="updateRestoreStatus(\''+escapeHtml(q.id)+'\',\'対応済み\')" style="background:transparent;color:#7bbf7b;border:1px solid #7bbf7b55;padding:.2rem .5rem;border-radius:3px;cursor:pointer;font-size:.66rem">対応済み</button>';
       } else {
-        btns='<span style="font-size:.66rem;color:var(--wh3)">'+esc(q.handler||'')+' '+esc(q.handledAt||'')+'</span>';
+        btns='<span style="font-size:.66rem;color:var(--wh3)">'+escapeHtml(q.handler||'')+' '+escapeHtml(q.handledAt||'')+'</span>';
       }
       return '<tr style="border-top:1px solid rgba(201,168,76,.1)">'+
-        '<td style="padding:.45rem;white-space:nowrap">'+esc(q.at)+'</td>'+
-        '<td style="padding:.45rem">'+esc(q.requester)+'<br><span style="font-size:.64rem;color:var(--wh3)">'+esc(q.role)+'</span></td>'+
-        '<td style="padding:.45rem;font-size:.68rem">'+esc(q.backupName)+'</td>'+
-        '<td style="padding:.45rem;font-size:.68rem;max-width:200px">'+esc(q.reason||'')+'</td>'+
-        '<td style="padding:.45rem;color:'+c+';font-weight:700;white-space:nowrap">'+esc(q.status)+'</td>'+
+        '<td style="padding:.45rem;white-space:nowrap">'+escapeHtml(q.at)+'</td>'+
+        '<td style="padding:.45rem">'+escapeHtml(q.requester)+'<br><span style="font-size:.64rem;color:var(--wh3)">'+escapeHtml(q.role)+'</span></td>'+
+        '<td style="padding:.45rem;font-size:.68rem">'+escapeHtml(q.backupName)+'</td>'+
+        '<td style="padding:.45rem;font-size:.68rem;max-width:200px">'+escapeHtml(q.reason||'')+'</td>'+
+        '<td style="padding:.45rem;color:'+c+';font-weight:700;white-space:nowrap">'+escapeHtml(q.status)+'</td>'+
         '<td style="padding:.45rem;white-space:nowrap">'+btns+'</td>'+
       '</tr>';
     }).join('');
