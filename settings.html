@@ -361,6 +361,7 @@ textarea.fc{resize:vertical}
     <button class="mtab" onclick="switchModule('liff',this)"><span class="mtab-ic">📱</span>LIFF登録</button>
     <button class="mtab" onclick="switchModule('rmenu',this)"><span class="mtab-ic">🍱</span>リッチメニュー</button>
     <button class="mtab" onclick="switchModule('oplog',this)"><span class="mtab-ic">📋</span>操作履歴</button>
+    <button class="mtab" id="tab-restore" onclick="switchModule('restore',this)" style="display:none"><span class="mtab-ic">🛟</span>復元</button>
     <button class="mtab" onclick="switchModule('etc',this)"><span class="mtab-ic">🔧</span>その他</button>
   </div>
 
@@ -691,6 +692,55 @@ textarea.fc{resize:vertical}
     </div>
   </div>
 
+  <!-- ════════ 復元（B / 案A） ════════ -->
+  <div id="m-restore" class="mcon">
+    <div class="fp">
+      <h3>🛟 バックアップ復元</h3>
+      <div class="tip"><strong>復元の実行は管理者のみ</strong>が行います。社長は「戻したい時点」を選んでリクエストできます。実際の復元は、安全のため<strong>手順書（方式X：SHEET_ID差し替え）</strong>に沿って管理者が実施します。</div>
+
+      <!-- リクエスト（社長・管理者が使う） -->
+      <div style="border:1px solid rgba(201,168,76,.2);border-radius:6px;padding:1rem;margin:.8rem 0">
+        <h4 style="margin:.2rem 0 .6rem">📨 復元をリクエスト</h4>
+        <div style="display:flex;flex-direction:column;gap:.6rem;max-width:560px">
+          <label style="font-size:.74rem;color:var(--wh2)">戻したい時点（バックアップ）
+            <select class="fc" id="rr-backup" style="width:100%;margin-top:.25rem"><option value="">読み込み中…</option></select>
+          </label>
+          <label style="font-size:.74rem;color:var(--wh2)">理由・補足（任意）
+            <textarea class="fc" id="rr-reason" rows="2" style="width:100%;margin-top:.25rem" placeholder="例：誤って在庫を一括上書きしてしまった など"></textarea>
+          </label>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <button onclick="submitRestoreRequest()" style="background:var(--gold);color:#1a1200;border:none;padding:.5rem 1.1rem;border-radius:4px;cursor:pointer;font-size:.78rem;font-weight:700;font-family:'Noto Sans JP',sans-serif">📨 リクエスト送信</button>
+            <button onclick="loadBackupOptions()" style="background:transparent;color:var(--wh2);border:1px solid rgba(201,168,76,.3);padding:.5rem .9rem;border-radius:4px;cursor:pointer;font-size:.74rem">🔄 一覧更新</button>
+            <span id="rr-msg" style="font-size:.72rem;color:var(--wh3)"></span>
+          </div>
+          <div style="font-size:.68rem;color:var(--wh3)">送信すると管理者にLINEで通知され、下の一覧に記録されます。これは「お願い」であり、復元はまだ実行されません。</div>
+        </div>
+      </div>
+
+      <!-- 承認・管理（管理者のみ表示） -->
+      <div id="rr-admin" style="display:none;border:1px solid rgba(201,168,76,.2);border-radius:6px;padding:1rem;margin:.8rem 0">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+          <h4 style="margin:.2rem 0">🗂 復元リクエスト一覧（管理者）</h4>
+          <button onclick="loadRestoreRequests()" style="background:var(--gold);color:#1a1200;border:none;padding:.45rem .9rem;border-radius:4px;cursor:pointer;font-size:.74rem;font-weight:700;font-family:'Noto Sans JP',sans-serif">🔄 更新</button>
+        </div>
+        <div class="tip" style="margin:.5rem 0"><strong>復元の実行手順（方式X）</strong>：①保険バックアップ(runBackupNow) → ②希望バックアップのコピー作成 → ③GASの SHEET_ID をコピーのIDに差し替え → ④現行URLを「新しいバージョン」で再デプロイ → ⑤GAS同期で確認。詳細は「バックアップ復元_手順書_方式X詳細」を参照。</div>
+        <div class="tw" style="overflow:auto;max-height:50vh;border:1px solid rgba(201,168,76,.15)">
+          <table style="width:100%;border-collapse:collapse;font-size:.72rem">
+            <thead><tr style="position:sticky;top:0;background:var(--d2);z-index:1">
+              <th style="text-align:left;padding:.45rem">日時</th>
+              <th style="text-align:left;padding:.45rem">申請者</th>
+              <th style="text-align:left;padding:.45rem">希望時点</th>
+              <th style="text-align:left;padding:.45rem">理由</th>
+              <th style="text-align:left;padding:.45rem">状態</th>
+              <th style="text-align:left;padding:.45rem">操作</th>
+            </tr></thead>
+            <tbody id="rr-body"><tr><td colspan="6" style="padding:1rem;color:var(--wh3)">「🔄 更新」を押すと読み込みます</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="m-etc" class="mcon">
     <div class="fp">
       <h3>🌐 公開URL設定</h3>
@@ -829,6 +879,7 @@ function switchModule(name, el){
   if (name === 'gascode') loadGasCode();
   if (name === 'etc') updateSysInfo();
   if (name === 'oplog') loadOpLog();
+  if (name === 'restore') { loadBackupOptions(); if (_canRestoreAdmin()) loadRestoreRequests(); }
 }
 
 // 進捗ステップ更新
@@ -1180,13 +1231,14 @@ window.addEventListener('DOMContentLoaded', () => {
   loadLiffSettings();
   loadUrls();
   updateProgress();
+  applyRestoreVisibility();
 });
 </script>
 
 <script>
 // ポータルのチップから #ハッシュ指定でタブ直行（例: settings.html#gas）
 window.addEventListener('DOMContentLoaded', function(){
-  var mods=['gas','gascode','line','liff','rmenu','oplog','etc'];
+  var mods=['gas','gascode','line','liff','rmenu','oplog','restore','etc'];
   var h=(location.hash||'').replace('#','');
   var i=mods.indexOf(h);
   if(i>=0){ try{ switchModule(mods[i], document.querySelectorAll('.mtab')[i]); }catch(e){} }
@@ -1212,8 +1264,101 @@ function enhanceScrollTabs(){
     setTimeout(upd, 60); upd();
   });
 }
-window.addEventListener('DOMContentLoaded', enhanceScrollTabs);
-window.addEventListener('load', enhanceScrollTabs);
+window.addEventListener('DOMContentLoaded', enhanceScrollTabs);window.addEventListener('load', enhanceScrollTabs);
+</script>
+
+<script>
+// ════════ 復元（B / 案A）：リクエスト＋管理者承認 ════════
+function _role(){ try{ return (currentUser && currentUser.role) || 'viewer'; }catch(e){ return 'viewer'; } }
+function _canRestoreRequest(){ var r=_role(); return r==='admin' || r==='president'; }
+function _canRestoreAdmin(){ return _role()==='admin'; }
+
+// タブと管理パネルの表示制御
+function applyRestoreVisibility(){
+  var tab=document.getElementById('tab-restore');
+  if(tab) tab.style.display = _canRestoreRequest() ? '' : 'none';
+  var adminBox=document.getElementById('rr-admin');
+  if(adminBox) adminBox.style.display = _canRestoreAdmin() ? '' : 'none';
+}
+
+// バックアップ一覧をプルダウンへ
+async function loadBackupOptions(){
+  var sel=document.getElementById('rr-backup'); if(!sel) return;
+  sel.innerHTML='<option value="">読み込み中…</option>';
+  try{
+    var r=await fetch(S.gasUrl+'?action=getBackupList&_='+Date.now(),{cache:'no-store'}).then(x=>x.json());
+    if(r && r.ok && r.backups){
+      if(!r.backups.length){ sel.innerHTML='<option value="">バックアップがありません</option>'; return; }
+      sel.innerHTML='<option value="">— 戻したい時点を選ぶ —</option>'+
+        r.backups.map(function(b){ return '<option value="'+esc(b.id)+'" data-name="'+esc(b.name)+'">'+esc(b.created)+'　('+esc(b.name)+')</option>'; }).join('');
+    } else { sel.innerHTML='<option value="">取得失敗</option>'; }
+  }catch(e){ sel.innerHTML='<option value="">取得エラー</option>'; }
+}
+
+// リクエスト送信（記録＋管理者へLINE通知）
+async function submitRestoreRequest(){
+  if(!_canRestoreRequest()){ toast('🔒 権限がありません','error'); return; }
+  var sel=document.getElementById('rr-backup');
+  var opt=sel && sel.options[sel.selectedIndex];
+  var backupId=sel ? sel.value : '';
+  var backupName=opt ? (opt.getAttribute('data-name')||'') : '';
+  var reason=(document.getElementById('rr-reason').value||'').trim();
+  if(!backupId){ toast('戻したい時点（バックアップ）を選んでください','error'); return; }
+  var msg=document.getElementById('rr-msg'); if(msg) msg.textContent='送信中…';
+  var payload={ action:'saveRestoreRequest', requester:(currentUser&&currentUser.name)||'', role:_role(), backupId:backupId, backupName:backupName, reason:reason };
+  try{
+    var r=await fetch(S.gasUrl+'?payload='+encodeURIComponent(JSON.stringify(payload))+'&_='+Date.now(),{cache:'no-store'}).then(x=>x.json());
+    if(r && r.ok){
+      if(msg) msg.textContent='';
+      document.getElementById('rr-reason').value='';
+      toast('📨 復元リクエストを送信しました（管理者へ通知）','success');
+      if(_canRestoreAdmin()) loadRestoreRequests();
+    } else { if(msg) msg.textContent=''; toast('送信に失敗しました','error'); }
+  }catch(e){ if(msg) msg.textContent=''; toast('送信エラー','error'); }
+}
+
+// リクエスト一覧（管理者）
+async function loadRestoreRequests(){
+  if(!_canRestoreAdmin()) return;
+  var body=document.getElementById('rr-body'); if(!body) return;
+  body.innerHTML='<tr><td colspan="6" style="padding:1rem;color:var(--wh3)">読み込み中…</td></tr>';
+  try{
+    var r=await fetch(S.gasUrl+'?action=getRestoreRequests&_='+Date.now(),{cache:'no-store'}).then(x=>x.json());
+    var rows=(r&&r.requests)||[];
+    if(!rows.length){ body.innerHTML='<tr><td colspan="6" style="padding:1rem;color:var(--wh3)">リクエストはありません</td></tr>'; return; }
+    var color={ '未対応':'#e0b34c','対応中':'#6fa8dc','対応済み':'#7bbf7b' };
+    body.innerHTML=rows.map(function(q){
+      var c=color[q.status]||'var(--wh2)';
+      var btns='';
+      if(q.status!=='対応済み'){
+        btns='<button onclick="updateRestoreStatus(\''+esc(q.id)+'\',\'対応中\')" style="background:transparent;color:#6fa8dc;border:1px solid #6fa8dc55;padding:.2rem .5rem;border-radius:3px;cursor:pointer;font-size:.66rem;margin-right:.3rem">対応中</button>'+
+             '<button onclick="updateRestoreStatus(\''+esc(q.id)+'\',\'対応済み\')" style="background:transparent;color:#7bbf7b;border:1px solid #7bbf7b55;padding:.2rem .5rem;border-radius:3px;cursor:pointer;font-size:.66rem">対応済み</button>';
+      } else {
+        btns='<span style="font-size:.66rem;color:var(--wh3)">'+esc(q.handler||'')+' '+esc(q.handledAt||'')+'</span>';
+      }
+      return '<tr style="border-top:1px solid rgba(201,168,76,.1)">'+
+        '<td style="padding:.45rem;white-space:nowrap">'+esc(q.at)+'</td>'+
+        '<td style="padding:.45rem">'+esc(q.requester)+'<br><span style="font-size:.64rem;color:var(--wh3)">'+esc(q.role)+'</span></td>'+
+        '<td style="padding:.45rem;font-size:.68rem">'+esc(q.backupName)+'</td>'+
+        '<td style="padding:.45rem;font-size:.68rem;max-width:200px">'+esc(q.reason||'')+'</td>'+
+        '<td style="padding:.45rem;color:'+c+';font-weight:700;white-space:nowrap">'+esc(q.status)+'</td>'+
+        '<td style="padding:.45rem;white-space:nowrap">'+btns+'</td>'+
+      '</tr>';
+    }).join('');
+  }catch(e){ body.innerHTML='<tr><td colspan="6" style="padding:1rem;color:#e08">取得エラー</td></tr>'; }
+}
+
+// 状態更新（管理者）
+async function updateRestoreStatus(id, status){
+  if(!_canRestoreAdmin()){ toast('🔒 権限がありません','error'); return; }
+  if(status==='対応済み' && !confirm('このリクエストを「対応済み」にします。\n（実際の復元は手順書の方式Xで完了していますか？）')) return;
+  var payload={ action:'updateRestoreRequest', id:id, status:status, handler:(currentUser&&currentUser.name)||'' };
+  try{
+    var r=await fetch(S.gasUrl+'?payload='+encodeURIComponent(JSON.stringify(payload))+'&_='+Date.now(),{cache:'no-store'}).then(x=>x.json());
+    if(r && r.ok){ toast('状態を「'+status+'」に更新しました','success'); loadRestoreRequests(); }
+    else toast('更新に失敗しました','error');
+  }catch(e){ toast('更新エラー','error'); }
+}
 </script>
 </body>
 </html>
