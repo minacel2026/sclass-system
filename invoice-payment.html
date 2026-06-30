@@ -757,7 +757,7 @@ const currentUser = JSON.parse(sessionStorage.getItem('lmb_current_user') || 'nu
 function updateUserBadge(){
   const badge = document.getElementById('user-badge');
   if (!badge) return;
-  const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁'};
+  const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁',president:'🤵'};
   badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name} (${currentUser.role})`;
 }
 
@@ -782,8 +782,8 @@ function escapeHtml(s){
   return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function canEdit(){ return currentUser && ['admin','manager','staff'].includes(currentUser.role); }
-function canDelete(){ return currentUser && ['admin','manager'].includes(currentUser.role); }
+function canEdit(){ return currentUser && ['admin','manager','staff','president'].includes(currentUser.role); }
+function canDelete(){ return currentUser && ['admin','manager','president'].includes(currentUser.role); }
 
 function switchModule(name, el){
   document.querySelectorAll('.mtab').forEach(t => t.classList.remove('active'));

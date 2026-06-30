@@ -845,7 +845,7 @@ const currentUser = JSON.parse(sessionStorage.getItem('lmb_current_user') || 'nu
 function updateUserBadge(){
   const badge = document.getElementById('user-badge');
   if (!badge) return;
-  const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁'};
+  const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁',president:'🤵'};
   badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name} (${currentUser.role})`;
 }
 

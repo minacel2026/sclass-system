@@ -840,7 +840,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
         </select>
         <label>ロール</label>
         <select class="fc" id="sf-role" onchange="renderStaffList()">
-          <option value="">すべて</option><option>admin</option><option>manager</option><option>staff</option><option>viewer</option>
+          <option value="">すべて</option><option>admin</option><option>manager</option><option>staff</option><option>viewer</option><option>president</option>
         </select>
         <span style="margin-left:auto;font-size:.72rem;color:var(--wh2)">
           <span id="staff-count">0</span> 名
@@ -869,6 +869,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
                 <option value="manager">manager（管理者）</option>
                 <option value="staff" selected>staff（営業）</option>
                 <option value="viewer">viewer（閲覧のみ）</option>
+                <option value="president">president（社長）</option>
               </select>
             </div>
           </div>
@@ -1466,7 +1467,7 @@ const currentUser = JSON.parse(sessionStorage.getItem('lmb_current_user') || 'nu
 function updateUserBadge(){
   const badge = document.getElementById('user-badge');
   if (!badge || !currentUser) return;
-  const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁'};
+  const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁',president:'🤵'};
   badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name} (${currentUser.role})`;
 }
 
@@ -1491,10 +1492,10 @@ function doLogout(){
 // ─── 権限チェック（ロール別） ─────
 // admin: すべて / manager: 削除以外 / staff: 自分の入力のみ / viewer: 閲覧のみ
 function canEdit(){
-  return currentUser && ['admin','manager','staff'].includes(currentUser.role);
+  return currentUser && ['admin','manager','staff','president'].includes(currentUser.role);
 }
 function canDelete(){
-  return currentUser && ['admin','manager'].includes(currentUser.role);
+  return currentUser && ['admin','manager','president'].includes(currentUser.role);
 }
 
 // ─── 親タブ切替 ─────
