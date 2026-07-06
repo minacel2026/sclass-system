@@ -1328,6 +1328,8 @@ const PRICE   = Object.fromEntries(PROD_LIST.map(p => [p.key, p.price]));
 const COST    = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
 const REORDER = Object.fromEntries(PROD_LIST.map(p => [p.key, p.reorder]));
 
+// ログイン必須：未ログインならログイン画面へ（LINE/メールどちらのログインでも可）
+(function(){try{if(!sessionStorage.getItem('lmb_token') && !sessionStorage.getItem('lmb_current_user')){location.href='login.html';}}catch(e){}})();
 const S = {
   branch:'both',
   orders:[], customers:[], staff:[],
