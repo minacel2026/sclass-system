@@ -153,61 +153,61 @@ function hashPass(p){
 }
 window.hashPass = hashPass;
 
-// ─── ログイン処理 ─────
-function doLogin(e){
+// GAS現行URL（起動時に古い保存を自動上書き）
+const GAS_URL = (function(){var U='https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';try{if(localStorage.getItem('gasUrl')!==U)localStorage.setItem('gasUrl',U);}catch(e){}return U;})();
+window.GAS_URL = GAS_URL;
+
+// ─── ログイン処理（サーバ認証：GASでパスワード検証→トークン取得）─────
+async function doLogin(e){
   e.preventDefault();
   const email = document.getElementById('f-email').value.trim().toLowerCase();
   const pass  = document.getElementById('f-pass').value;
   const err   = document.getElementById('err');
   err.textContent = '';
+  const passHash = hashPass(pass);
 
-  // 初期管理者（スタッフ未登録の場合）
-  if (email === 'admin@sclass.jp' && pass === 'admin123'){
-    const adminUser = {
-      id: 'admin-init',
-      name: '管理者',
-      email: 'admin@sclass.jp',
-      role: 'admin',
-      branch: '両拠点',
-      active: true,
-      isInitial: true,
-    };
-    sessionStorage.setItem('lmb_current_user', JSON.stringify(adminUser));
-    location.href = 'portal.html';
-    return;
+  try {
+    const r = await fetch(GAS_URL, { method:'POST', body: JSON.stringify({ action:'login', email, passHash }) });
+    const d = await r.json();
+    if (d && d.ok && d.token){
+      sessionStorage.setItem('lmb_token', d.token);                       // セッショントークン
+      sessionStorage.setItem('lmb_current_user', JSON.stringify(d.user)); // 本人情報
+      location.href = 'portal.html';
+      return;
+    }
+    const msg = {
+      not_found: 'メールアドレスが登録されていないか、無効化されています',
+      inactive:  'このアカウントは無効化されています',
+      bad_pass:  'パスワードが違います',
+      missing:   'メールとパスワードを入力してください'
+    }[d && d.error] || 'ログインに失敗しました';
+    err.textContent = msg;
+  } catch(netErr){
+    // サーバに接続できない時だけ、従来のローカル判定にフォールバック（締め出し防止）
+    doLoginLocalFallback(email, pass, err);
   }
+}
 
-  // スタッフマスターから検索
+// フォールバック：GASに繋がらない時のみ従来どおりローカルで判定
+function doLoginLocalFallback(email, pass, err){
+  if (email === 'admin@sclass.jp' && pass === 'admin123'){
+    const adminUser = { id:'admin-init', name:'管理者', email, role:'admin', branch:'両拠点', active:true, isInitial:true };
+    sessionStorage.setItem('lmb_current_user', JSON.stringify(adminUser));
+    location.href = 'portal.html'; return;
+  }
   const staffList = JSON.parse(localStorage.getItem('lmb_staff') || '[]');
   const user = staffList.find(s => (s.email || '').toLowerCase() === email && s.active !== false);
-
-  if (!user){
-    err.textContent = 'メールアドレスが登録されていないか、無効化されています';
-    return;
-  }
-
-  // パスワードチェック
+  if (!user){ err.textContent = 'サーバに接続できません。ネットワークをご確認ください'; return; }
   if (!user.passHash){
-    // 初回ログイン：パスワード未設定 → このパスワードで設定
-    user.passHash = hashPass(pass);
-    user.lastLogin = new Date().toISOString();
-    const idx = staffList.findIndex(s => s.id === user.id);
-    if (idx >= 0) staffList[idx] = user;
+    user.passHash = hashPass(pass); user.lastLogin = new Date().toISOString();
+    const i = staffList.findIndex(s => s.id === user.id); if (i>=0) staffList[i]=user;
     localStorage.setItem('lmb_staff', JSON.stringify(staffList));
     sessionStorage.setItem('lmb_current_user', JSON.stringify(user));
-    location.href = 'portal.html';
-    return;
+    location.href = 'portal.html'; return;
   }
-
-  if (user.passHash !== hashPass(pass)){
-    err.textContent = 'パスワードが違います';
-    return;
-  }
-
-  // 成功
+  if (user.passHash !== hashPass(pass)){ err.textContent = 'パスワードが違います'; return; }
   user.lastLogin = new Date().toISOString();
-  const idx = staffList.findIndex(s => s.id === user.id);
-  if (idx >= 0) staffList[idx] = user;
+  const i = staffList.findIndex(s => s.id === user.id); if (i>=0) staffList[i]=user;
   localStorage.setItem('lmb_staff', JSON.stringify(staffList));
   sessionStorage.setItem('lmb_current_user', JSON.stringify(user));
   location.href = 'portal.html';

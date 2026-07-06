@@ -1391,7 +1391,8 @@ function toast(msg, type){
 
 async function gasGet(action, params){
   if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
-  const q = new URLSearchParams({ action, ...(params||{}) }).toString();
+  var _tok=''; try{ _tok = sessionStorage.getItem('lmb_token')||''; }catch(e){}
+  const q = new URLSearchParams({ action, ...(params||{}), ...(_tok?{token:_tok}:{}) }).toString();
   try {
     const r = await fetch(S.gasUrl + '?' + q);
     return await r.json();
