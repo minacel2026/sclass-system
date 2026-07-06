@@ -125,6 +125,11 @@ body{background:radial-gradient(ellipse at center,#1a1608 0%,var(--bk) 60%);colo
     </div>
     <button class="btn-login" type="submit">ログイン</button>
     <div class="err-msg" id="err"></div>
+    <div style="text-align:center;margin:.9rem 0 .4rem;color:#9a9a9a;font-size:.75rem">または</div>
+    <button type="button" onclick="lineLogin()" style="width:100%;background:#06c755;color:#fff;border:none;border-radius:8px;padding:.7rem;font-size:.9rem;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:.4rem">
+      <span style="font-weight:900">LINE</span> でログイン
+    </button>
+    <div class="err-msg" id="line-err"></div>
   </form>
 
   <div class="dev-hint" id="dev-hint">
@@ -156,6 +161,19 @@ window.hashPass = hashPass;
 // GAS現行URL（起動時に古い保存を自動上書き）
 const GAS_URL = (function(){var U='https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';try{if(localStorage.getItem('gasUrl')!==U)localStorage.setItem('gasUrl',U);}catch(e){}return U;})();
 window.GAS_URL = GAS_URL;
+
+// ─── LINEでログイン（LINE認証画面へ）─────
+async function lineLogin(){
+  const le = document.getElementById('line-err');
+  if (le) le.textContent = 'LINEに移動しています…';
+  try{
+    const d = await fetch(GAS_URL + '?action=lineLoginUrl&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json());
+    if (d && d.ok && d.url){ location.href = d.url; return; }
+    if (le) le.textContent = 'LINEログインを開始できませんでした';
+  }catch(e){
+    if (le) le.textContent = '通信エラー。時間をおいてお試しください';
+  }
+}
 
 // ─── ログイン処理（サーバ認証：GASでパスワード検証→トークン取得）─────
 async function doLogin(e){
