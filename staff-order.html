@@ -121,9 +121,10 @@ body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;backg
 </div>
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
-const LIFF_ID = '';   // ★直接開く場合はこのページ用のLIFF IDを発行（line-homeから?uid=で渡る場合は空でOK）
+const LIFF_ID = '2009445526-TSZP0syI';   // staff-order 専用LIFF（本人確認用アクセストークン取得）
 
 let UID = '', STAFF = 'スタッフ';
+let LINE_TOKEN_FE = '';   // LINEアクセストークン（本人確認用）
 let CUSTOMERS = [], PRODUCTS = [];
 let STAFF_BRANCH = '', showAllBranch = false;   // 拠点絞り込み
 let selCust = null;
@@ -146,15 +147,17 @@ async function init(){
       if (!liff.isLoggedIn()) { liff.login(); return; }
       const prof = await liff.getProfile();
       UID = prof.userId; STAFF = prof.displayName || STAFF;
+      try { LINE_TOKEN_FE = liff.getAccessToken() || ''; } catch(e){}   // 本人確認用トークン
     }
   } catch(e){
     document.querySelector('.header').insertAdjacentHTML('afterend',
-      '<div class="wrap" style="padding-bottom:0"><div class="banner">⚠ ブラウザモードで動作中</div></div>');
+      '<div class="wrap" style="padding-bottom:0"><div class="banner">⚠ ブラウザモードで動作中（顧客一覧はLINEアプリ内から開くと表示されます）</div></div>');
   }
   const wrap = document.getElementById('wrap');
+  const _auth = '&uid=' + encodeURIComponent(UID) + (LINE_TOKEN_FE ? '&lineToken=' + encodeURIComponent(LINE_TOKEN_FE) : '');
   try {
     const [rc, rp, rr] = await Promise.all([
-      fetch(GAS_URL + '?action=getCustomers&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json()),
+      fetch(GAS_URL + '?action=getCustomers' + _auth + '&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json()),
       fetch(GAS_URL + '?action=getProducts&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json()),
       UID ? fetch(GAS_URL + '?action=getRole&uid=' + encodeURIComponent(UID) + '&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json()).catch(()=>null) : Promise.resolve(null)
     ]);
