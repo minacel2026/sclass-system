@@ -1522,7 +1522,8 @@ function switchMaster(name, el){
 async function syncAllFromGAS(){
   if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
   toast('同期中...');
-  const cust = await gasGet('getCustomers');
+  _custFullCache = null; // 完全データのキャッシュを破棄（同期で最新化）
+  const cust = await gasGet('getCustomers', {lite:'1'}); // 一覧は軽量版で高速化（編集時は完全版を再取得）
   if (cust && cust.customers) {
     // 安全策: id がない顧客には店舗名ベースの安定IDを補完（openCustが動くように）
     S.customers = cust.customers.map(c => {
@@ -1699,8 +1700,38 @@ function renderCustList(){
     </div>`;
 }
 
-function openCust(id){
-  const c = (S.customers || []).find(x => x.id === id);
+// ─── 完全データ取得（一覧はlite・編集/CSVは完全版で欠損＝保存時の消失を防ぐ） ─────
+let _custFullCache = null; // { list:[...], ts:number }
+async function getCustomersFull(force){
+  const FRESH = 60000; // 60秒キャッシュ（連続編集を高速化）
+  if (!force && _custFullCache && (Date.now() - _custFullCache.ts) < FRESH){
+    return _custFullCache.list;
+  }
+  const res = await gasGet('getCustomers'); // liteを付けない＝完全版
+  const list = (res && res.customers) ? res.customers : [];
+  list.forEach(c => {           // id補完（openCustRowと同じ安定ID）
+    if (!c.id){
+      const nm = String(c.name || ''); let h = 0;
+      for (let i = 0; i < nm.length; i++){ h = ((h << 5) - h + nm.charCodeAt(i)) | 0; }
+      c.id = 'cust-sync-' + Math.abs(h).toString(36);
+    }
+  });
+  _custFullCache = { list, ts: Date.now() };
+  return list;
+}
+async function findCustomerFull(id, name){
+  try {
+    const list = await getCustomersFull();
+    let hit = id ? list.find(c => c.id === id) : null;
+    if (!hit && name) hit = list.find(c => c.name === name);
+    if (hit) return hit;
+  } catch(e){}
+  return null; // 取得できなければ呼び出し側でliteフォールバック
+}
+
+async function openCust(id){
+  let c = await findCustomerFull(id);
+  if (!c) c = (S.customers || []).find(x => x.id === id); // フォールバック（lite）
   if (!c) return toast('顧客が見つかりません', 'error');
   custEditingId = id;
   fillCustForm(c);
@@ -2236,6 +2267,7 @@ function submitCustForm(){
   }
   saveState();
   if (S.gasUrl) gasPost({ action: 'saveCustomer', ...data });
+  _custFullCache = null; // 保存で内容が変わったので完全データキャッシュを破棄
   toast(custEditingId ? '✓ 更新しました' : '✓ 登録しました');
   clearCustForm();
   switchCustTab('list', document.querySelectorAll('#m-customers .tab')[0]);
@@ -2247,6 +2279,7 @@ function deleteCust(){
   if (!confirm('この顧客を削除しますか？\nスプレッドシートからも削除されます。')) return;
   const _delC = (S.customers || []).find(x => x.id === custEditingId);
   if (S.gasUrl && _delC) { try { gasPost({ action:'deleteCustomer', id:_delC.id, name:_delC.name }); } catch(e){} }
+  _custFullCache = null; // 削除で内容が変わったので完全データキャッシュを破棄
   S.customers = (S.customers || []).filter(c => c.id !== custEditingId);
   saveState();
   toast('✓ 削除しました');
@@ -2268,17 +2301,20 @@ function deleteCustById(id){
 }
 
 // ─── 行インデックスで開く（id非依存・同期で id がずれても確実に動く） ─────
-function openCustRow(idx){
-  const c = (S.customers || [])[idx];
-  if (!c) return toast('顧客が見つかりません', 'error');
+async function openCustRow(idx){
+  const lc = (S.customers || [])[idx];
+  if (!lc) return toast('顧客が見つかりません', 'error');
   // id がなければ補完（古い同期データ対策）
-  if (!c.id) {
-    const nm = String(c.name || '');
+  if (!lc.id) {
+    const nm = String(lc.name || '');
     let h = 0;
     for (let i = 0; i < nm.length; i++) { h = ((h << 5) - h + nm.charCodeAt(i)) | 0; }
-    c.id = 'cust-sync-' + Math.abs(h).toString(36);
+    lc.id = 'cust-sync-' + Math.abs(h).toString(36);
   }
-  custEditingId = c.id;
+  // 編集は完全データで開く（住所・備考・配達先・詳細情報の欠損＝保存時の消失を防ぐ）
+  let c = await findCustomerFull(lc.id, lc.name);
+  if (!c) c = lc; // 取得できなければliteでフォールバック
+  custEditingId = c.id || lc.id;
   fillCustForm(c);
   const es = document.getElementById('edit-status');
   if (es) es.textContent = '編集中: ' + (c.name || '');
@@ -2294,6 +2330,7 @@ function deleteCustRow(idx){
   if (!c) return toast('顧客が見つかりません', 'error');
   if (!confirm(`顧客「${c.name || '無名'}」を削除しますか？\nスプレッドシートからも削除されます。`)) return;
   if (S.gasUrl) { try { gasPost({ action:'deleteCustomer', id:c.id, name:c.name }); } catch(e){} }
+  _custFullCache = null; // 削除で内容が変わったので完全データキャッシュを破棄
   S.customers.splice(idx, 1);
   saveState();
   toast('✓ 削除しました');
@@ -2825,9 +2862,11 @@ function downloadCustomerTemplate(){
   toast('✓ テンプレートをダウンロード');
 }
 
-function exportCustomersCSV(){
-  const customers = S.customers || [];
-  if (customers.length === 0) return toast('登録済み顧客がありません', 'error');
+async function exportCustomersCSV(){
+  let customers;
+  try { customers = await getCustomersFull(true); }   // 完全版で出力（住所・備考等を欠損させない）
+  catch(e){ customers = S.customers || []; }
+  if (!customers || customers.length === 0) return toast('登録済み顧客がありません', 'error');
 
   const escape = v => {
     const s = String(v || '');
@@ -2862,7 +2901,7 @@ async function loadCustPendingUids(){
   if (!list) return;
   list.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div>読込中...</div>';
   // 顧客一覧（紐付け先候補）を最新化
-  try { const cs = await gasGet('getCustomers'); if (cs && cs.customers) S.customers = cs.customers; } catch(e){}
+  try { const cs = await gasGet('getCustomers', {lite:'1'}); if (cs && cs.customers) S.customers = cs.customers; } catch(e){}
   const data = await gasGet('getPendingUids');
   const pending = data && (data.pending || data.uids);   // GASは pending を返す
   if (!pending){
