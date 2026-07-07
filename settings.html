@@ -1015,7 +1015,8 @@ async function loadOpLog(){
   if (!S.gasUrl){ body.innerHTML = '<tr><td colspan="6" style="padding:1rem;color:var(--wh3)">先に「GAS設定」タブでURLを設定してください</td></tr>'; return; }
   body.innerHTML = '<tr><td colspan="6" style="padding:1rem;color:var(--wh3)">読み込み中…</td></tr>';
   try{
-    const r = await fetch(S.gasUrl + '?action=getOperationLog&limit=500');
+    const _tok = (function(){ try { return sessionStorage.getItem('lmb_token') || ''; } catch(e){ return ''; } })();
+    const r = await fetch(S.gasUrl + '?action=getOperationLog&limit=500' + (_tok ? ('&token=' + encodeURIComponent(_tok)) : ''));
     const d = await r.json();
     _opLogData = (d && d.log) ? d.log : [];
     const sel = document.getElementById('oplog-op'); const cur = sel.value;
