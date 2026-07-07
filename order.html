@@ -1284,6 +1284,8 @@ async function submitOrder() {
     branch: '',                          // 拠点は受注処理時に担当者が確定
     staff: 'LINEフォーム',
     store: document.getElementById('p1-store').value,
+    // 操作履歴の作成者：お客様の自己注文が誰か分かるよう店舗名で残す（空欄→お客様名）
+    _actor: 'お客様（' + (document.getElementById('p1-store').value || '') + '）',
     area: '',
     items: items,                        // GAS側でJSON文字列化される
     amount: total,
