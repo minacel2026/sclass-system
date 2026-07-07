@@ -1031,7 +1031,10 @@ loadState();
 
 <!-- ═══ 認証スキップ + 共通 ═══ -->
 <script>
-// ─── ログイン認証チェック（開発中はスキップ） ─────
+// ─── ログイン認証チェック ─────
+// ログイン必須：本人情報が無ければログイン画面へ（在庫調整できる強いページのため厳格に）。
+// LINEログイン・メールログインのどちらでも lmb_current_user がセットされるため両方通る。
+(function(){try{if(!sessionStorage.getItem('lmb_current_user')){location.href='login.html';}}catch(e){}})();
 const currentUser = JSON.parse(sessionStorage.getItem('lmb_current_user') || 'null') || {
   id: 'dev-admin', name: '開発者', email: 'admin@sclass.jp',
   role: 'admin', branch: '両拠点', active: true, isDev: true,
