@@ -161,12 +161,14 @@ let showAllBranch = false;   // 全拠点スタッフ／管理者は切替可能
 /* ───── 初期化 ───── */
 async function init(){
   let uid = '';
+  let lineToken = '';
   try {
     if (!LIFF_ID) throw new Error('LIFF_ID未設定');
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login(); return; }
     const prof = await liff.getProfile();
     uid = prof.userId;
+    try { lineToken = liff.getAccessToken() || ''; } catch(e){}  // 門番用：本人確認トークン
   } catch(e) {
     document.querySelector('.header').insertAdjacentHTML('afterend',
       '<div class="wrap" style="padding-bottom:0"><div class="banner">⚠ ブラウザモードで動作中（LINE連携なし）</div></div>');
@@ -189,7 +191,8 @@ async function init(){
     STAFF.role   = rr.staff.role || '';
 
     // 注文一覧（全件）→ クライアントで拠点・期間フィルタ
-    const ro = await fetch(GAS_URL + '?action=getOrders&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json());
+    const _auth = '&uid=' + encodeURIComponent(uid) + (lineToken ? '&lineToken=' + encodeURIComponent(lineToken) : '');
+    const ro = await fetch(GAS_URL + '?action=getOrders' + _auth + '&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json());
     ORDERS = (ro && ro.orders) ? ro.orders.map(o => {
       o.date = normDate(o.date);
       o.amount = Number(o.amount) || 0;
