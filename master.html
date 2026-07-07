@@ -1519,11 +1519,26 @@ function switchMaster(name, el){
 }
 
 // ─── 全同期 ─────
-async function syncAllFromGAS(){
+async function syncAllFromGAS(opts){
+  opts = opts || {};
   if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
-  toast('同期中...');
+  if (!opts.silent) toast('同期中...');
   _custFullCache = null; // 完全データのキャッシュを破棄（同期で最新化）
-  const cust = await gasGet('getCustomers', {lite:'1'}); // 一覧は軽量版で高速化（編集時は完全版を再取得）
+
+  // 9本のGETを「並列」で投げる（順次awaitだと各往復の待ち時間の合計になり遅い）。
+  // 1本が失敗しても他を止めないよう、それぞれ .catch でnullに落とす。
+  const [cust, refs, sps, ags, agd, agp, stf, co, prd] = await Promise.all([
+    gasGet('getCustomers', {lite:'1'}), // 一覧は軽量版（編集時は完全版を再取得）
+    gasGet('getReferrers'),
+    gasGet('getSponsors'),
+    gasGet('getAgents'),
+    gasGet('getAgentDeals'),
+    gasGet('getAgentApplications'),
+    gasGet('getStaff'),
+    gasGet('getCompany'),
+    gasGet('getProducts')
+  ].map(p => Promise.resolve(p).catch(() => null)));
+
   if (cust && cust.customers) {
     // 安全策: id がない顧客には店舗名ベースの安定IDを補完（openCustが動くように）
     S.customers = cust.customers.map(c => {
@@ -1536,25 +1551,17 @@ async function syncAllFromGAS(){
       return c;
     });
   }
-  const refs = await gasGet('getReferrers');
   if (refs && refs.referrers) { S.referrers = refs.referrers; }
-  const sps = await gasGet('getSponsors');
   if (sps && sps.sponsors) { S.sponsors = sps.sponsors; }
-  const ags = await gasGet('getAgents');
   if (ags && ags.agents) { S.agents = ags.agents; }
-  const agd = await gasGet('getAgentDeals');
   if (agd && agd.deals) { S.agentDeals = agd.deals; }
-  const agp = await gasGet('getAgentApplications');
   if (agp && agp.pending) { S.agentPending = agp.pending; }
-  const stf = await gasGet('getStaff');
   if (stf && stf.staff) S.staff = stf.staff;
-  const co = await gasGet('getCompany');
   if (co && co.company && Object.keys(co.company).length) S.company = co.company;
-  const prd = await gasGet('getProducts');
   if (prd && prd.products && prd.products.length) S.products = prd.products;
   saveState();
   localStorage.setItem('lmb_lastSync', new Date().toISOString());
-  toast('✓ 同期完了');
+  if (!opts.silent) toast('✓ 同期完了');
   renderCustList();
   renderStaffList();
   if (typeof renderReferrerList === 'function') renderReferrerList();
@@ -4370,7 +4377,12 @@ async function importHistoricalOrders(){
 </script>
 <script>
 /* 別PCでも起動時にスプレッドシートから自動読込 */
-window.addEventListener('DOMContentLoaded', function(){ if (typeof syncAllFromGAS === 'function') { try { syncAllFromGAS(); } catch(e){} } });
+window.addEventListener('DOMContentLoaded', function(){
+  // まず前回同期のキャッシュ（localStorage）から即描画 → 体感の読み込みを速く
+  try { if (typeof renderCustList === 'function') renderCustList(); } catch(e){}
+  // 同期は裏（silent）で回し、完了後に各リストを自動で再描画する
+  if (typeof syncAllFromGAS === 'function') { try { syncAllFromGAS({ silent:true }); } catch(e){} }
+});
 </script>
 
 <script>
