@@ -686,7 +686,7 @@ function updateUserBadge(){
   const badge = document.getElementById('user-badge');
   if (!badge) return;
   const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁',president:'🤵'};
-  badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name} (${currentUser.role})`;
+  badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name}`;
 }
 
 function logOp(op,target,detail){

@@ -790,6 +790,8 @@ textarea.fc{resize:vertical}
 
 <!-- ═══ shared.js ═══ -->
 <script>
+// ログイン必須：未ログインならログイン画面へ（LINE/メールどちらのログインでも可）
+(function(){try{if(!sessionStorage.getItem('lmb_token') && !sessionStorage.getItem('lmb_current_user')){location.href='login.html';}}catch(e){}})();
 const S = {
   branch:'both', orders:[], customers:[], staff:[],
   stock:{仙台:{}, 京都:{}}, stockDetail:{仙台:{}, 京都:{}},
@@ -846,7 +848,7 @@ function updateUserBadge(){
   const badge = document.getElementById('user-badge');
   if (!badge) return;
   const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁',president:'🤵'};
-  badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name} (${currentUser.role})`;
+  badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name}`;
 }
 
 function logOp(op,target,detail){
