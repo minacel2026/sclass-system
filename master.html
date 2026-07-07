@@ -1405,6 +1405,7 @@ async function gasGet(action, params){
 }
 async function gasPost(data){
   try{ if(typeof currentUser!=='undefined'&&currentUser){ if(!data._actor)data._actor=currentUser.name; if(!data._actorBranch)data._actorBranch=currentUser.branch||''; } }catch(e){}
+  try{ if(!data._token){ var _t=sessionStorage.getItem('lmb_token'); if(_t) data._token=_t; } }catch(e){}  // 操作者確認用トークン
   if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
   try {
     await fetch(S.gasUrl, {
@@ -1472,6 +1473,15 @@ function updateUserBadge(){
   if (!badge || !currentUser) return;
   const roleIcon = {admin:'👑',manager:'📋',staff:'🧑',viewer:'👁',president:'🤵'};
   badge.textContent = `${roleIcon[currentUser.role]||''} ${currentUser.name}`;
+}
+
+// ─── 開発者以外には admin/社長のロール選択肢を出さない（サーバ側でも同様に拒否される） ─────
+function _gateRoleOptions(){
+  try{
+    if (currentUser && currentUser.isDev) return;   // 開発者/緊急管理者は全ロール選択可
+    var sel = document.getElementById('sf-role-sel');
+    if (sel){ Array.from(sel.options).forEach(function(o){ if (o.value==='admin' || o.value==='president'){ o.remove(); } }); }
+  }catch(e){}
 }
 
 // ─── ログアウト ─────
@@ -4378,6 +4388,8 @@ async function importHistoricalOrders(){
 <script>
 /* 別PCでも起動時にスプレッドシートから自動読込 */
 window.addEventListener('DOMContentLoaded', function(){
+  // 開発者以外には admin/社長のロール選択肢を隠す
+  try { if (typeof _gateRoleOptions === 'function') _gateRoleOptions(); } catch(e){}
   // まず前回同期のキャッシュ（localStorage）から即描画 → 体感の読み込みを速く
   try { if (typeof renderCustList === 'function') renderCustList(); } catch(e){}
   // 同期は裏（silent）で回し、完了後に各リストを自動で再描画する
