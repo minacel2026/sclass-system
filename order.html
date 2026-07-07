@@ -952,7 +952,8 @@ async function loadProducts() {
 
 async function loadStock() {
   try {
-    const r = await fetch(GAS_URL + '?action=getStock&_=' + Date.now(), { cache: 'no-store' });
+    const _uid = (lineProfile && lineProfile.userId) || '';   // 登録顧客として門番を通す
+    const r = await fetch(GAS_URL + '?action=getStock' + (_uid ? '&uid=' + encodeURIComponent(_uid) : '') + '&_=' + Date.now(), { cache: 'no-store' });
     const d = await r.json();
     applyStockData(d.stock);
   } catch(e) {
