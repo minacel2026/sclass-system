@@ -448,6 +448,9 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     <button class="mtab" onclick="switchMaster('staff',this)">
       <span class="mtab-ic">👥</span>スタッフマスター
     </button>
+    <button class="mtab" onclick="switchMaster('uid',this)">
+      <span class="mtab-ic">🔗</span>未登録UID
+    </button>
     <button class="mtab" onclick="switchMaster('products',this)">
       <span class="mtab-ic">🍾</span>商品マスター
     </button>
@@ -471,7 +474,6 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
       <div class="tab active" onclick="switchCustTab('list',this)">一覧</div>
       <div class="tab" onclick="switchCustTab('new',this)">＋ 新規登録</div>
       <div class="tab" onclick="switchCustTab('csv',this)">📥 CSV取込/出力</div>
-      <div class="tab" onclick="switchCustTab('uid',this)">🔗 未登録UID</div>
     </div>
 
     <!-- 一覧 -->
@@ -810,17 +812,19 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
       </div>
     </div>
 
-    <!-- 未登録UID -->
-    <div id="tab-uid" class="tcon">
-      <div class="action-bar">
-        <button class="btn-s" onclick="loadCustPendingUids()">🔄 UID一覧を更新</button>
-      </div>
-      <div class="hint-box">
-        <strong>📌 未登録UIDとは</strong><br>
-        LINE公式アカウントにメッセージを送ったが、顧客マスターに登録されていないLINE UIDの一覧です。
-      </div>
-      <div id="pending-list"></div>
+    <!-- 未登録UID は親タブ（m-uid）へ移動 -->
+  </div>
+
+  <!-- ════════ 未登録UID（親タブ：スタッフの右） ════════ -->
+  <div id="m-uid" class="mcon">
+    <div class="action-bar">
+      <button class="btn-s" onclick="loadCustPendingUids()">🔄 UID一覧を更新</button>
     </div>
+    <div class="hint-box">
+      <strong>📌 未登録UIDとは</strong><br>
+      LINE公式アカウントにメッセージを送ったが、顧客マスター／スタッフマスターに登録されていないLINE UIDの一覧です。<strong>顧客・スタッフのどちらにも紐付けできます。</strong>
+    </div>
+    <div id="pending-list"></div>
   </div>
 
   <!-- ════════ スタッフマスター ════════ -->
@@ -1521,6 +1525,7 @@ function switchMaster(name, el){
   // 初回表示時の描画
   if (name === 'customers') renderCustList();
   if (name === 'staff')     renderStaffList();
+  if (name === 'uid')       loadCustPendingUids();
   if (name === 'company')   loadCompany();
   if (name === 'products')  renderProducts();
   if (name === 'referrers') renderReferrerList();
@@ -2917,8 +2922,9 @@ async function loadCustPendingUids(){
   const list = document.getElementById('pending-list');
   if (!list) return;
   list.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div>読込中...</div>';
-  // 顧客一覧（紐付け先候補）を最新化
+  // 紐付け先候補（顧客・スタッフ）を最新化
   try { const cs = await gasGet('getCustomers', {lite:'1'}); if (cs && cs.customers) S.customers = cs.customers; } catch(e){}
+  try { const st = await gasGet('getStaff'); if (st && st.staff) S.staff = st.staff; } catch(e){}
   const data = await gasGet('getPendingUids');
   const pending = data && (data.pending || data.uids);   // GASは pending を返す
   if (!pending){
@@ -2929,24 +2935,22 @@ async function loadCustPendingUids(){
     list.innerHTML = '<div class="empty"><div class="empty-icon">✓</div>未登録UIDなし — すべて紐付け済みです</div>';
     return;
   }
-  // 紐付け先の店舗名オプション（未紐付け＝UID未設定の顧客を上に）
-  const custs = (S.customers || []).slice().sort((a,b)=>{
-    const au = a.lineUid || a.uid ? 1 : 0, bu = b.lineUid || b.uid ? 1 : 0;
-    return au - bu;
-  });
-  const optsHtml = custs.map(c => {
-    const has = (c.lineUid || c.uid) ? '（UID登録済）' : '';
-    return `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}${has}</option>`;
-  }).join('');
+  // 顧客オプション（未紐付け＝UID未設定を上に）
+  const custs = (S.customers || []).slice().sort((a,b)=>{ const au=(a.lineUid||a.uid)?1:0, bu=(b.lineUid||b.uid)?1:0; return au-bu; });
+  const custOpts = custs.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}${(c.lineUid||c.uid)?'（UID登録済）':''}</option>`).join('');
+  // スタッフオプション（未紐付けを上に）
+  const staffs = (S.staff || []).slice().sort((a,b)=>{ const au=a.lineUid?1:0, bu=b.lineUid?1:0; return au-bu; });
+  const staffOpts = staffs.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name||'無名')}${s.lineUid?'（UID登録済）':''}</option>`).join('');
 
   list.innerHTML = `<div class="hint-box" style="margin-bottom:.8rem">
-      未登録UID <strong>${pending.length}</strong> 件。各カードで紐付け先の店舗を選び「紐付け」を押すと、その顧客のLINE UID欄に登録され、マイページ・注文フォームが使えるようになります。
+      未登録UID <strong>${pending.length}</strong> 件。各カードで「顧客」か「スタッフ」を選び、相手を選んで「紐付け」を押すと、そのLINE UIDが登録されます。
     </div>
     <div class="cust-grid">
     ${pending.map((u,i) => {
       const name = u.name || u.displayName || '匿名';
       const msg  = (u.message || u.lastMessage || '—');
       const dt   = u.date || '';
+      const safeUid = String(u.uid).replace(/'/g,'');
       return `
       <div class="cust-card" id="pcard-${i}">
         <div class="cust-name" style="font-size:.82rem">${escapeHtml(name)}</div>
@@ -2954,30 +2958,65 @@ async function loadCustPendingUids(){
         ${dt ? `<div class="cust-info" style="font-size:.66rem">受信: ${escapeHtml(String(dt))}</div>` : ''}
         <div class="cust-info" style="font-size:.7rem">メッセージ: ${escapeHtml(String(msg)).slice(0,40)}</div>
         <div style="display:flex;gap:.4rem;align-items:center;margin-top:.6rem;flex-wrap:wrap">
-          <select class="fc" id="psel-${i}" style="flex:1;min-width:140px">
-            <option value="">― 店舗を選択 ―</option>
-            ${optsHtml}
+          <select class="fc" id="ptype-${i}" onchange="switchPendTarget(${i})" style="max-width:110px">
+            <option value="cust">顧客</option>
+            <option value="staff">スタッフ</option>
           </select>
-          <button class="btn-s" onclick="linkCustUid('${u.uid.replace(/'/g,"")}', ${i})">🔗 紐付け</button>
-          <button class="btn-s" style="border-color:rgba(255,99,99,.4);color:#ff8a80" onclick="dismissPendingUid('${u.uid.replace(/'/g,"")}')" title="この未登録UIDを一覧から削除（顧客には紐付けません）">✕</button>
+          <select class="fc" id="psel-cust-${i}" style="flex:1;min-width:140px">
+            <option value="">― 店舗を選択 ―</option>
+            ${custOpts}
+          </select>
+          <select class="fc" id="psel-staff-${i}" style="flex:1;min-width:140px;display:none">
+            <option value="">― スタッフを選択 ―</option>
+            ${staffOpts}
+          </select>
+          <button class="btn-s" onclick="linkPendingUid('${safeUid}', ${i})">🔗 紐付け</button>
+          <button class="btn-s" style="border-color:rgba(255,99,99,.4);color:#ff8a80" onclick="dismissPendingUid('${safeUid}')" title="この未登録UIDを一覧から削除（誰にも紐付けません）">✕</button>
         </div>
       </div>`;
     }).join('')}
   </div>`;
 }
 
-async function linkCustUid(uid, idx){
-  const sel = document.getElementById('psel-' + idx);
+// 紐付け先タイプ（顧客/スタッフ）切替でドロップダウンを出し分け
+function switchPendTarget(i){
+  const t = (document.getElementById('ptype-'+i)||{}).value || 'cust';
+  const cs = document.getElementById('psel-cust-'+i), ss = document.getElementById('psel-staff-'+i);
+  if (cs) cs.style.display = (t==='cust') ? '' : 'none';
+  if (ss) ss.style.display = (t==='staff') ? '' : 'none';
+}
+
+// 未登録UIDを顧客 or スタッフに紐付け
+async function linkPendingUid(uid, idx){
+  if (!S.gasUrl) return toast('GAS URLが未設定です', 'error');
+  const t = (document.getElementById('ptype-'+idx)||{}).value || 'cust';
+  const card = document.getElementById('pcard-'+idx);
+  if (t === 'staff'){
+    const sel = document.getElementById('psel-staff-'+idx);
+    const staffId = sel ? sel.value : '';
+    if (!staffId) return toast('紐付け先のスタッフを選択してください', 'error');
+    if (card) card.style.opacity = '.5';
+    const res = await gasGet('linkStaffUid', { uid: uid, staffId: staffId });
+    if (res && res.ok){
+      const s = (S.staff||[]).find(x=>String(x.id)===String(staffId));
+      toast(`✓ ${s?(s.name||'スタッフ'):'スタッフ'} にUIDを紐付けました`);
+      if (s) s.lineUid = uid;
+      loadCustPendingUids();
+      if (typeof renderStaffList === 'function') renderStaffList();
+    } else {
+      if (card) card.style.opacity = '1';
+      toast((res && res.error) ? res.error : '紐付けに失敗しました', 'error');
+    }
+    return;
+  }
+  // 顧客
+  const sel = document.getElementById('psel-cust-'+idx);
   const store = sel ? sel.value : '';
   if (!store) return toast('紐付け先の店舗を選択してください', 'error');
-  if (!S.gasUrl) return toast('GAS URLが未設定です', 'error');
-  const card = document.getElementById('pcard-' + idx);
   if (card) card.style.opacity = '.5';
-  // GASのlinkUidで顧客シートのLINE UID列（O列）に確実に書き込む＋未登録UIDから除去
   const res = await gasGet('linkUid', { uid: uid, store: store });
   if (res && res.ok){
     toast(`✓ ${store} にUIDを紐付けました`);
-    // ローカルにも反映
     const c = (S.customers || []).find(x => x.name === store);
     if (c) c.lineUid = uid;
     loadCustPendingUids();
