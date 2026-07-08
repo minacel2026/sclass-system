@@ -105,7 +105,7 @@ td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
 <script>
 const GAS_URL='https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
 // ログイン必須（管理ツール）：未ログインならログイン画面へ
-(function(){try{if(!sessionStorage.getItem('lmb_token') && !sessionStorage.getItem('lmb_current_user')){location.href='login.html';}}catch(e){}})();
+(function(){try{if(!sessionStorage.getItem('lmb_current_user')){location.href='login.html';}}catch(e){}})();
 function _authToken(){try{return sessionStorage.getItem('lmb_token')||'';}catch(e){return '';}}
 const files={bank:null,yamato:null,sagawa:null};
 let CUST=[]; // {name, aliases:[振込名義...]}

@@ -713,7 +713,7 @@ const PRICE = Object.fromEntries(PROD_LIST.map(p => [p.key, p.price]));
 const COST  = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
 
 // ログイン必須：未ログインならログイン画面へ（LINE/メールどちらのログインでも可）
-(function(){try{if(!sessionStorage.getItem('lmb_token') && !sessionStorage.getItem('lmb_current_user')){location.href='login.html';}}catch(e){}})();
+(function(){try{if(!sessionStorage.getItem('lmb_current_user')){location.href='login.html';}}catch(e){}})();
 const S = {
   branch:'both', orders:[], customers:[], staff:[],
   stock:{仙台:{}, 京都:{}}, slog:[], collections:[], invoices:[],
@@ -815,8 +815,7 @@ loadState();
 <!-- ═══ 共通 ═══ -->
 <script>
 const currentUser = JSON.parse(sessionStorage.getItem('lmb_current_user') || 'null') || {
-  id: 'dev-admin', name: '開発者', email: 'admin@sclass.jp',
-  role: 'admin', branch: '両拠点', active: true, isDev: true,
+  id: '', name: '', email: '', role: '', branch: '', active: false, isDev: false,
 };
 
 function updateUserBadge(){

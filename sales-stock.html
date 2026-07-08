@@ -1036,8 +1036,7 @@ loadState();
 // LINEログイン・メールログインのどちらでも lmb_current_user がセットされるため両方通る。
 (function(){try{if(!sessionStorage.getItem('lmb_current_user')){location.href='login.html';}}catch(e){}})();
 const currentUser = JSON.parse(sessionStorage.getItem('lmb_current_user') || 'null') || {
-  id: 'dev-admin', name: '開発者', email: 'admin@sclass.jp',
-  role: 'admin', branch: '両拠点', active: true, isDev: true,
+  id: '', name: '', email: '', role: '', branch: '', active: false, isDev: false,
 };
 
 function updateUserBadge(){
