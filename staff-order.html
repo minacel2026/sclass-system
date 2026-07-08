@@ -127,6 +127,7 @@ let UID = '', STAFF = 'スタッフ';
 let LINE_TOKEN_FE = '';   // LINEアクセストークン（本人確認用）
 let CUSTOMERS = [], PRODUCTS = [];
 let STAFF_BRANCH = '', showAllBranch = false;   // 拠点絞り込み
+let STAFF_ROLE = '';   // ロール（viewer=閲覧のみ・注文不可）
 let selCust = null;
 const qty = {};   // 商品名 -> 数量
 let sponsorData = null;        // 協賛残数 {ok,custId,byProduct,total}
@@ -161,7 +162,12 @@ async function init(){
       fetch(GAS_URL + '?action=getProducts&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json()),
       UID ? fetch(GAS_URL + '?action=getRole&uid=' + encodeURIComponent(UID) + '&_=' + Date.now(), { cache:'no-store' }).then(r=>r.json()).catch(()=>null) : Promise.resolve(null)
     ]);
-    if (rr && rr.staff){ if (rr.staff.branch) STAFF_BRANCH = String(rr.staff.branch).trim(); if (rr.staff.name) STAFF = rr.staff.name; }
+    if (rr && rr.staff){ if (rr.staff.branch) STAFF_BRANCH = String(rr.staff.branch).trim(); if (rr.staff.name) STAFF = rr.staff.name; if (rr.staff.role) STAFF_ROLE = String(rr.staff.role).trim().toLowerCase(); }
+    if (STAFF_ROLE === 'partner'){ location.href = 'partner-stats.html'; return; }   // 協力先は注文画面を見せない
+    if (STAFF_ROLE === 'viewer'){
+      document.querySelector('.header').insertAdjacentHTML('afterend',
+        '<div class="wrap" style="padding-bottom:0"><div class="banner">👁 閲覧のみの権限です。商品・価格・在庫の確認はできますが、注文の送信はできません。</div></div>');
+    }
     CUSTOMERS = (rc.customers || []).filter(c => c.name);
     PRODUCTS = (rp.products || []).filter(p => p.name && p.active !== false)
       .sort((a,b)=> (Number(a.sortOrder)||0) - (Number(b.sortOrder)||0));
@@ -361,11 +367,12 @@ function updateTotal(){
   document.getElementById('amt').textContent = yen(total);
   document.getElementById('qtot').textContent = qt + (free > 0 ? ('＋無料' + free) : '');
   const btn = document.getElementById('send');
-  if (btn) btn.disabled = (qt === 0 && free === 0);
+  if (btn) btn.disabled = (STAFF_ROLE === 'viewer') || (qt === 0 && free === 0);
   return { total, qt, free };
 }
 
 async function submitOrder(){
+  if (STAFF_ROLE === 'viewer'){ alert('閲覧のみの権限のため、注文の送信はできません。'); return; }
   if (!selCust) return;
   const { total, qt, free } = updateTotal();
   if (qt === 0 && free === 0) return;

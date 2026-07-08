@@ -189,6 +189,8 @@ async function init(){
     STAFF.name   = rr.staff.name || 'スタッフ';
     STAFF.branch = String(rr.staff.branch || '').trim();   // 空＝全拠点
     STAFF.role   = rr.staff.role || '';
+    // 協力先(partner)は店舗名・明細を見せない → 実績レポートへ振り分け
+    if (String(STAFF.role).toLowerCase() === 'partner'){ location.href = 'partner-stats.html'; return; }
 
     // 注文一覧（全件）→ クライアントで拠点・期間フィルタ
     const _auth = '&uid=' + encodeURIComponent(uid) + (lineToken ? '&lineToken=' + encodeURIComponent(lineToken) : '');

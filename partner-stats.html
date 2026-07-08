@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>実績レポート | LAMBORGHINI WINE</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root{ --bg:#0d0d10; --card:#16161c; --line:#26262e; --gold:#c9a24b; --gold-l:#e3c777; --wh:#f2f2f5; --wh2:#b9b9c2; --wh3:#7a7a86; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background:var(--bg); color:var(--wh); font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; padding-bottom:40px; }
+  .header{ padding:18px 16px 14px; border-bottom:1px solid var(--line); background:linear-gradient(180deg,#14141a,#0d0d10); }
+  .header h1{ font-size:1.05rem; letter-spacing:.04em; color:var(--gold-l); }
+  .header .sub{ font-size:.72rem; color:var(--wh3); margin-top:3px; }
+  .wrap{ padding:14px 14px 0; }
+  .note{ font-size:.7rem; color:var(--wh3); background:#14141a; border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin-bottom:12px; line-height:1.5; }
+  .rangebar{ display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
+  .rangebar button{ flex:1; min-width:64px; background:#14141a; color:var(--wh2); border:1px solid var(--line); border-radius:8px; padding:8px 4px; font-size:.74rem; cursor:pointer; }
+  .rangebar button.on{ border-color:var(--gold); color:var(--gold-l); background:#1c1a14; }
+  .kpi{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; text-align:center; margin-bottom:14px; }
+  .kpi .n{ font-size:2.2rem; font-weight:700; color:var(--gold-l); line-height:1; }
+  .kpi .l{ font-size:.72rem; color:var(--wh3); margin-top:6px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:14px; }
+  .card h2{ font-size:.82rem; color:var(--gold-l); margin-bottom:10px; letter-spacing:.03em; }
+  .row{ margin:7px 0; }
+  .row .top{ display:flex; justify-content:space-between; font-size:.76rem; margin-bottom:3px; }
+  .row .top b{ color:var(--wh); font-weight:600; }
+  .row .top span{ color:var(--wh2); }
+  .bar{ height:9px; background:#0f0f13; border-radius:5px; overflow:hidden; }
+  .bar > i{ display:block; height:100%; background:linear-gradient(90deg,var(--gold),var(--gold-l)); border-radius:5px; }
+  .empty{ text-align:center; color:var(--wh3); padding:40px 10px; font-size:.82rem; }
+  .msg{ text-align:center; padding:56px 20px; }
+  .msg .ic{ font-size:2.4rem; margin-bottom:10px; }
+  .msg .t{ color:var(--wh2); font-size:.9rem; line-height:1.6; }
+  .foot{ text-align:center; color:var(--wh3); font-size:.64rem; margin-top:6px; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>実績レポート</h1>
+    <div class="sub" id="sub">読込中…</div>
+  </div>
+  <div id="app" class="wrap"></div>
+
+<script>
+// ★ このページ専用のLIFF IDを LINE Developers で発行し、ここに設定してください
+//   （エンドポイントURL = このページ https://minacel2026.github.io/sclass-system/partner-stats.html）
+const LIFF_ID = '★partner-stats用のLIFF_IDをここに設定★';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
+
+let UID = '', LTOKEN = '', MONTHS = 6;
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function msg(ic, t){ document.getElementById('app').innerHTML = '<div class="msg"><div class="ic">'+ic+'</div><div class="t">'+t+'</div></div>'; }
+
+async function init(){
+  try{
+    if (!LIFF_ID || LIFF_ID.indexOf('★')>=0){ document.getElementById('sub').textContent=''; msg('⚙','このページのLIFF設定がまだです。<br>管理者にお問い合わせください。'); return; }
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()){ liff.login(); return; }
+    const prof = await liff.getProfile();
+    UID = prof.userId;
+    try{ LTOKEN = liff.getAccessToken() || ''; }catch(e){}
+  }catch(e){
+    msg('⚠','読み込みに失敗しました。<br>LINEアプリ内から開いてください。'); return;
+  }
+  load();
+}
+
+async function load(){
+  document.getElementById('sub').textContent = '集計中…';
+  document.getElementById('app').innerHTML = '<div class="empty">集計中…</div>';
+  let d;
+  try{
+    const r = await fetch(GAS_URL + '?action=getPartnerStats&uid=' + encodeURIComponent(UID)
+      + '&lineToken=' + encodeURIComponent(LTOKEN) + '&months=' + MONTHS + '&_=' + Date.now(), { cache:'no-store' });
+    d = await r.json();
+  }catch(e){ msg('⚠','通信に失敗しました。時間をおいて再度お試しください。'); return; }
+
+  if (!d || d.ok === false){
+    document.getElementById('sub').textContent = '';
+    msg('🔒','この実績レポートを表示する権限がありません。<br>閲覧を希望される場合は担当者へご連絡ください。');
+    return;
+  }
+  render(d);
+}
+
+function setRange(m, btn){ MONTHS = m; document.querySelectorAll('.rangebar button').forEach(b=>b.classList.remove('on')); if(btn) btn.classList.add('on'); load(); }
+
+function barList(arr, unit){
+  if (!arr || arr.length === 0) return '<div class="empty" style="padding:18px">データがありません</div>';
+  const max = Math.max.apply(null, arr.map(x=>x.qty)) || 1;
+  return arr.slice(0, 20).map(x =>
+    '<div class="row"><div class="top"><b>'+esc(x.label||'未分類')+'</b><span>'+x.qty+(unit||'本')+'</span></div>'
+    + '<div class="bar"><i style="width:'+Math.max(4, Math.round(x.qty/max*100))+'%"></i></div></div>'
+  ).join('');
+}
+
+function render(d){
+  document.getElementById('sub').textContent = '直近' + d.months + 'ヶ月・本数実績（店舗名・金額は非表示）';
+  const app = document.getElementById('app');
+  app.innerHTML =
+    '<div class="note">このレポートは販売の<strong>本数実績</strong>のみを表示します。店舗名・金額・お客様情報は含まれません。仕入れ検討の参考にご利用ください。</div>'
+    + '<div class="rangebar">'
+    + '<button onclick="setRange(3,this)"'+(d.months===3?' class="on"':'')+'>3ヶ月</button>'
+    + '<button onclick="setRange(6,this)"'+(d.months===6?' class="on"':'')+'>6ヶ月</button>'
+    + '<button onclick="setRange(12,this)"'+(d.months===12?' class="on"':'')+'>12ヶ月</button>'
+    + '</div>'
+    + '<div class="kpi"><div class="n">'+d.total+'</div><div class="l">合計販売本数（直近'+d.months+'ヶ月）</div></div>'
+    + '<div class="card"><h2>📅 月別の本数</h2>'+barList(d.byMonth)+'</div>'
+    + '<div class="card"><h2>🍷 銘柄別の本数</h2>'+barList(d.byProduct)+'</div>'
+    + '<div class="card"><h2>📍 地域別の本数</h2>'+barList(d.byArea)+'</div>'
+    + '<div class="card"><h2>🏢 業態別の本数</h2>'+barList(d.byBiz)+'</div>'
+    + '<div class="foot">LAMBORGHINI WINE — 実績レポート</div>';
+}
+
+init();
+</script>
+</body>
+</html>
