@@ -68,6 +68,8 @@ main{padding:1.5rem 2rem;max-width:1500px;margin:0 auto}
 .fc{background:var(--d3);border:1px solid rgba(201,168,76,.22);color:var(--wh);padding:.42rem .65rem;font-family:'Noto Sans JP',sans-serif;font-size:.8rem;outline:none;transition:border-color .2s;width:100%}
 .fc:focus{border-color:var(--gold)}
 select.fc option{background:var(--d3)}
+/* 日付・月入力のカレンダーアイコンを明るく（暗背景で見やすく） */
+.fc::-webkit-calendar-picker-indicator{filter:invert(1) brightness(1.6);opacity:.85;cursor:pointer}
 textarea.fc{resize:vertical}
 
 /* 月送り */
