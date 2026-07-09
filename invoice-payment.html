@@ -1671,17 +1671,51 @@ function renderSeedResult(){
   let h=dl+`<div class="hint-box" style="margin-top:.6rem;font-size:.74rem">取込可能 <strong>${pending.length}</strong>件（¥${fmt(pending.reduce((s,r)=>s+r.bal,0))}）／ 取込済 <strong>${doneCnt}</strong>件 ／ 未連動 <strong style="color:${unmatched.length?'#e6a23c':'inherit'}">${unmatched.length}</strong>件`;
   if(unmatched.length) h+='　←未連動の行は右の欄に顧客名を入力（文字検索）すると連動できます。連動しない行は残ります。';
   h+='</div>';
-  h+='<div style="max-height:360px;overflow:auto;border:1px solid var(--gold-d);border-radius:8px;margin-top:.4rem"><table style="font-size:.72rem;width:100%;border-collapse:collapse"><thead><tr style="position:sticky;top:0;background:#1a1a20"><th style="text-align:left;padding:.35rem .5rem">Excelの店名</th><th style="text-align:left;padding:.35rem .5rem">Web顧客</th><th style="text-align:right;padding:.35rem .5rem">開始残高</th></tr></thead><tbody>';
+  h+='<div style="max-height:380px;overflow:auto;border:1px solid var(--gold-d);border-radius:8px;margin-top:.4rem"><table style="font-size:.72rem;width:100%;border-collapse:collapse"><thead><tr style="position:sticky;top:0;background:#1a1a20"><th style="text-align:left;padding:.35rem .5rem">Excelの店名</th><th style="text-align:left;padding:.35rem .5rem">Web顧客</th><th style="text-align:right;padding:.35rem .5rem">開始残高</th><th style="text-align:center;padding:.35rem .5rem">操作</th></tr></thead><tbody>';
   _seedRows.forEach((r,i)=>{
-    let t;
-    if(r.done) t=`<span style="color:#8fd18f">✓ 取込済み（${escapeHtml(r.cust?r.cust.name:'')}）</span>`;
-    else if(r.matched) t=`<span style="color:#8fd18f">✓ ${escapeHtml(r.cust.name)}</span>`;
-    else t=`<input class="fc" list="seed-custlist" placeholder="顧客名で検索" style="font-size:.72rem;padding:.2rem;max-width:190px" onchange="_seedPick(${i},this.value)">`;
-    h+=`<tr style="border-top:1px solid rgba(255,255,255,.06);${r.done?'opacity:.55':''}"><td style="padding:.3rem .5rem">${escapeHtml(r.raw)}</td><td style="padding:.3rem .5rem">${t}</td><td style="padding:.3rem .5rem;text-align:right">¥${fmt(r.bal)}</td></tr>`;
+    let t, act;
+    if(r.done){
+      t=`<span style="color:#8fd18f">✓ 取込済み（${escapeHtml(r.cust?r.cust.name:'')}）</span>`;
+      act=`<button class="act-btn" onclick="_seedUnlink(${i})" title="連動をやり直す">紐づけ直す</button> <button class="act-btn dn" onclick="_seedRemove(${i})" title="この開始残高を削除">削除</button>`;
+    } else if(r.matched){
+      t=`<span style="color:#8fd18f">✓ ${escapeHtml(r.cust.name)}</span>`;
+      act=`<button class="act-btn" onclick="_seedUnlink(${i})" title="別の顧客に選び直す">選び直す</button> <button class="act-btn dn" onclick="_seedRemove(${i})">削除</button>`;
+    } else {
+      t=`<input class="fc" list="seed-custlist" placeholder="顧客名で検索" style="font-size:.72rem;padding:.2rem;max-width:190px" onchange="_seedPick(${i},this.value)">`;
+      act=`<button class="act-btn dn" onclick="_seedRemove(${i})" title="この行を除外">削除</button>`;
+    }
+    h+=`<tr style="border-top:1px solid rgba(255,255,255,.06);${r.done?'opacity:.7':''}"><td style="padding:.3rem .5rem">${escapeHtml(r.raw)}</td><td style="padding:.3rem .5rem">${t}</td><td style="padding:.3rem .5rem;text-align:right">¥${fmt(r.bal)}</td><td style="padding:.3rem .5rem;text-align:center;white-space:nowrap">${act}</td></tr>`;
   });
   h+='</tbody></table></div>';
   h+=`<div class="faction" style="margin-top:.6rem"><button class="btn btn-p" onclick="applySeed()">✓ 連動済みの開始残高を取り込む（${pending.length}件）</button></div>`;
   box.innerHTML=h;
+}
+// 開始残高（シード請求書）を1件消す：ローカル＋サーバー
+function _deleteSeedInv(custKey){
+  const ivNo='SEED-'+custKey;
+  S.invoices=(S.invoices||[]).filter(x=>x.ivNo!==ivNo);
+  if(S.gasUrl){ try{ gasPost({action:'deleteInvoice', ivNo:ivNo}); }catch(e){} }
+  saveState();
+}
+// 紐づけをやり直す（取込済みなら開始残高を取り消してから、選び直せる状態に戻す）
+function _seedUnlink(i){
+  const r=_seedRows[i]; if(!r) return;
+  if(r.done && r.cust){ _deleteSeedInv(r.cust.id||r.cust.name); }
+  r.done=false; r.matched=false; r.cust=null;
+  if(typeof renderInvoiceList==='function') renderInvoiceList();
+  if(typeof updateKPI==='function') updateKPI();
+  renderSeedResult();
+}
+// 行を削除（取込済みなら開始残高も取り消す）
+function _seedRemove(i){
+  const r=_seedRows[i]; if(!r) return;
+  if(!confirm(`「${r.raw}」を一覧から削除します${r.done?'（取り込んだ開始残高も取り消します）':''}。よろしいですか？`)) return;
+  if(r.done && r.cust){ _deleteSeedInv(r.cust.id||r.cust.name); }
+  _seedRows.splice(i,1);
+  if(typeof renderInvoiceList==='function') renderInvoiceList();
+  if(typeof updateKPI==='function') updateKPI();
+  renderSeedResult();
+  toast('削除しました');
 }
 function _seedPick(i,name){ const c=(S.customers||[]).find(x=>x.name===name); _seedRows[i].cust=c||null; _seedRows[i].matched=!!c; renderSeedResult(); }
 async function applySeed(){
@@ -2080,6 +2114,7 @@ function deleteInvoice(no){
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
   if (!confirm('この請求書を削除しますか？')) return;
   S.invoices = (S.invoices || []).filter(x => x.ivNo !== no);
+  if(S.gasUrl){ try{ gasPost({action:'deleteInvoice', ivNo:no}); }catch(e){} }
   saveState();
   toast('✓ 削除しました');
   renderInvoiceList();
