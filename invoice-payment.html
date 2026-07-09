@@ -189,6 +189,10 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   .invoice-preview, .invoice-preview *{visibility:visible !important}
   .invoice-preview{position:absolute !important;left:0;top:0;width:100% !important;border:none !important;padding:0 !important;margin:0 !important;background:#fff !important}
   .invoice-preview{height:auto !important;overflow:visible !important}
+  /* 他のタブ・請求書内の他セクションを高さごと消し、余分な空白ページを防ぐ */
+  .mcon:not(.active){display:none !important}
+  #m-invoice > *:not(#iv-preview-wrap){display:none !important}
+  #iv-preview-wrap > .form-section > .form-section-title{display:none !important}
   #rp-canvas{zoom:.46 !important;transform:none !important}
   body.print-ref > *:not(#print-root){display:none !important}
   #print-root{display:block !important;visibility:visible !important}
