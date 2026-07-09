@@ -480,7 +480,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   <div id="m-invoice" class="mcon">
 
     <!-- 開始残高の取り込み（Excelからの移行・初回のみ） -->
-    <div class="form-section" style="border-color:var(--gold-d)">
+    <div class="form-section" id="seed-section" style="border-color:var(--gold-d)">
       <div class="form-section-title" style="cursor:pointer" onclick="toggleSeedPanel()">▸ 開始残高の取り込み（Excelからの移行・初回のみ）<span id="seed-caret" style="float:right">▾</span></div>
       <div id="seed-panel" style="display:none">
         <div class="hint-box" style="font-size:.72rem">
@@ -497,6 +497,10 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div id="seed-result"></div>
         <div class="faction" style="margin-top:.6rem"><button class="btn btn-g" onclick="toggleSeedPanel()">取り込み完了（閉じる）</button></div>
       </div>
+    </div>
+    <!-- 取り込み済みのときだけ出る小さな再表示リンク -->
+    <div id="seed-reopen" style="display:none;margin:-.4rem 0 .8rem">
+      <button class="btn-s" onclick="reopenSeed()" style="font-size:.68rem;padding:.25rem .7rem;color:var(--wh2)">＋ 開始残高の再設定（初回のみ・追加する時だけ）</button>
     </div>
 
     <div class="form-section" style="padding-bottom:.4rem">
@@ -579,7 +583,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <span id="ivlist-caret" style="margin-left:auto">▾</span>
       </div>
       <div id="ivlist-panel" style="display:none">
-        <div class="frow" style="grid-template-columns:minmax(150px,240px) auto">
+        <div class="frow" style="grid-template-columns:190px 190px">
           <div class="fg"><label>対象月で絞り込み</label><input class="fc" id="ivlist-month" type="month" onchange="renderInvoiceList()"></div>
           <div class="fg"><label>&nbsp;</label><button class="btn-s" onclick="document.getElementById('ivlist-month').value='';renderInvoiceList()" style="width:100%">全期間を表示</button></div>
         </div>
@@ -1635,6 +1639,20 @@ function drillStore(name){
 <!-- ═══ 請求書 ═══ -->
 <script>
 // ─── 開始残高の取り込み（Excel移行・初回のみ） ───────────────
+// 取り込み済み（シードが1件でもある）なら、初回パネルは隠して小さな再設定リンクだけ残す
+function _seedExists(){ return (S.invoices||[]).some(iv => iv.seed || String(iv.ivNo||'').startsWith('SEED-')); }
+function _updateSeedVisibility(){
+  const sec=document.getElementById('seed-section'), link=document.getElementById('seed-reopen');
+  const has=_seedExists();
+  if(sec)  sec.style.display  = has ? 'none' : 'block';
+  if(link) link.style.display = has ? 'block' : 'none';
+}
+function reopenSeed(){
+  const sec=document.getElementById('seed-section'), link=document.getElementById('seed-reopen');
+  if(sec)  sec.style.display='block';
+  if(link) link.style.display='none';
+  const p=document.getElementById('seed-panel'); if(p && p.style.display==='none') toggleSeedPanel();
+}
 function toggleSeedPanel(){
   var p=document.getElementById('seed-panel'), c=document.getElementById('seed-caret');
   var open = (p.style.display==='none' || p.style.display==='');
@@ -1846,6 +1864,7 @@ function _btRefresh(){
 
 function initInvoice(){
   if(typeof switchIvMode==='function') switchIvMode();   // モード初期表示（既定=一括請求）
+  if(typeof _updateSeedVisibility==='function') _updateSeedVisibility();   // 取り込み済みなら開始残高パネルを隠す
   // 取引先は検索式ピッカー（残高ありを優先表示）。ここでは初期化のみ。
   var _s = document.getElementById('iv-cust-search'); if (_s) _s.value = '';
   var _h = document.getElementById('iv-cust'); if (_h) _h.value = '';
