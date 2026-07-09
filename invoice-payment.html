@@ -499,6 +499,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="frow" style="grid-template-columns:minmax(220px,340px)">
         <div class="fg"><label>作成モード</label>
           <select class="fc" id="iv-mode" onchange="switchIvMode()">
+            <option value="" selected>作成方法を選択…</option>
             <option value="batch">一括請求（残高のある一覧から作成）</option>
             <option value="single">個別作成（1件だけ作る）</option>
           </select>
@@ -551,6 +552,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 
     </div><!-- /mode-batch -->
 
+    <div id="iv-preview-wrap" style="display:none">
     <div class="form-section">
       <div class="form-section-title">▸ 請求書プレビュー</div>
       <div id="iv-preview" class="invoice-preview">
@@ -563,6 +565,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <button class="btn btn-p" onclick="saveInvoice()">📁 請求書を保存</button>
       </div>
     </div>
+    </div><!-- /iv-preview-wrap -->
 
     <div class="tw" style="margin-top:1rem">
       <div class="th-area"><h3>発行済み請求書</h3><span id="iv-cnt" style="font-size:.72rem;color:var(--wh2)"></span></div>
@@ -1653,10 +1656,11 @@ function matchSeed(){
   renderSeedResult();
 }
 function switchIvMode(){
-  const m=(document.getElementById('iv-mode')||{}).value||'batch';
+  const m=(document.getElementById('iv-mode')||{}).value||'';
   const single=document.getElementById('mode-single'), batch=document.getElementById('mode-batch');
   if(single) single.style.display=(m==='single')?'block':'none';
   if(batch)  batch.style.display =(m==='batch') ?'block':'none';
+  const pw=document.getElementById('iv-preview-wrap'); if(pw) pw.style.display='none';  // モード切替でプレビューは隠す
 }
 function renderSeedResult(){
   const box=document.getElementById('seed-result');
@@ -1961,6 +1965,7 @@ async function buildInvoicePreview(){
   const wareki = ds => { const m=String(ds||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m?`令和${(+m[1])-2018}年 ${+m[2]}月${+m[3]}日`:(ds||''); };
   const dotDate = ds => { const m=String(ds||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m?`${+m[1]}.${+m[2]}.${+m[3]}`:(ds||''); };
 
+  var _pw=document.getElementById('iv-preview-wrap'); if(_pw) _pw.style.display='block';
   document.getElementById('iv-preview').innerHTML = `
     <div class="iv-doc">
       <div class="iv-head">
