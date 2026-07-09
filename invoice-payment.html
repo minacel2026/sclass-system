@@ -474,10 +474,6 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 
   <!-- ════════ 請求書 ════════ -->
   <div id="m-invoice" class="mcon">
-    <div class="hint-box">
-      <strong>📄 請求書発行</strong><br>
-      取引先と期間を選択して請求書を作成します。発行後はPDF印刷・LINE送信が可能。
-    </div>
 
     <!-- 開始残高の取り込み（Excelからの移行・初回のみ） -->
     <div class="form-section" style="border-color:var(--gold-d)">
@@ -499,7 +495,10 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     </div>
 
     <div class="form-section">
-      <div class="form-section-title">▸ 請求書作成</div>
+      <div class="form-section-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+        <span>▸ 請求書作成</span>
+        <span style="font-size:.68rem;color:var(--wh2);font-weight:400">取引先と期間を選んで「プレビュー作成」。下の残高一覧から選ぶと自動で入力されます。</span>
+      </div>
       <div class="frow">
         <div class="fg"><label>請求書番号</label><input class="fc" id="iv-no" placeholder="自動採番"></div>
         <div class="fg"><label>発行日</label><input class="fc" id="iv-date" type="date"></div>
