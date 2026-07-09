@@ -518,6 +518,21 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       </div>
     </div>
 
+    <!-- 一括請求：対象月の残高のある請求先を一覧し、1社ずつ作成 -->
+    <div class="form-section">
+      <div class="form-section-title" style="display:flex;align-items:baseline;flex-wrap:wrap;gap:.6rem">
+        <span>▸ 一括請求（残高のある請求先一覧）</span>
+        <span style="font-size:.68rem;color:var(--wh2);font-weight:400">対象月を選び「一覧を作成」→ 各行「作成」でプレビューが開きます。上から順に処理でき、済んだ先は✅が付きます。</span>
+      </div>
+      <div class="frow" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
+        <div class="fg"><label>対象月</label><input class="fc" id="bt-month" type="month"></div>
+        <div class="fg"><label>発行日（各請求書の日付）</label><input class="fc" id="bt-date" type="date"></div>
+        <div class="fg"><label>支払期限</label><input class="fc" id="bt-due" type="date"></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn btn-p" onclick="buildBatchList()" style="width:100%;display:block">一覧を作成</button></div>
+      </div>
+      <div id="bt-list" style="margin-top:.6rem"></div>
+    </div>
+
     <div class="form-section">
       <div class="form-section-title">▸ 請求書プレビュー</div>
       <div id="iv-preview" class="invoice-preview">
@@ -1666,6 +1681,88 @@ async function applySeed(){
   toast(`✓ ${n}件の開始残高を取り込みました`);
 }
 
+// ─── 一括請求（対象月の残高のある請求先を一覧→1社ずつ作成） ───────────
+function _btPeriod(){
+  const m = (document.getElementById('bt-month')||{}).value;   // 'YYYY-MM'
+  if(!m) return null;
+  const [y,mo]=m.split('-').map(Number);
+  const last = new Date(y, mo, 0).getDate();
+  return { m, y, mo, from: m+'-01', to: m+'-'+String(last).padStart(2,'0') };
+}
+function _btSalesIncl(store, from, to){   // 当月売上（税込）＝プレビューと同じ calcAmt 合計
+  let incl=0, cnt=0;
+  (S.orders||[]).forEach(o=>{
+    if(o.store!==store) return;
+    const d=String(o.date||'').slice(0,10);
+    if(d<from||d>to) return;
+    incl += calcAmt(o); cnt++;
+  });
+  return { incl, cnt };
+}
+function _btDone(name, from){   // その対象月の請求書が保存済みか（開始残高seedは除く）
+  const ym=from.slice(0,7);
+  return (S.invoices||[]).some(iv => iv.custName===name && !iv.seed && String(iv.from||'').slice(0,7)===ym);
+}
+function buildBatchList(){
+  try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
+  const p=_btPeriod(); if(!p) return toast('対象月を選んでください','error');
+  const rows=[];
+  (S.customers||[]).forEach(c=>{
+    const prev = _ivLastBilled(c.id||c.name, c.name, p.from);   // 前回請求額（繰越）
+    const paid = _ivPaidInPeriod(c.name, p.from, p.to);         // 今回入金
+    const s    = _btSalesIncl(c.name, p.from, p.to);            // 当月売上(税込)
+    const billed = prev - paid + s.incl;                        // 今回請求額（プレビューと同式）
+    if (prev===0 && paid===0 && s.incl===0) return;             // 残高も取引も無い先は除外
+    rows.push({ id:c.id||c.name, name:c.name, prev, paid, incl:s.incl, cnt:s.cnt, billed });
+  });
+  rows.sort((a,b)=> (b.billed-a.billed) || String(a.name).localeCompare(b.name,'ja'));
+  renderBatchList(rows, p);
+}
+function renderBatchList(rows, p){
+  const box=document.getElementById('bt-list'); if(!box) return;
+  box._period=p;
+  if(!rows.length){ box.innerHTML='<div class="hint-box" style="font-size:.75rem">対象がありません（残高・当月取引ともに無し）</div>'; return; }
+  const total=rows.reduce((s,r)=>s+r.billed,0);
+  const doneCnt=rows.filter(r=>_btDone(r.name,p.from)).length;
+  let h=`<div class="hint-box" style="font-size:.74rem">対象 <strong>${rows.length}</strong>件 ・ 作成済 <strong>${doneCnt}</strong>件 ・ 今回請求額合計 <strong>¥${fmt(total)}</strong>（${p.y}年${p.mo}月分）</div>`;
+  h+='<div style="max-height:440px;overflow:auto;border:1px solid var(--gold-d);border-radius:8px"><table style="width:100%;font-size:.72rem;border-collapse:collapse">';
+  h+='<thead><tr style="position:sticky;top:0;background:#1a1a20"><th style="text-align:left;padding:.4rem .5rem">取引先</th><th style="text-align:right;padding:.4rem">前回請求</th><th style="text-align:right;padding:.4rem">入金</th><th style="text-align:right;padding:.4rem">当月売上</th><th style="text-align:right;padding:.4rem">今回請求額</th><th style="padding:.4rem;text-align:center">操作</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const done=_btDone(r.name, p.from);
+    h+='<tr style="border-top:1px solid rgba(255,255,255,.06)">'
+     + `<td style="padding:.35rem .5rem">${done?'✅ ':''}${escapeHtml(r.name)}</td>`
+     + `<td style="text-align:right;padding:.35rem;color:var(--wh3)">¥${fmt(r.prev)}</td>`
+     + `<td style="text-align:right;padding:.35rem;color:var(--wh3)">¥${fmt(r.paid)}</td>`
+     + `<td style="text-align:right;padding:.35rem;color:var(--wh3)">¥${fmt(r.incl)}</td>`
+     + `<td style="text-align:right;padding:.35rem;font-weight:700;color:var(--gold-l)">¥${fmt(r.billed)}</td>`
+     + `<td style="text-align:center;padding:.35rem"><button class="btn ${done?'btn-g':'btn-p'}" style="padding:.25rem .6rem;font-size:.7rem" onclick="makeInvoiceForStore('${String(r.id).replace(/'/g,'')}','${String(r.name).replace(/'/g,'')}')">${done?'再作成':'作成'}</button></td>`
+     + '</tr>';
+  });
+  h+='</tbody></table></div>';
+  box.innerHTML=h;
+}
+async function makeInvoiceForStore(id, name){
+  const box=document.getElementById('bt-list');
+  const p=(box && box._period) || _btPeriod();
+  if(!p) return toast('対象月を選んでください','error');
+  document.getElementById('iv-cust').value=id;
+  document.getElementById('iv-cust-search').value=name;
+  if(typeof onIvCustChange==='function') onIvCustChange();      // 振込先セット＋前回請求/入金を空に（自動算出させる）
+  document.getElementById('iv-from').value=p.from;
+  document.getElementById('iv-to').value=p.to;
+  const bd=(document.getElementById('bt-date')||{}).value;  if(bd)  document.getElementById('iv-date').value=bd;
+  const bdue=(document.getElementById('bt-due')||{}).value; if(bdue) document.getElementById('iv-due').value=bdue;
+  await buildInvoicePreview();
+  try{ document.title = String(name).replace(/[\\/:*?"<>|]/g,'') + '_' + p.y + '年' + p.mo + '月分請求書'; }catch(e){}
+  const pv=document.getElementById('iv-preview'); if(pv) pv.scrollIntoView({behavior:'smooth', block:'start'});
+  toast('「'+name+'」のプレビューを作成しました。確認して印刷／保存してください。');
+}
+// 保存後に一括一覧の✅を更新
+function _btRefresh(){
+  try{ const bm=document.getElementById('bt-month'); const bl=document.getElementById('bt-list');
+    if(bm && bm.value && bl && bl.innerHTML.trim()) buildBatchList(); }catch(e){}
+}
+
 function initInvoice(){
   // 取引先は検索式ピッカー（残高ありを優先表示）。ここでは初期化のみ。
   var _s = document.getElementById('iv-cust-search'); if (_s) _s.value = '';
@@ -1907,6 +2004,7 @@ function saveInvoice(){
   toast('✓ 請求書を保存しました');
   renderInvoiceList();
   updateKPI();
+  if (typeof _btRefresh === 'function') _btRefresh();
 }
 
 function renderInvoiceList(){
