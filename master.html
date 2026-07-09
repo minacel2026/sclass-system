@@ -926,6 +926,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
         <div class="frow">
           <div class="fg"><label>会社名 <span class="req">*</span></label><input class="fc" id="co-name" placeholder="株式会社Sclass"></div>
           <div class="fg"><label>部署名</label><input class="fc" id="co-dept" placeholder="営業部"></div>
+          <div class="fg"><label>担当</label><input class="fc" id="co-contact" placeholder="佐々木（苗字のみ）"></div>
           <div class="fg"><label>代表者名</label><input class="fc" id="co-ceo" placeholder="代表取締役"></div>
           <div class="fg"><label>設立日</label><input class="fc" id="co-founded" type="date"></div>
         </div>
@@ -3206,6 +3207,7 @@ function loadCompany(){
   const c = S.company || {};
   const g = id => document.getElementById(id);
   g('co-name').value=c.name||''; g('co-dept').value=c.dept||'';
+  { const _ct=g('co-contact'); if(_ct) _ct.value=c.contact||''; }
   g('co-ceo').value=c.ceo||''; g('co-founded').value=c.founded||'';
   g('co-zip').value=c.zip||''; g('co-addr').value=c.addr||'';
   g('co-tel').value=c.tel||''; g('co-fax').value=c.fax||'';
@@ -3248,7 +3250,7 @@ function saveCompany(){
   if (['staff','viewer','owner','partner'].includes(currentUser.role)) return toast('🔒 弊社情報編集は admin/manager のみ', 'error');
   const g = id => (document.getElementById(id)||{}).value || '';
   S.company = {
-    name: g('co-name'), dept: g('co-dept'), ceo: g('co-ceo'),
+    name: g('co-name'), dept: g('co-dept'), contact: g('co-contact'), ceo: g('co-ceo'),
     founded: g('co-founded'),
     zip: g('co-zip'), addr: g('co-addr'),
     tel: g('co-tel'), fax: g('co-fax'),
