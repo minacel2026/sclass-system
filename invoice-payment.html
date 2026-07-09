@@ -571,7 +571,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="faction">
         <button class="btn btn-g" onclick="window.print()">🖨 印刷 / PDFで保存</button>
         <button class="btn btn-p" onclick="saveInvoice()">📁 請求書を保存</button>
-        <button class="btn" onclick="closeIvPreview()" style="border-color:var(--wh3);color:var(--wh2)">✕ 閉じる（保存しない）</button>
+        <button class="btn" onclick="closeIvPreview()" style="background:#2a2a30;border:1px solid var(--gold-d);color:var(--wh)">✕ 閉じる（保存しない）</button>
       </div>
     </div>
     </div><!-- /iv-preview-wrap -->
@@ -1798,9 +1798,11 @@ function _btSalesIncl(store, from, to){   // 当月売上（税込）＝プレ�
   });
   return { incl, cnt };
 }
-function _btDone(name, from){   // その対象月の請求書が保存済みか（開始残高seedは除く）
+function _btDone(name, from, id){   // その対象月の請求書が保存済みか（開始残高seedは除く）
   const ym=from.slice(0,7);
-  return (S.invoices||[]).some(iv => iv.custName===name && !iv.seed && String(iv.from||'').slice(0,7)===ym);
+  return (S.invoices||[]).some(iv => !iv.seed && !String(iv.ivNo||'').startsWith('SEED-')
+    && (iv.custName===name || (id && iv.custId===id))
+    && String(iv.from||'').slice(0,7)===ym);
 }
 function buildBatchList(){
   try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
@@ -1821,19 +1823,28 @@ function renderBatchList(rows, p){
   const box=document.getElementById('bt-list'); if(!box) return;
   box._period=p;
   if(!rows.length){ box.innerHTML='<div class="hint-box" style="font-size:.75rem">対象がありません（残高・当月取引ともに無し）</div>'; return; }
-  const total=rows.reduce((s,r)=>s+r.billed,0);
-  const doneCnt=rows.filter(r=>_btDone(r.name,p.from)).length;
-  let h=`<div class="hint-box" style="font-size:.74rem">対象 <strong>${rows.length}</strong>件 ・ 作成済 <strong>${doneCnt}</strong>件 ・ 今回請求額合計 <strong>¥${fmt(total)}</strong>（${p.y}年${p.mo}月分）</div>`;
+  // 未作成を上に、作成済を下に（消し込み）
+  rows.forEach(r=> r._done=_btDone(r.name, p.from, r.id));
+  const undone=rows.filter(r=>!r._done), done=rows.filter(r=>r._done);
+  const ordered=undone.concat(done);
+  const remainAmt=undone.reduce((s,r)=>s+r.billed,0);
+  const pct=Math.round(done.length/rows.length*100);
+  let h=`<div class="hint-box" style="font-size:.76rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">`
+    + `<span>残り <strong style="color:var(--gold-l);font-size:1rem">${undone.length}</strong> 件</span>`
+    + `<span style="color:var(--wh3)">／ 作成済 ${done.length} 件（${pct}%）</span>`
+    + `<span style="color:var(--wh3)">／ 残り請求額 ¥${fmt(remainAmt)}（${p.y}年${p.mo}月分）</span>`
+    + `<span style="flex:1;min-width:120px;height:7px;background:#0f0f13;border-radius:4px;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:linear-gradient(90deg,var(--gold),var(--gold-l))"></span></span>`
+    + `</div>`;
   h+='<div style="max-height:440px;overflow:auto;border:1px solid var(--gold-d);border-radius:8px"><table style="width:100%;font-size:.72rem;border-collapse:collapse">';
   h+='<thead><tr style="position:sticky;top:0;background:#1a1a20"><th style="text-align:left;padding:.4rem .5rem">取引先</th><th style="text-align:right;padding:.4rem">前回請求</th><th style="text-align:right;padding:.4rem">入金</th><th style="text-align:right;padding:.4rem">当月売上</th><th style="text-align:right;padding:.4rem">今回請求額</th><th style="padding:.4rem;text-align:center">操作</th></tr></thead><tbody>';
-  rows.forEach(r=>{
-    const done=_btDone(r.name, p.from);
-    h+='<tr style="border-top:1px solid rgba(255,255,255,.06)">'
-     + `<td style="padding:.35rem .5rem">${done?'✅ ':''}${escapeHtml(r.name)}</td>`
+  ordered.forEach(r=>{
+    const done=r._done;
+    h+=`<tr style="border-top:1px solid rgba(255,255,255,.06);${done?'opacity:.5':''}">`
+     + `<td style="padding:.35rem .5rem;${done?'text-decoration:line-through':''}">${done?'✅ ':''}${escapeHtml(r.name)}</td>`
      + `<td style="text-align:right;padding:.35rem;color:var(--wh3)">¥${fmt(r.prev)}</td>`
      + `<td style="text-align:right;padding:.35rem;color:var(--wh3)">¥${fmt(r.paid)}</td>`
      + `<td style="text-align:right;padding:.35rem;color:var(--wh3)">¥${fmt(r.incl)}</td>`
-     + `<td style="text-align:right;padding:.35rem;font-weight:700;color:var(--gold-l)">¥${fmt(r.billed)}</td>`
+     + `<td style="text-align:right;padding:.35rem;font-weight:700;color:${done?'var(--wh3)':'var(--gold-l)'}">¥${fmt(r.billed)}</td>`
      + `<td style="text-align:center;padding:.35rem"><button class="btn ${done?'btn-g':'btn-p'}" style="padding:.25rem .6rem;font-size:.7rem" onclick="makeInvoiceForStore('${String(r.id).replace(/'/g,'')}','${String(r.name).replace(/'/g,'')}')">${done?'再作成':'作成'}</button></td>`
      + '</tr>';
   });
