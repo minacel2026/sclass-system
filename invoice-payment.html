@@ -195,6 +195,11 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   .mcon:not(.active){display:none !important}
   #m-invoice > *:not(#iv-preview-wrap){display:none !important}
   #iv-preview-wrap > .form-section > .form-section-title{display:none !important}
+  /* 明細が多い請求書を、崩さず複数ページに続ける */
+  .iv-items{page-break-inside:auto}
+  .iv-items thead{display:table-header-group}      /* 見出しを各ページで繰り返す */
+  .iv-items tr{page-break-inside:avoid}            /* 行の途中で改ページしない */
+  .iv-head,.iv-carry,.iv-tot,.iv-remark{page-break-inside:avoid}  /* まとめ枠は割らない */
   #rp-canvas{zoom:.46 !important;transform:none !important}
   body.print-ref > *:not(#print-root){display:none !important}
   #print-root{display:block !important;visibility:visible !important}
@@ -2038,9 +2043,12 @@ async function buildInvoicePreview(){
   if (!bank) bank = company.bank || DEFAULT_BANK;
   const note = (document.getElementById('iv-note')||{}).value || '';
 
-  const MIN_ROWS = 28;   // テンプレと同じ行数（空行で埋めてA4で揃える）
+  const MIN_ROWS = 28;   // 短い請求書は空行で埋めてA4で揃える。多い時は埋めず次ページへ流す
   let itemHtml = lineRows.map(r => `<tr><td>${r.date}</td><td>${escapeHtml(r.prod)}</td><td class="num">${r.qty} 本</td><td class="num">¥${fmt(r.unitIncl)}</td><td class="num">¥${fmt(r.amt)}</td><td></td></tr>`).join('');
-  for (let i = lineRows.length; i < MIN_ROWS; i++) itemHtml += '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>';
+  if (lineRows.length < MIN_ROWS){
+    for (let i = lineRows.length; i < MIN_ROWS; i++) itemHtml += '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>';
+  }
+  const _totalPages = (lineRows.length <= MIN_ROWS) ? 1 : (1 + Math.ceil((lineRows.length - MIN_ROWS) / 40));
   const salesNet = salesIncl - tax;
   const br = (company.branches && c.branch && company.branches[c.branch]) ? company.branches[c.branch] : null;
   const coAddr = (br && br.addr) || company.addr || '';
@@ -2065,7 +2073,7 @@ async function buildInvoicePreview(){
           </table>
         </div>
         <div class="iv-head-r">
-          <div class="iv-page">1/1<br>請求日：${wareki(ivDate)}</div>
+          <div class="iv-page">${_totalPages>1?('全 '+_totalPages+' ページ'):'1/1'}<br>請求日：${wareki(ivDate)}</div>
           <div class="iv-co-name">${escapeHtml(company.name || '株式会社Sclass')}</div>
           ${company.invNum ? `<div>登録番号：${escapeHtml(company.invNum)}</div>` : ''}
           ${company.zip ? `<div>〒${escapeHtml(company.zip)}</div>` : ''}
