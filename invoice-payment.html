@@ -491,15 +491,28 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
           <textarea class="fc" id="seed-input" rows="6" placeholder="ザウバー,180000&#10;BAR KING,1082000&#10;CLUB QUEEN'S,769560" style="font-family:monospace;font-size:.75rem;width:100%"></textarea>
         </div>
         <div id="seed-result"></div>
+        <div class="faction" style="margin-top:.6rem"><button class="btn btn-g" onclick="toggleSeedPanel()">取り込み完了（閉じる）</button></div>
       </div>
     </div>
 
+    <div class="form-section" style="padding-bottom:.4rem">
+      <div class="frow" style="grid-template-columns:minmax(220px,340px)">
+        <div class="fg"><label>作成モード</label>
+          <select class="fc" id="iv-mode" onchange="switchIvMode()">
+            <option value="batch">一括請求（残高のある一覧から作成）</option>
+            <option value="single">個別作成（1件だけ作る）</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="mode-single" style="display:none">
     <div class="form-section">
       <div class="form-section-title" style="display:flex;align-items:baseline;flex-wrap:wrap;gap:.6rem">
         <span>▸ 請求書作成</span>
         <span style="font-size:.68rem;color:var(--wh2);font-weight:400">取引先と期間を選んで「プレビュー作成」。下の残高一覧から選ぶと自動で入力されます。</span>
       </div>
-      <div class="frow" style="grid-template-columns:repeat(auto-fit,minmax(118px,1fr))">
+      <div class="frow" style="grid-template-columns:repeat(auto-fit,minmax(165px,1fr))">
         <div class="fg"><label>請求書番号</label><input class="fc" id="iv-no" placeholder="自動採番"></div>
         <div class="fg"><label>発行日</label><input class="fc" id="iv-date" type="date"></div>
         <div class="fg"><label>支払期限</label><input class="fc" id="iv-due" type="date"></div>
@@ -518,6 +531,9 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       </div>
     </div>
 
+    </div><!-- /mode-single -->
+
+    <div id="mode-batch">
     <!-- 一括請求：対象月の残高のある請求先を一覧し、1社ずつ作成 -->
     <div class="form-section">
       <div class="form-section-title" style="display:flex;align-items:baseline;flex-wrap:wrap;gap:.6rem">
@@ -532,6 +548,8 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       </div>
       <div id="bt-list" style="margin-top:.6rem"></div>
     </div>
+
+    </div><!-- /mode-batch -->
 
     <div class="form-section">
       <div class="form-section-title">▸ 請求書プレビュー</div>
@@ -1634,33 +1652,40 @@ function matchSeed(){
   if(_seedRows.length===0) return toast('取り込める行がありません（形式：店舗名,金額）','error');
   renderSeedResult();
 }
+function switchIvMode(){
+  const m=(document.getElementById('iv-mode')||{}).value||'batch';
+  const single=document.getElementById('mode-single'), batch=document.getElementById('mode-batch');
+  if(single) single.style.display=(m==='single')?'block':'none';
+  if(batch)  batch.style.display =(m==='batch') ?'block':'none';
+}
 function renderSeedResult(){
   const box=document.getElementById('seed-result');
-  const matched=_seedRows.filter(r=>r.matched);
   const unmatched=_seedRows.filter(r=>!r.matched);
-  const nz=matched.filter(r=>r.bal!==0);
-  const opts='<option value="">― 手動で対応付け ―</option>'+(S.customers||[]).map(c=>`<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('');
-  let h=`<div class="hint-box" style="margin-top:.6rem;font-size:.74rem">一致 <strong>${matched.length}</strong>件（残高あり ${nz.length}件・合計 ¥${fmt(nz.reduce((s,r)=>s+r.bal,0))}）／ 名前が合わない <strong style="color:${unmatched.length?'#e6a23c':'inherit'}">${unmatched.length}</strong>件`;
-  if(unmatched.length) h+=`　←合わない行は右のプルダウンでWeb顧客を選ぶと取り込めます`;
+  const pending=_seedRows.filter(r=>r.matched && !r.done && r.bal!==0);
+  const doneCnt=_seedRows.filter(r=>r.done).length;
+  const dl='<datalist id="seed-custlist">'+(S.customers||[]).map(c=>`<option value="${escapeHtml(c.name)}">`).join('')+'</datalist>';
+  let h=dl+`<div class="hint-box" style="margin-top:.6rem;font-size:.74rem">取込可能 <strong>${pending.length}</strong>件（¥${fmt(pending.reduce((s,r)=>s+r.bal,0))}）／ 取込済 <strong>${doneCnt}</strong>件 ／ 未連動 <strong style="color:${unmatched.length?'#e6a23c':'inherit'}">${unmatched.length}</strong>件`;
+  if(unmatched.length) h+='　←未連動の行は右の欄に顧客名を入力（文字検索）すると連動できます。連動しない行は残ります。';
   h+='</div>';
-  h+='<div style="max-height:340px;overflow:auto;border:1px solid var(--gold-d);border-radius:8px;margin-top:.4rem"><table style="font-size:.72rem;width:100%;border-collapse:collapse"><thead><tr style="position:sticky;top:0;background:#1a1a20"><th style="text-align:left;padding:.35rem .5rem">Excelの店名</th><th style="text-align:left;padding:.35rem .5rem">Web顧客</th><th style="text-align:right;padding:.35rem .5rem">開始残高</th></tr></thead><tbody>';
+  h+='<div style="max-height:360px;overflow:auto;border:1px solid var(--gold-d);border-radius:8px;margin-top:.4rem"><table style="font-size:.72rem;width:100%;border-collapse:collapse"><thead><tr style="position:sticky;top:0;background:#1a1a20"><th style="text-align:left;padding:.35rem .5rem">Excelの店名</th><th style="text-align:left;padding:.35rem .5rem">Web顧客</th><th style="text-align:right;padding:.35rem .5rem">開始残高</th></tr></thead><tbody>';
   _seedRows.forEach((r,i)=>{
-    const t = r.matched
-      ? `<span style="color:#8fd18f">✓ ${escapeHtml(r.cust.name)}</span>`
-      : `<select style="font-size:.72rem;padding:.15rem;max-width:170px;background:#14141a;color:#eee;border:1px solid var(--gold-d);border-radius:5px" onchange="_seedPick(${i},this.value)">${opts}</select>`;
-    h+=`<tr style="border-top:1px solid rgba(255,255,255,.06)"><td style="padding:.3rem .5rem">${escapeHtml(r.raw)}</td><td style="padding:.3rem .5rem">${t}</td><td style="padding:.3rem .5rem;text-align:right">¥${fmt(r.bal)}</td></tr>`;
+    let t;
+    if(r.done) t=`<span style="color:#8fd18f">✓ 取込済み（${escapeHtml(r.cust?r.cust.name:'')}）</span>`;
+    else if(r.matched) t=`<span style="color:#8fd18f">✓ ${escapeHtml(r.cust.name)}</span>`;
+    else t=`<input class="fc" list="seed-custlist" placeholder="顧客名で検索" style="font-size:.72rem;padding:.2rem;max-width:190px" onchange="_seedPick(${i},this.value)">`;
+    h+=`<tr style="border-top:1px solid rgba(255,255,255,.06);${r.done?'opacity:.55':''}"><td style="padding:.3rem .5rem">${escapeHtml(r.raw)}</td><td style="padding:.3rem .5rem">${t}</td><td style="padding:.3rem .5rem;text-align:right">¥${fmt(r.bal)}</td></tr>`;
   });
   h+='</tbody></table></div>';
-  h+=`<div class="faction" style="margin-top:.6rem"><button class="btn btn-p" onclick="applySeed()">✓ 一致した先の開始残高を取り込む（残高あり ${nz.length}件）</button></div>`;
+  h+=`<div class="faction" style="margin-top:.6rem"><button class="btn btn-p" onclick="applySeed()">✓ 連動済みの開始残高を取り込む（${pending.length}件）</button></div>`;
   box.innerHTML=h;
 }
 function _seedPick(i,name){ const c=(S.customers||[]).find(x=>x.name===name); _seedRows[i].cust=c||null; _seedRows[i].matched=!!c; renderSeedResult(); }
 async function applySeed(){
   const seedDate=document.getElementById('seed-date').value;
   if(!seedDate) return toast('基準日を入力してください','error');
-  const targets=_seedRows.filter(r=>r.matched && r.bal!==0);
-  if(targets.length===0) return toast('取り込む対象（残高あり・一致）がありません','error');
-  if(!confirm(`${targets.length}件の開始残高を ${seedDate} 付けの請求書として取り込みます。よろしいですか？\n（同じ先を再取込した場合は上書きされます）`)) return;
+  const targets=_seedRows.filter(r=>r.matched && !r.done && r.bal!==0);
+  if(targets.length===0) return toast('取り込む対象がありません（連動済み・残高ありの行）','error');
+  if(!confirm(`${targets.length}件の開始残高を ${seedDate} 付けの請求書として取り込みます。よろしいですか？\n（同じ先を再取込した場合は上書きされます／未連動の行は残ります）`)) return;
   if(!S.invoices) S.invoices=[];
   let n=0;
   targets.forEach(r=>{
@@ -1673,11 +1698,12 @@ async function applySeed(){
     const idx=S.invoices.findIndex(x=>x.ivNo===ivNo);
     if(idx>=0) S.invoices[idx]=inv; else S.invoices.push(inv);
     if(S.gasUrl) gasPost({ action:'saveInvoice', ...inv });
-    n++;
+    r.done=true; n++;
   });
   saveState();
   if(typeof renderInvoiceList==='function') renderInvoiceList();
   if(typeof updateKPI==='function') updateKPI();
+  renderSeedResult();   // 未連動は残し、取込済みを反映
   toast(`✓ ${n}件の開始残高を取り込みました`);
 }
 
@@ -1764,6 +1790,7 @@ function _btRefresh(){
 }
 
 function initInvoice(){
+  if(typeof switchIvMode==='function') switchIvMode();   // モード初期表示（既定=一括請求）
   // 取引先は検索式ピッカー（残高ありを優先表示）。ここでは初期化のみ。
   var _s = document.getElementById('iv-cust-search'); if (_s) _s.value = '';
   var _h = document.getElementById('iv-cust'); if (_h) _h.value = '';
