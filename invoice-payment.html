@@ -485,7 +485,11 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>請求書番号</label><input class="fc" id="iv-no" placeholder="自動採番"></div>
         <div class="fg"><label>発行日</label><input class="fc" id="iv-date" type="date"></div>
         <div class="fg"><label>支払期限</label><input class="fc" id="iv-due" type="date"></div>
-        <div class="fg"><label>取引先</label><select class="fc" id="iv-cust" onchange="onIvCustChange()"></select></div>
+        <div class="fg" style="position:relative"><label>取引先</label>
+          <input type="hidden" id="iv-cust">
+          <input class="fc" id="iv-cust-search" placeholder="店舗名で検索（残高ありを優先表示）" autocomplete="off" oninput="filterIvCust()" onfocus="filterIvCust()">
+          <div id="iv-cust-list" style="display:none;position:absolute;z-index:30;left:0;right:0;top:100%;max-height:300px;overflow:auto;background:#1a1a20;border:1px solid var(--gold-d);border-radius:8px;margin-top:2px;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
+        </div>
       </div>
       <div class="frow" style="margin-top:.5rem">
         <div class="fg"><label>対象期間 開始</label><input class="fc" id="iv-from" type="date"></div>
@@ -1564,10 +1568,9 @@ function drillStore(name){
 <!-- ═══ 請求書 ═══ -->
 <script>
 function initInvoice(){
-  // 顧客選択肢
-  const sel = document.getElementById('iv-cust');
-  sel.innerHTML = '<option value="">選択...</option>' +
-    (S.customers || []).map(c => `<option value="${escapeHtml(c.id || c.name)}">${escapeHtml(c.name)}</option>`).join('');
+  // 取引先は検索式ピッカー（残高ありを優先表示）。ここでは初期化のみ。
+  var _s = document.getElementById('iv-cust-search'); if (_s) _s.value = '';
+  var _h = document.getElementById('iv-cust'); if (_h) _h.value = '';
 
   if (!document.getElementById('iv-date').value){
     document.getElementById('iv-date').value = today();
@@ -1588,6 +1591,59 @@ function initInvoice(){
 
   renderInvoiceList();
 }
+
+// 店舗ごとの未収残高を集計（売掛サマリーと同じ考え方：全期間の未収合計）
+function _ivBalances(){
+  try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
+  const bal = {};
+  (S.orders || []).forEach(o => {
+    const key = o.store || ''; if (!key) return;
+    const amt = (typeof calcAmt === 'function') ? calcAmt(o) : (Number(o.amount)||0);
+    const unpaid = (o.payStatus === '集金済み' || o.payStatus === '入金済み') ? 0 : amt;
+    if (!bal[key]) bal[key] = { unpaid:0, last:'', month:'' };
+    bal[key].unpaid += unpaid;
+    if ((o.date||'') > bal[key].last) bal[key].last = o.date || '';
+  });
+  return bal;
+}
+var _ivOnlyDebt = true;
+function toggleIvDebt(el){ _ivOnlyDebt = !!el.checked; filterIvCust(); }
+function filterIvCust(){
+  const box = document.getElementById('iv-cust-list'); if (!box) return;
+  const kw  = (document.getElementById('iv-cust-search').value || '').toLowerCase().trim();
+  const bal = _ivBalances();
+  let list = (S.customers || []).map(c => {
+    const b = bal[c.name] || { unpaid:0, last:'' };
+    return { id: c.id || c.name, name: c.name, kana: c.kana || '', unpaid: b.unpaid, last: b.last };
+  });
+  if (_ivOnlyDebt) list = list.filter(x => x.unpaid > 0);
+  if (kw) list = list.filter(x => (x.name + ' ' + x.kana).toLowerCase().includes(kw));
+  list.sort((a,b) => (b.unpaid - a.unpaid) || String(a.name).localeCompare(b.name, 'ja'));
+
+  const head = '<label style="display:flex;align-items:center;gap:.4rem;padding:.55rem .7rem;border-bottom:1px solid var(--gold-d);font-size:.72rem;color:var(--wh2);position:sticky;top:0;background:#1a1a20">'
+    + '<input type="checkbox" ' + (_ivOnlyDebt ? 'checked' : '') + ' onchange="toggleIvDebt(this)"> 残高あり（要請求）のみ表示'
+    + '<span style="margin-left:auto;color:var(--wh3)">' + list.length + '件</span></label>';
+  if (list.length === 0){
+    box.innerHTML = head + '<div style="padding:.8rem;color:var(--wh3);font-size:.75rem">該当なし（「残高ありのみ」を外すと全顧客から検索できます）</div>';
+    box.style.display = 'block'; return;
+  }
+  box.innerHTML = head + list.slice(0, 80).map(x =>
+    '<div onclick="pickIvCust(\'' + String(x.id).replace(/'/g,'') + '\',\'' + String(x.name).replace(/'/g,'') + '\')" style="padding:.5rem .7rem;cursor:pointer;display:flex;justify-content:space-between;gap:.6rem;border-bottom:1px solid rgba(255,255,255,.05)" onmouseover="this.style.background=\'rgba(255,255,255,.06)\'" onmouseout="this.style.background=\'\'">'
+    + '<span>' + escapeHtml(x.name) + '</span>'
+    + '<span style="font-size:.72rem;white-space:nowrap;color:' + (x.unpaid > 0 ? '#e6a23c' : 'var(--wh3)') + '">' + (x.unpaid > 0 ? ('未収 ¥' + fmt(x.unpaid)) : '—') + '</span></div>'
+  ).join('');
+  box.style.display = 'block';
+}
+function pickIvCust(id, name){
+  document.getElementById('iv-cust').value = id;
+  document.getElementById('iv-cust-search').value = name;
+  document.getElementById('iv-cust-list').style.display = 'none';
+  if (typeof onIvCustChange === 'function') onIvCustChange();
+}
+document.addEventListener('click', function(e){
+  var w = document.getElementById('iv-cust-list'), s = document.getElementById('iv-cust-search');
+  if (w && s && e.target !== s && !w.contains(e.target)) w.style.display = 'none';
+});
 
 function onIvCustChange(){
   const id = document.getElementById('iv-cust').value;

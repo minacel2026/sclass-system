@@ -164,7 +164,7 @@ async function init(){
     ]);
     if (rr && rr.staff){ if (rr.staff.branch) STAFF_BRANCH = String(rr.staff.branch).trim(); if (rr.staff.name) STAFF = rr.staff.name; if (rr.staff.role) STAFF_ROLE = String(rr.staff.role).trim().toLowerCase(); }
     if (STAFF_ROLE === 'partner'){ location.href = 'partner-stats.html'; return; }   // 協力先は注文画面を見せない
-    if (STAFF_ROLE === 'viewer'){
+    if (STAFF_ROLE === 'viewer' || STAFF_ROLE === 'owner'){
       document.querySelector('.header').insertAdjacentHTML('afterend',
         '<div class="wrap" style="padding-bottom:0"><div class="banner">👁 閲覧のみの権限です。商品・価格・在庫の確認はできますが、注文の送信はできません。</div></div>');
     }
@@ -367,12 +367,12 @@ function updateTotal(){
   document.getElementById('amt').textContent = yen(total);
   document.getElementById('qtot').textContent = qt + (free > 0 ? ('＋無料' + free) : '');
   const btn = document.getElementById('send');
-  if (btn) btn.disabled = (STAFF_ROLE === 'viewer') || (qt === 0 && free === 0);
+  if (btn) btn.disabled = (STAFF_ROLE === 'viewer' || STAFF_ROLE === 'owner') || (qt === 0 && free === 0);
   return { total, qt, free };
 }
 
 async function submitOrder(){
-  if (STAFF_ROLE === 'viewer'){ alert('閲覧のみの権限のため、注文の送信はできません。'); return; }
+  if (STAFF_ROLE === 'viewer' || STAFF_ROLE === 'owner'){ alert('閲覧のみの権限のため、注文の送信はできません。'); return; }
   if (!selCust) return;
   const { total, qt, free } = updateTotal();
   if (qt === 0 && free === 0) return;

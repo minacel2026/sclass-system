@@ -874,6 +874,8 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
                 <option value="staff" selected>staff（営業）</option>
                 <option value="viewer">viewer（閲覧のみ）</option>
                 <option value="president">president（社長）</option>
+                <option value="owner">owner（全体閲覧・編集不可）</option>
+                <option value="partner">partner（協力会社・実績のみ）</option>
               </select>
             </div>
           </div>
@@ -1476,9 +1478,10 @@ function updateUserBadge(){
 // ─── 開発者以外には admin/社長のロール選択肢を出さない（サーバ側でも同様に拒否される） ─────
 function _gateRoleOptions(){
   try{
-    if (currentUser && currentUser.isDev) return;   // 開発者/緊急管理者は全ロール選択可
+    var canHigh = currentUser && (currentUser.isDev || String(currentUser.role||'').toLowerCase()==='president');
+    if (canHigh) return;   // 開発者/社長は全ロール選択可
     var sel = document.getElementById('sf-role-sel');
-    if (sel){ Array.from(sel.options).forEach(function(o){ if (o.value==='admin' || o.value==='president'){ o.remove(); } }); }
+    if (sel){ Array.from(sel.options).forEach(function(o){ if (['admin','president','owner','partner'].includes(o.value)){ o.remove(); } }); }
   }catch(e){}
 }
 
@@ -3242,7 +3245,7 @@ function removeCoBank(i){ coBankRows.splice(i,1); renderCoBanks(); }
 
 function saveCompany(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
-  if (currentUser.role === 'staff') return toast('🔒 弊社情報編集は admin/manager のみ', 'error');
+  if (['staff','viewer','owner','partner'].includes(currentUser.role)) return toast('🔒 弊社情報編集は admin/manager のみ', 'error');
   const g = id => (document.getElementById(id)||{}).value || '';
   S.company = {
     name: g('co-name'), dept: g('co-dept'), ceo: g('co-ceo'),
@@ -3465,7 +3468,7 @@ function _persistProducts(list){
 }
 
 function submitProductForm(){
-  if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
+  if (['staff','viewer','owner','partner'].includes(currentUser.role)) return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
   const g = id => (document.getElementById(id) || {}).value;
   const name = (g('pf-name') || '').trim();
   if (!name) return toast('商品名は必須です', 'error');
@@ -3500,7 +3503,7 @@ function deleteProductForm(){
 }
 
 function deleteProductByKey(enc){
-  if (currentUser.role === 'staff' || currentUser.role === 'viewer') return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
+  if (['staff','viewer','owner','partner'].includes(currentUser.role)) return toast('🔒 商品マスター編集は admin/manager のみ', 'error');
   const name = decodeURIComponent(enc);
   if (!confirm('「' + name + '」を削除しますか？\n全端末に反映されます。')) return;
   const list = _prodList().map(p => ({...p})).filter(p => (p.name || '') !== name);
