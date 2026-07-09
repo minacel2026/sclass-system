@@ -495,30 +495,26 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
     </div>
 
     <div class="form-section">
-      <div class="form-section-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+      <div class="form-section-title" style="display:flex;align-items:baseline;flex-wrap:wrap;gap:.6rem">
         <span>▸ 請求書作成</span>
         <span style="font-size:.68rem;color:var(--wh2);font-weight:400">取引先と期間を選んで「プレビュー作成」。下の残高一覧から選ぶと自動で入力されます。</span>
       </div>
-      <div class="frow">
+      <div class="frow" style="grid-template-columns:repeat(auto-fit,minmax(118px,1fr))">
         <div class="fg"><label>請求書番号</label><input class="fc" id="iv-no" placeholder="自動採番"></div>
         <div class="fg"><label>発行日</label><input class="fc" id="iv-date" type="date"></div>
         <div class="fg"><label>支払期限</label><input class="fc" id="iv-due" type="date"></div>
-        <div class="fg" style="position:relative"><label>取引先</label>
+        <div class="fg" style="position:relative;min-width:150px"><label>取引先</label>
           <input type="hidden" id="iv-cust">
-          <input class="fc" id="iv-cust-search" placeholder="店舗名で検索（残高ありを優先表示）" autocomplete="off" oninput="filterIvCust()" onfocus="filterIvCust()">
+          <input class="fc" id="iv-cust-search" placeholder="店舗名で検索" autocomplete="off" oninput="filterIvCust()" onfocus="filterIvCust()">
           <div id="iv-cust-list" style="display:none;position:absolute;z-index:30;left:0;right:0;top:100%;max-height:300px;overflow:auto;background:#1a1a20;border:1px solid var(--gold-d);border-radius:8px;margin-top:2px;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
         </div>
-      </div>
-      <div class="frow" style="margin-top:.5rem">
         <div class="fg"><label>対象期間 開始</label><input class="fc" id="iv-from" type="date"></div>
         <div class="fg"><label>対象期間 終了</label><input class="fc" id="iv-to" type="date"></div>
         <div class="fg"><label>振込先</label><select class="fc" id="iv-bank"></select></div>
+        <div class="fg"><label>前回請求額</label><input class="fc" id="iv-prev" type="number" placeholder="自動"></div>
+        <div class="fg"><label>今回入金額</label><input class="fc" id="iv-paid" type="number" placeholder="自動"></div>
+        <div class="fg" style="min-width:130px"><label>備考</label><input class="fc" id="iv-note" placeholder="（任意）"></div>
         <div class="fg"><label>&nbsp;</label><button class="btn btn-p" onclick="buildInvoicePreview()" style="width:100%;display:block">プレビュー作成</button></div>
-      </div>
-      <div class="frow" style="margin-top:.5rem">
-        <div class="fg"><label>前回請求額（自動／手修正可）</label><input class="fc" id="iv-prev" type="number" placeholder="自動算出"></div>
-        <div class="fg"><label>今回入金額（自動／手修正可）</label><input class="fc" id="iv-paid" type="number" placeholder="自動算出"></div>
-        <div class="fg" style="flex:2"><label>備考欄</label><input class="fc" id="iv-note" placeholder="（任意）"></div>
       </div>
     </div>
 
