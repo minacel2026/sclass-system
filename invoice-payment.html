@@ -569,8 +569,8 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         </div>
       </div>
       <div class="faction">
-        <button class="btn btn-g" onclick="window.print()">🖨 印刷 / PDFで保存</button>
-        <button class="btn btn-p" onclick="saveInvoice()">📁 請求書を保存</button>
+        <button class="btn btn-p" onclick="saveAndPrint()">💾 保存してPDF印刷</button>
+        <button class="btn btn-g" onclick="saveInvoice()">📁 保存だけ</button>
         <button class="btn" onclick="closeIvPreview()" style="background:#2a2a30;border:1px solid var(--gold-d);color:var(--wh)">✕ 閉じる（保存しない）</button>
       </div>
     </div>
@@ -2100,14 +2100,14 @@ async function buildInvoicePreview(){
 }
 
 function saveInvoice(){
-  if (!window._currentInvoice) return toast('まずプレビューを作成してください', 'error');
+  if (!window._currentInvoice){ toast('まずプレビューを作成してください', 'error'); return false; }
   const inv = { ...window._currentInvoice, savedAt: new Date().toISOString(), savedBy: currentUser.name };
 
   if (!S.invoices) S.invoices = [];
   // 既存チェック
   const existIdx = S.invoices.findIndex(x => x.ivNo === inv.ivNo);
   if (existIdx >= 0){
-    if (!confirm('この請求書番号は既に存在します。上書きしますか？')) return;
+    if (!confirm('この請求書番号は既に存在します。上書きしますか？')) return false;
     S.invoices[existIdx] = inv;
   } else {
     S.invoices.push(inv);
@@ -2118,6 +2118,13 @@ function saveInvoice(){
   renderInvoiceList();
   updateKPI();
   if (typeof _btRefresh === 'function') _btRefresh();
+  return true;
+}
+// 保存してから印刷（PDF）ダイアログを開く：1ボタンで完結
+function saveAndPrint(){
+  const ok = saveInvoice();
+  if (ok === false) return;                 // 保存できなかったら印刷しない
+  setTimeout(function(){ try{ window.print(); }catch(e){} }, 150);
 }
 
 function toggleIvList(){
