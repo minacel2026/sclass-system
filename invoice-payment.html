@@ -479,6 +479,25 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       取引先と期間を選択して請求書を作成します。発行後はPDF印刷・LINE送信が可能。
     </div>
 
+    <!-- 開始残高の取り込み（Excelからの移行・初回のみ） -->
+    <div class="form-section" style="border-color:var(--gold-d)">
+      <div class="form-section-title" style="cursor:pointer" onclick="toggleSeedPanel()">▸ 開始残高の取り込み（Excelからの移行・初回のみ）<span id="seed-caret" style="float:right">▾</span></div>
+      <div id="seed-panel" style="display:none">
+        <div class="hint-box" style="font-size:.72rem">
+          Excelの「当月残」などを、各取引先の<strong>開始残高（前月残高）</strong>としてWebに取り込みます。<br>
+          1行に「店舗名,金額」または「支店,店舗名,金額」で貼り付けてください（CSVをそのまま貼れます）。取り込むと基準日付の請求書として保存され、<strong>次回請求から前回請求額に自動反映</strong>されます。
+        </div>
+        <div class="frow">
+          <div class="fg" style="flex:1"><label>基準日（前月末を推奨。この翌日以降の請求から繰越される）</label><input class="fc" id="seed-date" type="date"></div>
+          <div class="fg"><label>&nbsp;</label><button class="btn btn-p" onclick="matchSeed()" style="width:100%;display:block">突き合わせ</button></div>
+        </div>
+        <div class="fg" style="margin-top:.5rem"><label>貼り付け（店舗名,金額）</label>
+          <textarea class="fc" id="seed-input" rows="6" placeholder="ザウバー,180000&#10;BAR KING,1082000&#10;CLUB QUEEN'S,769560" style="font-family:monospace;font-size:.75rem;width:100%"></textarea>
+        </div>
+        <div id="seed-result"></div>
+      </div>
+    </div>
+
     <div class="form-section">
       <div class="form-section-title">▸ 請求書作成</div>
       <div class="frow">
@@ -1567,6 +1586,91 @@ function drillStore(name){
 
 <!-- ═══ 請求書 ═══ -->
 <script>
+// ─── 開始残高の取り込み（Excel移行・初回のみ） ───────────────
+function toggleSeedPanel(){
+  var p=document.getElementById('seed-panel'), c=document.getElementById('seed-caret');
+  var open = (p.style.display==='none' || p.style.display==='');
+  p.style.display = open?'block':'none'; if(c) c.textContent = open?'▴':'▾';
+  var sd=document.getElementById('seed-date');
+  if(open && sd && !sd.value){ var d=new Date(); d.setDate(0); sd.value=d.toISOString().slice(0,10); } // 前月末を既定
+}
+// 名寄せ用の正規化：カッコ内(読み仮名)除去・空白除去・全角英数→半角・小文字化
+function _normName(s){
+  return String(s||'')
+    .replace(/[（(][^（()）]*[）)]/g,'')
+    .replace(/\s+/g,'')
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g,function(ch){return String.fromCharCode(ch.charCodeAt(0)-0xFEE0);})
+    .toLowerCase().trim();
+}
+var _seedRows=[];
+function matchSeed(){
+  const raw=(document.getElementById('seed-input').value||'');
+  const lines=raw.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const byExact={}, byNorm={};
+  (S.customers||[]).forEach(c=>{ if(c.name){ byExact[c.name]=c; byNorm[_normName(c.name)]=c; } });
+  _seedRows=[];
+  lines.forEach(line=>{
+    const parts=line.split(',').map(x=>x.trim());
+    let name, amt;
+    if(parts.length>=3){ name=parts[1]; amt=parts[2]; }
+    else if(parts.length===2){ name=parts[0]; amt=parts[1]; }
+    else return;
+    const cleaned=String(amt).replace(/[,¥\s円]/g,'');
+    if(isNaN(Number(cleaned))) return;  // ヘッダー行や不正行はスキップ
+    const bal=Math.round(Number(cleaned)||0);
+    const cust=byExact[name]||byNorm[_normName(name)]||null;
+    _seedRows.push({ raw:name, bal, cust, matched:!!cust });
+  });
+  if(_seedRows.length===0) return toast('取り込める行がありません（形式：店舗名,金額）','error');
+  renderSeedResult();
+}
+function renderSeedResult(){
+  const box=document.getElementById('seed-result');
+  const matched=_seedRows.filter(r=>r.matched);
+  const unmatched=_seedRows.filter(r=>!r.matched);
+  const nz=matched.filter(r=>r.bal!==0);
+  const opts='<option value="">― 手動で対応付け ―</option>'+(S.customers||[]).map(c=>`<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('');
+  let h=`<div class="hint-box" style="margin-top:.6rem;font-size:.74rem">一致 <strong>${matched.length}</strong>件（残高あり ${nz.length}件・合計 ¥${fmt(nz.reduce((s,r)=>s+r.bal,0))}）／ 名前が合わない <strong style="color:${unmatched.length?'#e6a23c':'inherit'}">${unmatched.length}</strong>件`;
+  if(unmatched.length) h+=`　←合わない行は右のプルダウンでWeb顧客を選ぶと取り込めます`;
+  h+='</div>';
+  h+='<div style="max-height:340px;overflow:auto;border:1px solid var(--gold-d);border-radius:8px;margin-top:.4rem"><table style="font-size:.72rem;width:100%;border-collapse:collapse"><thead><tr style="position:sticky;top:0;background:#1a1a20"><th style="text-align:left;padding:.35rem .5rem">Excelの店名</th><th style="text-align:left;padding:.35rem .5rem">Web顧客</th><th style="text-align:right;padding:.35rem .5rem">開始残高</th></tr></thead><tbody>';
+  _seedRows.forEach((r,i)=>{
+    const t = r.matched
+      ? `<span style="color:#8fd18f">✓ ${escapeHtml(r.cust.name)}</span>`
+      : `<select style="font-size:.72rem;padding:.15rem;max-width:170px;background:#14141a;color:#eee;border:1px solid var(--gold-d);border-radius:5px" onchange="_seedPick(${i},this.value)">${opts}</select>`;
+    h+=`<tr style="border-top:1px solid rgba(255,255,255,.06)"><td style="padding:.3rem .5rem">${escapeHtml(r.raw)}</td><td style="padding:.3rem .5rem">${t}</td><td style="padding:.3rem .5rem;text-align:right">¥${fmt(r.bal)}</td></tr>`;
+  });
+  h+='</tbody></table></div>';
+  h+=`<div class="faction" style="margin-top:.6rem"><button class="btn btn-p" onclick="applySeed()">✓ 一致した先の開始残高を取り込む（残高あり ${nz.length}件）</button></div>`;
+  box.innerHTML=h;
+}
+function _seedPick(i,name){ const c=(S.customers||[]).find(x=>x.name===name); _seedRows[i].cust=c||null; _seedRows[i].matched=!!c; renderSeedResult(); }
+async function applySeed(){
+  const seedDate=document.getElementById('seed-date').value;
+  if(!seedDate) return toast('基準日を入力してください','error');
+  const targets=_seedRows.filter(r=>r.matched && r.bal!==0);
+  if(targets.length===0) return toast('取り込む対象（残高あり・一致）がありません','error');
+  if(!confirm(`${targets.length}件の開始残高を ${seedDate} 付けの請求書として取り込みます。よろしいですか？\n（同じ先を再取込した場合は上書きされます）`)) return;
+  if(!S.invoices) S.invoices=[];
+  let n=0;
+  targets.forEach(r=>{
+    const c=r.cust;
+    const ivNo='SEED-'+(c.id||c.name);
+    const inv={ ivNo, ivDate:seedDate, ivDue:seedDate, custId:c.id||c.name, custName:c.name,
+      from:seedDate, to:seedDate, salesTotal:0, salesIncl:0, subtotal:0, tax:0,
+      prevBilled:0, paidNow:0, carry:0, billed:r.bal, total:r.bal, count:0,
+      bank:'', note:'開始残高（Excelから移行）', seed:true, savedAt:new Date().toISOString(), savedBy:(currentUser&&currentUser.name)||'' };
+    const idx=S.invoices.findIndex(x=>x.ivNo===ivNo);
+    if(idx>=0) S.invoices[idx]=inv; else S.invoices.push(inv);
+    if(S.gasUrl) gasPost({ action:'saveInvoice', ...inv });
+    n++;
+  });
+  saveState();
+  if(typeof renderInvoiceList==='function') renderInvoiceList();
+  if(typeof updateKPI==='function') updateKPI();
+  toast(`✓ ${n}件の開始残高を取り込みました`);
+}
+
 function initInvoice(){
   // 取引先は検索式ピッカー（残高ありを優先表示）。ここでは初期化のみ。
   var _s = document.getElementById('iv-cust-search'); if (_s) _s.value = '';
