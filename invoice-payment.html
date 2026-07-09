@@ -158,9 +158,9 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .invoice-preview .iv-head-l{flex:1.15}
 .invoice-preview .iv-head-r{flex:.95;font-size:11px;line-height:1.7}
 .invoice-preview .iv-title{display:inline-block;background:#4f7d93;color:#fff;font-size:1.35rem;font-weight:700;letter-spacing:.45em;padding:.35rem 1.5rem;margin-bottom:1rem;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.invoice-preview .iv-cust{font-size:1rem;border-bottom:2px solid #333;padding-bottom:.25rem;margin-bottom:1rem}
+.invoice-preview .iv-cust{font-size:1rem;border-bottom:2px solid #333;padding-bottom:.25rem;margin-bottom:1rem;width:78%;box-sizing:border-box}
 .invoice-preview .iv-custname{font-weight:700;font-size:1.25rem;margin-right:1rem}
-.invoice-preview .iv-payinfo{width:100%;border-collapse:collapse;margin-bottom:.7rem}
+.invoice-preview .iv-payinfo{width:78%;border-collapse:collapse;margin-bottom:.7rem}
 .invoice-preview .iv-payinfo td{border:1px solid #cfdde3;padding:.45rem .6rem;vertical-align:middle;background:#fff}
 .invoice-preview .iv-lab{background:#4f7d93;color:#fff;font-weight:600;width:96px;text-align:center;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .invoice-preview .iv-bank{white-space:pre-line;font-size:11px}
@@ -2068,7 +2068,7 @@ async function buildInvoicePreview(){
             <tr><td class="iv-lab">支払先</td><td class="iv-bank">${escapeHtml(bank)}</td></tr>
           </table>
           <p class="iv-lead">下記の通りご請求申し上げます。</p>
-          <table class="iv-payinfo" style="width:auto;min-width:60%">
+          <table class="iv-payinfo" style="width:78%">
             <tr><td class="iv-lab">請求金額</td><td class="iv-bigamt">¥${fmt(billed)}-</td></tr>
           </table>
         </div>
