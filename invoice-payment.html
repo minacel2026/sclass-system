@@ -567,18 +567,31 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="faction">
         <button class="btn btn-g" onclick="window.print()">🖨 印刷 / PDFで保存</button>
         <button class="btn btn-p" onclick="saveInvoice()">📁 請求書を保存</button>
+        <button class="btn" onclick="closeIvPreview()" style="border-color:var(--wh3);color:var(--wh2)">✕ 閉じる（保存しない）</button>
       </div>
     </div>
     </div><!-- /iv-preview-wrap -->
 
-    <div class="tw" style="margin-top:1rem">
-      <div class="th-area"><h3>発行済み請求書</h3><span id="iv-cnt" style="font-size:.72rem;color:var(--wh2)"></span></div>
-      <table>
-        <thead>
-          <tr><th>請求書No.</th><th>発行日</th><th>取引先</th><th>対象期間</th><th class="col-amt">金額</th><th>支払期限</th><th>状態</th><th>操作</th></tr>
-        </thead>
-        <tbody id="iv-tbody"></tbody>
-      </table>
+    <div class="form-section" style="margin-top:1rem">
+      <div class="form-section-title" style="cursor:pointer;display:flex;align-items:center;gap:.6rem" onclick="toggleIvList()">
+        <span>▸ 発行済み請求書</span>
+        <span id="iv-cnt" style="font-size:.72rem;color:var(--wh2);font-weight:400"></span>
+        <span id="ivlist-caret" style="margin-left:auto">▾</span>
+      </div>
+      <div id="ivlist-panel" style="display:none">
+        <div class="frow" style="grid-template-columns:minmax(150px,240px) auto">
+          <div class="fg"><label>対象月で絞り込み</label><input class="fc" id="ivlist-month" type="month" onchange="renderInvoiceList()"></div>
+          <div class="fg"><label>&nbsp;</label><button class="btn-s" onclick="document.getElementById('ivlist-month').value='';renderInvoiceList()" style="width:100%">全期間を表示</button></div>
+        </div>
+        <div class="tw" style="margin-top:.5rem">
+          <table>
+            <thead>
+              <tr><th>請求書No.</th><th>発行日</th><th>取引先</th><th>対象期間</th><th class="col-amt">金額</th><th>支払期限</th><th>状態</th><th>操作</th></tr>
+            </thead>
+            <tbody id="iv-tbody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -2077,12 +2090,31 @@ function saveInvoice(){
   if (typeof _btRefresh === 'function') _btRefresh();
 }
 
+function toggleIvList(){
+  const p=document.getElementById('ivlist-panel'), c=document.getElementById('ivlist-caret');
+  const open=(p.style.display==='none'||p.style.display==='');
+  p.style.display=open?'block':'none'; if(c) c.textContent=open?'▴':'▾';
+  if(open){
+    const mf=document.getElementById('ivlist-month');
+    const bm=(document.getElementById('bt-month')||{}).value||'';
+    if(mf && !mf.value && bm) mf.value=bm;   // 既定は一括請求で選んだ対象月に合わせる
+    renderInvoiceList();
+  }
+}
+function closeIvPreview(){
+  const w=document.getElementById('iv-preview-wrap'); if(w) w.style.display='none';
+  try{ window._currentInvoice=null; }catch(e){}
+}
 function renderInvoiceList(){
-  const list = [...(S.invoices || [])].sort((a,b) => (b.ivDate || '').localeCompare(a.ivDate || ''));
-  document.getElementById('iv-cnt').textContent = list.length + '通';
-  const tbody = document.getElementById('iv-tbody');
+  const mf=(document.getElementById('ivlist-month')||{}).value||'';
+  // シード（開始残高）は一覧に出さない。対象月で絞り込み。
+  let list=[...(S.invoices || [])].filter(iv => !iv.seed && !String(iv.ivNo||'').startsWith('SEED-'));
+  if(mf) list=list.filter(iv => String(iv.from||'').slice(0,7)===mf);
+  list.sort((a,b) => (b.ivDate || '').localeCompare(a.ivDate || ''));
+  const cntEl=document.getElementById('iv-cnt'); if(cntEl) cntEl.textContent = (mf?(mf+'：'):'') + list.length + '通';
+  const tbody = document.getElementById('iv-tbody'); if(!tbody) return;
   if (list.length === 0){
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">📄</div>発行済み請求書がありません</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">📄</div>${mf?'この月の発行済みはありません':'発行済み請求書がありません'}</div></td></tr>`;
     return;
   }
   tbody.innerHTML = list.map(iv => {
