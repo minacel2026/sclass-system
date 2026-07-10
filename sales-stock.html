@@ -489,6 +489,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #lend-o
     <button class="mtab active" onclick="switchModule('orders',this)"><span class="mtab-ic">📋</span>注文一覧</button>
     <button class="mtab" onclick="switchModule('neworder',this)"><span class="mtab-ic">➕</span>注文登録</button>
     <button class="mtab" onclick="switchModule('stock',this)"><span class="mtab-ic">🍾</span>在庫管理</button>
+    <button class="mtab" onclick="switchModule('slog',this)"><span class="mtab-ic">📜</span>在庫履歴</button>
     <button class="mtab" onclick="switchModule('lending',this)"><span class="mtab-ic">🤝</span>貸借管理</button>
     <button class="mtab" onclick="switchModule('purchase',this)"><span class="mtab-ic">🚚</span>仕入管理</button>
     <button class="mtab" onclick="switchModule('inventory',this)"><span class="mtab-ic">📦</span>棚卸計算</button>
@@ -754,6 +755,29 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #lend-o
         </thead>
         <tbody id="inv-tbody"></tbody>
         <tfoot id="inv-tfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div id="m-slog" class="mcon">
+    <div class="hint-box">
+      <strong>📜 在庫履歴</strong><br>
+      在庫に関わる動き（出庫・仕入・拠点間移動・戻入・調整・初期登録）をまとめて確認できます。種類で絞り込めます（「移動（拠点間）」を選ぶと仙台⇄京都の移動だけ表示）。
+    </div>
+    <div class="fp">
+      <div class="frow">
+        <div class="fg"><label>種類</label><select class="fc" id="slog-type" onchange="renderSlog()"></select></div>
+        <div class="fg"><label>拠点</label><select class="fc" id="slog-br" onchange="renderSlog()"><option value="">すべて</option><option>仙台</option><option>京都</option></select></div>
+        <div class="fg" style="flex:1"><label>キーワード（商品・備考・担当）</label><input class="fc" id="slog-kw" oninput="renderSlog()" placeholder="イエロー / 移動 / 注文削除 ..."></div>
+      </div>
+    </div>
+    <div class="tw">
+      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span></div>
+      <table>
+        <thead>
+          <tr><th>日付</th><th>時刻</th><th>拠点</th><th>種類</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th></tr>
+        </thead>
+        <tbody id="slog-tbody"></tbody>
       </table>
     </div>
   </div>
@@ -1087,6 +1111,7 @@ function switchModule(name, el){
   if (name === 'orders')    renderOrders();
   if (name === 'neworder')  initNewOrder();
   if (name === 'stock')     renderStock();
+  if (name === 'slog')      renderSlog();
   if (name === 'purchase')  renderPurchase();
   if (name === 'inventory') renderInventory();
   if (name === 'sponsor')   renderSponsor();
@@ -3069,6 +3094,46 @@ function migrateToReserve(){
   renderStock();
   updateKPI();
   toast(`✓ 移行完了：未出荷 ${moved}本を実在庫へ戻しました。棚卸しで実数調整してください`);
+}
+
+// ─── 在庫履歴（S.slog を種類フィルタ付きで一覧） ───────────────
+function renderSlog(){
+  const slog = (S.slog || []).slice();
+  const typeSel = document.getElementById('slog-type');
+  if (typeSel && !typeSel._built){
+    const types = [...new Set(slog.map(s=>s.type).filter(Boolean))];
+    let opts = '<option value="">すべての種類</option><option value="__move__">移動（拠点間）</option>';
+    types.forEach(t=>{ if(t!=='移動出' && t!=='移動入') opts += `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`; });
+    typeSel.innerHTML = opts; typeSel._built = true;
+  }
+  const ft = (typeSel||{}).value || '';
+  const fb = (document.getElementById('slog-br')||{}).value || '';
+  const kw = ((document.getElementById('slog-kw')||{}).value || '').toLowerCase().trim();
+  let rows = slog.filter(s=>{
+    if (ft === '__move__'){ if (s.type!=='移動出' && s.type!=='移動入') return false; }
+    else if (ft && s.type !== ft) return false;
+    if (fb && s.branch !== fb) return false;
+    if (kw){ const hay = ((s.product||'')+' '+(s.note||'')+' '+(s.user||'')).toLowerCase(); if(!hay.includes(kw)) return false; }
+    return true;
+  });
+  rows.sort((a,b)=> (String(b.date)+String(b.time||'')).localeCompare(String(a.date)+String(a.time||'')));
+  const cnt = document.getElementById('slog-cnt'); if(cnt) cnt.textContent = rows.length + '件';
+  const tb = document.getElementById('slog-tbody'); if(!tb) return;
+  const MAX = 400;
+  const show = rows.slice(0, MAX);
+  if(!show.length){ tb.innerHTML = '<tr><td colspan="9"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
+  const tcolor = t => ({'出庫':'#e6a23c','協賛出庫':'#c39bd3','入庫':'#67c23a','戻入':'#67c23a','移動出':'#4f9dd9','移動入':'#4f9dd9','調整':'#e67e22','初期登録':'#909399'}[t] || '#aaa');
+  tb.innerHTML = show.map(s=>`<tr>
+      <td>${escapeHtml(s.date||'')}</td>
+      <td style="color:var(--wh3)">${escapeHtml(s.time||'')}</td>
+      <td>${escapeHtml(s.branch||'')}</td>
+      <td><span style="color:${tcolor(s.type)};font-weight:600">${escapeHtml(s.type||'')}</span></td>
+      <td>${escapeHtml(s.product||'')}</td>
+      <td class="col-qty">${s.qty!=null?fmt(s.qty):''}</td>
+      <td class="col-qty" style="color:var(--wh3)">${s.remaining!=null?fmt(s.remaining):''}</td>
+      <td style="font-size:.7rem">${escapeHtml(s.note||'')}</td>
+      <td style="font-size:.7rem">${escapeHtml(s.user||'')}</td>
+    </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="9" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
 }
 
 function renderStock(){
