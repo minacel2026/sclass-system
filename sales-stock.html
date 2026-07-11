@@ -697,12 +697,11 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #lend-o
     <details class="fp" id="stock-transfer" style="margin-bottom:1rem">
       <summary style="cursor:pointer;font-weight:700;color:var(--gold-l)">🔁 拠点間移動（仙台 ⇄ 京都／在庫を移すだけ・売上0）</summary>
       <div style="margin-top:.6rem">
-        <div class="hint-box" style="margin:.2rem 0 .5rem">移動元から移動先へ在庫を移します。移動元が減り、移動先が同じ本数だけ増えます（会社全体の在庫は変わりません）。バケツ（旧/協賛/新）を指定でき、履歴に残ります。調整機能の代わりにこちらを使ってください。</div>
+        <div class="hint-box" style="margin:.2rem 0 .5rem">移動元から移動先へ在庫を移します。移動元が減り、移動先が同じ本数だけ増えます（会社全体の在庫は変わりません）。本数を入れるだけで「旧値→協賛→新値」の順に自動で移動元から取り、移動先の同じ区分に足します。履歴に残ります。調整機能の代わりにこちらを使ってください。</div>
         <div class="frow">
           <div class="fg"><label>移動元</label><select class="fc" id="tr-from" onchange="syncTransferTo()"><option>仙台</option><option>京都</option></select></div>
           <div class="fg"><label>移動先</label><select class="fc" id="tr-to"><option>京都</option><option>仙台</option></select></div>
           <div class="fg"><label>商品</label><select class="fc" id="tr-prod"></select></div>
-          <div class="fg"><label>バケツ</label><select class="fc" id="tr-bkt"><option value="new">新値</option><option value="old">旧値</option><option value="sp">協賛</option></select></div>
           <div class="fg"><label>本数</label><input class="fc" id="tr-qty" type="number" min="1" step="1" placeholder="例：5"></div>
           <div class="fg"><label>メモ（任意）</label><input class="fc" id="tr-memo" placeholder="例：他社返却分を京都へ"></div>
         </div>
@@ -4010,13 +4009,12 @@ function updateTransferPreview(){
   const box = document.getElementById('tr-preview');
   if (!box) return;
   const from = (document.getElementById('tr-from')||{}).value, to = (document.getElementById('tr-to')||{}).value;
-  const prod = (document.getElementById('tr-prod')||{}).value, bkt = (document.getElementById('tr-bkt')||{}).value || 'new';
+  const prod = (document.getElementById('tr-prod')||{}).value;
   const qty = parseInt((document.getElementById('tr-qty')||{}).value) || 0;
   if (!prod){ box.textContent = ''; return; }
-  const bf = _bkt(from, prod), bt = _bkt(to, prod);
-  const lbl = _BKT_LABEL[bkt];
-  box.innerHTML = `現在：${from}の${lbl} <b>${bf[bkt]}</b>本 ／ ${to}の${lbl} <b>${bt[bkt]}</b>本`
-    + (qty>0 ? `　→　移動後：${from} <b>${bf[bkt]-qty}</b>本 ／ ${to} <b>${bt[bkt]+qty}</b>本` : '');
+  const sf = _sumStock(from, prod), st = _sumStock(to, prod);
+  box.innerHTML = `現在：${from} <b>${sf}</b>本 ／ ${to} <b>${st}</b>本`
+    + (qty>0 ? `　→　移動後：${from} <b>${sf-qty}</b>本 ／ ${to} <b>${st+qty}</b>本` : '');
 }
 async function transferStock(){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
@@ -4025,21 +4023,25 @@ async function transferStock(){
   const from = (document.getElementById('tr-from')||{}).value;
   const to   = (document.getElementById('tr-to')||{}).value;
   const prod = (document.getElementById('tr-prod')||{}).value;
-  const bkt  = (document.getElementById('tr-bkt')||{}).value || 'new';
   const qty  = parseInt((document.getElementById('tr-qty')||{}).value) || 0;
   const memo = ((document.getElementById('tr-memo')||{}).value || '').trim();
   if (from === to) return toast('移動元と移動先が同じです', 'error');
   if (!prod) return toast('商品を選んでください', 'error');
   if (!(qty > 0)) return toast('本数を入力してください', 'error');
-  const lbl = _BKT_LABEL[bkt];
-  if (!confirm(`${prod}（${lbl}）を ${qty}本\n${from} → ${to} へ移動します。よろしいですか？`)) return;
+  const _avail = _sumStock(from, prod);
+  if (qty > _avail) return toast(`${from}の${prod}は ${_avail}本しかありません（${qty}本は移動できません）`, 'error');
+  if (!confirm(`${prod} を ${qty}本\n${from} → ${to} へ移動します。よろしいですか？`)) return;
 
-  adjustBucket(from, prod, bkt, -qty);   // 移動元 −
-  adjustBucket(to,   prod, bkt, +qty);   // 移動先 ＋
+  // 旧値 → 協賛 → 新値 の優先順で移動元から取り、移動先の同じ区分へ足す
+  const used = depleteStock(from, prod, qty);
+  restoreStockBkt(to, prod, qty, used);
+  _sumStock(from, prod); _sumStock(to, prod);
 
   if (!S.slog) S.slog = [];
   const t = new Date().toTimeString().slice(0,5);
-  const note = `拠点間移動 ${from}→${to}（${lbl}）` + (memo ? '：' + memo : '');
+  const _p = []; if (used.old) _p.push('旧' + used.old); if (used.sp) _p.push('協' + used.sp); if (used.new) _p.push('新' + used.new);
+  const _brk = _p.length ? '（' + _p.join('・') + '）' : '';
+  const note = `拠点間移動 ${from}→${to}${_brk}` + (memo ? '：' + memo : '');
   const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : '';
   S.slog.push({ date: today(), time: t, branch: from, type: '移動出', product: prod, qty: qty, remaining: S.stock[from][prod], note: note, user: user });
   S.slog.push({ date: today(), time: t, branch: to,   type: '移動入', product: prod, qty: qty, remaining: S.stock[to][prod],   note: note, user: user });
