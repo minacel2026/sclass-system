@@ -100,7 +100,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 /* ─── 商品テーブル（注文登録・行表示） ─── */
 .prod-table-wrap{overflow-x:auto;margin-bottom:1rem;border:1px solid rgba(201,168,76,.15)}
 .prod-table{width:100%;border-collapse:collapse;font-size:.82rem;min-width:520px}
-.prod-table th{background:var(--d3);padding:.5rem .7rem;text-align:left;font-size:.68rem;color:var(--gold-d);letter-spacing:.05em;font-weight:500;border-bottom:1px solid rgba(201,168,76,.2);white-space:nowrap;position:sticky;top:56px;z-index:1}
+.prod-table th{background:var(--d3);padding:.5rem .7rem;text-align:left;font-size:.68rem;color:var(--gold-d);letter-spacing:.05em;font-weight:500;border-bottom:1px solid rgba(201,168,76,.2);white-space:nowrap}
 .prod-table th.col-num{text-align:right}
 .prod-table td{padding:.4rem .7rem;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
 .prod-table tbody tr{transition:background .15s}
@@ -764,6 +764,21 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #lend-o
       <strong>📜 在庫履歴</strong><br>
       在庫に関わる動き（出庫・仕入・拠点間移動・戻入・調整・初期登録）をまとめて確認できます。種類で絞り込めます（「移動（拠点間）」を選ぶと仙台⇄京都の移動だけ表示）。
     </div>
+
+    <div class="fp" style="margin-bottom:1rem;border:1px solid rgba(201,168,76,.3)">
+      <div class="form-section-title" style="cursor:pointer" onclick="toggleBackstock()">📅 さかのぼり在庫（日付指定・過不足チェック）<span id="bs-caret" style="float:right">▾</span></div>
+      <div id="bs-panel" style="display:none">
+        <div class="hint-box" style="font-size:.75rem">指定した日の<b>終わり時点</b>の在庫（各商品の合計本数）を、現在庫からさかのぼって計算します。実際に数えた本数を入れると<b>過不足</b>が出ます。日を変えて突き合わせると「どの日まで合っていたか」を確認できます。</div>
+        <div class="frow" style="align-items:flex-end">
+          <div class="fg"><label>基準日（この日の終わり時点）</label><input class="fc" id="bs-date" type="date"></div>
+          <div class="fg"><label>拠点</label><select class="fc" id="bs-br"><option>仙台</option><option>京都</option></select></div>
+          <div class="fg" style="flex:0 1 auto"><button class="btn btn-g" onclick="renderBackstock()">この日の在庫を計算</button></div>
+        </div>
+        <div id="bs-warn" style="font-size:.72rem;color:#e6a23c;margin:.3rem 0"></div>
+        <div id="bs-result"></div>
+      </div>
+    </div>
+
     <div class="fp">
       <div class="frow">
         <div class="fg"><label>種類</label><select class="fc" id="slog-type" onchange="renderSlog()"></select></div>
@@ -3097,8 +3112,61 @@ function migrateToReserve(){
 }
 
 // ─── 在庫履歴（S.slog を種類フィルタ付きで一覧） ───────────────
+// ─── さかのぼり在庫（基準日時点の在庫を現在庫から逆算＋過不足チェック） ───
+function toggleBackstock(){
+  const p=document.getElementById('bs-panel'), c=document.getElementById('bs-caret');
+  const open=(p.style.display==='none'||p.style.display==='');
+  p.style.display=open?'block':'none'; if(c) c.textContent=open?'▴':'▾';
+  const d=document.getElementById('bs-date'); if(open && d && !d.value) d.value=today();
+}
+var _BS_OUT={'出庫':1,'協賛出庫':1,'移動出':1};   // 在庫が減る動き
+var _BS_IN ={'入庫':1,'戻入':1,'移動入':1};        // 在庫が増える動き
+function renderBackstock(){
+  const date=(document.getElementById('bs-date')||{}).value;
+  const br=(document.getElementById('bs-br')||{}).value||'仙台';
+  if(!date) return toast('基準日を入力してください','error');
+  const slog=(S.slog||[]);
+  let resetAfter=false;
+  const back={};   // 基準日より後の増減（現在庫からこれを打ち消すと基準日時点になる）
+  slog.forEach(s=>{
+    if(s.branch!==br) return;
+    if(String(s.date||'')<=date) return;      // 基準日以前は対象外（＝基準日終わり時点を出す）
+    if(s.type==='初期登録'){ resetAfter=true; return; }
+    const q=Number(s.qty)||0;
+    if(_BS_OUT[s.type]) back[s.product]=(back[s.product]||0)+q;    // 出た分を戻す（＋）
+    else if(_BS_IN[s.type]) back[s.product]=(back[s.product]||0)-q; // 入った分を引く（−）
+  });
+  const rows=(PROD_LIST||[]).map(p=>{
+    const cur=(S.stock[br]&&S.stock[br][p.key])||0;
+    return { key:p.key, name:p.name, theo: cur+(back[p.key]||0) };
+  });
+  const warn=document.getElementById('bs-warn');
+  warn.textContent = resetAfter ? '⚠ 基準日より後に「在庫初期登録（上書き）」があります。その上書きより前の理論値は正確でない場合があります。' : '';
+  let h=`<div style="font-size:.72rem;color:var(--wh3);margin:.3rem 0">${escapeHtml(br)}・${escapeHtml(date)} 終わり時点の理論在庫。実測を入れると差分が出ます。</div>`;
+  h+='<div class="tw"><table><thead><tr><th>商品</th><th class="col-qty">理論在庫（システム）</th><th class="col-qty">実測（数えた本数）</th><th class="col-qty">差分</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    h+=`<tr><td>${escapeHtml(r.name)}</td>`
+     + `<td class="col-qty" id="bs-theo-${r.key}" data-theo="${r.theo}">${fmt(r.theo)}本</td>`
+     + `<td class="col-qty"><input type="number" step="1" style="width:74px;text-align:right;background:#14141a;color:#eee;border:1px solid var(--gold-d);border-radius:5px;padding:.2rem" id="bs-act-${r.key}" oninput="_bsDiff('${r.key}')"></td>`
+     + `<td class="col-qty" id="bs-diff-${r.key}" style="color:var(--wh3)">—</td></tr>`;
+  });
+  h+='</tbody></table></div>';
+  document.getElementById('bs-result').innerHTML=h;
+}
+function _bsDiff(key){
+  const theoEl=document.getElementById('bs-theo-'+key);
+  const theo=Number(theoEl?theoEl.getAttribute('data-theo'):0)||0;
+  const actEl=document.getElementById('bs-act-'+key);
+  const diffEl=document.getElementById('bs-diff-'+key);
+  if(!actEl||!diffEl) return;
+  if(actEl.value===''){ diffEl.textContent='—'; diffEl.style.color='var(--wh3)'; return; }
+  const d=(Number(actEl.value)||0)-theo;
+  diffEl.textContent=(d>0?'+':'')+fmt(d)+'本';
+  diffEl.style.color = d===0 ? '#67c23a' : (d>0 ? '#4f9dd9' : '#ff8a80');
+}
+
 function renderSlog(){
-  const slog = (S.slog || []).slice();
+  const slog = (S.slog || []).map((s,i)=>Object.assign({ _idx:i }, s));
   const typeSel = document.getElementById('slog-type');
   if (typeSel && !typeSel._built){
     const types = [...new Set(slog.map(s=>s.type).filter(Boolean))];
@@ -3123,7 +3191,7 @@ function renderSlog(){
   const show = rows.slice(0, MAX);
   if(!show.length){ tb.innerHTML = '<tr><td colspan="9"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
   const tcolor = t => ({'出庫':'#e6a23c','協賛出庫':'#c39bd3','入庫':'#67c23a','戻入':'#67c23a','移動出':'#4f9dd9','移動入':'#4f9dd9','調整':'#e67e22','初期登録':'#909399'}[t] || '#aaa');
-  tb.innerHTML = show.map(s=>`<tr>
+  tb.innerHTML = show.map(s=>`<tr style="cursor:pointer" onclick="_slogSnapshot(${s._idx}, this)" title="クリックでこの時点の在庫を表示">
       <td>${escapeHtml(s.date||'')}</td>
       <td style="color:var(--wh3)">${escapeHtml(s.time||'')}</td>
       <td>${escapeHtml(s.branch||'')}</td>
@@ -3134,6 +3202,39 @@ function renderSlog(){
       <td style="font-size:.7rem">${escapeHtml(s.note||'')}</td>
       <td style="font-size:.7rem">${escapeHtml(s.user||'')}</td>
     </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="9" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
+}
+// 在庫履歴の行クリック：その時点（その行の直後）の在庫を、その拠点の全商品ぶん逆算して真下に展開
+function _slogSnapshot(idx, trEl){
+  // 既に開いていれば閉じる（トグル）
+  const nx = trEl.nextElementSibling;
+  if(nx && nx.classList.contains('slog-snap')){ nx.remove(); return; }
+  // 他の展開を閉じる
+  document.querySelectorAll('tr.slog-snap').forEach(el=>el.remove());
+  const slog = S.slog || [];
+  const e = slog[idx]; if(!e) return;
+  const br = e.branch;
+  let resetAfter=false;
+  const back={};
+  for(let j=idx+1; j<slog.length; j++){
+    const s=slog[j]; if(s.branch!==br) continue;
+    if(s.type==='初期登録'){ resetAfter=true; continue; }
+    const q=Number(s.qty)||0;
+    if(_BS_OUT[s.type]) back[s.product]=(back[s.product]||0)+q;
+    else if(_BS_IN[s.type]) back[s.product]=(back[s.product]||0)-q;
+  }
+  const items=(PROD_LIST||[]).map(p=>{
+    const cur=(S.stock[br]&&S.stock[br][p.key])||0;
+    return { name:p.name, qty: cur+(back[p.key]||0) };
+  });
+  const cells = items.map(it=>`<span style="display:inline-block;min-width:118px;margin:2px 6px 2px 0"><span style="color:var(--wh3)">${escapeHtml(it.name)}：</span><b style="color:var(--gold-l)">${fmt(it.qty)}</b>本</span>`).join('');
+  const warn = resetAfter ? '<div style="color:#e6a23c;font-size:.7rem;margin-top:.3rem">⚠ この後に在庫初期登録（上書き）があるため、正確でない場合があります。</div>' : '';
+  const tr=document.createElement('tr');
+  tr.className='slog-snap';
+  tr.innerHTML=`<td colspan="9" style="background:#14141a;padding:.6rem .8rem">
+    <div style="font-size:.74rem;color:var(--gold-l);font-weight:700;margin-bottom:.4rem">📦 ${escapeHtml(br)} ・ ${escapeHtml(e.date||'')} ${escapeHtml(e.time||'')} 時点の在庫（全商品）</div>
+    <div style="line-height:1.9;font-size:.76rem">${cells}</div>${warn}
+  </td>`;
+  trEl.after(tr);
 }
 
 function renderStock(){
