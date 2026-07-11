@@ -568,7 +568,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #lend-o
         <div class="fg"><label>税</label><select class="fc" id="no-tax" onchange="updateOrderTotal()"><option value="税込">税込（合計に+10%）</option><option value="税抜">税抜</option></select></div>
         <div class="fg"><label>連絡先</label><input class="fc" id="no-contact" placeholder="連絡先名"></div>
         <div class="fg"><label>電話番号</label><input class="fc" id="no-tel" type="tel" placeholder="連絡先電話番号"></div>
-        <div class="fg"><label>支払方法</label><select class="fc" id="no-pay"><option>現金</option><option>振込</option><option>代引</option><option>売掛</option></select></div>
+        <div class="fg"><label>支払方法</label><select class="fc" id="no-pay"><option>振込</option><option>現金</option><option>代引き</option></select></div>
         <div class="fg"><label>注文日</label><input class="fc" id="no-date" type="date"></div>
       </div>
     </div>
@@ -1756,13 +1756,15 @@ function applyStoreInfo(){
     if (txEl) txEl.value = (c.commonTaxType === '税抜') ? '税抜' : '税込';
     document.getElementById('no-contact').value = (c.contacts && c.contacts[0]?.name) || c.owner || '';
     document.getElementById('no-tel').value     = (c.contacts && c.contacts[0]?.tel) || c.tel || '';
-    // 顧客マスターの支払方法をデフォルトとしてセット（未設定なら変更しない）
-    if (c.payMethod) {
+    // 顧客マスターの支払方法を優先してセット（表記ズレ吸収、無ければ振込）
+    {
       const payEl = document.getElementById('no-pay');
       if (payEl) {
-        // 選択肢に存在する値のみセット
-        const exists = Array.from(payEl.options).some(o => o.value === c.payMethod || o.text === c.payMethod);
-        if (exists) payEl.value = c.payMethod;
+        const want = c.payMethod || '振込';
+        const opts = Array.from(payEl.options);
+        let hit = opts.find(o => o.value === want)
+               || opts.find(o => o.value.indexOf(want) === 0 || want.indexOf(o.value) === 0);
+        payEl.value = hit ? hit.value : '振込';
       }
     }
     // 配達先プルダウンを再構築
