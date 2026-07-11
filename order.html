@@ -571,12 +571,9 @@
     <div class="section-title">お支払い方法</div>
     <label>支払方法 <span style="color:var(--red)">*</span></label>
     <select id="p3-pay">
+      <option>振込</option>
       <option>現金</option>
-      <option>売掛(銀行)</option>
-      <option>売掛(現金)</option>
       <option>代引き</option>
-      <option>マルシェ売掛</option>
-      <option>オーク売掛</option>
     </select>
     <label>備考</label>
     <textarea id="p3-note" rows="3" placeholder="その他ご要望など"></textarea>
@@ -727,6 +724,12 @@ async function init() {
         // 店舗名は本人の登録店舗を自動入力＆編集不可に
         window._custStore = authData.name || '';
         window._custId = authData.id || '';
+        // 顧客登録の支払方法を優先して初期選択（表記ズレ吸収、無ければ振込）
+        window._custPay = authData.payMethod || '';
+        { const pe = document.getElementById('p3-pay');
+          if (pe) { const w = window._custPay || '振込'; const opts = Array.from(pe.options);
+            const hit = opts.find(o => o.value === w) || opts.find(o => o.value.indexOf(w) === 0 || w.indexOf(o.value) === 0);
+            pe.value = hit ? hit.value : '振込'; } }
         // 登録情報（住所・連絡先など）= 初回の初期値に使う
         window._custInfo = {
           delivery: authData.contact || authData.owner || '',
