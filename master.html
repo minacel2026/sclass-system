@@ -866,12 +866,13 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
             <div class="fg"><label>氏名 <span class="req">*</span></label><input class="fc" id="sf-name" placeholder="例：佐々木"></div>
             <div class="fg"><label>メールアドレス <span class="req">*</span></label><input class="fc" id="sf-email" type="email" placeholder="name@sclass.jp"></div>
             <div class="fg"><label>拠点</label><select class="fc" id="sf-branch"><option>仙台</option><option>京都</option><option>両拠点</option></select></div>
+            <div class="fg"><label>担当区分</label><select class="fc" id="sf-jobtype"><option>営業</option><option>事務</option><option>その他</option></select></div>
             <div class="fg">
               <label>ロール <span class="req">*</span></label>
               <select class="fc" id="sf-role-sel">
                 <option value="admin">admin（全権限）</option>
                 <option value="manager">manager（管理者）</option>
-                <option value="staff" selected>staff（営業）</option>
+                <option value="staff" selected>staff（スタッフ）</option>
                 <option value="viewer">viewer（閲覧のみ）</option>
                 <option value="president">president（社長）</option>
                 <option value="owner">owner（全体閲覧・編集不可）</option>
@@ -3078,7 +3079,7 @@ function renderStaffList(){
       <table class="cust-table">
         <thead>
           <tr>
-            <th>拠点</th><th>名前</th><th>メール</th><th>電話</th>
+            <th>拠点</th><th>名前</th><th>担当</th><th>メール</th><th>電話</th>
             <th>ロール</th><th>入社日</th><th>状態</th><th>操作</th>
           </tr>
         </thead>
@@ -3087,6 +3088,7 @@ function renderStaffList(){
             <tr onclick="openStaff('${s.id}')">
               <td>${escapeHtml(s.branch || '—')}</td>
               <td class="ct-name">${escapeHtml(s.name || '無名')}${s.lineUid ? ' <span class="ct-spo">LINE</span>' : ''}</td>
+              <td>${escapeHtml(s.jobType || '—')}</td>
               <td>${escapeHtml(s.email || '—')}</td>
               <td>${escapeHtml(s.tel || '—')}</td>
               <td>${escapeHtml(roleLabel[s.role] || s.role || '—')}</td>
@@ -3118,6 +3120,7 @@ function openStaff(id){
   const g = document.getElementById.bind(document);
   g('sf-name').value=s.name||''; g('sf-email').value=s.email||'';
   g('sf-branch').value=s.branch||'仙台'; g('sf-role-sel').value=s.role||'staff';
+  g('sf-jobtype').value=s.jobType||'営業';
   g('sf-tel').value=s.tel||''; g('sf-uid').value=s.lineUid||'';
   g('sf-active').value=String(s.active !== false);
   g('sf-joined').value=s.joined||''; g('sf-note').value=s.note||'';
@@ -3132,6 +3135,7 @@ function clearStaffForm(){
     const e = document.getElementById(id); if (e) e.value = '';
   });
   document.getElementById('sf-branch').value = '仙台';
+  { const _jt=document.getElementById('sf-jobtype'); if(_jt) _jt.value='営業'; }
   document.getElementById('sf-role-sel').value = 'staff';
   document.getElementById('sf-active').value = 'true';
   document.getElementById('staff-edit-status').textContent = '';
@@ -3151,6 +3155,7 @@ function submitStaffForm(){
     id: staffEditingId || ('staff-' + Date.now()),
     name, email,
     branch: g('sf-branch'), role: g('sf-role-sel'),
+    jobType: g('sf-jobtype'),
     tel: g('sf-tel'), lineUid: g('sf-uid').trim(),
     active: g('sf-active') === 'true',
     joined: g('sf-joined'), note: g('sf-note'),
