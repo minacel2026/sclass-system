@@ -1675,6 +1675,36 @@ function initNewOrder(){
 
   renderNewOrderProds();
   fillTantouCandidates(false);
+  initOrderKeyNav();
+}
+
+// 注文フォーム：Enterで次の欄へ／Shift+Enterで前の欄へ（誤作動しない範囲だけ）
+function initOrderKeyNav(){
+  const form = document.getElementById('entry-order');
+  if (!form || form._keyNavBound) return;
+  form._keyNavBound = true;
+  form.addEventListener('keydown', function(e){
+    if (e.key !== 'Enter') return;
+    const t = e.target;
+    if (!t || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON') return;
+    if (!(t.tagName === 'INPUT' || t.tagName === 'SELECT')) return;
+    // 店舗名：候補が開いているときは候補選択を優先（移動しない）
+    if (t.id === 'no-store'){
+      const box = document.getElementById('no-store-suggest');
+      const open = box && box.offsetParent !== null && (box.innerHTML || '').trim() !== '' && getComputedStyle(box).display !== 'none';
+      if (open) return;
+    }
+    e.preventDefault();
+    const fields = Array.from(form.querySelectorAll('input:not([type=hidden]):not([disabled]), select:not([disabled])'))
+      .filter(el => el.offsetParent !== null);   // 表示中の欄だけ
+    const i = fields.indexOf(t);
+    if (i < 0) return;
+    let ni = e.shiftKey ? i - 1 : i + 1;
+    if (ni < 0) ni = 0;
+    if (ni >= fields.length) ni = fields.length - 1;
+    const next = fields[ni];
+    if (next){ next.focus(); if (next.select) { try { next.select(); } catch(_){} } }
+  });
 }
 
 // 担当者の候補（担当区分＝営業/社長/オーナー、拠点一致 or 両拠点）をdatalistに出す
