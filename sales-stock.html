@@ -559,7 +559,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #lend-o
           <div class="suggest-box" id="no-store-suggest"></div>
         </div>
         <div class="fg"><label>拠点</label><select class="fc" id="no-branch" onchange="renderNewOrderProds(); fillTantouCandidates(true)"><option>仙台</option><option>京都</option></select></div>
-        <div class="fg"><label>担当者</label><input class="fc" id="no-staff" list="no-staff-list" autocomplete="off" placeholder="営業担当を選択（文字検索可）"><datalist id="no-staff-list"></datalist></div>
+        <div class="fg"><label>担当者</label><select class="fc" id="no-staff"><option value="">選択してください</option></select></div>
         <div class="fg"><label>掛率</label><input class="fc" id="no-rate" type="number" step="0.5" min="0" max="10" value="7" oninput="updateOrderTotal()"></div>
       </div>
       <div class="frow" style="margin-top:.5rem">
@@ -1618,7 +1618,7 @@ function openOrderForEdit(id){
     }
     _brSel.value = '';
   }
-  document.getElementById('no-staff').value     = o.staff    || '';
+  fillTantouCandidates(false, o.staff || '');
   document.getElementById('no-contact').value   = o.contact  || '';
   document.getElementById('no-tel').value       = o.tel      || '';
   document.getElementById('no-rate').value      = o.condition || '7';
@@ -1707,12 +1707,12 @@ function initOrderKeyNav(){
   });
 }
 
-// 担当者の候補（担当区分＝営業/社長/オーナー、拠点一致 or 両拠点）をdatalistに出す
-function fillTantouCandidates(clearIfUnmatched){
-  const dl = document.getElementById('no-staff-list');
+// 担当者の候補（担当区分＝営業/社長/オーナー、拠点一致 or 両拠点）をプルダウンに出す
+function fillTantouCandidates(clearIfUnmatched, desired){
+  const sel = document.getElementById('no-staff');
   const brEl = document.getElementById('no-branch');
-  const inp = document.getElementById('no-staff');
-  if (!dl || !brEl) return;
+  if (!sel || !brEl) return;
+  const keep = (typeof desired === 'string') ? desired : sel.value;   // 維持したい値
   const br = brEl.value || '仙台';
   const roles = { '営業':1, '社長':1, 'オーナー':1 };
   let staff = [];
@@ -1724,8 +1724,15 @@ function fillTantouCandidates(clearIfUnmatched){
     if (sb && sb !== '両拠点' && sb !== br) return false;
     return true;
   }).map(s => s.name).filter(Boolean);
-  dl.innerHTML = cands.map(n => `<option value="${String(n).replace(/"/g,'&quot;')}"></option>`).join('');
-  if (clearIfUnmatched && inp && inp.value && cands.indexOf(inp.value) < 0) inp.value = '';
+  const esc = n => String(n).replace(/"/g,'&quot;');
+  let html = '<option value="">選択してください</option>' + cands.map(n => `<option value="${esc(n)}">${escapeHtml(n)}</option>`).join('');
+  // 維持したい値が候補に無くても、クリア指定でなければ選択肢として残す（過去データ互換）
+  if (keep && cands.indexOf(keep) < 0 && !clearIfUnmatched){
+    html += `<option value="${esc(keep)}">${escapeHtml(keep)}</option>`;
+  }
+  sel.innerHTML = html;
+  if (keep && (cands.indexOf(keep) >= 0 || !clearIfUnmatched)) sel.value = keep;
+  else sel.value = '';
 }
 
 function onStoreChange(){
@@ -1740,8 +1747,7 @@ function applyStoreInfo(){
   currentOrderCust = c || null;
   if (c){
     document.getElementById('no-branch').value = c.branch || '仙台';
-    fillTantouCandidates(false);
-    document.getElementById('no-staff').value  = c.staff  || '';
+    fillTantouCandidates(false, c.staff || '');
     document.getElementById('no-rate').value   = c.rate   || '7';
     // 顧客の共通価格モード・共通税を反映
     const pmEl = document.getElementById('no-pricemode');
