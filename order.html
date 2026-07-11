@@ -715,7 +715,7 @@ async function init() {
             <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#080808;color:#fff;text-align:center;padding:2rem">
               <div style="font-size:3rem;margin-bottom:1rem">🔒</div>
               <h2 style="color:#C9A84C;margin-bottom:1rem">ご利用いただけません</h2>
-              <p style="color:rgba(255,255,255,.6);line-height:1.8">このフォームはご登録済みのお客様のみご利用いただけます。<br>担当者までお問い合わせください。</p>
+              <p style="color:rgba(255,255,255,.6);line-height:1.8">登録がお済みでないため注文できません。<br>担当者にご連絡ください。</p>
             </div>`;
           return;
         }
@@ -1235,6 +1235,11 @@ function buildConfirm() {
 // ========== 注文送信 ==========
 let _orderId = '';
 async function submitOrder() {
+  // 登録済み顧客（顧客マスターにUIDが紐づく人）以外は注文させない
+  if (!window._custId) {
+    alert('登録がお済みでないため注文できません。担当者にご連絡ください。');
+    return;
+  }
   const loading = document.getElementById('loading');
   const btns = document.querySelectorAll('#page4 .bottom-next-btn, #page4 .bottom-back-btn');
   loading.style.display = 'block';
