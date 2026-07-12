@@ -60,7 +60,7 @@
     </div>
     <div class="fg"><label>都道府県</label><input class="fc" id="r-pref" placeholder="例：宮城県"></div>
     <div class="fg"><label>市区町村</label><input class="fc" id="r-city" placeholder="例：仙台市青葉区"></div>
-    <div class="fg"><label>番地</label><input class="fc" id="r-addr1" placeholder="例：中央1-2-3"></div>
+    <div class="fg"><label>番地</label><input class="fc" id="r-addr1" placeholder="例：中央1-2-3"><div style="font-size:.68rem;color:var(--wh3);margin-top:.25rem">番地まで入力してください</div></div>
     <div class="fg"><label>建物名・部屋番号</label><input class="fc" id="r-addr2" placeholder="例：○○ビル3F"></div>
 
     <div class="fg">
@@ -70,7 +70,8 @@
 
     <div class="fg">
       <label>請求書の宛名</label>
-      <input class="fc" id="r-invname" placeholder="例：○○ 御中（空欄可）" autocomplete="off">
+      <input class="fc" id="r-invname" placeholder="例：○○ 御中" autocomplete="off">
+      <div style="font-size:.68rem;color:var(--wh3);margin-top:.25rem">※店名と異なる場合のみご入力ください（空欄可）</div>
     </div>
 
     <button class="submit" id="r-submit" onclick="submitApp()">この内容で申請する</button>
