@@ -96,6 +96,7 @@ function fmtZip(el){
   let v = (el.value || '').replace(/[^0-9]/g,'').slice(0,7);
   if (v.length > 3) v = v.slice(0,3) + '-' + v.slice(3);
   el.value = v;
+  if (v.replace('-','').length === 7) lookupZip();   // 7桁そろったら自動で住所検索
 }
 async function lookupZip(){
   const msg = document.getElementById('r-zipmsg');
