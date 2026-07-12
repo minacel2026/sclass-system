@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>新規登録申請 | Sclass</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root{ --gold:#C9A84C; --gold-l:#E4C97A; --gold-d:#8f7a3a; --bg:#0b0b0d; --card:#15151a; --wh:#efece3; --wh2:#b7b1a2; --wh3:#7d7869; --red:#e0685f; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--wh); font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif; -webkit-print-color-adjust:exact; }
+  .wrap{ max-width:520px; margin:0 auto; padding:1.1rem 1rem 3rem; }
+  .head{ text-align:center; padding:1.2rem 0 .6rem; }
+  .head .logo{ font-size:1.35rem; letter-spacing:.14em; color:var(--gold); font-weight:700; }
+  .head .sub{ font-size:.72rem; color:var(--wh2); margin-top:.3rem; letter-spacing:.05em; }
+  .lead{ background:var(--card); border:1px solid rgba(201,168,76,.25); border-radius:10px; padding:.8rem .9rem; font-size:.78rem; color:var(--wh2); line-height:1.7; margin:.4rem 0 1.1rem; }
+  .fg{ margin-bottom:.9rem; }
+  label{ display:block; font-size:.74rem; color:var(--gold-l); margin-bottom:.3rem; letter-spacing:.03em; }
+  label .req{ color:var(--red); margin-left:.2rem; }
+  .fc{ width:100%; background:#101014; color:var(--wh); border:1px solid #34343d; border-radius:8px; padding:.7rem .75rem; font-size:1rem; font-family:inherit; }
+  .fc:focus{ outline:none; border-color:var(--gold); }
+  .ziprow{ display:flex; gap:.4rem; }
+  .zipbtn{ background:transparent; border:1px solid var(--gold-d); color:var(--gold-l); padding:0 .8rem; font-size:.78rem; border-radius:8px; white-space:nowrap; cursor:pointer; font-family:inherit; }
+  .zipmsg{ font-size:.68rem; color:var(--wh3); margin-top:.25rem; min-height:.9rem; }
+  .submit{ width:100%; background:linear-gradient(135deg,var(--gold),var(--gold-d)); color:#161006; border:none; border-radius:10px; padding:1rem; font-size:1.02rem; font-weight:700; letter-spacing:.05em; margin-top:.6rem; cursor:pointer; font-family:inherit; }
+  .submit:disabled{ opacity:.5; }
+  .note{ font-size:.68rem; color:var(--wh3); margin-top:.8rem; line-height:1.6; text-align:center; }
+  .done{ text-align:center; padding:2.5rem 1rem; }
+  .done .ic{ font-size:2.6rem; }
+  .done h2{ color:var(--gold-l); margin:.8rem 0 .5rem; font-size:1.1rem; }
+  .done p{ color:var(--wh2); font-size:.84rem; line-height:1.8; }
+  .hidden{ display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="logo">Sclass</div>
+    <div class="sub">ランボルギーニ WINE ／ 新規お取引 登録申請</div>
+  </div>
+
+  <div id="form-area">
+    <div class="lead">
+      新規お取引のためのご登録フォームです。下記をご入力のうえ送信してください。<br>
+      内容を確認のうえ、担当者よりご連絡・ご利用開始のご案内をいたします。
+    </div>
+
+    <div class="fg">
+      <label>店舗名<span class="req">*</span></label>
+      <input class="fc" id="r-name" placeholder="例：Club ○○" autocomplete="off">
+    </div>
+
+    <div class="fg">
+      <label>郵便番号</label>
+      <div class="ziprow">
+        <input class="fc" id="r-zip" placeholder="例：980-0021" type="tel" inputmode="numeric" maxlength="8" oninput="fmtZip(this)" style="flex:1;min-width:0">
+        <button type="button" class="zipbtn" onclick="lookupZip()">🔍 住所</button>
+      </div>
+      <div class="zipmsg" id="r-zipmsg"></div>
+    </div>
+    <div class="fg"><label>都道府県</label><input class="fc" id="r-pref" placeholder="例：宮城県"></div>
+    <div class="fg"><label>市区町村</label><input class="fc" id="r-city" placeholder="例：仙台市青葉区"></div>
+    <div class="fg"><label>番地</label><input class="fc" id="r-addr1" placeholder="例：中央1-2-3"></div>
+    <div class="fg"><label>建物名・部屋番号</label><input class="fc" id="r-addr2" placeholder="例：○○ビル3F"></div>
+
+    <div class="fg">
+      <label>電話番号<span class="req">*</span></label>
+      <input class="fc" id="r-tel" placeholder="例：090-1234-5678" type="tel" inputmode="tel">
+    </div>
+
+    <div class="fg">
+      <label>ご担当者名<span class="req">*</span></label>
+      <input class="fc" id="r-contact" placeholder="例：山田 太郎" autocomplete="off">
+    </div>
+
+    <div class="fg">
+      <label>請求書の宛名</label>
+      <input class="fc" id="r-invname" placeholder="例：○○ 御中（空欄可）" autocomplete="off">
+    </div>
+
+    <button class="submit" id="r-submit" onclick="submitApp()">この内容で申請する</button>
+    <div class="note" id="r-mode-note"></div>
+  </div>
+
+  <div id="done-area" class="hidden">
+    <div class="done">
+      <div class="ic">✅</div>
+      <h2>申請を受け付けました</h2>
+      <p>ご登録ありがとうございます。<br>内容を確認のうえ、担当者よりご連絡いたします。<br>ご利用開始まで今しばらくお待ちください。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
+// 登録申請フォーム用のLIFF ID（LINE Developersで、このregister.htmlを開くLIFFアプリを作って設定してください）
+const LIFF_ID = '2009445526-qxfI3tqd';   // ※暫定：専用LIFFを作ったら差し替え
+let lineProfile = null;
+
+function fmtZip(el){
+  let v = (el.value || '').replace(/[^0-9]/g,'').slice(0,7);
+  if (v.length > 3) v = v.slice(0,3) + '-' + v.slice(3);
+  el.value = v;
+}
+async function lookupZip(){
+  const msg = document.getElementById('r-zipmsg');
+  const zip = (document.getElementById('r-zip').value || '').replace(/[^0-9]/g,'');
+  if (zip.length !== 7){ msg.style.color = '#e0685f'; msg.textContent = '7桁の郵便番号を入力してください'; return; }
+  msg.style.color = '#7d7869'; msg.textContent = '検索中…';
+  try{
+    const r = await fetch('https://zipcloud.ibsnet.co.jp/api/search?zipcode=' + zip);
+    const j = await r.json();
+    if (j.results && j.results[0]){
+      const a = j.results[0];
+      document.getElementById('r-pref').value = a.address1 || '';
+      document.getElementById('r-city').value = a.address2 || '';
+      const cur = document.getElementById('r-addr1').value;
+      if (!cur) document.getElementById('r-addr1').value = a.address3 || '';
+      msg.style.color = '#7d7869'; msg.textContent = '住所を入力しました';
+    } else {
+      msg.style.color = '#e0685f'; msg.textContent = '該当する住所が見つかりませんでした';
+    }
+  } catch(e){ msg.style.color = '#e0685f'; msg.textContent = '検索に失敗しました'; }
+}
+
+async function submitApp(){
+  const name = document.getElementById('r-name').value.trim();
+  const tel  = document.getElementById('r-tel').value.trim();
+  const contact = document.getElementById('r-contact').value.trim();
+  if (!name){ alert('店舗名を入力してください'); return; }
+  if (!tel){ alert('電話番号を入力してください'); return; }
+  if (!contact){ alert('ご担当者名を入力してください'); return; }
+
+  const btn = document.getElementById('r-submit');
+  btn.disabled = true; btn.textContent = '送信中…';
+
+  const data = {
+    action: 'submitCustomerApp',
+    name: name,
+    zip: document.getElementById('r-zip').value.trim(),
+    pref: document.getElementById('r-pref').value.trim(),
+    city: document.getElementById('r-city').value.trim(),
+    addr1: document.getElementById('r-addr1').value.trim(),
+    addr2: document.getElementById('r-addr2').value.trim(),
+    tel: tel,
+    contact: contact,
+    invName: document.getElementById('r-invname').value.trim(),
+    uid: (lineProfile && lineProfile.userId) || '',
+    lineName: (lineProfile && lineProfile.displayName) || ''
+  };
+
+  try{
+    await fetch(GAS_URL, { method:'POST', mode:'no-cors', body: JSON.stringify(data) });
+    document.getElementById('form-area').classList.add('hidden');
+    document.getElementById('done-area').classList.remove('hidden');
+    window.scrollTo(0,0);
+  } catch(e){
+    alert('送信に失敗しました。通信環境をご確認のうえ、もう一度お試しください。');
+    btn.disabled = false; btn.textContent = 'この内容で申請する';
+  }
+}
+
+async function init(){
+  const note = document.getElementById('r-mode-note');
+  try{
+    if (!LIFF_ID) throw new Error('no liff');
+    await liff.init({ liffId: LIFF_ID });
+    if (liff.isLoggedIn()){
+      lineProfile = await liff.getProfile();
+      note.textContent = 'LINEアカウントと紐づけて申請します';
+    } else {
+      note.textContent = '';
+    }
+  } catch(e){
+    // ブラウザモード（LINE外）でも入力・送信は可能。UIDは付きません。
+    note.textContent = '';
+  }
+}
+init();
+</script>
+</body>
+</html>
