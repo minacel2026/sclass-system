@@ -69,11 +69,6 @@
     </div>
 
     <div class="fg">
-      <label>ご担当者名<span class="req">*</span></label>
-      <input class="fc" id="r-contact" placeholder="例：山田 太郎" autocomplete="off">
-    </div>
-
-    <div class="fg">
       <label>請求書の宛名</label>
       <input class="fc" id="r-invname" placeholder="例：○○ 御中（空欄可）" autocomplete="off">
     </div>
@@ -126,10 +121,8 @@ async function lookupZip(){
 async function submitApp(){
   const name = document.getElementById('r-name').value.trim();
   const tel  = document.getElementById('r-tel').value.trim();
-  const contact = document.getElementById('r-contact').value.trim();
   if (!name){ alert('店舗名を入力してください'); return; }
   if (!tel){ alert('電話番号を入力してください'); return; }
-  if (!contact){ alert('ご担当者名を入力してください'); return; }
 
   const btn = document.getElementById('r-submit');
   btn.disabled = true; btn.textContent = '送信中…';
@@ -143,7 +136,6 @@ async function submitApp(){
     addr1: document.getElementById('r-addr1').value.trim(),
     addr2: document.getElementById('r-addr2').value.trim(),
     tel: tel,
-    contact: contact,
     invName: document.getElementById('r-invname').value.trim(),
     uid: (lineProfile && lineProfile.userId) || '',
     lineName: (lineProfile && lineProfile.displayName) || ''
