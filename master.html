@@ -1696,6 +1696,7 @@ function renderCustList(keepPage){
     return true;
   });
   // あいうえおタブ（他フィルタ適用後の集合で件数表示）→ かな絞り込み → 読み順ソート
+  if (kw) custKanaFilter = '全';   // 検索中は全体から探す（かなタブの絞り込みを無効化）
   renderKanaTabs(filtered);
   if (custKanaFilter && custKanaFilter !== '全'){
     filtered = filtered.filter(c => _kanaGroup(c) === custKanaFilter);
