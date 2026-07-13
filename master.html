@@ -256,6 +256,10 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
 }
 .app-busy-spin{width:48px;height:48px;border:4px solid rgba(201,168,76,.25);border-top-color:#C9A84C;border-radius:50%;animation:app-busy-rot .8s linear infinite}
 @keyframes app-busy-rot{to{transform:rotate(360deg)}}
+.pcust-sug{position:fixed;z-index:9999;background:#15151a;border:1px solid var(--gold-d);border-radius:8px;max-height:230px;overflow-y:auto;box-shadow:0 10px 24px rgba(0,0,0,.55)}
+.pcust-sug .it{padding:.5rem .7rem;cursor:pointer;font-size:.82rem;color:var(--wh);border-bottom:1px solid rgba(255,255,255,.05)}
+.pcust-sug .it:last-child{border-bottom:none}
+.pcust-sug .it:hover{background:rgba(201,168,76,.15)}
 </style>
 <!-- ═══ スプレッドシート同期インジケータ（全画面共通） ═══ -->
 <script>
@@ -989,10 +993,10 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     <div class="tbar" style="justify-content:flex-end">
       <button class="btn btn-g" onclick="renderRegistrations()">↻ 更新</button>
     </div>
-    <div style="overflow-x:auto">
-      <table class="tbl" id="reg-table">
+    <div class="cust-table-wrap">
+      <table class="cust-table" style="min-width:820px" id="reg-table">
         <thead>
-          <tr><th>申請日時</th><th>状態</th><th>店名</th><th>住所</th><th>電話</th><th>請求書宛名</th><th>LINE</th><th>操作</th></tr>
+          <tr><th>申請日時</th><th>状態</th><th>店名</th><th>住所</th><th>電話</th><th>請求書宛名</th><th>LINE</th><th style="text-align:center">操作</th></tr>
         </thead>
         <tbody id="reg-tbody"></tbody>
       </table>
@@ -1905,9 +1909,9 @@ async function renderRegistrations(){
       + '<td style="white-space:nowrap">' + (escapeHtml(rg.tel) || '—') + '</td>'
       + '<td>' + (escapeHtml(rg.invName) || '—') + '</td>'
       + '<td>' + (rg.uid ? '✅' : '—') + '</td>'
-      + '<td style="white-space:nowrap">'
-      + (done ? '' : ('<button class="act-btn" onclick="approveRegistration(' + rg.rowNum + ')">承認して顧客登録へ</button>'
-                    + '<button class="act-btn dn" onclick="rejectRegistration(' + rg.rowNum + ')">却下</button>'))
+      + '<td style="white-space:nowrap;text-align:center">'
+      + (done ? '' : ('<button class="btn-s" onclick="approveRegistration(' + rg.rowNum + ')">承認して顧客登録へ</button> '
+                    + '<button class="btn-s" style="border-color:rgba(255,99,99,.4);color:#ff8a80" onclick="rejectRegistration(' + rg.rowNum + ')">却下</button>'))
       + '</td></tr>';
   }).join('');
 }
@@ -3033,40 +3037,80 @@ async function loadCustPendingUids(){
   const staffOpts = staffs.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name||'無名')}${s.lineUid?'（UID登録済）':''}</option>`).join('');
 
   list.innerHTML = `<div class="hint-box" style="margin-bottom:.8rem">
-      未登録UID <strong>${pending.length}</strong> 件。各カードで「顧客」か「スタッフ」を選び、相手を選んで「紐付け」を押すと、そのLINE UIDが登録されます。
+      未登録UID <strong>${pending.length}</strong> 件。行ごとに「顧客／スタッフ」を選び、相手を検索して「🔗」を押すと、そのLINE UIDが登録されます。
     </div>
-    <datalist id="pcust-datalist">${custDLOpts}</datalist>
-    <div class="cust-grid">
-    ${pending.map((u,i) => {
-      const name = u.name || u.displayName || '匿名';
-      const msg  = (u.message || u.lastMessage || '—');
-      const dt   = u.date || '';
-      const safeUid = String(u.uid).replace(/'/g,'');
-      return `
-      <div class="cust-card" id="pcard-${i}">
-        <div class="cust-name" style="font-size:.82rem">${escapeHtml(name)}</div>
-        <div class="cust-info" style="font-family:monospace;word-break:break-all;font-size:.64rem;color:var(--wh3)">${escapeHtml(u.uid)}</div>
-        ${dt ? `<div class="cust-info" style="font-size:.66rem">受信: ${escapeHtml(String(dt))}</div>` : ''}
-        <div class="cust-info" style="font-size:.7rem">メッセージ: ${escapeHtml(String(msg)).slice(0,40)}</div>
-        <div style="display:flex;gap:.4rem;align-items:center;margin-top:.6rem;flex-wrap:wrap">
-          <select class="fc" id="ptype-${i}" onchange="switchPendTarget(${i})" style="max-width:110px">
-            <option value="cust">顧客</option>
-            <option value="staff">スタッフ</option>
-          </select>
-          <input class="fc" id="psel-cust-${i}" list="pcust-datalist" autocomplete="off" placeholder="店名で検索（ひらがな可）" style="flex:1;min-width:140px">
-          <select class="fc" id="psel-staff-${i}" style="flex:1;min-width:140px;display:none">
-            <option value="">― スタッフを選択 ―</option>
-            ${staffOpts}
-          </select>
-          <button class="btn-s" onclick="linkPendingUid('${safeUid}', ${i})">🔗 紐付け</button>
-          <button class="btn-s" style="border-color:rgba(255,99,99,.4);color:#ff8a80" onclick="dismissPendingUid('${safeUid}')" title="この未登録UIDを一覧から削除（誰にも紐付けません）">✕</button>
-        </div>
-      </div>`;
-    }).join('')}
-  </div>`;
+    <div class="cust-table-wrap">
+      <table class="cust-table" style="min-width:900px">
+        <thead><tr>
+          <th>表示名</th><th>メッセージ</th><th>受信</th><th>紐付け先</th><th style="text-align:center">操作</th>
+        </tr></thead>
+        <tbody>
+        ${pending.map((u,i) => {
+          const name = u.name || u.displayName || '匿名';
+          const msg  = String(u.message || u.lastMessage || '—');
+          const dt   = u.date || '';
+          const safeUid = String(u.uid).replace(/'/g,'');
+          return `<tr id="pcard-${i}">
+            <td class="ct-name">${escapeHtml(name)}<div style="font-family:monospace;font-size:.55rem;color:var(--wh3);white-space:normal;word-break:break-all;max-width:150px">${escapeHtml(u.uid)}</div></td>
+            <td style="white-space:normal;max-width:150px;color:var(--wh2);font-size:.72rem">${escapeHtml(msg).slice(0,40)}</td>
+            <td style="font-size:.66rem">${escapeHtml(String(dt))}</td>
+            <td>
+              <div style="display:flex;gap:.3rem;align-items:center">
+                <select class="fc" id="ptype-${i}" onchange="switchPendTarget(${i})" style="width:62px;padding:.35rem .25rem">
+                  <option value="cust">顧客</option><option value="staff">スタッフ</option>
+                </select>
+                <div style="position:relative;width:160px" id="psel-cust-wrap-${i}">
+                  <input class="fc" id="psel-cust-${i}" autocomplete="off" placeholder="店名で検索" style="width:100%;padding:.35rem .45rem"
+                    oninput="pendCustSug(${i})" onfocus="pendCustSug(${i})" onblur="setTimeout(function(){pendCustHide(${i})},180)">
+                  <div class="pcust-sug" id="pcust-sug-${i}" style="display:none"></div>
+                </div>
+                <select class="fc" id="psel-staff-${i}" style="width:160px;display:none;padding:.35rem .25rem">
+                  <option value="">― スタッフ ―</option>${staffOpts}
+                </select>
+              </div>
+            </td>
+            <td style="white-space:nowrap;text-align:center">
+              <button class="btn-s" onclick="linkPendingUid('${safeUid}', ${i})" title="紐付け">🔗</button>
+              <button class="btn-s" style="border-color:rgba(255,99,99,.4);color:#ff8a80" onclick="dismissPendingUid('${safeUid}')" title="一覧から削除（誰にも紐付けません）">✕</button>
+            </td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+    </div>`;
 }
 
 // 紐付け先タイプ（顧客/スタッフ）切替でドロップダウンを出し分け
+// 未登録UID：店名で検索して候補ボックスを出す（注文登録と同じ方式・ひらがなOK）
+function pendCustSug(i){
+  var inp = document.getElementById('psel-cust-'+i);
+  var box = document.getElementById('pcust-sug-'+i);
+  if (!inp || !box) return;
+  var kw = (inp.value || '').trim().toLowerCase();
+  var cs = (S.customers || []);
+  var list = kw
+    ? cs.filter(function(c){ return ((c.name||'').toLowerCase().indexOf(kw) >= 0) || ((c.kana||'').toLowerCase().indexOf(kw) >= 0); })
+    : cs.slice(0, 40);
+  list = list.slice(0, 40);
+  if (!list.length){
+    box.innerHTML = '<div class="it" style="color:var(--wh3);cursor:default">該当なし</div>';
+    box.style.display = 'block'; return;
+  }
+  box.innerHTML = list.map(function(c){
+    var reg = (c.lineUid || c.uid) ? '<span style="float:right;font-size:.62rem;color:var(--wh3)">UID済</span>' : '';
+    return '<div class="it" data-name="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + reg + '</div>';
+  }).join('');
+  var r = inp.getBoundingClientRect();
+  box.style.left = r.left + 'px';
+  box.style.top = (r.bottom + 2) + 'px';
+  box.style.width = r.width + 'px';
+  box.style.display = 'block';
+  box.querySelectorAll('.it[data-name]').forEach(function(el){
+    el.onmousedown = function(e){ e.preventDefault(); inp.value = el.getAttribute('data-name'); box.style.display = 'none'; };
+  });
+}
+function pendCustHide(i){ var box = document.getElementById('pcust-sug-'+i); if (box) box.style.display = 'none'; }
+
 function switchPendTarget(i){
   const t = (document.getElementById('ptype-'+i)||{}).value || 'cust';
   const cs = document.getElementById('psel-cust-'+i), ss = document.getElementById('psel-staff-'+i);
