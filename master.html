@@ -1920,14 +1920,16 @@ function approveRegistration(rowNum){
   const rg = (window._regCache || {})[rowNum];
   if (!rg) return;
   custEditingId = null;
+  window._approvingRegRow = rowNum;
+  const tab = document.querySelector('.mtab[onclick*="customers"]');
+  switchMaster('customers', tab);
+  const newTab = document.querySelectorAll('#m-customers .tab')[1];
+  if (newTab) switchCustTab('new', newTab);
   fillCustForm({
     name: rg.name, tel: rg.tel, zip: rg.zip, pref: rg.pref, city: rg.city,
     addr1: rg.addr1, addr2: rg.addr2, invName: rg.invName,
     lineUid: rg.uid, lineId: rg.lineName, branch: '仙台'
   });
-  window._approvingRegRow = rowNum;
-  const tab = document.querySelector('.mtab[onclick*="customers"]');
-  switchMaster('customers', tab);
   const form = document.getElementById('cf-name');
   if (form){ form.scrollIntoView({behavior:'smooth', block:'center'}); form.focus(); }
   toast('申請内容を読み込みました。担当者・掛率などを入力して保存してください');
