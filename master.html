@@ -87,7 +87,7 @@ select.fc option{background:var(--d3)}
 .cust-table thead th{background:var(--d1);color:var(--gold-l);font-weight:500;text-align:left;padding:.6rem .7rem;border-bottom:2px solid rgba(201,168,76,.4);white-space:nowrap;letter-spacing:.03em;font-size:.72rem}
 .cust-table tbody tr{cursor:pointer;transition:background .15s;border-bottom:1px solid rgba(255,255,255,.04)}
 .cust-table tbody tr:hover{background:var(--d3)}
-.cust-table td{padding:.55rem .7rem;color:var(--wh2);white-space:nowrap}
+.cust-table td{padding:.55rem .7rem;color:var(--wh2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cust-table td.ct-name{color:var(--gold-l);font-weight:500}
 .ct-spo{font-size:.6rem;padding:.1rem .35rem;background:rgba(155,127,212,.2);color:#b89fdc;border-radius:2px;margin-left:.3rem}
 .ct-uid.ok{color:var(--grn)}
@@ -1714,7 +1714,10 @@ function renderCustList(){
   }
   grid.innerHTML = `
     <div class="cust-table-wrap">
-      <table class="cust-table">
+      <table class="cust-table" style="table-layout:fixed">
+        <colgroup>
+          <col style="width:8%"><col style="width:20%"><col style="width:13%"><col style="width:12%"><col style="width:12%"><col style="width:11%"><col style="width:7%"><col style="width:7%"><col style="width:10%">
+        </colgroup>
         <thead>
           <tr>
             <th>拠点</th>
