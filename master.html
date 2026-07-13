@@ -1679,7 +1679,7 @@ function renderKanaTabs(base){
 }
 
 function renderCustList(){
-  const kw = (document.getElementById('f-kw')?.value || '').trim().toLowerCase();
+  const kw = normalizeJp((document.getElementById('f-kw')?.value || '').trim());
   const br = document.getElementById('f-br')?.value || '';
   const uidFilter = document.getElementById('f-uid')?.value || '';
   let filtered = (S.customers || []).filter(c => {
@@ -1687,7 +1687,7 @@ function renderCustList(){
     if (uidFilter === '有' && !c.lineUid) return false;
     if (uidFilter === '無' && c.lineUid)  return false;
     if (kw){
-      const hay = `${c.name||''} ${c.kana||''} ${c.staff||''} ${c.pref||''} ${c.city||''}`.toLowerCase();
+      const hay = normalizeJp(`${c.name||''} ${c.kana||''} ${c.staff||''} ${c.pref||''} ${c.city||''}`);
       if (!hay.includes(kw)) return false;
     }
     return true;
