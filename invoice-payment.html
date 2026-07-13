@@ -578,6 +578,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="faction">
         <button class="btn btn-p" onclick="saveAndPrint()">💾 保存してPDF印刷</button>
         <button class="btn btn-g" onclick="saveInvoice()">📁 保存だけ</button>
+        <button class="btn" onclick="recalcInvoice()" style="background:#2a2a30;border:1px solid var(--gold-d);color:var(--gold-l)">↻ 再計算</button>
         <button class="btn" onclick="closeIvPreview()" style="background:#2a2a30;border:1px solid var(--gold-d);color:var(--wh)">✕ 閉じる（保存しない）</button>
       </div>
     </div>
@@ -2118,11 +2119,12 @@ function saveInvoice(){
   // 既存チェック
   const existIdx = S.invoices.findIndex(x => x.ivNo === inv.ivNo);
   if (existIdx >= 0){
-    if (!confirm('この請求書番号は既に存在します。上書きしますか？')) return false;
+    if (window._editingIvNo !== inv.ivNo && !confirm('この請求書番号は既に存在します。上書きしますか？')) return false;
     S.invoices[existIdx] = inv;
   } else {
     S.invoices.push(inv);
   }
+  window._editingIvNo = null;
   saveState();
   if (S.gasUrl) gasPost({ action: 'saveInvoice', ...inv });
   toast('✓ 請求書を保存しました');
@@ -2176,7 +2178,7 @@ function renderInvoiceList(){
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(iv.total)}</td>
       <td>${escapeHtml(iv.ivDue)}</td>
       <td><span class="badge ${overdue ? 'bd-unpaid' : (iv.status === '入金済' ? 'bd-paid' : 'bd-pending')}">${overdue ? '期限超過' : (iv.status || '発行済')}</span></td>
-      <td><button class="act-btn" onclick="reloadInvoice('${escapeHtml(iv.ivNo)}')">📄</button><button class="act-btn dn" onclick="deleteInvoice('${escapeHtml(iv.ivNo)}')">削</button></td>
+      <td><button class="act-btn" onclick="editInvoice('${escapeHtml(iv.ivNo)}')">✏編集</button><button class="act-btn dn" onclick="deleteInvoice('${escapeHtml(iv.ivNo)}')">削</button></td>
     </tr>`;
   }).join('');
 }
@@ -2192,6 +2194,45 @@ function reloadInvoice(no){
   document.getElementById('iv-from').value = iv.from;
   document.getElementById('iv-to').value = iv.to;
   buildInvoicePreview();
+}
+// 保存済み請求書を編集：保存時の値（手修正ぶん含む）をそのまま戻す
+async function editInvoice(no){
+  const iv = (S.invoices || []).find(x => x.ivNo === no);
+  if (!iv) return;
+  const mode=document.getElementById('iv-mode'); if(mode){ mode.value='single'; switchIvMode(); }
+  document.getElementById('iv-no').value = iv.ivNo || '';
+  document.getElementById('iv-date').value = iv.ivDate || '';
+  document.getElementById('iv-due').value = iv.ivDue || '';
+  document.getElementById('iv-cust').value = iv.custId || '';
+  const sb=document.getElementById('iv-cust-search'); if(sb) sb.value = iv.custName || '';
+  onIvCustChange();  // 振込先の選択肢セット（prev/paidを空にする）
+  // 振込先を保存値に戻す
+  if (iv.bank){
+    const bk=document.getElementById('iv-bank');
+    const bankStr = (typeof iv.bank==='object') ? JSON.stringify(iv.bank) : iv.bank;
+    if (bk){
+      if(![...bk.options].some(o=>o.value===bankStr || o.text===bankStr)) bk.insertAdjacentHTML('afterbegin', `<option>${escapeHtml(bankStr)}</option>`);
+      bk.value = bankStr;
+    }
+  }
+  document.getElementById('iv-from').value = iv.from || '';
+  document.getElementById('iv-to').value = iv.to || '';
+  const nt=document.getElementById('iv-note'); if(nt) nt.value = iv.note || '';
+  // 保存時の前回請求額・入金（手修正ぶん）をそのまま戻す → buildInvoicePreviewは空でない値を尊重して上書きしない
+  const pe=document.getElementById('iv-prev'), pa=document.getElementById('iv-paid');
+  if(pe) pe.value = (iv.prevBilled!=null ? iv.prevBilled : '');
+  if(pa) pa.value = (iv.paidNow!=null ? iv.paidNow : '');
+  window._editingIvNo = iv.ivNo;
+  await buildInvoicePreview();
+  const pv=document.getElementById('iv-preview'); if(pv) pv.scrollIntoView({behavior:'smooth', block:'start'});
+  toast('編集モード：直して「保存」で上書きします。最新データで計算し直すには「再計算」を押してください。');
+}
+// 最新データで計算し直す（前回請求額・入金を自動算出に戻す）
+function recalcInvoice(){
+  const pe=document.getElementById('iv-prev'), pa=document.getElementById('iv-paid');
+  if(pe) pe.value=''; if(pa) pa.value='';
+  buildInvoicePreview();
+  toast('最新データで再計算しました');
 }
 
 function deleteInvoice(no){
@@ -2428,5 +2469,30 @@ function enhanceScrollTabs(){
 window.addEventListener('DOMContentLoaded', enhanceScrollTabs);
 window.addEventListener('load', enhanceScrollTabs);
 </script>
+<!-- 共通ローディング（他画面と統一） -->
+<style>
+.app-busy-spin{width:48px;height:48px;border:4px solid rgba(201,168,76,.25);border-top-color:#C9A84C;border-radius:50%;animation:app-busy-rot .8s linear infinite}
+@keyframes app-busy-rot{to{transform:rotate(360deg)}}
+</style>
+<div id="app-busy" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99999;flex-direction:column;align-items:center;justify-content:center;gap:1rem">
+  <div class="app-busy-spin"></div>
+  <div id="app-busy-msg" style="color:#E8C97A;font-size:1rem;letter-spacing:.06em">読み込み中…</div>
+  <div style="color:rgba(240,235,224,.5);font-size:.72rem">画面を閉じずにそのままお待ちください</div>
+</div>
+<script>
+/* 読み込み中/反映中オーバーレイ：gasGet=読み込み中／gasPost=反映中 を自動表示（共通部品） */
+(function(){
+  var _n=0,_t=null,_h=null,_msg='読み込み中…';
+  function show(){ var o=document.getElementById('app-busy'); if(!o) return; var m=document.getElementById('app-busy-msg'); if(m) m.textContent=_msg; o.style.display='flex'; }
+  function hide(){ var o=document.getElementById('app-busy'); if(o) o.style.display='none'; }
+  function begin(msg){ _n++; _msg=msg||_msg; if(_h){clearTimeout(_h);_h=null;} if(_t)clearTimeout(_t); _t=setTimeout(function(){ if(_n>0) show(); },100); }
+  function end(){ _n=Math.max(0,_n-1); if(_n===0){ if(_h)clearTimeout(_h); _h=setTimeout(function(){ if(_n===0){ if(_t){clearTimeout(_t);_t=null;} hide(); } },250); } else { show(); } }
+  window.appBusyShow=function(msg){ _msg=msg||_msg; if(_h){clearTimeout(_h);_h=null;} show(); };
+  window.appBusyHide=function(){ _n=0; if(_t){clearTimeout(_t);_t=null;} if(_h){clearTimeout(_h);_h=null;} hide(); };
+  if(typeof window.gasGet==='function'){ var _g=window.gasGet; window.gasGet=async function(){ begin('読み込み中…'); try{ return await _g.apply(this,arguments); } finally{ end(); } }; }
+  if(typeof window.gasPost==='function'){ var _p=window.gasPost; window.gasPost=async function(){ begin('反映中…'); try{ return await _p.apply(this,arguments); } finally{ end(); } }; }
+})();
+</script>
 </body>
+
 </html>
