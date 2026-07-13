@@ -710,10 +710,12 @@ async function init() {
         if (!authData.ok) {
           document.body.innerHTML = `
             <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#080808;color:#fff;text-align:center;padding:2rem">
-              <div style="font-size:3rem;margin-bottom:1rem">🔒</div>
-              <h2 style="color:#C9A84C;margin-bottom:1rem">ご利用いただけません</h2>
-              <p style="color:rgba(255,255,255,.6);line-height:1.8">登録がお済みでないため注文できません。<br>担当者にご連絡ください。</p>
+              <div style="font-size:3rem;margin-bottom:1rem">📝</div>
+              <h2 style="color:#C9A84C;margin-bottom:1rem">はじめてのご注文ですね</h2>
+              <p style="color:rgba(255,255,255,.72);line-height:1.9">ご注文の前に、かんたんな新規登録をお願いします。<br>登録フォームへ移動します…</p>
+              <a href="https://liff.line.me/2009445526-4FPACoSY" style="margin-top:1.7rem;display:inline-block;background:#C9A84C;color:#1a1a1a;font-weight:700;padding:.85rem 1.7rem;border-radius:8px;text-decoration:none;letter-spacing:.04em">登録フォームへ進む ▶</a>
             </div>`;
+          setTimeout(function(){ location.href = 'https://liff.line.me/2009445526-4FPACoSY'; }, 2800);
           return;
         }
         // 登録顧客の価格条件を保存（商品別掛率・価格モード・税 = システム本体と同一ルール）
