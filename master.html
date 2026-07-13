@@ -1884,10 +1884,12 @@ async function renderRegistrations(){
   const tb = document.getElementById('reg-tbody');
   if (!tb) return;
   let regs = [];
+  if (window.appBusyShow) appBusyShow('読み込み中…');
   try {
-    const j = await gasGet('getRegistrations');   // 共通ローディング（回転リング）が自動表示
+    const j = await gasGet('getRegistrations');   // 共通ローディング（回転リング）
     regs = (j && j.registrations) || [];
   } catch(e){ tb.innerHTML = '<tr><td colspan="8" style="padding:0"><div class="empty"><div class="empty-icon">⚠️</div>読み込みに失敗しました</div></td></tr>'; return; }
+  finally { if (window.appBusyHide) appBusyHide(); }
   // 未対応（申請中）だけ表示。承認済み・却下は一覧から消す（記録はシートに残る）
   regs = regs.filter(rg => rg.status === '申請中');
   regs.sort((a,b) => String(b.date).localeCompare(String(a.date)));
