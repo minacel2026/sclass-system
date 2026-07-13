@@ -1643,7 +1643,9 @@ function switchCustTab(name, el){
 }
 
 // ── 顧客一覧 あいうえおタブ ──
-let custKanaFilter = '全';
+let custKanaFilter = 'あ';
+let custShown = 50;  // 一覧の表示件数（もっと見るで+50）
+function custShowMore(){ custShown += 50; renderCustList(true); }
 function setKanaFilter(g){ custKanaFilter = g; renderCustList(); }
 function _kanaGroup(c){
   const s = ((c.kana || c.name || '') + '').trim();
@@ -1664,7 +1666,7 @@ function _kanaGroup(c){
 function renderKanaTabs(base){
   const el = document.getElementById('kana-tabs');
   if (!el) return;
-  const TABS = ['全','あ','か','さ','た','な','は','ま','や','ら','わ','英','他'];
+  const TABS = ['あ','か','さ','た','な','は','ま','や','ら','わ','英','他','全'];
   const cnt = {}; base.forEach(c => { const g = _kanaGroup(c); cnt[g] = (cnt[g]||0) + 1; });
   el.innerHTML = TABS.map(t => {
     const n = (t === '全') ? base.length : (cnt[t] || 0);
@@ -1678,7 +1680,8 @@ function renderKanaTabs(base){
   }).join('');
 }
 
-function renderCustList(){
+function renderCustList(keepPage){
+  if (!keepPage) custShown = 50;
   const kw = normalizeJp((document.getElementById('f-kw')?.value || '').trim());
   const br = document.getElementById('f-br')?.value || '';
   const uidFilter = document.getElementById('f-uid')?.value || '';
@@ -1732,7 +1735,7 @@ function renderCustList(){
           </tr>
         </thead>
         <tbody>
-          ${filtered.map(c => {
+          ${filtered.slice(0, custShown).map(c => {
             const rates = Array.isArray(c.productRates) ? c.productRates : [];
             const rateCount = rates.filter(r => r.rate).length;
             const hasRate = rateCount > 0;
@@ -1759,7 +1762,8 @@ function renderCustList(){
           }).join('')}
         </tbody>
       </table>
-    </div>`;
+    </div>
+    ${filtered.length > custShown ? `<div style="text-align:center;margin:.8rem 0"><button type="button" onclick="custShowMore()" class="btn btn-g">もっと見る（残り ${filtered.length - custShown} 件）</button><div style="font-size:.7rem;color:var(--wh3);margin-top:.3rem">${Math.min(custShown, filtered.length)} / ${filtered.length} 件を表示中</div></div>` : (filtered.length > 50 ? `<div style="text-align:center;font-size:.7rem;color:var(--wh3);margin:.6rem 0">全 ${filtered.length} 件を表示中</div>` : '')}`;
 }
 
 // ─── 完全データ取得（一覧はlite・編集/CSVは完全版で欠損＝保存時の消失を防ぐ） ─────
