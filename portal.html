@@ -147,6 +147,11 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
 .pending-alert-banner:hover{border-color:#8ab4ff}
 .pending-alert-banner .dot{width:9px;height:9px;border-radius:50%;background:#4a90e2;animation:oa-blink 1.1s infinite}
 .tile-pending-badge{position:absolute;top:-9px;left:-9px;background:#2e6fd3;color:#fff;font-size:.66rem;font-weight:700;padding:3px 9px;border-radius:99px;border:2px solid #0a0a0c;box-shadow:0 2px 10px rgba(46,111,211,.5);animation:oa-blink 1.1s infinite;z-index:5}
+/* ─── 登録申請アラート ─── */
+.reg-alert-banner{display:none;align-items:center;justify-content:center;gap:10px;background:linear-gradient(90deg,rgba(90,200,120,.14),rgba(201,168,76,.14));border:1px solid rgba(120,200,140,.5);color:#bfe8c8;font-size:.8rem;padding:9px 14px;border-radius:10px;margin:0 auto 18px;max-width:680px;cursor:pointer;letter-spacing:.05em}
+.reg-alert-banner:hover{border-color:#96e0a8}
+.reg-alert-banner .dot{width:9px;height:9px;border-radius:50%;background:#4caf72;animation:oa-blink 1.1s infinite}
+.tile-reg-badge{position:absolute;top:-9px;right:-9px;background:#3a9d5d;color:#fff;font-size:.66rem;font-weight:700;padding:3px 9px;border-radius:99px;border:2px solid #0a0a0c;box-shadow:0 2px 10px rgba(58,157,93,.5);animation:oa-blink 1.1s infinite;z-index:5}
 @keyframes oa-blink{0%,100%{opacity:1}50%{opacity:.45}}
 .app-busy-spin{width:48px;height:48px;border:4px solid rgba(201,168,76,.25);border-top-color:#C9A84C;border-radius:50%;animation:app-busy-rot .8s linear infinite}
 @keyframes app-busy-rot{to{transform:rotate(360deg)}}
@@ -931,6 +936,52 @@ updateStatus();
     }
     await checkPending();
     setInterval(checkPending, 60000);
+  } catch(e) {}
+})();
+
+// ─── 登録申請アラート（GAS getRegistrations、状態＝申請中のみカウント） ───
+(async function(){
+  try {
+    const gas = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
+    if (!gas) return;
+    async function checkReg(){
+      try {
+        const r = await fetch(gas + '?action=getRegistrations');
+        const d = await r.json();
+        const n = (d && d.registrations) ? d.registrations.filter(x => x.status === '申請中').length : 0;
+        renderReg(n);
+      } catch(e) {}
+    }
+    function renderReg(n){
+      const tile = document.getElementById('tile-master');
+      let badge = document.getElementById('reg-badge');
+      let banner = document.getElementById('reg-banner');
+      if (n > 0){
+        if (tile && !badge){
+          badge = document.createElement('span');
+          badge.id = 'reg-badge';
+          badge.className = 'tile-reg-badge';
+          tile.appendChild(badge);
+        }
+        if (badge) badge.textContent = '📝 申請 ' + n + '件';
+        if (!banner){
+          banner = document.createElement('div');
+          banner.id = 'reg-banner';
+          banner.className = 'reg-alert-banner';
+          banner.innerHTML = '<span class="dot"></span><span></span>';
+          banner.onclick = () => location.href = 'master.html#registrations';
+          const anchor = document.querySelector('main') || document.body;
+          anchor.insertBefore(banner, anchor.firstChild);
+        }
+        banner.querySelector('span:last-child').textContent = '登録申請が ' + n + ' 件あります — タップで登録申請へ';
+        banner.style.display = 'flex';
+      } else {
+        if (badge) badge.remove();
+        if (banner) banner.style.display = 'none';
+      }
+    }
+    await checkReg();
+    setInterval(checkReg, 60000);
   } catch(e) {}
 })();
 </script>

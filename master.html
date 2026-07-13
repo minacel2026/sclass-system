@@ -260,6 +260,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
 .pcust-sug .it{padding:.5rem .7rem;cursor:pointer;font-size:.82rem;color:var(--wh);border-bottom:1px solid rgba(255,255,255,.05)}
 .pcust-sug .it:last-child{border-bottom:none}
 .pcust-sug .it:hover{background:rgba(201,168,76,.15)}
+.pcust-sug .it.active{background:rgba(201,168,76,.28)}
 </style>
 <!-- ═══ スプレッドシート同期インジケータ（全画面共通） ═══ -->
 <script>
@@ -1882,12 +1883,10 @@ function lookupZipNow(opts){
 async function renderRegistrations(){
   const tb = document.getElementById('reg-tbody');
   if (!tb) return;
-  tb.innerHTML = '<tr><td colspan="8" style="padding:0"><div class="empty"><div class="empty-icon">⏳</div>読込中...</div></td></tr>';
   let regs = [];
   try {
-    const r = await fetch(S.gasUrl + '?action=getRegistrations&_=' + Date.now(), { cache:'no-store' });
-    const j = await r.json();
-    regs = j.registrations || [];
+    const j = await gasGet('getRegistrations');   // 共通ローディング（回転リング）が自動表示
+    regs = (j && j.registrations) || [];
   } catch(e){ tb.innerHTML = '<tr><td colspan="8" style="padding:0"><div class="empty"><div class="empty-icon">⚠️</div>読み込みに失敗しました</div></td></tr>'; return; }
   // 未対応（申請中）だけ表示。承認済み・却下は一覧から消す（記録はシートに残る）
   regs = regs.filter(rg => rg.status === '申請中');
@@ -3061,7 +3060,7 @@ async function loadCustPendingUids(){
                 </select>
                 <div style="position:relative;width:160px" id="psel-cust-wrap-${i}">
                   <input class="fc" id="psel-cust-${i}" autocomplete="off" placeholder="店名で検索" style="width:100%;padding:.35rem .45rem"
-                    oninput="pendCustSug(${i})" onfocus="pendCustSug(${i})" onblur="setTimeout(function(){pendCustHide(${i})},180)">
+                    oninput="pendCustSug(${i})" onfocus="pendCustSug(${i})" onkeydown="pendCustKey(event, ${i})" onblur="setTimeout(function(){pendCustHide(${i})},180)">
                   <div class="pcust-sug" id="pcust-sug-${i}" style="display:none"></div>
                 </div>
                 <select class="fc" id="psel-staff-${i}" style="width:160px;display:none;padding:.35rem .25rem">
@@ -3107,6 +3106,7 @@ function pendCustSug(i){
     var reg = (c.lineUid || c.uid) ? '<span style="float:right;font-size:.62rem;color:var(--wh3)">UID済</span>' : '';
     return '<div class="it" data-name="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + reg + '</div>';
   }).join('');
+  box.dataset.idx = '-1';
   var r = inp.getBoundingClientRect();
   box.style.left = r.left + 'px';
   box.style.top = (r.bottom + 2) + 'px';
@@ -3117,6 +3117,26 @@ function pendCustSug(i){
   });
 }
 function pendCustHide(i){ var box = document.getElementById('pcust-sug-'+i); if (box) box.style.display = 'none'; }
+// 未登録UID：検索候補を上下矢印で選択、Enterで確定、Escで閉じる
+function pendCustKey(e, i){
+  var box = document.getElementById('pcust-sug-'+i);
+  var inp = document.getElementById('psel-cust-'+i);
+  if (!box || box.style.display === 'none') return;
+  var items = box.querySelectorAll('.it[data-name]');
+  if (!items.length) return;
+  var idx = parseInt(box.dataset.idx); if (isNaN(idx)) idx = -1;
+  if (e.key === 'ArrowDown'){ e.preventDefault(); idx = (idx + 1) % items.length; }
+  else if (e.key === 'ArrowUp'){ e.preventDefault(); idx = (idx - 1 + items.length) % items.length; }
+  else if (e.key === 'Enter'){
+    if (idx >= 0 && items[idx]){ e.preventDefault(); inp.value = items[idx].getAttribute('data-name'); box.style.display = 'none'; }
+    return;
+  }
+  else if (e.key === 'Escape'){ box.style.display = 'none'; return; }
+  else return;
+  box.dataset.idx = String(idx);
+  items.forEach(function(el, k){ el.classList.toggle('active', k === idx); });
+  if (items[idx]) items[idx].scrollIntoView({ block:'nearest' });
+}
 
 function switchPendTarget(i){
   const t = (document.getElementById('ptype-'+i)||{}).value || 'cust';
@@ -4375,7 +4395,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // ハッシュでタブを開く（ポータルのチップから）
   try {
     const h = (location.hash || '').replace('#','');
-    const valid = ['customers','staff','products','referrers','sponsors','agents','company'];
+    const valid = ['customers','staff','products','referrers','sponsors','agents','company','registrations'];
     if (valid.indexOf(h) >= 0){
       const tab = document.querySelector('.mtab[onclick*="\'' + h + '\'"]');
       if (typeof switchMaster === 'function') switchMaster(h, tab);
