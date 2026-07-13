@@ -3083,15 +3083,22 @@ async function loadCustPendingUids(){
 }
 
 // 紐付け先タイプ（顧客/スタッフ）切替でドロップダウンを出し分け
-// 未登録UID：店名で検索して候補ボックスを出す（注文登録と同じ方式・ひらがなOK）
+// 表記ゆれ（ひらがな/カタカナ/半角/全角）を吸収して比較（注文登録と同じ）
+function normalizeJp(s){
+  if (!s) return '';
+  let t = String(s).normalize('NFKC');
+  t = t.replace(/[\u30A1-\u30F6]/g, function(ch){ return String.fromCharCode(ch.charCodeAt(0) - 0x60); });
+  return t.toLowerCase();
+}
+// 未登録UID：店名で検索して候補ボックスを出す（注文登録と同じ方式・ひらがな↔カタカナOK）
 function pendCustSug(i){
   var inp = document.getElementById('psel-cust-'+i);
   var box = document.getElementById('pcust-sug-'+i);
   if (!inp || !box) return;
-  var kw = (inp.value || '').trim().toLowerCase();
+  var kw = normalizeJp((inp.value || '').trim());
   var cs = (S.customers || []);
   var list = kw
-    ? cs.filter(function(c){ return ((c.name||'').toLowerCase().indexOf(kw) >= 0) || ((c.kana||'').toLowerCase().indexOf(kw) >= 0); })
+    ? cs.filter(function(c){ return normalizeJp(c.name).indexOf(kw) >= 0 || normalizeJp(c.kana).indexOf(kw) >= 0; })
     : cs.slice(0, 40);
   list = list.slice(0, 40);
   if (!list.length){
