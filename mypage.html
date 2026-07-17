@@ -76,7 +76,7 @@ body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;backg
   function el(){
     var e=document.getElementById('lmb-sync-badge');
     if(!e){ e=document.createElement('div'); e.id='lmb-sync-badge';
-      e.innerHTML='<span class="lmb-si"></span><span>スプレッドシート同期中…</span>';
+      e.innerHTML='<span class="lmb-si"></span><span>通信中…</span>';
       (document.body||document.documentElement).appendChild(e); }
     return e;
   }
@@ -166,7 +166,6 @@ async function init(){
       return;
     }
     render(box, d);
-    window.__uid = uid; loadMyConsign(uid);
   } catch(e){
     box.innerHTML = '<div class="errbox">通信エラーが発生しました。<br>電波状況をご確認のうえ開き直してください。</div>';
   }
@@ -249,63 +248,6 @@ function render(box, d){
   }
 
   box.innerHTML = html;
-}
-
-// ── 委託：預け在庫＋販売報告（自己報告→Sclass承認で計上） ──
-async function postReport(uid, product, qty){
-  try{ await fetch(GAS_URL, { method:'POST', mode:'no-cors', body: JSON.stringify({ action:'saveConsignReport', uid:uid, product:product, qty:qty }) }); }catch(e){}
-}
-async function loadMyConsign(uid){
-  let d;
-  try{
-    const r = await fetch(GAS_URL + '?action=getMyConsign&uid=' + encodeURIComponent(uid) + '&_=' + Date.now(), { cache:'no-store' });
-    d = await r.json();
-  }catch(e){ return; }
-  if(!d || !d.ok) return;
-  const balance = d.balance || [];
-  const reports = d.reports || [];
-  window.__cgBal = balance;
-  const old = document.getElementById('consign-section'); if(old) old.remove();
-  if(!balance.length && !reports.length) return;
-  let h = '<div id="consign-section">';
-  if(balance.length){
-    h += '<div class="sec-title">▸ 預け在庫（委託）</div>';
-    h += '<div class="sponsor-box">';
-    h += '<div style="font-size:.72rem;color:#b9b3a6;margin-bottom:.5rem">売れた本数を入力して「報告」を押してください。Sclassの確認後に売上として計上されます。</div>';
-    balance.forEach((b,i) => {
-      h += '<div style="display:flex;align-items:center;gap:.5rem;justify-content:space-between;padding:.45rem 0;border-bottom:1px solid rgba(201,168,76,.12)">';
-      h += '<span>🍷 ' + esc(b.product) + ' <span style="color:#b9b3a6;font-size:.72rem">（預け ' + b.qty + '本）</span></span>';
-      h += '<span style="display:flex;align-items:center;gap:.35rem">';
-      h += '<input id="cgr-'+i+'" type="number" min="1" max="'+b.qty+'" placeholder="売れた本数" style="width:96px;padding:.35rem;border-radius:6px;border:1px solid rgba(201,168,76,.4);background:#1a1a12;color:#f0ebe0;font-size:.8rem">';
-      h += '<button onclick="reportSale('+i+')" style="padding:.4rem .8rem;border-radius:6px;border:1px solid #c9a84c;background:rgba(201,168,76,.15);color:#e8c97a;font-size:.78rem;cursor:pointer">報告</button>';
-      h += '</span></div>';
-    });
-    h += '</div>';
-  }
-  if(reports.length){
-    h += '<div class="sec-title">▸ 販売報告の履歴</div>';
-    h += '<div class="sponsor-box">';
-    reports.forEach(r => {
-      const st = r.status==='承認' ? '<span class="sp-badge sp-e">承認・計上済</span>' : (r.status==='却下' ? '<span class="sp-badge sp-u">却下</span>' : '<span class="sp-badge" style="background:rgba(201,168,76,.25);color:#e8c97a">確認中</span>');
-      h += '<div class="sp-log"><span class="sp-date">'+esc(dateText(r.date))+'</span><span class="sp-prod">'+esc(r.product)+' '+r.qty+'本</span>'+st+'</div>';
-    });
-    h += '</div>';
-  }
-  h += '</div>';
-  const sumEl = document.querySelector('#content .summary');
-  if(sumEl) sumEl.insertAdjacentHTML('afterend', h);
-  else { const c=document.getElementById('content'); if(c) c.insertAdjacentHTML('afterbegin', h); }
-}
-async function reportSale(i){
-  const b = (window.__cgBal||[])[i]; if(!b) return;
-  const inp = document.getElementById('cgr-'+i); if(!inp) return;
-  const qty = parseInt(inp.value,10);
-  if(!(qty>0)){ alert('売れた本数を入力してください'); return; }
-  if(qty>b.qty){ alert('預け在庫('+b.qty+'本)を超えています'); return; }
-  const btn = inp.parentElement.querySelector('button'); if(btn){ btn.disabled=true; btn.textContent='送信中…'; }
-  await postReport(window.__uid, b.product, qty);
-  alert(b.product+' '+qty+'本を報告しました。\nSclassの確認後に売上として計上されます。');
-  setTimeout(function(){ loadMyConsign(window.__uid); }, 1500);
 }
 
 init();

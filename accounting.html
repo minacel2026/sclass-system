@@ -3,6 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style id="pre-auth-hide">html{visibility:hidden}</style>
+<script>
+/* ログイン判定まで目隠し：未ログインなら中身を描画せずログイン画面へ（チラ見え防止） */
+(function(){
+  try{ if(!sessionStorage.getItem('lmb_current_user')){ location.replace('login.html'); return; } }catch(e){}
+  var reveal=function(){ try{ var s=document.getElementById('pre-auth-hide'); if(s&&s.parentNode) s.parentNode.removeChild(s); document.documentElement.style.visibility=''; }catch(e){} };
+  reveal();
+  setTimeout(reveal, 4000);  /* 保険 */
+})();
+</script>
 <title>会計 | Sclassランボルギーニ</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Bebas+Neue&family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="mobile.css">
@@ -192,7 +202,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   function el(){
     var e=document.getElementById('lmb-sync-badge');
     if(!e){ e=document.createElement('div'); e.id='lmb-sync-badge';
-      e.innerHTML='<span class="lmb-si"></span><span>スプレッドシート同期中…</span>';
+      e.innerHTML='<span class="lmb-si"></span><span>通信中…</span>';
       (document.body||document.documentElement).appendChild(e); }
     return e;
   }
