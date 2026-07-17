@@ -579,6 +579,10 @@ const PROD_LIST = [
 // ─── 商品マスタから派生する定数 ────────────────────
 const PRODS   = PROD_LIST.map(p => p.key);
 const PRICE   = Object.fromEntries(PROD_LIST.map(p => [p.key, p.price]));
+
+// ══ 商品マスター優先の価格（PROD_LIST由来の PRICE は初期値扱い）══
+function _pm(k){ return (S.products && S.products.length) ? S.products.find(function(p){ return p && (p.key||p.name)===k; }) : null; }
+function _price(k){ var p=_pm(k); return (p && p.price!=null) ? Number(p.price) : (PRICE[k] || 0); }
 const COST    = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
 const REORDER = Object.fromEntries(PROD_LIST.map(p => [p.key, p.reorder]));
 
@@ -616,7 +620,7 @@ function calcAmt(o) {
   const cond = (o.condition || 10) / 10;
   let total = 0;
   Object.entries(o.items || {}).forEach(([p,q]) => {
-    total += Math.round((PRICE[p] || 0) * cond) * tax * (q || 0);
+    total += Math.round(_price(p) * cond) * tax * (q || 0);
   });
   return Math.round(total);
 }
@@ -646,7 +650,7 @@ function loadState() {
   try {
     const keys = ['orders','customers','stock','stockDetail','slog','collections',
                   'invoices','bankEntries','bankHistory','company','purchases',
-                  'cashEntries','dailyReps','referrers','sponsors'];
+                  'cashEntries','dailyReps','referrers','sponsors','products'];
     keys.forEach(k => {
       const v = localStorage.getItem('lmb_' + k);
       if (v) {
@@ -912,7 +916,8 @@ updateStatus();
     if (!gas) return;
     async function checkPending(){
       try {
-        const r = await fetch(gas + '?action=getPendingUids');
+        const _tk = (function(){ try{ return sessionStorage.getItem('lmb_token')||''; }catch(e){ return ''; } })();
+        const r = await fetch(gas + '?action=getPendingUids' + (_tk ? '&token=' + encodeURIComponent(_tk) : ''));
         const d = await r.json();
         const n = (d && d.pending) ? d.pending.length : 0;
         renderPending(n);

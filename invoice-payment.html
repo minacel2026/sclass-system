@@ -778,7 +778,7 @@ function calcAmt(o){
   const cond = (o.condition || 10) / 10;
   let total = 0;
   Object.entries(o.items || {}).forEach(([p,q]) => {
-    total += Math.round((PRICE[p] || 0) * cond) * tax * (q || 0);
+    total += Math.round(_price(p) * cond) * tax * (q || 0);
   });
   return Math.round(total);
 }
@@ -837,6 +837,12 @@ async function gasPost(data){
 }
 
 window.S=S; window.PROD_LIST=PROD_LIST; window.PRODS=PRODS;
+
+// ══ 商品マスター優先の価格・原価（PROD_LIST由来の PRICE/COST は初期値扱い）══
+function _pm(k){ return (S.products && S.products.length) ? S.products.find(function(p){ return p && (p.key||p.name)===k; }) : null; }
+function _price(k){ var p=_pm(k); return (p && p.price!=null) ? Number(p.price) : (PRICE[k] || 0); }
+function _cost(k){  var p=_pm(k); return (p && p.cost !=null) ? Number(p.cost)  : (COST[k]  || 0); }
+
 window.PRICE=PRICE; window.COST=COST; window.REORDER=REORDER;
 window.calcAmt=calcAmt; window.today=today; window.fmt=fmt; window.yen=yen;
 window.saveState=saveState; window.loadState=loadState;
@@ -2029,7 +2035,7 @@ async function buildInvoicePreview(){
     const tm = (o.tax === 'taxあり' || o.tax === undefined) ? 1.1 : 1;   // 既定は税込
     Object.entries(o.items || {}).forEach(([prod, qty]) => {
       if (!qty || qty <= 0) return;
-      const baseUnit = Math.round((PRICE[prod] || 0) * cond);  // 税抜単価
+      const baseUnit = Math.round(_price(prod) * cond);  // 税抜単価
       const unitIncl = Math.round(baseUnit * tm);              // 税込単価
       const amt = Math.round(baseUnit * tm * qty);             // 税込金額
       salesIncl += amt;

@@ -1040,7 +1040,7 @@ function calcAmt(o){
   const cond = (o.condition || 10) / 10;
   let total = 0;
   Object.entries(o.items || {}).forEach(([p,q]) => {
-    total += Math.round((PRICE[p] || 0) * cond) * tax * (q || 0);
+    total += Math.round(_price(p) * cond) * tax * (q || 0);
   });
   return Math.round(total);
 }
@@ -3742,8 +3742,8 @@ function renderInventory(){
     branches.forEach(b => {
       const bk = _bkt(b, p);
       const qty = bk.old + bk.sp + bk.new;
-      const cost = COST[p] || 0;
-      const sell = PRICE[p] || 0;
+      const cost = _cost(p);
+      const sell = _price(p);
       const costAmt = (bk.old + bk.new) * cost;   // 協賛は無料取得＝原価0
       const sellAmt = qty * sell;
       grandQty += qty; grandCost += costAmt; grandSell += sellAmt;
@@ -3797,8 +3797,8 @@ function exportInventoryCSV(){
   PRODS.forEach(p => branches.forEach(b => {
     const bk = _bkt(b, p);
     const qty = bk.old + bk.sp + bk.new;
-    const cost = COST[p] || 0;
-    const sell = PRICE[p] || 0;
+    const cost = _cost(p);
+    const sell = _price(p);
     const costAmt = (bk.old + bk.new) * cost;
     csv += `${p},${b},${bk.old},${bk.sp},${bk.new},${qty},${cost},${costAmt},${sell},${qty*sell},${qty*sell-costAmt}\n`;
   }));
