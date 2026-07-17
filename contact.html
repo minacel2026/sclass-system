@@ -48,16 +48,18 @@ body{font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;backg
       (document.body||document.documentElement).appendChild(e); }
     return e;
   }
-  var n=0, t=null;
+  var n=0, t=null, dly=null;
+  var LMB_SHOW_DELAY=600;   /* これより速い通信ではバッジを出さない（チラつき防止） */
+  var LMB_SILENT=/[?&]action=(getNewOrders|getPendingUids|getRegistrations|getStockRev)\b/;  /* 裏の自動チェックは黙って実行 */
   function show(){ if(t){clearTimeout(t);t=null;} try{el().classList.add('show');}catch(e){} }
   function hide(){ var e=document.getElementById('lmb-sync-badge'); if(e) e.classList.remove('show'); }
-  window.__lmbSyncStart=function(){ n++; show(); };
-  window.__lmbSyncEnd=function(){ n=Math.max(0,n-1); if(n===0){ if(t)clearTimeout(t); t=setTimeout(hide,350); } };
+  window.__lmbSyncStart=function(){ n++; if(dly===null){ dly=setTimeout(function(){ dly=null; if(n>0) show(); }, LMB_SHOW_DELAY); } };
+  window.__lmbSyncEnd=function(){ n=Math.max(0,n-1); if(n===0){ if(dly){clearTimeout(dly);dly=null;} if(t)clearTimeout(t); t=setTimeout(hide,350); } };
   if(window.fetch && !window.fetch.__lmbWrap){
     var of=window.fetch.bind(window);
     var wf=function(input,init){
       var u=''; try{ u=(typeof input==='string')?input:((input&&input.url)||''); }catch(e){}
-      var gas=/script\.google\.com|\/macros\/s\//.test(u);
+      var gas=/script\.google\.com|\/macros\/s\//.test(u) && !LMB_SILENT.test(u);
       if(gas) window.__lmbSyncStart();
       var p;
       try{ p=of(input,init); }catch(e){ if(gas) window.__lmbSyncEnd(); throw e; }
