@@ -747,7 +747,7 @@ function calcAmt(o){
   const cond = (o.condition || 10) / 10;
   let total = 0;
   Object.entries(o.items || {}).forEach(([p,q]) => {
-    total += Math.round((PRICE[p] || 0) * cond) * tax * (q || 0);
+    total += Math.round(_price(p) * cond) * tax * (q || 0);
   });
   return Math.round(total);
 }
@@ -800,6 +800,13 @@ async function gasPost(data){
 }
 
 window.S=S; window.PROD_LIST=PROD_LIST; window.PRODS=PRODS;
+
+// ══ 商品マスター優先の価格・原価（PROD_LIST由来の定数は初期値扱い）══
+// 商品マスター(S.products)に値があればそれを使う。読めない時だけ PRICE/COST（PROD_LIST由来）にフォールバック。
+function _pm(k){ return (S.products && S.products.length) ? S.products.find(function(p){ return p && (p.key||p.name)===k; }) : null; }
+function _price(k){ var p=_pm(k); return (p && p.price!=null) ? Number(p.price) : (PRICE[k] || 0); }
+function _cost(k){  var p=_pm(k); return (p && p.cost !=null) ? Number(p.cost)  : (COST[k]  || 0); }
+
 window.PRICE=PRICE; window.COST=COST;
 window.calcAmt=calcAmt; window.today=today; window.fmt=fmt; window.yen=yen;
 window.saveState=saveState; window.loadState=loadState;
@@ -942,6 +949,7 @@ function updateKPI(){
 async function syncFromGAS(){
   if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
   toast('同期中...');
+  try{ const pd=await gasGet('getProducts'); if(pd&&pd.products&&pd.products.length){ S.products=pd.products; saveState(); } }catch(e){}
   try{ const r=await gasGet('getPayments'); if(r&&r.payments){ S.payments=r.payments; saveState(); } }catch(e){}
   try{ const c=await gasGet('getCashEntries'); if(c&&c.entries){ S.cashEntries=c.entries; saveState(); } }catch(e){}
   toast('✓ 同期完了');

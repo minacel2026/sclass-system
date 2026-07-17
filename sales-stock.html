@@ -986,6 +986,37 @@ const COST    = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
 const REORDER = Object.fromEntries(PROD_LIST.map(p => [p.key, p.reorder]));
 const COLOR   = Object.fromEntries(PROD_LIST.map(p => [p.key, p.color]));
 
+// ══ 商品リストの単一ソース ══
+// 商品マスター（S.products＝GASの「商品」シート）を優先し、読めない時だけ PROD_LIST にフォールバック。
+// 商品を追加・停止したら、在庫・履歴・推移表・棚卸すべてがこれ経由で自動的に追従する。
+// br を渡すと「その拠点の取扱商品」だけに絞る（取扱拠点が空＝両拠点）。
+// ★安全ルール：取扱外でも在庫が残っていれば表示する（消すと数字が合わなくなる・棚卸で見落とすため）。その商品は outOfScope=true。
+function _prodCols(br){
+  var l = (S.products && S.products.length) ? S.products.filter(function(p){ return p && p.active!==false; }) : (PROD_LIST||[]);
+  if(!l.length) l = PROD_LIST||[];
+  var out = l.map(function(p){
+    var k = p.key || p.name;
+    var d = (PROD_LIST||[]).find(function(x){ return x.key===k; }) || {};
+    return { key:k, name:(p.name||k),
+             branches:String(p.branches||''),
+             color:(p.color||d.color||'#888'),
+             price:(p.price!=null?Number(p.price):(d.price||0)),
+             cost:(p.cost!=null?Number(p.cost):(d.cost||0)),
+             reorder:(p.reorder!=null?Number(p.reorder):(d.reorder||0)) };
+  });
+  if(!br) return out;
+  return out.filter(function(p){
+    if(!p.branches || p.branches.indexOf(br)>=0) return true;   // 空＝両拠点／該当拠点は取扱あり
+    var q = (S.stock && S.stock[br] && S.stock[br][p.key]) || 0; // 取扱外でも在庫が残っていれば残す
+    if(q>0){ p.outOfScope = true; return true; }
+    return false;
+  });
+}
+// 価格・原価・発注点も商品マスター優先で引く（PROD_LIST由来の定数は初期値扱い）
+function _price(k){ var p=_prodCols().find(function(x){ return x.key===k; }); return p? p.price : (PRICE[k]||0); }
+function _cost(k){  var p=_prodCols().find(function(x){ return x.key===k; }); return p? p.cost  : (COST[k]||0); }
+function _reorder(k){ var p=_prodCols().find(function(x){ return x.key===k; }); return p? p.reorder : (REORDER[k]||0); }
+
 const S = {
   branch:'both', orders:[], customers:[], staff:[],
   stock:{仙台:{}, 京都:{}}, stockDetail:{仙台:{}, 京都:{}},
@@ -1208,11 +1239,26 @@ async function syncFromGAS(){
     var pOrds = gasGet('getOrders');
     var pStock = gasGet('getStock');
     var pSp = gasGet('getSponsorLogs');
+    var pProd = gasGet('getProducts');
 
     try { const pong = await pPing; if (pong && !pong.updateAllStock){ toast('⚠️ GASが古い版です。在庫がスプシに反映されません。最新のgas-templateを貼り付けて「デプロイを管理→新バージョン」で更新してください', 'error'); } } catch(e){}
 
     const cust = await pCust;
     if (cust && cust.customers) S.customers = cust.customers;
+
+    // ── 商品マスター：これが全画面の商品リストの元（在庫・履歴・推移表・棚卸）──
+    try {
+      const prd = await pProd;
+      if (prd && prd.products && prd.products.length){
+        S.products = prd.products;
+        // 在庫は「商品名」をキーに持つため、マスター名と在庫キーがズレると過去在庫と紐づかない。ズレたら警告。
+        const _known = {}; (PROD_LIST||[]).forEach(function(p){ _known[p.key]=1; });
+        Object.keys(S.stock||{}).forEach(function(b){ Object.keys(S.stock[b]||{}).forEach(function(k){ _known[k]=1; }); });
+        const _lost = S.products.filter(function(p){ return p && p.active!==false && (p.key||p.name) && !_known[p.key||p.name]; })
+                                .map(function(p){ return p.key||p.name; });
+        if (_lost.length) toast('🆕 商品マスターの新商品：' + _lost.join('・') + '（在庫は0から開始します）');
+      }
+    } catch(e){}
 
     const ords = await pOrds;
     if (ords && ords.orders) {
@@ -1662,7 +1708,7 @@ function openOrderForEdit(id){
     if (sec) sec.style.display = 'block';
     const spProd = document.getElementById('no-sp-product');
     if (spProd && spProd.options.length === 0){
-      spProd.innerHTML = PROD_LIST.map(p => `<option>${p.name}</option>`).join('');
+      spProd.innerHTML = _prodCols().map(p => `<option>${p.name}</option>`).join('');
     }
   }
   if (typeof renderSponsorShipDraft === 'function') renderSponsorShipDraft();
@@ -1806,7 +1852,7 @@ function updateSponsorShipSection(c){
     const available = bal.pts + pending.total;
     const spProd = document.getElementById('no-sp-product');
     if (spProd && spProd.options.length === 0){
-      spProd.innerHTML = PROD_LIST.map(p => `<option>${p.name}</option>`).join('');
+      spProd.innerHTML = _prodCols().map(p => `<option>${p.name}</option>`).join('');
     }
     if (available > 0){
       // 商品別の内訳を見やすくリスト表示（過去残数＋今回付与予定）
@@ -2367,7 +2413,7 @@ function spFillRecalcSelectors(){
   if(csel){ const keep=csel.value; csel.innerHTML='<option value="">— 顧客を選択 —</option>'+(S.customers||[]).filter(c=>c.sponsorEnabled).map(c=>'<option value="'+escapeHtml(String(c.id))+'">'+escapeHtml(c.name||'')+'</option>').join(''); csel.value=keep; }
   const psel=document.getElementById('sp-adj-prod');
   if(psel){ const keep=psel.value;
-    const _pl=(S.products&&S.products.length)?S.products.filter(p=>p&&p.active!==false):PROD_LIST;
+    const _pl=_prodCols();
     psel.innerHTML='<option value="">— 商品を選択 —</option>'+_pl.map(p=>{const nm=(p&&p.name)?p.name:String(p);return '<option value="'+escapeHtml(String(nm))+'">'+escapeHtml(String(nm))+'</option>';}).join('');
     psel.value=keep; }
 }
@@ -2696,7 +2742,7 @@ function calcProdLine(p, qty){
 function renderNewOrderProds(){
   const grid = document.getElementById('no-prod-grid');
   const branch = (document.getElementById('no-branch')||{}).value || '仙台';
-  const rows = PROD_LIST.map(p => {
+  const rows = _prodCols().map(p => {
     const qty = newOrderQty[p.key] || 0;
     const totalStock = S.stock[branch]?.[p.key] || 0;  // 選択中の拠点の在庫
     const low = totalStock <= (p.reorder || 0);
@@ -2741,7 +2787,7 @@ function changeOrderQty(key, delta){
 function updateOrderTotal(){
   const isSponsor = (document.getElementById('no-ordtype') || {}).value === 'sponsor';
   let totalIncl = 0, totalExcl = 0, qtyTotal = 0;
-  PROD_LIST.forEach(p => {
+  _prodCols().forEach(p => {
     const q = newOrderQty[p.key] || 0;
     const line = calcProdLine(p, q);
     // 単価セル（売値・税抜）を更新（価格モード/掛率変更に追従）
@@ -2908,7 +2954,7 @@ function submitNewOrder(){
   // 確定金額（税込・商品別pricing反映）を計算して保存
   let confirmedAmount = 0;
   if (!isSponsor){
-    PROD_LIST.forEach(p => {
+    _prodCols().forEach(p => {
       const q = items[p.key] || 0;
       if (q > 0) confirmedAmount += calcProdLine(p, q).subIncl;
     });
@@ -3211,7 +3257,7 @@ function renderBackstock(){
     if(_BS_OUT[s.type]) back[s.product]=(back[s.product]||0)+q;    // 出た分を戻す（＋）
     else if(_BS_IN[s.type]) back[s.product]=(back[s.product]||0)-q; // 入った分を引く（−）
   });
-  const rows=(PROD_LIST||[]).map(p=>{
+  const rows=_prodCols().map(p=>{
     const cur=(S.stock[br]&&S.stock[br][p.key])||0;
     return { key:p.key, name:p.name, theo: cur+(back[p.key]||0) };
   });
@@ -3312,7 +3358,7 @@ function renderSlogMatrix(rows){
   var box = document.getElementById('slog-matrix'); if(!box) return;
   var br = (document.getElementById('slog-br')||{}).value || '仙台';
   var all = S.slog || [];
-  var prods = (PROD_LIST||[]);
+  var prods = _prodCols(br);
   // ① 各商品の「最初の記録より前」の残数を割り出す（未記録の商品は現在庫＝ずっと不変）
   var seed = {};
   for(var i=0;i<all.length;i++){
@@ -3342,7 +3388,7 @@ function renderSlogMatrix(rows){
   var h = '<table style="border-collapse:collapse;white-space:nowrap;font-size:.76rem"><thead><tr>'
     + '<th style="text-align:left;padding:6px 8px">日時</th><th style="text-align:left;padding:6px 8px">種類</th>'
     + '<th style="text-align:left;padding:6px 8px;border-right:1px solid rgba(201,168,76,.25)">相手先</th>'
-    + prods.map(function(p){ return '<th class="col-qty" style="padding:6px 8px">'+escapeHtml(p.name)+'</th>'; }).join('')
+    + prods.map(function(p){ return '<th class="col-qty" style="padding:6px 8px">'+escapeHtml(p.name)+(p.outOfScope?'<br><span style="font-size:.6rem;color:var(--wh3);font-weight:400">取扱外</span>':'')+'</th>'; }).join('')
     + '</tr></thead><tbody>';
   show.forEach(function(r){
     var sn=snap[r._idx]||{}, d=dlt[r._idx], who=_slogWho(r);
@@ -3386,7 +3432,7 @@ function _slogSnapshot(idx, trEl){
     if(_BS_OUT[s.type]) back[s.product]=(back[s.product]||0)+q;
     else if(_BS_IN[s.type]) back[s.product]=(back[s.product]||0)-q;
   }
-  const items=(PROD_LIST||[]).map(p=>{
+  const items=_prodCols(br).map(p=>{
     const cur=(S.stock[br]&&S.stock[br][p.key])||0;
     return { name:p.name, qty: cur+(back[p.key]||0) };
   });
@@ -3419,8 +3465,8 @@ function renderStock(){
 
   function buildTable(branch){
     let tOld = 0, tSp = 0, tNew = 0;
-    const rows = PROD_LIST.map(p => {
-      const ro = REORDER[p.key];
+    const rows = _prodCols(branch).map(p => {
+      const ro = p.reorder;
       const bk = _bkt(branch, p.key);
       const q = bk.old + bk.sp + bk.new;   // = S.stock合計
       tOld += bk.old; tSp += bk.sp; tNew += bk.new;
@@ -3553,7 +3599,7 @@ function updatePuCost(){
   const prodName = (document.getElementById('pu-product') || {}).value;
   const tier = (document.getElementById('pu-costtier') || {}).value || 'new';
   // 商品マスター(S.products)の編集を優先、なければ PROD_LIST
-  const list = (S.products && S.products.length) ? S.products : PROD_LIST;
+  const list = _prodCols();
   const p = list.find(x => x.name === prodName || x.key === prodName);
   if (!p) return;
   const cost = (tier === 'old') ? (p.costOld != null ? p.costOld : p.cost) : p.cost;
@@ -3878,14 +3924,14 @@ function normalizeOrderItems(raw){
   Object.entries(items).forEach(([k, v]) => {
     const key = String(k).trim();
     // すでに商品名（PROD_LISTに存在）ならそのまま
-    if (PROD_LIST.find(p => p.name === key)){
+    if (_prodCols().find(p => p.name === key)){
       fixed[key] = (fixed[key] || 0) + (v || 0);
       return;
     }
     // 数字キー（商品番号・1始まり）なら商品名に変換
     const idx = parseInt(key, 10);
-    if (!isNaN(idx) && String(idx) === key && PROD_LIST[idx - 1]){
-      const nm = PROD_LIST[idx - 1].name;
+    if (!isNaN(idx) && String(idx) === key && _prodCols()[idx - 1]){
+      const nm = _prodCols()[idx - 1].name;
       fixed[nm] = (fixed[nm] || 0) + (v || 0);
     } else {
       fixed[key] = (fixed[key] || 0) + (v || 0);  // 不明なキーはそのまま残す
@@ -3938,7 +3984,7 @@ function fillLendSelectors(){
   const ps=document.getElementById('ln-partner');
   if(ps){ const keep=ps.value; ps.innerHTML='<option value="">— 貸借先を選択 —</option>'+(S.lendPartners||[]).map(p=>'<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.name)+'</option>').join(''); if(keep) ps.value=keep; }
   const pr=document.getElementById('ln-prod');
-  if(pr){ const keep=pr.value; const pl=(S.products&&S.products.length)?S.products.filter(p=>p&&p.active!==false):(typeof PROD_LIST!=='undefined'?PROD_LIST:[]);
+  if(pr){ const keep=pr.value; const pl=_prodCols();
     pr.innerHTML='<option value="">— 商品を選択 —</option>'+pl.map(p=>{const nm=(p&&p.name)?p.name:String(p);return '<option value="'+escapeHtml(String(nm))+'">'+escapeHtml(String(nm))+'</option>';}).join(''); if(keep) pr.value=keep; }
 }
 
@@ -4004,7 +4050,7 @@ function renderLendOpeningForm(){
   const ps=document.getElementById('lo-partner');
   if(ps){ const keep=ps.value; ps.innerHTML='<option value="">— 貸借先を選択 —</option>'+(S.lendPartners||[]).map(p=>'<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.name)+'</option>').join(''); if(keep) ps.value=keep; }
   const pr=document.getElementById('lo-prod');
-  if(pr && !pr.options.length){ pr.innerHTML=PROD_LIST.map(p=>'<option>'+p.name+'</option>').join(''); }
+  if(pr && !pr.options.length){ pr.innerHTML=_prodCols().map(p=>'<option>'+p.name+'</option>').join(''); }
 }
 
 function returnLending(id){
@@ -4157,7 +4203,7 @@ function renderStockInit(){
   const tb = document.getElementById('si-tbody');
   if (!tb) return;
   const br = (document.getElementById('si-br') || {}).value || '仙台';
-  tb.innerHTML = PROD_LIST.map(p => {
+  tb.innerHTML = _prodCols().map(p => {
     const b = _bkt(br, p.key);
     const inp = (id, v, brd) => `<input type="number" id="si-${id}-${p.key}" value="${v}" step="1" oninput="siRecalc('${p.key}')" style="width:84px;text-align:center;border:1px solid ${brd};border-radius:6px">`;
     return `<tr>
@@ -4188,7 +4234,7 @@ function renderTransferForm(){
   const sel = document.getElementById('tr-prod');
   if (!sel) return;
   if (!sel.options.length){
-    sel.innerHTML = PROD_LIST.map(p => `<option>${p.name}</option>`).join('');
+    sel.innerHTML = _prodCols().map(p => `<option>${p.name}</option>`).join('');
     ['tr-from','tr-to','tr-prod','tr-bkt','tr-qty'].forEach(id => {
       const el = document.getElementById(id);
       if (el && !el._trBound){ el.addEventListener('input', updateTransferPreview); el.addEventListener('change', updateTransferPreview); el._trBound = true; }
@@ -4252,7 +4298,7 @@ async function saveStockInit(){
   if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
   const br = (document.getElementById('si-br') || {}).value || '仙台';
   if (!confirm(`${br}の在庫を、入力した旧値・協賛・新値で上書きします。よろしいですか？`)) return;
-  PROD_LIST.forEach(p => {
+  _prodCols().forEach(p => {
     const o = parseInt((document.getElementById('si-old-' + p.key) || {}).value) || 0;
     const s = parseInt((document.getElementById('si-sp-'  + p.key) || {}).value) || 0;
     const n = parseInt((document.getElementById('si-new-' + p.key) || {}).value) || 0;

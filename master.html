@@ -1062,6 +1062,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           <div class="form-section-title">▸ その他</div>
           <div class="frow">
             <div class="fg"><label>補充閾値</label><input class="fc" id="pf-reorder" type="number" min="0" step="1"></div>
+            <div class="fg"><label>取扱拠点</label><select class="fc" id="pf-branches"><option value="">両拠点</option><option value="仙台">仙台のみ</option><option value="京都">京都のみ</option></select><div style="font-size:.66rem;color:var(--wh3);margin-top:.2rem">未設定＝両拠点。取扱外でも在庫が残っていれば表示されます</div></div>
             <div class="fg"><label>色（注文ボタン用）</label><input class="fc" id="pf-color" type="color" value="#C9A84C" style="height:38px;padding:2px"></div>
           </div>
         </div>
@@ -3495,7 +3496,7 @@ function renderProducts(){
   grid.innerHTML = `
     <div class="cust-table-wrap">
       <table class="cust-table">
-        <thead><tr><th></th><th>商品名</th><th>カテゴリ</th><th>原価</th><th>売値</th><th>補充</th><th>粗利</th><th>操作</th></tr></thead>
+        <thead><tr><th></th><th>商品名</th><th>カテゴリ</th><th>取扱拠点</th><th>原価</th><th>売値</th><th>補充</th><th>粗利</th><th>操作</th></tr></thead>
         <tbody>
           ${filtered.map(p => {
             const margin = p.price > 0 ? Math.round((1 - p.cost/p.price) * 100) : 0;
@@ -3505,6 +3506,7 @@ function renderProducts(){
               <td style="text-align:center">${p.img ? `<img src="${p.img}" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:5px;vertical-align:middle">` : `<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${escapeHtml(p.color||'#C9A84C')}"></span>`}</td>
               <td class="ct-name">${escapeHtml(p.name || '無名')}</td>
               <td>${escapeHtml(p.category || '—')}</td>
+              <td>${p.branches ? `<span style="font-size:.68rem;padding:1px 7px;border-radius:99px;border:1px solid rgba(201,168,76,.45);color:var(--gold-l)">${escapeHtml(p.branches)}のみ</span>` : '<span style="color:var(--wh3)">両拠点</span>'}</td>
               <td>¥${Number(p.cost||0).toLocaleString()}</td>
               <td>¥${Number(p.price||0).toLocaleString()}</td>
               <td>${p.reorder||0}</td>
@@ -3630,6 +3632,7 @@ function openProduct(enc){
   g('pf-price').value = p.price != null ? p.price : '';
   g('pf-priceold').value = p.priceOld != null ? p.priceOld : '';
   g('pf-reorder').value = p.reorder != null ? p.reorder : '';
+  g('pf-branches').value = p.branches || '';
   g('pf-color').value = (p.color && /^#[0-9a-fA-F]{6}$/.test(p.color)) ? p.color : '#C9A84C';
   g('pf-img').value = p.img || '';
   _setProductImagePreview(p.img || '');
@@ -3640,7 +3643,7 @@ function openProduct(enc){
 
 function clearProductForm(){
   productEditingKey = null;
-  ['pf-name','pf-category','pf-fullname','pf-cost','pf-costold','pf-price','pf-priceold','pf-reorder'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  ['pf-name','pf-category','pf-fullname','pf-cost','pf-costold','pf-price','pf-priceold','pf-reorder','pf-branches'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
   const c = document.getElementById('pf-color'); if (c) c.value = '#C9A84C';
   clearProductImage();
   document.getElementById('prod-edit-status').textContent = '';
@@ -3670,6 +3673,7 @@ function submitProductForm(){
     cost: num(g('pf-cost')), costOld: num(g('pf-costold')),
     price: num(g('pf-price')), priceOld: num(g('pf-priceold')),
     reorder: num(g('pf-reorder')),
+    branches: (g('pf-branches') || ''),
     color: g('pf-color') || '#C9A84C', img: g('pf-img') || ''
   };
   if (prod.costOld === 0)  prod.costOld  = prod.cost;
