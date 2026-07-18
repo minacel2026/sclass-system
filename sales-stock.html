@@ -156,6 +156,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   border-radius:99px;background:#4f9dd9;color:#fff;font-size:.62rem;font-weight:700;line-height:1;vertical-align:middle;
   box-shadow:0 0 0 0 rgba(79,157,217,.7);animation:tabDotPulse 2s infinite}
 @keyframes tabDotPulse{0%{box-shadow:0 0 0 0 rgba(79,157,217,.6)}70%{box-shadow:0 0 0 7px rgba(79,157,217,0)}100%{box-shadow:0 0 0 0 rgba(79,157,217,0)}}
+.tab-dot.danger{background:#e0685f;box-shadow:0 0 0 0 rgba(224,104,95,.7);animation:tabDotPulseLate 1.4s infinite}
 .tab-dot.late{background:#e6a23c;box-shadow:0 0 0 0 rgba(230,162,60,.7);animation:tabDotPulseLate 1.4s infinite}
 @keyframes tabDotPulseLate{0%{box-shadow:0 0 0 0 rgba(230,162,60,.7)}70%{box-shadow:0 0 0 7px rgba(230,162,60,0)}100%{box-shadow:0 0 0 0 rgba(230,162,60,0)}}
 body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-transfer,body.no-adjust #lend-opening,body.no-adjust #sp-manual-adjust,body.no-adjust .st-adj,body.no-adjust .c-adj{display:none!important}
@@ -505,11 +506,11 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
 
   <!-- ═══ 親タブ ═══ -->
   <div class="master-tabs">
-    <button class="mtab active" onclick="switchModule('orders',this)"><span class="mtab-ic">📋</span>注文一覧</button>
+    <button class="mtab active" onclick="switchModule('orders',this)"><span class="mtab-ic">📋</span>注文一覧<span id="mtab-orders-dot" class="tab-dot" style="display:none"></span></button>
     <button class="mtab" onclick="switchModule('neworder',this)"><span class="mtab-ic">➕</span>注文登録</button>
-    <button class="mtab" onclick="switchModule('stock',this)"><span class="mtab-ic">🍾</span>在庫管理</button>
+    <button class="mtab" onclick="switchModule('stock',this)"><span class="mtab-ic">🍾</span>在庫管理<span id="mtab-stock-dot" class="tab-dot" style="display:none"></span></button>
     <button class="mtab" onclick="switchModule('slog',this)"><span class="mtab-ic">📜</span>在庫履歴</button>
-    <button class="mtab" onclick="switchModule('lending',this)"><span class="mtab-ic">🤝</span>貸借管理</button>
+    <button class="mtab" onclick="switchModule('lending',this)"><span class="mtab-ic">🤝</span>貸借管理<span id="mtab-lending-dot" class="tab-dot" style="display:none"></span></button>
     <button class="mtab" onclick="switchModule('moves',this)"><span class="mtab-ic">🚚</span>拠点移動<span id="mtab-moves-dot" class="tab-dot" style="display:none"></span></button>
     <button class="mtab" onclick="switchModule('purchase',this)"><span class="mtab-ic">🚚</span>仕入管理</button>
     <button class="mtab" onclick="switchModule('inventory',this)"><span class="mtab-ic">📦</span>棚卸計算</button>
@@ -1243,13 +1244,46 @@ function updateTransitBadge(){
     var v = document.getElementById('kpi-transit'); if (v){ v.textContent = n; v.style.color = late ? '#e6a23c' : '#4f9dd9'; }
     var sub = document.getElementById('kpi-transit-sub'); if (sub) sub.textContent = '件・' + fmt(bottles) + '本' + (late ? ' ⚠遅延' : '');
   }
-  var dot = document.getElementById('mtab-moves-dot');
-  if (dot){
-    dot.style.display = n ? '' : 'none';
-    dot.textContent = n ? String(n) : '';
-    dot.className = 'tab-dot' + (late ? ' late' : '');
-    dot.title = n ? (n + '件の受領待ち' + (late ? '（3日以上経過あり）' : '')) : '';
-  }
+  _setTabDot('moves', n, late ? 'late' : '', n ? (n + '件の受領待ち' + (late ? '（3日以上経過あり）' : '')) : '');
+  updateTabDots();
+}
+
+// タブの印（●）を出し入れする共通処理。0件なら何も出さない。
+function _setTabDot(key, n, cls, title){
+  var dot = document.getElementById('mtab-' + key + '-dot');
+  if (!dot) return;
+  dot.style.display = n ? '' : 'none';
+  dot.textContent = n ? String(n) : '';
+  dot.className = 'tab-dot' + (cls ? ' ' + cls : '');
+  dot.title = title || '';
+}
+
+// 「対応が必要なもの」だけタブに印を出す（全部に付けると意味が薄れるので絞る）
+//  注文一覧＝新規受付（出荷処理が必要）／在庫管理＝在庫切れ（発注が必要）／貸借管理＝返却期限切れ（催促が必要）
+function updateTabDots(){
+  try {
+    // ① 注文一覧：新規受付（未対応）
+    var nw = (S.orders||[]).filter(function(o){ return (typeof shipStatus==='function') && shipStatus(o)==='新規受付'; }).length;
+    _setTabDot('orders', nw, '', nw ? (nw + '件の新規受付（出荷処理が必要）') : '');
+
+    // ② 在庫管理：在庫切れ（出荷可能が0以下）
+    var out = 0;
+    _prodCols().forEach(function(p){
+      ['仙台','京都'].forEach(function(b){
+        if (typeof availableStock==='function' && availableStock(b, p.key) <= 0) out++;
+      });
+    });
+    _setTabDot('stock', out, 'danger', out ? (out + '品目が在庫切れ') : '');
+
+    // ③ 貸借管理：返却予定日を過ぎた未返却
+    var t0 = new Date(today()).getTime();
+    var over = (S.lendings||[]).filter(function(l){
+      if (l.status === '返却済' || !l.dueDate) return false;
+      var d = new Date(_ymd(l.dueDate)).getTime();
+      return !isNaN(d) && d < t0;
+    }).length;
+    _setTabDot('lending', over, 'late', over ? (over + '件が返却予定日を過ぎています') : '');
+  } catch(e){}
 }
 
 // ─── GAS同期 ─────
