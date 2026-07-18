@@ -2130,6 +2130,7 @@ async function buildInvoicePreview(){
 }
 
 function saveInvoice(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!window._currentInvoice){ toast('まずプレビューを作成してください', 'error'); return false; }
   const inv = { ...window._currentInvoice, savedAt: new Date().toISOString(), savedBy: currentUser.name };
 

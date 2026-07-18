@@ -3357,30 +3357,9 @@ function _slogWho(s){
 function renderSlogMatrix(rows){
   var box = document.getElementById('slog-matrix'); if(!box) return;
   var br = (document.getElementById('slog-br')||{}).value || '仙台';
-  var all = S.slog || [];
   var prods = _prodCols(br);
-  // ① 各商品の「最初の記録より前」の残数を割り出す（未記録の商品は現在庫＝ずっと不変）
-  var seed = {};
-  for(var i=0;i<all.length;i++){
-    var s=all[i]; if(s.branch!==br) continue;
-    var p=s.product; if(!p || p==='(一括)') continue;
-    if(seed[p]===undefined && s.remaining!=null){
-      var sg=_slogSign(s.type);
-      seed[p] = sg ? (Number(s.remaining) - sg*(Number(s.qty)||0)) : null;   // 符号不明はnull＝不明
-    }
-  }
-  var st={}, reset={};
-  prods.forEach(function(p){ st[p.key] = (seed[p.key]!==undefined) ? seed[p.key] : ((S.stock[br]&&S.stock[br][p.key])!=null ? S.stock[br][p.key] : null); });
-  // ② 古い順に remaining を当てはめて、各行時点の全商品在庫を作る（remainingが正＝符号ズレなし）
-  var snap={}, dlt={}, hadReset=false;
-  for(var j=0;j<all.length;j++){
-    var e=all[j]; if(e.branch!==br) continue;
-    if(e.type==='初期登録'){ hadReset=true; prods.forEach(function(p){ st[p.key]=null; }); snap[j]=Object.assign({},st); dlt[j]=null; continue; }
-    var pr=e.product, before=(pr!=null? st[pr] : null);
-    if(pr && st[pr]!==undefined && e.remaining!=null) st[pr]=Number(e.remaining);
-    dlt[j] = (pr && before!=null && e.remaining!=null) ? (Number(e.remaining)-before) : null;
-    snap[j]=Object.assign({},st);
-  }
+  // 在庫の復元は _slogSnapshot と共通の _slogStates() を使う（remaining方式・ロジック一本化）
+  var _st = _slogStates(br), snap = _st.snap, dlt = _st.dlt, hadReset = _st.hadReset;
   // ③ 表示（フィルタ後の行・新しい順）
   var show = rows.filter(function(r){ return r.branch===br; }).slice(0,200);
   if(!show.length){ box.innerHTML='<div class="empty"><div class="empty-icon">📊</div>'+escapeHtml(br)+'に該当する在庫履歴がありません</div>'; return; }
@@ -3414,6 +3393,37 @@ function renderSlogMatrix(rows){
 }
 
 // 在庫履歴の行クリック：その時点（その行の直後）の在庫を、その拠点の全商品ぶん逆算して真下に展開
+// その拠点の各時点における全商品の在庫を、記録された remaining（残数）を正として復元する。
+// ※ 増減マップ（_BS_OUT/_BS_IN）方式だと貸出・借入・仕入・貸借削除を取りこぼして数字がズレるため、
+//   推移表と同じ remaining 方式に統一している。戻り値: { snap:{slogIndex:{商品:在庫}}, dlt:{slogIndex:増減}, hadReset:bool }
+function _slogStates(br){
+  const all = S.slog || [];
+  const prods = _prodCols(br);
+  // ① 各商品の「最初の記録より前」の残数を割り出す（未記録の商品は現在庫＝ずっと不変）
+  const seed = {};
+  for(let i=0;i<all.length;i++){
+    const s=all[i]; if(s.branch!==br) continue;
+    const p=s.product; if(!p || p==='(一括)') continue;
+    if(seed[p]===undefined && s.remaining!=null){
+      const sg=_slogSign(s.type);
+      seed[p] = sg ? (Number(s.remaining) - sg*(Number(s.qty)||0)) : null;   // 符号不明はnull＝不明
+    }
+  }
+  const st={}; let hadReset=false;
+  prods.forEach(p=>{ st[p.key] = (seed[p.key]!==undefined) ? seed[p.key] : (((S.stock[br]&&S.stock[br][p.key])!=null) ? S.stock[br][p.key] : null); });
+  // ② 古い順に remaining を当てはめる
+  const snap={}, dlt={};
+  for(let j=0;j<all.length;j++){
+    const e=all[j]; if(e.branch!==br) continue;
+    if(e.type==='初期登録'){ hadReset=true; prods.forEach(p=>{ st[p.key]=null; }); snap[j]=Object.assign({},st); dlt[j]=null; continue; }
+    const pr=e.product, before=(pr!=null? st[pr] : null);
+    if(pr && st[pr]!==undefined && e.remaining!=null) st[pr]=Number(e.remaining);
+    dlt[j] = (pr && before!=null && e.remaining!=null) ? (Number(e.remaining)-before) : null;
+    snap[j]=Object.assign({},st);
+  }
+  return { snap:snap, dlt:dlt, hadReset:hadReset };
+}
+
 function _slogSnapshot(idx, trEl){
   // 既に開いていれば閉じる（トグル）
   const nx = trEl.nextElementSibling;
@@ -3423,21 +3433,14 @@ function _slogSnapshot(idx, trEl){
   const slog = S.slog || [];
   const e = slog[idx]; if(!e) return;
   const br = e.branch;
-  let resetAfter=false;
-  const back={};
-  for(let j=idx+1; j<slog.length; j++){
-    const s=slog[j]; if(s.branch!==br) continue;
-    if(s.type==='初期登録'){ resetAfter=true; continue; }
-    const q=Number(s.qty)||0;
-    if(_BS_OUT[s.type]) back[s.product]=(back[s.product]||0)+q;
-    else if(_BS_IN[s.type]) back[s.product]=(back[s.product]||0)-q;
-  }
+  const st = _slogStates(br);
+  const sn = st.snap[idx] || {};
   const items=_prodCols(br).map(p=>{
-    const cur=(S.stock[br]&&S.stock[br][p.key])||0;
-    return { name:p.name, qty: cur+(back[p.key]||0) };
+    const v = sn[p.key];
+    return { name:p.name, qty:v, out:!!p.outOfScope };
   });
-  const cells = items.map(it=>`<span style="display:inline-block;min-width:118px;margin:2px 6px 2px 0"><span style="color:var(--wh3)">${escapeHtml(it.name)}：</span><b style="color:var(--gold-l)">${fmt(it.qty)}</b>本</span>`).join('');
-  const warn = resetAfter ? '<div style="color:#e6a23c;font-size:.7rem;margin-top:.3rem">⚠ この後に在庫初期登録（上書き）があるため、正確でない場合があります。</div>' : '';
+  const cells = items.map(it=>`<span style="display:inline-block;min-width:118px;margin:2px 6px 2px 0"><span style="color:var(--wh3)">${escapeHtml(it.name)}${it.out?'（取扱外）':''}：</span><b style="color:var(--gold-l)">${it.qty==null?'—':fmt(it.qty)}</b>${it.qty==null?'':'本'}</span>`).join('');
+  const warn = st.hadReset ? '<div style="color:#e6a23c;font-size:.7rem;margin-top:.3rem">⚠ 在庫初期登録（上書き）より前は正確でない場合があります。</div>' : '';
   const tr=document.createElement('tr');
   tr.className='slog-snap';
   tr.innerHTML=`<td colspan="9" style="background:#14141a;padding:.6rem .8rem">
@@ -3957,6 +3960,7 @@ function loadLending(force){
 }
 
 function saveLendPartner(){
+  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 編集権限がありません', 'error');
   const name=(document.getElementById('lp-name').value||'').trim();
   const uid=(document.getElementById('lp-uid').value||'').trim();
   if(!name) return toast('会社名を入力してください','error');
@@ -3967,6 +3971,7 @@ function saveLendPartner(){
   toast('✓ 貸借先を登録しました'); renderLendPartners(); fillLendSelectors();
 }
 function deleteLendPartner(id){
+  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 削除権限がありません', 'error');
   if(!confirm('この貸借先を削除しますか？（履歴は残ります）')) return;
   S.lendPartners=(S.lendPartners||[]).filter(p=>p.id!==id); saveState();
   if(S.gasUrl) gasPost({action:'deleteLendPartner', id});
@@ -3996,6 +4001,7 @@ function _lendStockMove(branch, product, signedQty, type, note){
 }
 
 function recordLending(){
+  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 貸借を記録する権限がありません', 'error');
   const kind=document.getElementById('ln-kind').value;
   const pid=document.getElementById('ln-partner').value;
   const branch=document.getElementById('ln-branch').value;

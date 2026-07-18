@@ -1944,6 +1944,7 @@ async function renderRegistrations(){
 }
 
 function approveRegistration(rowNum){
+  if (!canEdit()) return toast('🔒 編集権限がありません（viewer は閲覧のみ）', 'error');
   const rg = (window._regCache || {})[rowNum];
   if (!rg) return;
   custEditingId = null;
@@ -1963,6 +1964,7 @@ function approveRegistration(rowNum){
 }
 
 async function rejectRegistration(rowNum){
+  if (!canEdit()) return toast('🔒 編集権限がありません（viewer は閲覧のみ）', 'error');
   if (!confirm('この登録申請を却下しますか？')) return;
   try { await gasPost({ action:'updateRegStatus', rowNum: rowNum, status:'却下' }); } catch(e){}
   toast('却下しました');
@@ -3699,6 +3701,7 @@ function submitProductForm(){
 }
 
 function deleteProductForm(){
+  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
   if (productEditingKey) deleteProductByKey(encodeURIComponent(productEditingKey));
 }
 
