@@ -1550,33 +1550,49 @@ function shipStatus(o){
 
 // 出荷ステータスを変更（注文一覧のステータス列ドロップダウンから直接）
 // 出荷済への遷移時：実在庫を減算し協賛(付与/使用)を記録。出荷済からの取消時：在庫と協賛を巻き戻す。
-function applyShipEffects(order){
+// 日付を 'YYYY-MM-DD' に正規化。
+// 注文日は 'YYYY-MM-DD' と ISO文字列（2026-07-12T05:04:40.000Z）が混在しているため、
+// これを通さないと在庫履歴の日付が生のISO文字列のまま表示される。
+function _ymd(v){
+  if (!v) return today();
+  if (v instanceof Date) return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');
+  var str = String(v).trim();
+  var m = str.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if (m) return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+  var d = new Date(str);
+  if (!isNaN(d)) return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  return today();
+}
+function applyShipEffects(order, shipDate){
   const branch = order.branch || '仙台';
-  const time = order.time || new Date().toTimeString().slice(0,5);
+  // 在庫が動いた日＝出荷日で記録する（注文日ではない）。
+  // 注文日で記録すると月をまたいだ時に在庫が過去へ遡って減り、締めた月の在庫・評価額が変わってしまう。
+  const _d = _ymd(shipDate || order.shipDate || today());
+  const time = new Date().toTimeString().slice(0,5);
   if (!S.slog) S.slog = [];
   order._shipBkt = { items:{}, sponsorItems:{} };   // 消費した3バケツ内訳を保存（取消時に正確に戻す）
   Object.entries(order.items || {}).forEach(([p, q]) => {
     const used = depleteStock(branch, p, q || 0);   // 旧→協賛→新 の順で引き当て
     order._shipBkt.items[p] = used;
-    S.slog.push({ date: order.date, time, branch, type: '出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+    S.slog.push({ date: _d, time, branch, type: '出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
   });
   Object.entries(order.sponsorItems || {}).forEach(([p, q]) => {
     const used = depleteStock(branch, p, q || 0);
     order._shipBkt.sponsorItems[p] = used;
-    S.slog.push({ date: order.date, time, branch, type: '協賛出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `協賛出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+    S.slog.push({ date: _d, time, branch, type: '協賛出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `協賛出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
   });
   const cust = (S.customers || []).find(x => x.name === order.store);
   if (!S.sponsorLogs) S.sponsorLogs = [];
   if (order.orderType === 'sponsor' && cust){
     const totalQty = Object.values(order.items || {}).reduce((s, q) => s + (q || 0), 0);
     const prodList = Object.keys(order.items || {}).join('・');
-    S.sponsorLogs.push({ id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), custId: cust.id, custName: cust.name, type: 'used', qty: totalQty, date: order.date, orderId: order.id, product: prodList, branch, note: `協賛注文 ${totalQty}本出荷（${prodList}）`, createdAt: new Date().toISOString(), createdBy: currentUser.name });
+    S.sponsorLogs.push({ id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), custId: cust.id, custName: cust.name, type: 'used', qty: totalQty, date: _d, orderId: order.id, product: prodList, branch, note: `協賛注文 ${totalQty}本出荷（${prodList}）`, createdAt: new Date().toISOString(), createdBy: currentUser.name });
     if (S.gasUrl){ try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
   } else {
     checkAndAddSponsorPoints(order);  // 通常注文の協賛付与(earned)
     if (cust && order.sponsorItems && Object.keys(order.sponsorItems).length){
       Object.entries(order.sponsorItems).forEach(([prod, qty]) => {
-        S.sponsorLogs.push({ id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), custId: cust.id, custName: cust.name, type: 'used', qty, date: order.date, orderId: order.id, product: prod, branch, note: `協賛出荷 ${qty}本（${prod}）`, createdAt: new Date().toISOString(), createdBy: currentUser.name });
+        S.sponsorLogs.push({ id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), custId: cust.id, custName: cust.name, type: 'used', qty, date: _d, orderId: order.id, product: prod, branch, note: `協賛出荷 ${qty}本（${prod}）`, createdAt: new Date().toISOString(), createdBy: currentUser.name });
         if (S.gasUrl){ try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
       });
     }
@@ -1637,7 +1653,15 @@ function changeShipStatus(id, val){
     renderOrders();
     return;
   }
-  if (willShip && !wasShipped) applyShipEffects(o);
+  var _sd = '';
+  if (willShip && !wasShipped){
+    // 在庫が動く日＝出荷日。処理が翌日にずれ込むこともあるので、実際に出した日を入れられるようにする。
+    _sd = prompt('出荷日を入力してください（この日付で在庫が減ります）\n形式: YYYY-MM-DD', o.shipDate || today());
+    if (_sd === null){ renderOrders(); return; }          // キャンセル＝何もしない
+    _sd = _ymd(_sd);
+    o.shipDate = _sd;
+    applyShipEffects(o, _sd);
+  }
   else if (wasShipped && !willShip) reverseShipEffects(o);
   o.status = val;
   if (willShip && !o.shippedAt) o.shippedAt = new Date().toISOString();
@@ -3359,7 +3383,7 @@ function renderSlog(){
     if (kw){ const hay = ((s.product||'')+' '+(s.note||'')+' '+(s.user||'')).toLowerCase(); if(!hay.includes(kw)) return false; }
     return true;
   });
-  rows.sort((a,b)=> (String(b.date)+String(b.time||'')).localeCompare(String(a.date)+String(a.time||'')));
+  rows.sort((a,b)=> (_ymd(b.date)+String(b.time||'')).localeCompare(_ymd(a.date)+String(a.time||'')));
   const cnt = document.getElementById('slog-cnt'); if(cnt) cnt.textContent = rows.length + '件';
   const _tbl=document.getElementById('slog-table'), _mx=document.getElementById('slog-matrix');
   if(_slogMx){ if(_tbl) _tbl.style.display='none'; if(_mx){ _mx.style.display=''; renderSlogMatrix(rows); } return; }
@@ -3370,7 +3394,7 @@ function renderSlog(){
   if(!show.length){ tb.innerHTML = '<tr><td colspan="9"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
   const tcolor = t => ({'出庫':'#e6a23c','協賛出庫':'#c39bd3','入庫':'#67c23a','戻入':'#67c23a','移動出':'#4f9dd9','移動入':'#4f9dd9','調整':'#e67e22','初期登録':'#909399'}[t] || '#aaa');
   tb.innerHTML = show.map(s=>`<tr style="cursor:pointer" onclick="_slogSnapshot(${s._idx}, this)" title="クリックでこの時点の在庫を表示">
-      <td>${escapeHtml(s.date||'')}</td>
+      <td>${escapeHtml(_ymd(s.date))}</td>
       <td style="color:var(--wh3)">${escapeHtml(s.time||'')}</td>
       <td>${escapeHtml(s.branch||'')}</td>
       <td><span style="color:${tcolor(s.type)};font-weight:600">${escapeHtml(s.type||'')}</span></td>
@@ -3425,7 +3449,7 @@ function renderSlogMatrix(rows){
     + '</tr></thead><tbody>';
   show.forEach(function(r){
     var sn=snap[r._idx]||{}, d=dlt[r._idx], who=_slogWho(r);
-    h += '<tr><td style="padding:5px 8px;color:var(--wh3)">'+escapeHtml((r.date||'').slice(5))+' '+escapeHtml(r.time||'')+'</td>'
+    h += '<tr><td style="padding:5px 8px;color:var(--wh3)">'+escapeHtml(_ymd(r.date).slice(5))+' '+escapeHtml(r.time||'')+'</td>'
        + '<td style="padding:5px 8px;color:'+tc(r.type)+';font-weight:600">'+escapeHtml(r.type||'')+'</td>'
        + '<td style="padding:5px 8px;border-right:1px solid rgba(201,168,76,.25)">'+escapeHtml(who||'—')+'</td>';
     prods.forEach(function(p){
