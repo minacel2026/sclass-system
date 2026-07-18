@@ -226,6 +226,34 @@ textarea.fc{resize:vertical}
 })();
 </script>
 
+<!-- ═══ OneSignal Web Push（アプリ通知・赤バッジ購読／スタッフ画面のみ） ═══ -->
+<script>
+(function(){
+  if (window.__lmbOneSignalInstalled) return;   // 二重初期化ガード
+  window.__lmbOneSignalInstalled = true;
+  var APP_ID = '0b286175-f5fb-4248-8505-614b270739dc';
+  // 配信先（GitHub Pagesのサブディレクトリ）から SW のパス/スコープを自動算出
+  var dir = location.pathname.replace(/[^/]*$/, '');                 // 例: /sclass-system/
+  var swScope = dir || '/';                                          // 例: /sclass-system/
+  var swPath  = dir.replace(/^\/+/, '') + 'OneSignalSDKWorker.js';   // 例: sclass-system/OneSignalSDKWorker.js
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(async function(OneSignal){
+    try{
+      await OneSignal.init({ appId: APP_ID, serviceWorkerPath: swPath, serviceWorkerParam: { scope: swScope } });
+      try{
+        if (OneSignal.Notifications && OneSignal.Notifications.permission === false
+            && OneSignal.Slidedown && OneSignal.Slidedown.promptPush){
+          OneSignal.Slidedown.promptPush();   // 未許可ならそっと購読を促す（連投はOneSignal側で抑制）
+        }
+      }catch(e){}
+    }catch(e){}
+  });
+  var s = document.createElement('script');
+  s.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
+  s.defer = true;
+  (document.head||document.documentElement).appendChild(s);
+})();
+</script>
 </head>
 <body>
 <!-- ▼ copy-protection (auto-embedded) ▼ -->
