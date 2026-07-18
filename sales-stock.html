@@ -4287,14 +4287,29 @@ function renderLendOpeningForm(){
   if(pr && !pr.options.length){ pr.innerHTML=_prodCols().map(p=>'<option>'+p.name+'</option>').join(''); }
 }
 
+// 未返却の残り本数（部分返却に対応）
+function _lendOutstanding(rec){ return Math.max(0, (Number(rec.qty)||0) - (Number(rec.returnedQty)||0)); }
+
+// 返却：取引まるごとではなく「何本返ってきたか」を記録する（分割返却が普通のため）
 function returnLending(id){
+  if(typeof canEdit==='function' && !canEdit()) return toast('🔒 返却を記録する権限がありません（閲覧のみ）','error');
   const rec=(S.lendings||[]).find(l=>l.id===id); if(!rec || rec.status==='返却済') return;
-  if(!confirm('「'+rec.partnerName+'」の'+rec.kind+'（'+rec.product+' '+rec.qty+'本）を返却済にしますか？\n在庫が'+(rec.kind==='貸出'?'戻ります(+)':'減ります(−)')+'。')) return;
+  const rest=_lendOutstanding(rec);
+  if(rest<=0) return;
+  const ans=prompt('「'+rec.partnerName+'」の'+rec.kind+'（'+rec.product+'）\n返ってきた本数を入力してください\n\n貸借 '+rec.qty+'本 ／ 返却済 '+(Number(rec.returnedQty)||0)+'本 ／ 残り '+rest+'本', String(rest));
+  if(ans===null) return;
+  const q=parseInt(ans,10);
+  if(!(q>0) || q>rest) return toast('1〜'+rest+' の範囲で入力してください','error');
   const sign=(rec.kind==='貸出')?1:-1;
-  _lendStockMove(rec.branch, rec.product, sign*rec.qty, (rec.kind==='貸出'?'返却受':'借入返却'), '返却：'+rec.partnerName);
-  rec.status='返却済'; rec.returnedDate=today(); saveState();
-  if(S.gasUrl){ gasPost({action:'returnLending', id:rec.id, returnedDate:rec.returnedDate}); syncStockToGAS(); }
-  toast('✓ 返却を記録しました'); renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock();
+  _lendStockMove(rec.branch, rec.product, sign*q, (rec.kind==='貸出'?'返却受':'借入返却'), '返却：'+rec.partnerName+'（'+q+'本）');
+  rec.returnedQty=(Number(rec.returnedQty)||0)+q;
+  const done=_lendOutstanding(rec)<=0;
+  rec.status=done?'返却済':'未返却';
+  rec.returnedDate=today();
+  saveState();
+  if(S.gasUrl){ gasPost({action:'returnLending', id:rec.id, returnedDate:rec.returnedDate, returnedQty:rec.returnedQty, status:rec.status}); syncStockToGAS(); }
+  toast('✓ '+q+'本の返却を記録しました'+(done?'（完了）':'（残り '+_lendOutstanding(rec)+'本）'));
+  renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock(); if(typeof updateTabDots==='function') updateTabDots();
 }
 
 function deleteLending(id){
@@ -4302,9 +4317,10 @@ function deleteLending(id){
   const rec=(S.lendings||[]).find(l=>l.id===id); if(!rec) return;
   const q=Number(rec.qty)||0;
   // 削除で打ち消す在庫量（+で在庫を戻す / −で在庫を減らす）
+  // 一部返却済みなら「まだ返っていない分」だけが在庫に効いているので、その分だけ打ち消す。
+  const rest=_lendOutstanding(rec);
   let reversal=0;
-  if(!rec.opening){ reversal += (rec.kind==='貸出'? q : -q); }         // 登録時の在庫移動を打ち消す
-  if(rec.status==='返却済'){ reversal += (rec.kind==='貸出'? -q : q); } // 返却時の在庫移動を打ち消す
+  if(!rec.opening){ reversal = (rec.kind==='貸出'? rest : -rest); }
   let msg='この貸借履歴を削除しますか？\n'+(rec.date||'')+'　'+(rec.partnerName||'')+'　'+rec.kind+'　'+(rec.product||'')+' '+q+'本';
   msg += (reversal!==0) ? ('\n在庫が'+(reversal>0?'戻ります（+':'減ります（−')+Math.abs(reversal)+'本）。') : '\n（在庫は変わりません）';
   if(!confirm(msg)) return;
@@ -4321,7 +4337,7 @@ function renderLendBalance(){
   const open=(S.lendings||[]).filter(l=>l.status!=='返却済');
   if(!open.length){ box.innerHTML='<div style="color:var(--wh3);font-size:.74rem;padding:.4rem">未返却の貸借はありません</div>'; return; }
   const by={};
-  open.forEach(l=>{ const k=l.partnerName||'(不明)'; by[k]=by[k]||{lent:0,borrowed:0}; if(l.kind==='貸出') by[k].lent+=Number(l.qty)||0; else by[k].borrowed+=Number(l.qty)||0; });
+  open.forEach(l=>{ const k=l.partnerName||'(不明)'; by[k]=by[k]||{lent:0,borrowed:0}; const r=_lendOutstanding(l); if(l.kind==='貸出') by[k].lent+=r; else by[k].borrowed+=r; });
   box.innerHTML='<table><thead><tr><th>相手</th><th style="text-align:right">貸出中（本）</th><th style="text-align:right">借入中（本）</th></tr></thead><tbody>'
     +Object.keys(by).map(k=>'<tr><td>'+escapeHtml(k)+'</td><td style="text-align:right;color:#ffcf7a">'+by[k].lent+'</td><td style="text-align:right;color:#7ee2a8">'+by[k].borrowed+'</td></tr>').join('')
     +'</tbody></table>';
@@ -4331,14 +4347,18 @@ function renderLendList(){
   const mayDel=(typeof canAdjust==='function')?canAdjust():true;
   const list=(S.lendings||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   if(!list.length){ box.innerHTML='<div style="color:var(--wh3);font-size:.74rem;padding:.4rem">貸借の記録がありません</div>'; return; }
-  box.innerHTML='<table><thead><tr><th>日付</th><th>相手</th><th>種別</th><th>拠点</th><th>商品</th><th style="text-align:right">数量</th><th>返却予定</th><th>状態</th><th>操作</th></tr></thead><tbody>'
+  box.innerHTML='<table><thead><tr><th>日付</th><th>相手</th><th>種別</th><th>拠点</th><th>商品</th><th style="text-align:right">貸借</th><th style="text-align:right">返却済</th><th style="text-align:right">残り</th><th>返却予定</th><th>状態</th><th>操作</th></tr></thead><tbody>'
     +list.map(l=>{ const done=l.status==='返却済';
+      const rq=Number(l.returnedQty)||0, rest=_lendOutstanding(l), part=(rq>0 && !done);
       return '<tr><td>'+escapeHtml(l.date)+'</td><td>'+escapeHtml(l.partnerName||'')+'</td>'
         +'<td>'+(l.kind==='貸出'?'<span style="color:#ffcf7a">貸出</span>':'<span style="color:#7ee2a8">借入</span>')+'</td>'
         +'<td>'+escapeHtml(l.branch||'')+'</td><td>'+escapeHtml(l.product||'')+'</td>'
         +'<td style="text-align:right">'+(Number(l.qty)||0)+'</td>'
+        +'<td style="text-align:right;color:'+(rq?'#7ee2a8':'var(--wh3)')+'">'+(rq||'—')+'</td>'
+        +'<td style="text-align:right;font-weight:700;color:'+(rest?'#ffcf7a':'var(--wh3)')+'">'+(rest||'—')+'</td>'
         +'<td>'+escapeHtml(l.dueDate||'—')+'</td>'
-        +'<td>'+(done?'<span style="color:var(--wh3)">返却済'+(l.returnedDate?'('+escapeHtml(l.returnedDate)+')':'')+'</span>':'<span style="color:#ffcf7a">未返却</span>')+'</td>'
+        +'<td>'+(done?'<span style="color:var(--wh3)">返却済'+(l.returnedDate?'('+escapeHtml(l.returnedDate)+')':'')+'</span>'
+                     :(part?'<span style="color:#4f9dd9">一部返却</span>':'<span style="color:#ffcf7a">未返却</span>'))+'</td>'
         +'<td style="white-space:nowrap">'
           +(((!done?'<button class="btn-s" onclick="returnLending(\''+l.id+'\')">返却</button>':'')
             +(mayDel?((done?'':' ')+'<button class="btn-s" style="border-color:#e0685f;color:#e0685f" onclick="deleteLending(\''+l.id+'\')">削除</button>'):''))
