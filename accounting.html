@@ -1784,6 +1784,7 @@ function renderAgentSalesMonthly(){
 }
 
 function saveSalesAdjust(){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   const date=(document.getElementById('sa-date')||{}).value||'';
   const amount=parseFloat((document.getElementById('sa-amount')||{}).value||'');
   const memo=((document.getElementById('sa-memo')||{}).value||'').trim();
@@ -1801,6 +1802,7 @@ function saveSalesAdjust(){
   if(typeof updateKPI==='function') updateKPI();
 }
 function deleteSalesAdjust(id){
+  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
   if(!confirm('この調整を削除しますか？')) return;
   S.salesAdjust=(S.salesAdjust||[]).filter(a=>a.id!==id);
   saveState();

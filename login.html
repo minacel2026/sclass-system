@@ -216,35 +216,18 @@ async function doLogin(e){
     }[d && d.error] || 'ログインに失敗しました';
     err.textContent = msg;
   } catch(netErr){
-    // サーバに接続できない時だけ、従来のローカル判定にフォールバック（締め出し防止）
-    doLoginLocalFallback(email, pass, err);
+    // サーバに接続できない場合は「認証できない」＝ログインさせない。
+    // ※以前はここでブラウザ内だけの判定にフォールバックしていたが、平文パスワードが
+    //   HTMLに残り、通信を止めるだけでadminとして入れてしまうため廃止した。
+    //   緊急時は GAS のスクリプトプロパティ EMERGENCY_PASSWORD で入れる（サーバ認証）。
+    err.textContent = 'サーバに接続できません。ネットワークをご確認のうえ、もう一度お試しください';
   }
 }
 
-// フォールバック：GASに繋がらない時のみ従来どおりローカルで判定
-function doLoginLocalFallback(email, pass, err){
-  if (email === 'admin@sclass.jp' && pass === 'admin123'){
-    const adminUser = { id:'admin-init', name:'管理者', email, role:'admin', branch:'両拠点', active:true, isInitial:true };
-    sessionStorage.setItem('lmb_current_user', JSON.stringify(adminUser));
-    location.href = 'portal.html'; return;
-  }
-  const staffList = JSON.parse(localStorage.getItem('lmb_staff') || '[]');
-  const user = staffList.find(s => (s.email || '').toLowerCase() === email && s.active !== false);
-  if (!user){ err.textContent = 'サーバに接続できません。ネットワークをご確認ください'; return; }
-  if (!user.passHash){
-    user.passHash = hashPass(pass); user.lastLogin = new Date().toISOString();
-    const i = staffList.findIndex(s => s.id === user.id); if (i>=0) staffList[i]=user;
-    localStorage.setItem('lmb_staff', JSON.stringify(staffList));
-    sessionStorage.setItem('lmb_current_user', JSON.stringify(user));
-    location.href = 'portal.html'; return;
-  }
-  if (user.passHash !== hashPass(pass)){ err.textContent = 'パスワードが違います'; return; }
-  user.lastLogin = new Date().toISOString();
-  const i = staffList.findIndex(s => s.id === user.id); if (i>=0) staffList[i]=user;
-  localStorage.setItem('lmb_staff', JSON.stringify(staffList));
-  sessionStorage.setItem('lmb_current_user', JSON.stringify(user));
-  location.href = 'portal.html';
-}
+// ※ doLoginLocalFallback（GAS不通時のローカル判定）は廃止しました。
+//    理由：平文パスワードがHTMLに残る／パスワード未設定のスタッフなら誰でも入れてしまう／
+//    通信を止めるだけで認証を迂回できる、という3点。認証は必ずサーバ（GAS）で行います。
+
 
 // スタッフが既に登録されている場合はdev-hintを隠す
 window.addEventListener('DOMContentLoaded', () => {
