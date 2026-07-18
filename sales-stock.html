@@ -1065,7 +1065,7 @@ function loadState(){
     if (!S.sponsorLogs) S.sponsorLogs = [];
     S.gasUrl = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
     // 在庫オブジェクト初期化
-    PRODS.forEach(p => {
+    _prodCols().map(x=>x.key).forEach(p => {
       if (S.stock['仙台'][p] === undefined) S.stock['仙台'][p] = 0;
       if (S.stock['京都'][p] === undefined) S.stock['京都'][p] = 0;
     });
@@ -1191,7 +1191,7 @@ function updateKPI(){
   document.getElementById('kpi-orders-month').textContent = monthOrders.length;
 
   let warn = 0, out = 0;
-  PRODS.forEach(p => {
+  _prodCols().map(x=>x.key).forEach(p => {
     ['仙台','京都'].forEach(b => {
       const avail = availableStock(b, p);
       if (avail <= 0) out++;
@@ -2550,7 +2550,7 @@ function openSponsorShip(custId){
     document.body.appendChild(modal);
   }
 
-  const prodOpts = PRODS.map(p => `<option>${p}</option>`).join('');
+  const prodOpts = _prodCols().map(p => `<option>${p.name}</option>`).join('');
 
   modal.innerHTML = `
     <div style="background:var(--d2);border:1px solid var(--gold-d);max-width:480px;width:100%;padding:1.5rem;position:relative">
@@ -3557,7 +3557,7 @@ function renderPurchase(){
   // 商品セレクト初期化
   const sel = document.getElementById('pu-product');
   if (sel.options.length === 0){
-    sel.innerHTML = PRODS.map(p => `<option>${p}</option>`).join('');
+    sel.innerHTML = _prodCols().map(p => `<option>${p.name}</option>`).join('');
     // onchange は HTML属性の updatePuCost()（新値/旧値の種類に対応）に任せる
   }
   if (!document.getElementById('pu-date').value){
@@ -3738,7 +3738,7 @@ function renderInventory(){
   let grandQty = 0, grandCost = 0, grandSell = 0, gOld = 0, gSp = 0, gNew = 0;
   const rows = [];
 
-  PRODS.forEach(p => {
+  _prodCols().map(x=>x.key).forEach(p => {
     branches.forEach(b => {
       const bk = _bkt(b, p);
       const qty = bk.old + bk.sp + bk.new;
@@ -3794,7 +3794,7 @@ function exportInventoryCSV(){
   const br = document.getElementById('inv-br').value;
   const branches = br ? [br] : ['仙台','京都'];
   let csv = '商品名,拠点,旧値,協賛,新値,在庫本数,仕入単価,原価評価,販売単価,売価評価,含み益\n';
-  PRODS.forEach(p => branches.forEach(b => {
+  _prodCols().map(x=>x.key).forEach(p => branches.forEach(b => {
     const bk = _bkt(b, p);
     const qty = bk.old + bk.sp + bk.new;
     const cost = _cost(p);
@@ -4157,7 +4157,7 @@ function _sumStock(branch, product){
 }
 // 全商品×拠点のバケツを（未作成なら）S.stockから生成。表示・棚卸の前に呼ぶ。
 function ensureAllBuckets(){
-  ['仙台','京都'].forEach(br => PRODS.forEach(p => _bkt(br, p)));
+  ['仙台','京都'].forEach(br => _prodCols().map(x=>x.key).forEach(p => _bkt(br, p)));
 }
 // 出荷引き当て：旧→協賛→新 の順に qty 本を消費。消費内訳 {old,sp,new} を返す。
 function depleteStock(branch, product, qty){

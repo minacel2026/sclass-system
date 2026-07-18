@@ -825,7 +825,7 @@ function updateStatus() {
 
   // 在庫警告
   let warn = 0;
-  PRODS.forEach(p => {
+  ((S.products&&S.products.length)?S.products.filter(x=>x&&x.active!==false).map(x=>x.key||x.name):PRODS).forEach(p => {
     ['仙台','京都'].forEach(b => {
       const q = (S.stock[b] || {})[p] || 0;
       if (q > 0 && q < REORDER[p]) warn++;

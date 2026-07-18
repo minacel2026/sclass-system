@@ -1313,7 +1313,7 @@ function renderProduct(){
     <div class="kpi"><div class="kpi-lbl">販売本数</div><div class="kpi-val kv-b">${fmt(totalQty)}</div></div>
     <div class="kpi"><div class="kpi-lbl">粗利</div><div class="kpi-val kv-gr">¥${fmt(totalProfit)}</div></div>
     <div class="kpi"><div class="kpi-lbl">粗利率</div><div class="kpi-val kv-o">${margin.toFixed(1)}%</div></div>
-    <div class="kpi"><div class="kpi-lbl">取扱商品</div><div class="kpi-val kv-p">${itemCount}/${PRODS.length}</div></div>
+    <div class="kpi"><div class="kpi-lbl">取扱商品</div><div class="kpi-val kv-p">${itemCount}/${((S.products&&S.products.length)?S.products.filter(x=>x&&x.active!==false):PROD_LIST).length}</div></div>
   `;
 
   // 並び替え
