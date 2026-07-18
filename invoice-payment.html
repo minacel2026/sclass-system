@@ -2462,7 +2462,9 @@ window.addEventListener('DOMContentLoaded', function(){
 </script>
 <script>
 /* 別PCでも起動時にスプレッドシートから自動読込 */
-window.addEventListener('DOMContentLoaded', function(){ if (typeof syncFromGAS === 'function') { try { syncFromGAS(); } catch(e){} } });
+window.addEventListener('DOMContentLoaded', function(){ if (typeof syncFromGAS === 'function') { try { syncFromGAS(); } catch(e){} }
+  (async()=>{ try{ if(S.gasUrl && typeof gasGet==='function'){ const pd=await gasGet('getProducts'); if(pd&&pd.products&&pd.products.length){ S.products=pd.products; saveState(); } } }catch(e){} })();
+});
 </script>
 
 <script>

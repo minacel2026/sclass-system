@@ -678,6 +678,10 @@ function toast(msg, type) {
 }
 
 // ─── GAS API 共通関数 ─────────────────────────────
+// 起動時に商品マスターを読む（価格・在庫警告をマスター準拠にするため）
+window.addEventListener('DOMContentLoaded', function(){
+  (async()=>{ try{ if(S.gasUrl && typeof gasGet==='function'){ const pd=await gasGet('getProducts'); if(pd&&pd.products&&pd.products.length){ S.products=pd.products; try{ saveState(); }catch(e){} } } }catch(e){} })();
+});
 async function gasGet(action, params) {
   if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
   const q = new URLSearchParams({ action, ...params }).toString();

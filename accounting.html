@@ -1647,7 +1647,9 @@ window.addEventListener('DOMContentLoaded', () => {
   updateStaffOptions();
   updateKPI();
   renderCashbook();
-  (async()=>{ if(S.gasUrl){ try{ const r=await gasGet('getPayments'); if(r&&r.payments){ S.payments=r.payments; saveState(); renderCashbook(); } }catch(e){} } })();
+  (async()=>{ if(S.gasUrl){
+    try{ const pd=await gasGet('getProducts'); if(pd&&pd.products&&pd.products.length){ S.products=pd.products; saveState(); updateKPI(); } }catch(e){}
+    try{ const r=await gasGet('getPayments'); if(r&&r.payments){ S.payments=r.payments; saveState(); renderCashbook(); } }catch(e){} } })();
 });
 </script>
 
