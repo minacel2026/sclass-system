@@ -72,6 +72,13 @@ main{padding:1.5rem 2rem;max-width:1400px;margin:0 auto}
 .mtab:hover:not(.active){background:rgba(201,168,76,.05);color:var(--wh)}
 .mtab.active{background:linear-gradient(180deg,rgba(201,168,76,.2),rgba(201,168,76,.1));color:var(--gold-l);box-shadow:inset 0 -2px 0 var(--gold)}
 .mtab-ic{font-size:1rem}
+.tab-dot{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;margin-left:6px;padding:0 4px;
+  border-radius:99px;background:#4f9dd9;color:#fff;font-size:.62rem;font-weight:700;line-height:1;vertical-align:middle;
+  box-shadow:0 0 0 0 rgba(79,157,217,.7);animation:tabDotPulse 2s infinite}
+@keyframes tabDotPulse{0%{box-shadow:0 0 0 0 rgba(79,157,217,.6)}70%{box-shadow:0 0 0 7px rgba(79,157,217,0)}100%{box-shadow:0 0 0 0 rgba(79,157,217,0)}}
+.tab-dot.late{background:#e6a23c;box-shadow:0 0 0 0 rgba(230,162,60,.7);animation:tabDotPulseLate 1.4s infinite}
+@keyframes tabDotPulseLate{0%{box-shadow:0 0 0 0 rgba(230,162,60,.7)}70%{box-shadow:0 0 0 7px rgba(230,162,60,0)}100%{box-shadow:0 0 0 0 rgba(230,162,60,0)}}
+
 .mcon{display:none}.mcon.active{display:block}
 
 /* セクション */
@@ -373,7 +380,7 @@ textarea.fc{resize:vertical}
     <button class="mtab" onclick="switchModule('liff',this)"><span class="mtab-ic">📱</span>LIFF登録</button>
     <button class="mtab" onclick="switchModule('rmenu',this)"><span class="mtab-ic">🍱</span>リッチメニュー</button>
     <button class="mtab" onclick="switchModule('oplog',this)"><span class="mtab-ic">📋</span>操作履歴</button>
-    <button class="mtab" id="tab-restore" onclick="switchModule('restore',this)" style="display:none"><span class="mtab-ic">🛟</span>復元</button>
+    <button class="mtab" id="tab-restore" onclick="switchModule('restore',this)" style="display:none"><span class="mtab-ic">🛟</span>復元<span id="mtab-restore-dot" class="tab-dot" style="display:none"></span></button>
     <button class="mtab" onclick="switchModule('etc',this)"><span class="mtab-ic">🔧</span>その他</button>
   </div>
 
@@ -1293,6 +1300,8 @@ function applyRestoreVisibility(){
   if(tab) tab.style.display = _canRestoreRequest() ? '' : 'none';
   var adminBox=document.getElementById('rr-admin');
   if(adminBox) adminBox.style.display = _canRestoreAdmin() ? '' : 'none';
+  // タブを開かなくても印が出るよう、管理者なら未対応件数を先読みする
+  if(_canRestoreAdmin() && typeof loadRestoreRequests==='function'){ try{ loadRestoreRequests(); }catch(e){} }
 }
 
 // バックアップ一覧をプルダウンへ
@@ -1339,6 +1348,13 @@ async function loadRestoreRequests(){
   try{
     var r=await fetch(S.gasUrl+'?action=getRestoreRequests&_='+Date.now(),{cache:'no-store'}).then(x=>x.json());
     var rows=(r&&r.requests)||[];
+    // タブの印：未対応の件数（復元は緊急度が高いので警告色）
+    try{
+      var _un = rows.filter(function(q){ return q.status === '未対応'; }).length;
+      var _dot = document.getElementById('mtab-restore-dot');
+      if(_dot){ _dot.style.display = _un ? '' : 'none'; _dot.textContent = _un ? String(_un) : '';
+        _dot.className = 'tab-dot late'; _dot.title = _un ? (_un + '件の復元リクエストが未対応です') : ''; }
+    }catch(e){}
     if(!rows.length){ body.innerHTML='<tr><td colspan="6" style="padding:1rem;color:var(--wh3)">リクエストはありません</td></tr>'; return; }
     var color={ '未対応':'#e0b34c','対応中':'#6fa8dc','対応済み':'#7bbf7b' };
     body.innerHTML=rows.map(function(q){

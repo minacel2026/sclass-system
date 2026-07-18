@@ -1325,6 +1325,7 @@ async function syncFromGAS(){
     var pSp = gasGet('getSponsorLogs');
     var pProd = gasGet('getProducts');
     var pMv = gasGet('getMoves');
+    var pLd = gasGet('getLendings');   // タブの印（返却期限切れ）用。開かなくても出るように先読み
 
     try { const pong = await pPing; if (pong && !pong.updateAllStock){ toast('⚠️ GASが古い版です。在庫がスプシに反映されません。最新のgas-templateを貼り付けて「デプロイを管理→新バージョン」で更新してください', 'error'); } } catch(e){}
 
@@ -1333,6 +1334,16 @@ async function syncFromGAS(){
 
     // ── 拠点移動（輸送中の在庫）──
     try { const mv = await pMv; if (mv && mv.moves) { S.moves = mv.moves; if (typeof updateTransitBadge==='function') updateTransitBadge(); } } catch(e){}
+
+    // ── 貸借（返却期限切れの印）──
+    try {
+      const ld = await pLd;
+      if (ld && ld.lendings){
+        let _dl = []; try{ _dl = JSON.parse(localStorage.getItem('lmb_deletedLendings')||'[]'); }catch(e){}
+        S.lendings = ld.lendings.filter(function(l){ return _dl.indexOf(l.id) < 0; });
+        if (typeof updateTabDots === 'function') updateTabDots();
+      }
+    } catch(e){}
 
     // ── 商品マスター：これが全画面の商品リストの元（在庫・履歴・推移表・棚卸）──
     try {
