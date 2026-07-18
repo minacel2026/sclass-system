@@ -3425,7 +3425,7 @@ function _slogWho(s){
   if(s.store) return s.store;
   if(s.orderId){ var o=(S.orders||[]).find(function(x){ return String(x.id)===String(s.orderId); }); if(o && o.store) return o.store; }
   var n = String(s.note||''), m;
-  m = n.match(/^拠点間移動\s*(\S+?)→(\S+?)(?:：|$)/);
+  m = n.match(/^拠点間移動\s*([^\s→（(]+)\s*→\s*([^\s（(：:]+)/);   // 内訳（協5）やメモを拠点名に含めない
   if(m) return (s.type==='移動入') ? (m[1]+'から') : (m[2]+'へ');
   m = n.match(/^(?:貸出|借入|返却|返却受|借入返却|貸借履歴の削除)[：:]\s*(.+?)(?:（|$)/); if(m) return m[1];
   m = n.match(/^仕入(?:削除)?[：:]\s*(.+)$/);      if(m) return m[1];
