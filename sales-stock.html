@@ -525,7 +525,6 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       <button class="dnav" onclick="shiftOrderMonth(1)">›</button>
       <button class="btn-s" onclick="setOrderMonthToday()">今月</button>
       <button class="btn-s" id="ord-all-btn" onclick="toggleOrderAll()">全期間表示</button>
-      <button class="btn-s" style="border-color:rgba(255,99,99,.5);color:#ff8a80" onclick="clearAllOrders()" title="全注文を削除（テストデータの一括クリア用）。在庫の本数は変わりません">🗑 全注文クリア</button>
     </div>
     <div class="fp">
       <div class="frow">
@@ -1462,66 +1461,11 @@ function populateOrderYears(){
   if ([...sorted, ''].includes(cur)) sel.value = cur;
 }
 
-// ─── 全注文クリア（テストデータ一括削除。在庫の実数は変更しない＝引当のみ消える） ───
-// 全注文クリア用パスワードの簡易ハッシュ（平文をlocalStorageに残さない）
-function _hashPw(str){
-  let h = 5381;
-  for (let i = 0; i < str.length; i++){ h = ((h << 5) + h) + str.charCodeAt(i); h |= 0; }
-  return String(h);
-}
-async function clearAllOrders(){
-  if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
-
-  // ── 管理パスワード照合（未設定なら初回に設定） ──
-  const KEY = 'lmb_clearPwHash';
-  let stored = localStorage.getItem(KEY);
-  if (!stored){
-    const np = prompt('【全注文クリア用パスワードの設定】\nこの操作を保護するパスワードを新しく設定します。\n（今後この一括削除を実行するたびに必要になります）\n\n設定するパスワードを入力：');
-    if (np === null) return;
-    if (np.trim().length < 4) return toast('パスワードは4文字以上で設定してください', 'error');
-    const np2 = prompt('確認のため、もう一度同じパスワードを入力してください：');
-    if (np2 === null) return;
-    if (np !== np2) return toast('パスワードが一致しませんでした', 'error');
-    localStorage.setItem(KEY, _hashPw(np));
-    stored = localStorage.getItem(KEY);
-    toast('✓ パスワードを設定しました。続けて削除を実行します');
-  }
-  const input = prompt('🔒 全注文クリアを実行します。\n管理パスワードを入力してください：');
-  if (input === null) return;
-  if (_hashPw(input) !== stored){ toast('❌ パスワードが違います', 'error'); return; }
-
-  try { const _v = localStorage.getItem('lmb_orders'); if (_v) S.orders = JSON.parse(_v); } catch(e){}
-  const n = (S.orders || []).length;
-  if (n === 0) return toast('注文はありません');
-  if (!confirm(`現在の全注文 ${n} 件をすべて削除します。\n\n・在庫の本数は変わりません（引当が解除され、出荷可能数が元に戻ります）\n・スプレッドシートの注文受付シートからも削除します\n・お客様のマイページ履歴からも消えます\n\nテストデータの一括クリア用です。本当に削除しますか？`)) return;
-  if (!confirm('最終確認：この操作は元に戻せません。よろしいですか？')) return;
-
-  const ids = (S.orders || []).map(o => ({ id:o.id, timestamp:o.timestamp, store:o.store, amount:o.amount }));
-  // スプレッドシートからも削除（1件ずつ）
-  if (S.gasUrl){
-    for (const o of ids){
-      try { await gasPost({ action:'deleteOrder', id:o.id, timestamp:o.timestamp, store:o.store, amount:o.amount }); } catch(e){}
-    }
-  }
-  // 関連する協賛ログも消す（注文に紐づくもの）
-  if (S.sponsorLogs && S.sponsorLogs.length){
-    const orderIds = new Set(ids.map(o => String(o.id)));
-    const remain = S.sponsorLogs.filter(l => !orderIds.has(String(l.orderId)));
-    if (S.gasUrl){
-      const toDel = S.sponsorLogs.filter(l => orderIds.has(String(l.orderId)));
-      for (const l of toDel){ try { await gasPost({ action:'deleteSponsorLog', id:l.id }); } catch(e){} }
-    }
-    S.sponsorLogs = remain;
-  }
-  S.orders = [];
-  localStorage.removeItem('lmb_lastSeenOrderId');   // 通知の既読位置もリセット
-  saveState();
-  updateKPI();
-  renderOrders();
-  if (typeof renderStock === 'function') renderStock();
-  toast(`✓ 全注文 ${n} 件を削除しました（在庫の本数は維持）`);
-}
-
+// ─── 「全注文クリア」は廃止しました（v4.4） ───
+// 理由：スプレッドシートの注文受付シートからも全件削除し、協賛ログも消す“元に戻せない”操作だったため。
+// パスワードで保護してはいたが、実績入力を始めた後に誤爆すると被害が大きすぎる。
+// 注文を消す必要がある場合は、注文一覧から1件ずつ削除してください（誤って消しても影響が1件で済む）。
+// どうしても一括で消す必要がある時は、Driveの日次バックアップから復元する運用にします。
 
 function renderOrders(){
   // 別ページ（集金管理など）での支払ステータス更新・削除を反映するため最新を読み込む
