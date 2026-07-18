@@ -61,6 +61,12 @@ main{padding:1.5rem 2rem;max-width:1400px;margin:0 auto}
 .mtab:hover:not(.active){background:rgba(201,168,76,.05);color:var(--wh)}
 .mtab.active{background:linear-gradient(180deg,rgba(201,168,76,.2),rgba(201,168,76,.1));color:var(--gold-l);box-shadow:inset 0 -2px 0 var(--gold)}
 .mtab-ic{font-size:1rem}
+.tab-dot{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;margin-left:6px;padding:0 4px;
+  border-radius:99px;background:#4f9dd9;color:#fff;font-size:.62rem;font-weight:700;line-height:1;vertical-align:middle;
+  box-shadow:0 0 0 0 rgba(79,157,217,.7);animation:tabDotPulse 2s infinite}
+@keyframes tabDotPulse{0%{box-shadow:0 0 0 0 rgba(79,157,217,.6)}70%{box-shadow:0 0 0 7px rgba(79,157,217,0)}100%{box-shadow:0 0 0 0 rgba(79,157,217,0)}}
+.tab-dot.late{background:#e6a23c;box-shadow:0 0 0 0 rgba(230,162,60,.7);animation:tabDotPulseLate 1.4s infinite}
+@keyframes tabDotPulseLate{0%{box-shadow:0 0 0 0 rgba(230,162,60,.7)}70%{box-shadow:0 0 0 7px rgba(230,162,60,0)}100%{box-shadow:0 0 0 0 rgba(230,162,60,0)}}
 .mcon{display:none}.mcon.active{display:block}
 
 /* ─── 子タブ（一覧/新規/UID） ─── */
@@ -466,10 +472,10 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
       <span class="mtab-ic">👥</span>スタッフマスター
     </button>
     <button class="mtab" onclick="switchMaster('uid',this)">
-      <span class="mtab-ic">🔗</span>未登録UID
+      <span class="mtab-ic">🔗</span>未登録UID<span id="mtab-uid-dot" class="tab-dot" style="display:none"></span>
     </button>
     <button class="mtab" onclick="switchMaster('registrations',this)">
-      <span class="mtab-ic">📝</span>登録申請
+      <span class="mtab-ic">📝</span>登録申請<span id="mtab-registrations-dot" class="tab-dot" style="display:none"></span>
     </button>
     <button class="mtab" onclick="switchMaster('products',this)">
       <span class="mtab-ic">🍾</span>商品マスター
@@ -481,7 +487,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
       <span class="mtab-ic">🎁</span>協賛マスター
     </button>
     <button class="mtab" onclick="switchMaster('agents',this)">
-      <span class="mtab-ic">🏷️</span>代理店マスター
+      <span class="mtab-ic">🏷️</span>代理店マスター<span id="mtab-agents-dot" class="tab-dot" style="display:none"></span>
     </button>
     <button class="mtab" onclick="switchMaster('company',this)">
       <span class="mtab-ic">🏢</span>弊社情報
@@ -1562,6 +1568,26 @@ function canDelete(){
 }
 
 // ─── 親タブ切替 ─────
+// ══ マスターのタブの印 ══
+// 「対応が必要なもの」だけ出す：登録申請＝承認待ち／未登録UID＝紐づけ待ち／代理店マスター＝登録申請中
+var _mstCount = { registrations:0, uid:0, agents:0 };
+function _setMstDot(key, n, cls, title){
+  var dot = document.getElementById('mtab-' + key + '-dot');
+  if (!dot) return;
+  dot.style.display = n ? '' : 'none';
+  dot.textContent = n ? String(n) : '';
+  dot.className = 'tab-dot' + (cls ? ' ' + cls : '');
+  dot.title = title || '';
+}
+function updateMasterTabDots(){
+  _setMstDot('registrations', _mstCount.registrations, 'late',
+    _mstCount.registrations ? (_mstCount.registrations + '件の登録申請が承認待ちです') : '');
+  _setMstDot('uid', _mstCount.uid, '',
+    _mstCount.uid ? (_mstCount.uid + '件のUIDが顧客・スタッフに未紐づけです') : '');
+  _setMstDot('agents', _mstCount.agents, '',
+    _mstCount.agents ? (_mstCount.agents + '件の代理店申請が未登録です') : '');
+}
+
 function switchMaster(name, el){
   document.querySelectorAll('.mtab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.mcon').forEach(t => t.classList.remove('active'));
@@ -1589,7 +1615,7 @@ async function syncAllFromGAS(opts){
 
   // 9本のGETを「並列」で投げる（順次awaitだと各往復の待ち時間の合計になり遅い）。
   // 1本が失敗しても他を止めないよう、それぞれ .catch でnullに落とす。
-  const [cust, refs, sps, ags, agd, agp, stf, co, prd] = await Promise.all([
+  const [cust, refs, sps, ags, agd, agp, stf, co, prd, regs, puid] = await Promise.all([
     gasGet('getCustomers', {lite:'1'}), // 一覧は軽量版（編集時は完全版を再取得）
     gasGet('getReferrers'),
     gasGet('getSponsors'),
@@ -1598,8 +1624,18 @@ async function syncAllFromGAS(opts){
     gasGet('getAgentApplications'),
     gasGet('getStaff'),
     gasGet('getCompany'),
-    gasGet('getProducts')
+    gasGet('getProducts'),
+    gasGet('getRegistrations'),   // タブの印（承認待ち）用
+    gasGet('getPendingUids')      // タブの印（紐づけ待ち）用
   ].map(p => Promise.resolve(p).catch(() => null)));
+
+  // ── タブの印：対応が必要な件数だけ（0件なら出さない）──
+  try {
+    _mstCount.registrations = (regs && regs.registrations) ? regs.registrations.filter(function(r){ return r.status === '申請中'; }).length : 0;
+    _mstCount.uid           = (puid && puid.pending)       ? puid.pending.filter(function(p){ return String(p.status||'') !== '対応済'; }).length : 0;
+    _mstCount.agents        = (agp && agp.pending)         ? agp.pending.length : 0;
+    updateMasterTabDots();
+  } catch(e){}
 
   if (cust && cust.customers) {
     // 安全策: id がない顧客には店舗名ベースの安定IDを補完（openCustが動くように）
@@ -1920,6 +1956,7 @@ async function renderRegistrations(){
   finally { if (window.appBusyHide) appBusyHide(); }
   // 未対応（申請中）だけ表示。承認済み・却下は一覧から消す（記録はシートに残る）
   regs = regs.filter(rg => rg.status === '申請中');
+  try { _mstCount.registrations = regs.length; updateMasterTabDots(); } catch(e){}   // 承認・却下の直後に印を更新
   regs.sort((a,b) => String(b.date).localeCompare(String(a.date)));
   window._regCache = {};
   if (!regs.length){ tb.innerHTML = '<tr><td colspan="8" style="padding:0"><div class="empty"><div class="empty-icon">✓</div>未対応の登録申請はありません</div></td></tr>'; return; }
@@ -3051,6 +3088,8 @@ async function loadCustPendingUids(){
   try { const st = await gasGet('getStaff'); if (st && st.staff) S.staff = st.staff; } catch(e){}
   const data = await gasGet('getPendingUids');
   const pending = data && (data.pending || data.uids);   // GASは pending を返す
+  // 紐づけ・削除の直後に印を更新
+  try { _mstCount.uid = pending ? pending.filter(function(p){ return String(p.status||'') !== '対応済'; }).length : 0; updateMasterTabDots(); } catch(e){}
   if (!pending){
     list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>未登録UIDはありません<div style="font-size:.7rem;margin-top:.5rem;color:var(--wh3)">（またはGAS未接続）</div></div>';
     return;
