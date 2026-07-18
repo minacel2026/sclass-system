@@ -3411,7 +3411,7 @@ function toggleSlogMatrix(){
   _slogMx = !_slogMx;
   var b = document.getElementById('slog-mx-btn');
   if(b) b.textContent = _slogMx ? '📋 一覧に戻す' : '📊 推移表';
-  if(_slogMx){ var s=document.getElementById('slog-br'); if(s && !s.value) s.value='仙台'; }  // 商品を列にするため拠点は1つに絞る
+  // 拠点「すべて」は全社合計（仙台＋京都）で表示するので、寄せない
   renderSlog();
 }
 // 在庫が減る/増える動きの符号（初回より前の残数を割り出す種まき用）
@@ -3432,24 +3432,105 @@ function _slogWho(s){
   m = n.match(/^協賛出荷[：:]\s*(.+?)(?:（|$)/);   if(m) return m[1];
   return '';
 }
+// 全社（仙台＋京都）の在庫推移。拠点＝「すべて」の推移表で使う。
+// 各拠点の状態を保持しながら時系列を進み、その時点の合計を作る。
+function _slogStatesAll(){
+  const brs = ['仙台','京都'];
+  const per = {}; brs.forEach(function(b){ per[b] = _slogStates(b); });
+  const cur = {}; brs.forEach(function(b){ cur[b] = Object.assign({}, per[b].seed); });
+  const all = S.slog || [];
+  const snap = {}, dlt = {};
+  let hadReset = brs.some(function(b){ return per[b].hadReset; });
+  for (let i = 0; i < all.length; i++){
+    const b = all[i].branch;
+    if (per[b] && per[b].snap[i]) cur[b] = per[b].snap[i];
+    if (per[b]) dlt[i] = per[b].dlt[i];
+    const sum = {};
+    _prodCols().forEach(function(p){
+      let t = null;
+      brs.forEach(function(x){
+        const v = cur[x] ? cur[x][p.key] : undefined;
+        if (v != null) t = (t == null ? 0 : t) + Number(v);
+      });
+      sum[p.key] = t;
+    });
+    snap[i] = sum;
+  }
+  return { snap:snap, dlt:dlt, hadReset:hadReset };
+}
+
+// 推移表の行クリック：その取引の詳細を真下に開き、元の取引へ移動できるようにする
+function _mxDetail(idx, trEl){
+  const nx = trEl.nextElementSibling;
+  if (nx && nx.classList.contains('mx-detail')){ nx.remove(); return; }
+  document.querySelectorAll('tr.mx-detail').forEach(function(el){ el.remove(); });
+  const e = (S.slog||[])[idx]; if(!e) return;
+  const who = _slogWho(e);
+  const cols = trEl.children.length;
+  const row = function(k,v){ return v ? ('<span style="display:inline-block;margin-right:16px"><span style="color:var(--wh3)">'+k+'：</span>'+escapeHtml(String(v))+'</span>') : ''; };
+  // 移動できる先を決める（注文／貸借／拠点移動／仕入）
+  let btn = '';
+  if (e.orderId){
+    btn = '<button class="btn-s" onclick="_slogGoto(\'order\',\''+String(e.orderId).replace(/'/g,"\\'")+'\')">📋 この注文を開く</button>';
+  } else if (/^(貸出|借入|返却受|借入返却|貸借削除)$/.test(e.type)){
+    btn = '<button class="btn-s" onclick="_slogGoto(\'lending\',\''+String(who).replace(/'/g,"\\'")+'\')">🤝 貸借管理を開く</button>';
+  } else if (/^(移動出|移動入|輸送中紛失|移動取消)$/.test(e.type)){
+    btn = '<button class="btn-s" onclick="_slogGoto(\'moves\',\'\')">🚚 拠点移動を開く</button>';
+  } else if (/仕入/.test(String(e.note||''))){
+    btn = '<button class="btn-s" onclick="_slogGoto(\'purchase\',\'\')">📦 仕入管理を開く</button>';
+  }
+  const tr = document.createElement('tr');
+  tr.className = 'mx-detail';
+  tr.innerHTML = '<td colspan="'+cols+'" style="background:#14141a;padding:.6rem .8rem;white-space:normal">'
+    + '<div style="font-size:.74rem;color:var(--gold-l);font-weight:700;margin-bottom:.35rem">'
+    + escapeHtml(_ymd(e.date)) + ' ' + escapeHtml(e.time||'') + '　' + escapeHtml(e.branch||'') + '　' + escapeHtml(e.type||'') + '</div>'
+    + '<div style="font-size:.76rem;line-height:1.9">'
+    + row('商品', e.product) + row('本数', e.qty) + row('残数', e.remaining)
+    + row('相手先', who) + row('担当', e.user) + row('注文No', e.orderId) + '</div>'
+    + (e.note ? '<div style="font-size:.72rem;color:var(--wh3);margin-top:.2rem">'+escapeHtml(e.note)+'</div>' : '')
+    + (btn ? '<div style="margin-top:.5rem">'+btn+'</div>' : '')
+    + '</td>';
+  trEl.after(tr);
+}
+
+// 元の取引へ移動する
+function _slogGoto(kind, key){
+  const tab = document.querySelector('.mtab[onclick*="\''+kind+'\'"]');
+  if (kind === 'order'){
+    switchModule('orders', document.querySelector('.mtab[onclick*="\'orders\'"]'));
+    const kw = document.getElementById('sk-kw');
+    if (kw){ kw.value = String(key||''); if (typeof renderOrders === 'function') renderOrders(); }
+    toast('📋 注文No ' + key + ' で絞り込みました');
+    return;
+  }
+  if (tab) switchModule(kind, tab);
+  if (kind === 'lending' && key) toast('🤝 貸借管理を開きました（相手先：' + key + '）');
+}
+
 function renderSlogMatrix(rows){
   var box = document.getElementById('slog-matrix'); if(!box) return;
-  var br = (document.getElementById('slog-br')||{}).value || '仙台';
-  var prods = _prodCols(br);
+  var br = (document.getElementById('slog-br')||{}).value || '';   // 空＝すべて（全社合計）
+  var all = !br;
+  var prods = all ? _prodCols() : _prodCols(br);
   // 在庫の復元は _slogSnapshot と共通の _slogStates() を使う（remaining方式・ロジック一本化）
-  var _st = _slogStates(br), snap = _st.snap, dlt = _st.dlt, hadReset = _st.hadReset;
+  var _st = all ? _slogStatesAll() : _slogStates(br);
+  var snap = _st.snap, dlt = _st.dlt, hadReset = _st.hadReset;
   // ③ 表示（フィルタ後の行・新しい順）
-  var show = rows.filter(function(r){ return r.branch===br; }).slice(0,200);
-  if(!show.length){ box.innerHTML='<div class="empty"><div class="empty-icon">📊</div>'+escapeHtml(br)+'に該当する在庫履歴がありません</div>'; return; }
+  var show = (all ? rows : rows.filter(function(r){ return r.branch===br; })).slice(0,200);
+  if(!show.length){ box.innerHTML='<div class="empty"><div class="empty-icon">📊</div>'+escapeHtml(br||'該当')+'に該当する在庫履歴がありません</div>'; return; }
   var tc = function(t){ return ({'出庫':'#e6a23c','協賛出庫':'#c39bd3','入庫':'#67c23a','戻入':'#67c23a','移動出':'#4f9dd9','移動入':'#4f9dd9','調整':'#e67e22','初期登録':'#909399'})[t] || '#aaa'; };
   var h = '<table style="border-collapse:collapse;white-space:nowrap;font-size:.76rem"><thead><tr>'
-    + '<th style="text-align:left;padding:6px 8px">日時</th><th style="text-align:left;padding:6px 8px">種類</th>'
+    + '<th style="text-align:left;padding:6px 8px">日時</th>'
+    + (all ? '<th style="text-align:left;padding:6px 8px">拠点</th>' : '')
+    + '<th style="text-align:left;padding:6px 8px">種類</th>'
     + '<th style="text-align:left;padding:6px 8px;border-right:1px solid rgba(201,168,76,.25)">相手先</th>'
     + prods.map(function(p){ return '<th class="col-qty" style="padding:6px 8px">'+escapeHtml(p.name)+(p.outOfScope?'<br><span style="font-size:.6rem;color:var(--wh3);font-weight:400">取扱外</span>':'')+'</th>'; }).join('')
     + '</tr></thead><tbody>';
   show.forEach(function(r){
     var sn=snap[r._idx]||{}, d=dlt[r._idx], who=_slogWho(r);
-    h += '<tr><td style="padding:5px 8px;color:var(--wh3)">'+escapeHtml(_ymd(r.date).slice(5))+' '+escapeHtml(r.time||'')+'</td>'
+    h += '<tr onclick="_mxDetail('+r._idx+',this)" style="cursor:pointer" title="クリックで詳細・元の取引へ移動">'
+       + '<td style="padding:5px 8px;color:var(--wh3)">'+escapeHtml(_ymd(r.date).slice(5))+' '+escapeHtml(r.time||'')+'</td>'
+       + (all ? ('<td style="padding:5px 8px;color:var(--wh2)">'+escapeHtml(r.branch||'')+'</td>') : '')
        + '<td style="padding:5px 8px;color:'+tc(r.type)+';font-weight:600">'+escapeHtml(r.type||'')+'</td>'
        + '<td style="padding:5px 8px;border-right:1px solid rgba(201,168,76,.25)">'+escapeHtml(who||'—')+'</td>';
     prods.forEach(function(p){
@@ -3464,7 +3545,7 @@ function renderSlogMatrix(rows){
     h += '</tr>';
   });
   h += '</tbody></table>';
-  var note = '<div style="font-size:.7rem;color:var(--wh3);margin:.4rem 0 .2rem">▸ '+escapeHtml(br)+'／色が付いたセル＝その行で動いた商品（残数と増減）。「—」は記録が無く在庫を割り出せない箇所。'
+  var note = '<div style="font-size:.7rem;color:var(--wh3);margin:.4rem 0 .2rem">▸ '+(all?'全社合計（仙台＋京都）':escapeHtml(br))+'／色が付いたセル＝その行で動いた商品（残数と増減）。行をクリックすると詳細と「元の取引へ移動」が開きます。「—」は記録が無く在庫を割り出せない箇所。'
     + (hadReset ? '<br>⚠ 在庫初期登録（上書き）より前は正確でない場合があります。' : '')
     + (show.length>=200 ? '<br>最新200件を表示。絞り込むと見やすくなります。' : '') + '</div>';
   box.innerHTML = note + h;
@@ -3489,6 +3570,7 @@ function _slogStates(br){
   }
   const st={}; let hadReset=false;
   prods.forEach(p=>{ st[p.key] = (seed[p.key]!==undefined) ? seed[p.key] : (((S.stock[br]&&S.stock[br][p.key])!=null) ? S.stock[br][p.key] : null); });
+  const seed0 = Object.assign({}, st);   // 最初の記録より前の状態（全社合計の計算で使う）
   // ② 古い順に remaining を当てはめる
   const snap={}, dlt={};
   for(let j=0;j<all.length;j++){
@@ -3499,7 +3581,7 @@ function _slogStates(br){
     dlt[j] = (pr && before!=null && e.remaining!=null) ? (Number(e.remaining)-before) : null;
     snap[j]=Object.assign({},st);
   }
-  return { snap:snap, dlt:dlt, hadReset:hadReset };
+  return { snap:snap, dlt:dlt, hadReset:hadReset, seed:seed0 };
 }
 
 function _slogSnapshot(idx, trEl){
