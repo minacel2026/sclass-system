@@ -1028,7 +1028,8 @@ function _prodCols(br){
              color:(p.color||d.color||'#888'),
              price:(p.price!=null?Number(p.price):(d.price||0)),
              cost:(p.cost!=null?Number(p.cost):(d.cost||0)),
-             reorder:(p.reorder!=null?Number(p.reorder):(d.reorder||0)) };
+             reorder:(p.reorder!=null?Number(p.reorder):(d.reorder||0)),
+             reorders:p.reorders };   // 拠点別の補充閾値（{"仙台":10,"京都":5}）。空なら共通値を使う
   });
   if(!br) return out;
   return out.filter(function(p){
@@ -1038,10 +1039,23 @@ function _prodCols(br){
     return false;
   });
 }
-// 価格・原価・発注点も商品マスター優先で引く（PROD_LIST由来の定数は初期値扱い）
+// ══ 発注点（補充閾値）の単一ソース ══
+// 拠点別の設定（商品マスターの reorders）があればそれを使い、無ければ共通の補充閾値。
+// 在庫グリッド・KPIの在庫警告・タブの印はすべてここを通す（基準が食い違わないようにするため）。
+function _reorder(key, branch){
+  var p = _prodCols().find(function(x){ return x.key === key; });
+  if (!p) return (REORDER[key] || 0);
+  if (branch && p.reorders){
+    var m = p.reorders;
+    if (typeof m === 'string'){ try{ m = JSON.parse(m); }catch(e){ m = null; } }
+    if (m && m[branch] !== undefined && m[branch] !== '' && m[branch] !== null) return Number(m[branch]) || 0;
+  }
+  return (p.reorder != null) ? Number(p.reorder) : (REORDER[key] || 0);
+}
+
+// 価格・原価も商品マスター優先で引く（PROD_LIST由来の定数は初期値扱い）
 function _price(k){ var p=_prodCols().find(function(x){ return x.key===k; }); return p? p.price : (PRICE[k]||0); }
 function _cost(k){  var p=_prodCols().find(function(x){ return x.key===k; }); return p? p.cost  : (COST[k]||0); }
-function _reorder(k){ var p=_prodCols().find(function(x){ return x.key===k; }); return p? p.reorder : (REORDER[k]||0); }
 
 const S = {
   branch:'both', orders:[], customers:[], staff:[],
@@ -1222,7 +1236,7 @@ function updateKPI(){
     ['仙台','京都'].forEach(b => {
       const avail = availableStock(b, p);
       if (avail <= 0) out++;
-      else if (avail < REORDER[p]) warn++;
+      else if (avail < _reorder(p, b)) warn++;   // 拠点別の発注点（従来はハードコードを見ていた）
     });
   });
   document.getElementById('kpi-stock-warn').textContent = warn;
@@ -1267,13 +1281,18 @@ function updateTabDots(){
     _setTabDot('orders', nw, '', nw ? (nw + '件の新規受付（出荷処理が必要）') : '');
 
     // ② 在庫管理：在庫切れ（出荷可能が0以下）
-    var out = 0;
+    var out = 0, warn = 0;
     _prodCols().forEach(function(p){
       ['仙台','京都'].forEach(function(b){
-        if (typeof availableStock==='function' && availableStock(b, p.key) <= 0) out++;
+        if (typeof availableStock !== 'function') return;
+        var av = availableStock(b, p.key);
+        if (av <= 0) out++;
+        else if (av < _reorder(p.key, b)) warn++;   // 拠点別の発注点を下回った
       });
     });
-    _setTabDot('stock', out, 'danger', out ? (out + '品目が在庫切れ') : '');
+    var tot = out + warn;
+    _setTabDot('stock', tot, out ? 'danger' : 'late',
+      tot ? ((out ? out + '品目が在庫切れ' : '') + (out && warn ? '／' : '') + (warn ? warn + '品目が発注点割れ' : '')) : '');
 
     // ③ 貸借管理：返却予定日を過ぎた未返却
     var t0 = new Date(today()).getTime();
@@ -3674,7 +3693,7 @@ function renderStock(){
   function buildTable(branch){
     let tOld = 0, tSp = 0, tNew = 0;
     const rows = _prodCols(branch).map(p => {
-      const ro = p.reorder;
+      const ro = _reorder(p.key, branch);   // 拠点別の発注点
       const bk = _bkt(branch, p.key);
       const q = bk.old + bk.sp + bk.new;   // = S.stock合計
       tOld += bk.old; tSp += bk.sp; tNew += bk.new;
