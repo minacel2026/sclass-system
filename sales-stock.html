@@ -503,6 +503,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
     <button class="mtab" onclick="switchModule('stock',this)"><span class="mtab-ic">🍾</span>在庫管理</button>
     <button class="mtab" onclick="switchModule('slog',this)"><span class="mtab-ic">📜</span>在庫履歴</button>
     <button class="mtab" onclick="switchModule('lending',this)"><span class="mtab-ic">🤝</span>貸借管理</button>
+    <button class="mtab" onclick="switchModule('moves',this)"><span class="mtab-ic">🚚</span>拠点移動</button>
     <button class="mtab" onclick="switchModule('purchase',this)"><span class="mtab-ic">🚚</span>仕入管理</button>
     <button class="mtab" onclick="switchModule('inventory',this)"><span class="mtab-ic">📦</span>棚卸計算</button>
     <button class="mtab" onclick="switchModule('sponsor',this)"><span class="mtab-ic">🎁</span>協賛管理</button>
@@ -682,8 +683,8 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
     </div>
     <div id="entry-transfer" style="display:none">
     <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
-      <div class="th-area"><h3>🔁 拠点間移動（仙台 ⇄ 京都）</h3><span style="font-size:.68rem;color:var(--wh3)">在庫を移すだけ・売上0</span></div>
-      <div class="hint-box" style="margin:.2rem 0 .5rem">移動元から移動先へ在庫を移します。移動元が減り、移動先が同じ本数だけ増えます（会社全体の在庫は変わりません）。「旧値→協賛→新値」の順に自動で移動元から取り、移動先の同じ区分に足します。履歴に残ります。</div>
+      <div class="th-area"><h3>🚚 拠点間移動：発送（仙台 ⇄ 京都）</h3><span style="font-size:.68rem;color:var(--wh3)">在庫を移すだけ・売上0</span></div>
+      <div class="hint-box" style="margin:.2rem 0 .5rem">現物が届くまで日数がかかるため<b>2段階</b>です。ここでの<b>発送</b>で移動元の在庫がすぐ減り、<b>「輸送中」</b>になります。移動先に届いたら<b>「拠点移動」タブで受領</b>すると、その拠点の在庫に入ります。輸送中も会社全体の在庫として数えます（「旧値→協賛→新値」の区分は保持され、受領時に同じ区分へ戻ります）。</div>
       <div class="frow">
         <div class="fg"><label>移動元</label><select class="fc" id="tr-from" onchange="syncTransferTo()"><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>移動先</label><select class="fc" id="tr-to"><option>京都</option><option>仙台</option></select></div>
@@ -692,7 +693,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg" style="flex:1;min-width:140px"><label>メモ（任意）</label><input class="fc" id="tr-memo" placeholder="例：他社返却分を京都へ"></div>
       </div>
       <div id="tr-preview" style="font-size:.78rem;color:var(--wh2);margin:.4rem 0"></div>
-      <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="transferStock()">🔁 この内容で移動する</button></div>
+      <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="transferStock()">🚚 この内容で発送する</button></div>
     </div>
     </div>
   </div>
@@ -885,6 +886,23 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
   </div>
 
   <!-- ════════ 貸借管理 ════════ -->
+  <div id="m-moves" class="mcon">
+    <div class="hint-box" style="margin-bottom:1rem">▸ 発送すると移動元の在庫はすぐ減り、<b>「輸送中」</b>になります。届いたら移動先で<b>「受領」</b>を押すと在庫に入ります。<br>入力（発送）は「注文登録」タブの取引種別＝拠点間移動から行います。輸送中の在庫も会社全体の在庫として数えます。</div>
+
+    <div class="tw" style="margin-bottom:1rem">
+      <div class="th-area"><h3>🚚 輸送中（受領待ち）</h3><span id="mv-transit-cnt" style="font-size:.72rem;color:var(--wh2)"></span></div>
+      <div id="mv-transit"></div>
+    </div>
+
+    <div class="tw">
+      <div class="th-area"><h3>📋 移動履歴</h3><span id="mv-cnt" style="font-size:.72rem;color:var(--wh2)"></span></div>
+      <table>
+        <thead><tr><th>発送日</th><th>移動</th><th>商品</th><th class="col-qty">発送</th><th class="col-qty">受領</th><th>状態</th><th>メモ</th><th>担当</th></tr></thead>
+        <tbody id="mv-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <div id="m-lending" class="mcon">
     <div class="fp">
       <div class="th-area"><h3>🤝 貸借先（外部会社）</h3><button class="btn-s" onclick="loadLending(true)">🔄 最新を取得</button></div>
@@ -1020,7 +1038,7 @@ function _reorder(k){ var p=_prodCols().find(function(x){ return x.key===k; }); 
 const S = {
   branch:'both', orders:[], customers:[], staff:[],
   stock:{仙台:{}, 京都:{}}, stockDetail:{仙台:{}, 京都:{}},
-  lendings:[], lendPartners:[],
+  lendings:[], lendPartners:[], moves:[],
   slog:[], collections:[], invoices:[],
   bankEntries:[], bankHistory:[], company:{}, products:null,
   purchases:[], suppliers:['マルシェジャパン','オーク酒販'],
@@ -1047,7 +1065,7 @@ function calcAmt(o){
 
 function saveState(){
   try {
-    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','collections',
+    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','moves','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
                   'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
@@ -1055,7 +1073,7 @@ function saveState(){
 }
 function loadState(){
   try {
-    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','collections',
+    const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','moves','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
                   'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
     keys.forEach(k => {
@@ -1176,6 +1194,7 @@ function switchModule(name, el){
   if (name === 'inventory') renderInventory();
   if (name === 'sponsor')   renderSponsor();
   if (name === 'lending')   loadLending();
+  if (name === 'moves')     loadMoves();
 }
 
 // ─── KPI更新 ─────
@@ -1240,11 +1259,15 @@ async function syncFromGAS(){
     var pStock = gasGet('getStock');
     var pSp = gasGet('getSponsorLogs');
     var pProd = gasGet('getProducts');
+    var pMv = gasGet('getMoves');
 
     try { const pong = await pPing; if (pong && !pong.updateAllStock){ toast('⚠️ GASが古い版です。在庫がスプシに反映されません。最新のgas-templateを貼り付けて「デプロイを管理→新バージョン」で更新してください', 'error'); } } catch(e){}
 
     const cust = await pCust;
     if (cust && cust.customers) S.customers = cust.customers;
+
+    // ── 拠点移動（輸送中の在庫）──
+    try { const mv = await pMv; if (mv && mv.moves) { S.moves = mv.moves; } } catch(e){}
 
     // ── 商品マスター：これが全画面の商品リストの元（在庫・履歴・推移表・棚卸）──
     try {
@@ -3496,13 +3519,17 @@ function renderStock(){
       </tr>`;
     }).join('');
     const tTot = tOld + tSp + tNew;
+    const tTransit = (typeof movesInTransit === 'function')
+      ? movesInTransit().reduce(function(a,m){ return a + ((m.to===branch) ? (Number(m.qty)||0) : 0); }, 0) : 0;
     const sumCard = (lbl, v, c, bg) => `<div style="flex:1;background:${bg};border:1px solid ${c}55;border-radius:8px;padding:6px 8px;text-align:center"><div style="font-size:.6rem;color:#b9b09a;letter-spacing:.05em">${lbl}</div><div style="font-size:1.15rem;font-weight:700;color:${c};line-height:1.3">${fmt(v)}<span style="font-size:.62rem;color:#9a917c">本</span></div></div>`;
     const summary = `<div style="display:flex;gap:.45rem;margin:.3rem 0 .6rem">
         ${sumCard('🟠 旧値', tOld, '#e8b85a', 'rgba(217,162,58,.10)')}
         ${sumCard('🟣 協賛', tSp, '#d3a8e0', 'rgba(195,155,211,.10)')}
         ${sumCard('🟢 新値', tNew, '#8fe0ab', 'rgba(108,199,143,.10)')}
         ${sumCard('合計', tTot, '#E8CC7A', 'rgba(201,168,76,.10)')}
-      </div>`;
+        ${tTransit ? sumCard('🚚 輸送中', tTransit, '#4f9dd9', 'rgba(79,157,217,.10)') : ''}
+      </div>`
+      + (tTransit ? `<div style="font-size:.66rem;color:#4f9dd9;margin:-.3rem 0 .5rem">🚚 ${branch}宛てに ${fmt(tTransit)}本 が輸送中です（受領するとこの在庫に入ります）</div>` : '');
     return `
     <div class="stock-col">
       <h3 class="stock-col-title">${branch}（引き当て順：🟠旧値 → 🟣協賛 → 🟢新値／補充閾値以下はオレンジ・在庫切れは赤）</h3>
@@ -3960,7 +3987,7 @@ function loadLending(force){
 }
 
 function saveLendPartner(){
-  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 編集権限がありません', 'error');
+  if(typeof canEdit==='function' && !canEdit()) return toast('🔒 編集権限がありません（閲覧のみ）', 'error');
   const name=(document.getElementById('lp-name').value||'').trim();
   const uid=(document.getElementById('lp-uid').value||'').trim();
   if(!name) return toast('会社名を入力してください','error');
@@ -4001,7 +4028,7 @@ function _lendStockMove(branch, product, signedQty, type, note){
 }
 
 function recordLending(){
-  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 貸借を記録する権限がありません', 'error');
+  if(typeof canEdit==='function' && !canEdit()) return toast('🔒 貸借を記録する権限がありません（閲覧のみ）', 'error');
   const kind=document.getElementById('ln-kind').value;
   const pid=document.getElementById('ln-partner').value;
   const branch=document.getElementById('ln-branch').value;
@@ -4259,6 +4286,20 @@ function updateTransferPreview(){
   box.innerHTML = `現在：${from} <b>${sf}</b>本 ／ ${to} <b>${st}</b>本`
     + (qty>0 ? `　→　移動後：${from} <b>${sf-qty}</b>本 ／ ${to} <b>${st+qty}</b>本` : '');
 }
+// ══ 拠点間移動：2段階（発送 → 受領）══
+// 宅配で1日以上かかるため、押した瞬間に移動先へ足さない。
+// 発送＝移動元から引いて「輸送中」に載せる／受領＝移動先へ足す。輸送中は会社の在庫に別枠で数える。
+function _splitUsed(used, qty){   // 発送時の内訳(used)から qty 本ぶんを 旧→協賛→新 の順に取り出す
+  const out={old:0,sp:0,new:0}; let need=qty||0;
+  ['old','sp','new'].forEach(function(k){ if(need<=0) return; const t=Math.min(Number(used&&used[k])||0, need); if(t>0){ out[k]=t; need-=t; } });
+  if(need>0) out.new+=need;
+  return out;
+}
+function movesInTransit(){ return (S.moves||[]).filter(function(m){ return m.status==='輸送中'; }); }
+function transitQty(branch, product){   // その拠点「宛て」の輸送中本数
+  return movesInTransit().reduce(function(a,m){ return a + ((m.to===branch && m.product===product) ? (Number(m.qty)||0) : 0); }, 0);
+}
+
 async function transferStock(){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
@@ -4273,31 +4314,149 @@ async function transferStock(){
   if (!(qty > 0)) return toast('本数を入力してください', 'error');
   const _avail = _sumStock(from, prod);
   if (qty > _avail) return toast(`${from}の${prod}は ${_avail}本しかありません（${qty}本は移動できません）`, 'error');
-  if (!confirm(`${prod} を ${qty}本\n${from} → ${to} へ移動します。よろしいですか？`)) return;
+  if (!confirm(`${prod} を ${qty}本\n${from} から発送します（${to} 宛て）。\n\n・${from} の在庫は今すぐ ${qty}本 減ります\n・${to} の在庫は「受領」した時に増えます\n・それまでは「輸送中」として管理されます\n\nよろしいですか？`)) return;
 
-  // 旧値 → 協賛 → 新値 の優先順で移動元から取り、移動先の同じ区分へ足す
+  // 旧値 → 協賛 → 新値 の優先順で移動元から取り、内訳を保持して輸送中に載せる
   const used = depleteStock(from, prod, qty);
-  restoreStockBkt(to, prod, qty, used);
-  _sumStock(from, prod); _sumStock(to, prod);
+  _sumStock(from, prod);
 
-  if (!S.slog) S.slog = [];
   const t = new Date().toTimeString().slice(0,5);
   const _p = []; if (used.old) _p.push('旧' + used.old); if (used.sp) _p.push('協' + used.sp); if (used.new) _p.push('新' + used.new);
   const _brk = _p.length ? '（' + _p.join('・') + '）' : '';
   const note = `拠点間移動 ${from}→${to}${_brk}` + (memo ? '：' + memo : '');
   const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : '';
+  if (!S.slog) S.slog = [];
   S.slog.push({ date: today(), time: t, branch: from, type: '移動出', product: prod, qty: qty, remaining: S.stock[from][prod], note: note, user: user });
-  S.slog.push({ date: today(), time: t, branch: to,   type: '移動入', product: prod, qty: qty, remaining: S.stock[to][prod],   note: note, user: user });
+
+  const rec = { id:'mv-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date: today(), from: from, to: to,
+    product: prod, qty: qty, used: used, status:'輸送中', memo: memo, sentBy: user, sentAt: new Date().toISOString(),
+    recvQty:'', recvDate:'', recvBy:'', lostQty:'' };
+  S.moves = S.moves || []; S.moves.push(rec);
 
   saveState();
+  if (S.gasUrl){ gasPost({ action:'saveMove', id:rec.id, date:rec.date, from:rec.from, to:rec.to, product:rec.product,
+    qty:rec.qty, used:JSON.stringify(rec.used), status:rec.status, memo:rec.memo, sentBy:rec.sentBy }); }
   syncStockToGAS();
-  toast(`✓ ${prod} ${qty}本を ${from}→${to} へ移動しました`);
+  toast(`🚚 ${prod} ${qty}本を ${from}→${to} へ発送しました（${to}で受領すると在庫に入ります）`);
   document.getElementById('tr-qty').value = '';
   document.getElementById('tr-memo').value = '';
-  renderStock();
-  renderTransferForm();
-  updateKPI();
+  if (typeof renderMoves === 'function') renderMoves();
+  if (typeof renderStock === 'function') renderStock();
+  return;
 }
+
+// 受領：移動先の在庫へ足す。届いた本数が少なければ差分を「輸送中紛失」として記録する。
+async function receiveMove(id){
+  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 受領する権限がありません（社長・閲覧者は不可）','error');
+  if (!(await guardStockWrite())) return;
+  const m = (S.moves||[]).find(function(x){ return x.id===id; });
+  if (!m || m.status!=='輸送中') return;
+  const ans = prompt(`${m.product} を ${m.to} で受領します。\n実際に届いた本数を入力してください（発送 ${m.qty}本）`, String(m.qty));
+  if (ans === null) return;
+  const rq = parseInt(ans, 10);
+  if (!(rq >= 0) || rq > m.qty) return toast(`0〜${m.qty} の範囲で入力してください`, 'error');
+  const lost = m.qty - rq;
+  if (lost > 0 && !confirm(`発送 ${m.qty}本 に対して 受領 ${rq}本 です。\n差の ${lost}本 を「輸送中紛失」として記録します。よろしいですか？`)) return;
+
+  const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : '';
+  const t = new Date().toTimeString().slice(0,5);
+  if (rq > 0){
+    const part = _splitUsed(m.used, rq);
+    restoreStockBkt(m.to, m.product, rq, part);
+    _sumStock(m.to, m.product);
+    S.slog.push({ date: today(), time: t, branch: m.to, type: '移動入', product: m.product, qty: rq,
+      remaining: S.stock[m.to][m.product], note: `拠点間移動 ${m.from}→${m.to}：受領` + (lost?`（紛失${lost}本）`:''), user: user });
+  }
+  if (lost > 0){
+    S.slog.push({ date: today(), time: t, branch: m.to, type: '輸送中紛失', product: m.product, qty: lost,
+      remaining: S.stock[m.to][m.product] || 0, note: `拠点間移動 ${m.from}→${m.to}：発送${m.qty}本のうち${lost}本が届かず`, user: user });
+  }
+  m.status='完了'; m.recvQty=rq; m.recvDate=today(); m.recvBy=user; m.lostQty=lost||'';
+  saveState();
+  if (S.gasUrl){ gasPost({ action:'saveMove', id:m.id, date:m.date, from:m.from, to:m.to, product:m.product, qty:m.qty,
+    used:JSON.stringify(m.used), status:m.status, memo:m.memo, sentBy:m.sentBy, recvQty:m.recvQty, recvDate:m.recvDate, recvBy:m.recvBy, lostQty:m.lostQty }); syncStockToGAS(); }
+  toast(`✓ ${m.to} で ${rq}本 を受領しました` + (lost?`（紛失 ${lost}本 を記録）`:''));
+  renderMoves(); if (typeof renderStock === 'function') renderStock();
+}
+
+// 取消：発送そのものを取り消し、移動元へ在庫を戻す（誤発送用）
+async function cancelMove(id){
+  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 取消の権限がありません（社長・閲覧者は不可）','error');
+  if (!(await guardStockWrite())) return;
+  const m = (S.moves||[]).find(function(x){ return x.id===id; });
+  if (!m || m.status!=='輸送中') return;
+  if (!confirm(`${m.product} ${m.qty}本（${m.from}→${m.to}）の発送を取り消します。\n\n・${m.from} の在庫が ${m.qty}本 戻ります\n・誤って発送した時だけ使ってください\n\nよろしいですか？`)) return;
+  const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : '';
+  restoreStockBkt(m.from, m.product, m.qty, m.used);
+  _sumStock(m.from, m.product);
+  S.slog.push({ date: today(), time: new Date().toTimeString().slice(0,5), branch: m.from, type: '移動取消', product: m.product,
+    qty: m.qty, remaining: S.stock[m.from][m.product], note: `拠点間移動 ${m.from}→${m.to}：発送を取消`, user: user });
+  m.status='取消'; m.recvDate=today(); m.recvBy=user;
+  saveState();
+  if (S.gasUrl){ gasPost({ action:'saveMove', id:m.id, date:m.date, from:m.from, to:m.to, product:m.product, qty:m.qty,
+    used:JSON.stringify(m.used), status:m.status, memo:m.memo, sentBy:m.sentBy, recvQty:'', recvDate:m.recvDate, recvBy:m.recvBy, lostQty:'' }); syncStockToGAS(); }
+  toast(`✓ 発送を取り消しました（${m.from} に ${m.qty}本 戻しました）`);
+  renderMoves(); if (typeof renderStock === 'function') renderStock();
+}
+
+// ══ 拠点移動タブ：輸送中一覧＋移動履歴 ══
+async function loadMoves(){
+  if (S.gasUrl){
+    try{ const r = await gasGet('getMoves'); if (r && r.moves){ S.moves = r.moves; saveState(); } }catch(e){}
+  }
+  renderMoves();
+}
+function renderMoves(){
+  const may = (typeof canAdjust==='function') ? canAdjust() : true;
+  // ── 輸送中（受領待ち）──
+  const box = document.getElementById('mv-transit');
+  const tr = movesInTransit().slice().sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+  const cnt = document.getElementById('mv-transit-cnt');
+  if (cnt) cnt.textContent = tr.length ? (tr.length + '件・' + tr.reduce(function(a,m){ return a+(Number(m.qty)||0); },0) + '本') : '';
+  if (box){
+    if (!tr.length){
+      box.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>輸送中の移動はありません</div>';
+    } else {
+      let h = '<table><thead><tr><th>発送日</th><th>移動</th><th>商品</th><th class="col-qty">本数</th><th>経過</th><th>メモ</th><th>操作</th></tr></thead><tbody>';
+      const t0 = new Date(today()).getTime();
+      tr.forEach(function(m){
+        const days = Math.max(0, Math.round((t0 - new Date(m.date).getTime()) / 86400000));
+        const late = days >= 3;
+        h += '<tr><td>' + escapeHtml(m.date||'') + '</td>'
+          + '<td style="white-space:nowrap"><b>' + escapeHtml(m.from||'') + '</b> → <b style="color:var(--gold-l)">' + escapeHtml(m.to||'') + '</b></td>'
+          + '<td>' + escapeHtml(m.product||'') + '</td>'
+          + '<td class="col-qty"><b>' + fmt(m.qty) + '</b></td>'
+          + '<td style="' + (late?'color:#e6a23c;font-weight:700':'color:var(--wh3)') + '">' + days + '日' + (late?' ⚠':'') + '</td>'
+          + '<td style="color:var(--wh3);font-size:.72rem">' + escapeHtml(m.memo||'') + '</td>'
+          + '<td style="white-space:nowrap">'
+          + (may ? '<button class="btn-s" onclick="receiveMove(\'' + m.id + '\')">📥 受領</button> '
+                 + '<button class="btn-s" style="border-color:#e0685f;color:#e0685f" onclick="cancelMove(\'' + m.id + '\')">取消</button>'
+                 : '—')
+          + '</td></tr>';
+      });
+      h += '</tbody></table>';
+      box.innerHTML = h;
+    }
+  }
+  // ── 移動履歴 ──
+  const tb = document.getElementById('mv-tbody'); if (!tb) return;
+  const list = (S.moves||[]).slice().sort(function(a,b){ return String(b.date).localeCompare(String(a.date)) || String(b.sentAt||'').localeCompare(String(a.sentAt||'')); });
+  const c2 = document.getElementById('mv-cnt'); if (c2) c2.textContent = list.length + '件';
+  if (!list.length){ tb.innerHTML = '<tr><td colspan="8"><div class="empty"><div class="empty-icon">🚚</div>移動の記録はまだありません</div></td></tr>'; return; }
+  const badge = { '輸送中':'#4f9dd9', '完了':'#67c23a', '取消':'#909399' };
+  tb.innerHTML = list.slice(0,200).map(function(m){
+    const lost = Number(m.lostQty)||0;
+    return '<tr><td>' + escapeHtml(m.date||'') + '</td>'
+      + '<td style="white-space:nowrap">' + escapeHtml(m.from||'') + ' → ' + escapeHtml(m.to||'') + '</td>'
+      + '<td>' + escapeHtml(m.product||'') + '</td>'
+      + '<td class="col-qty">' + fmt(m.qty) + '</td>'
+      + '<td class="col-qty">' + (m.recvQty===''||m.recvQty==null ? '—' : fmt(m.recvQty)) + (lost ? ' <span style="color:#e6a23c;font-size:.66rem">紛失' + lost + '</span>' : '') + '</td>'
+      + '<td><span style="color:' + (badge[m.status]||'#aaa') + ';font-weight:700">' + escapeHtml(m.status||'') + '</span></td>'
+      + '<td style="color:var(--wh3);font-size:.72rem">' + escapeHtml(m.memo||'') + '</td>'
+      + '<td style="color:var(--wh3);font-size:.72rem">' + escapeHtml(m.sentBy||'') + '</td></tr>';
+  }).join('');
+}
+
 async function saveStockInit(){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
