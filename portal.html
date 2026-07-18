@@ -585,6 +585,16 @@ const PRICE   = Object.fromEntries(PROD_LIST.map(p => [p.key, p.price]));
 // ══ 商品マスター優先の価格（PROD_LIST由来の PRICE は初期値扱い）══
 function _pm(k){ return (S.products && S.products.length) ? S.products.find(function(p){ return p && (p.key||p.name)===k; }) : null; }
 function _price(k){ var p=_pm(k); return (p && p.price!=null) ? Number(p.price) : (PRICE[k] || 0); }
+// 発注点：拠点別（商品マスターの reorders）→ 共通（reorder）→ 固定値（PROD_LIST由来）の順
+function _reorder(k, branch){
+  var p=_pm(k);
+  if (p && branch && p.reorders){
+    var m=p.reorders; if (typeof m==='string'){ try{ m=JSON.parse(m); }catch(e){ m=null; } }
+    if (m && m[branch]!==undefined && m[branch]!=='' && m[branch]!==null) return Number(m[branch])||0;
+  }
+  if (p && p.reorder!=null) return Number(p.reorder)||0;
+  return (REORDER[k] || 0);
+}
 const COST    = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
 const REORDER = Object.fromEntries(PROD_LIST.map(p => [p.key, p.reorder]));
 
@@ -834,7 +844,7 @@ function updateStatus() {
   ((S.products&&S.products.length)?S.products.filter(x=>x&&x.active!==false).map(x=>x.key||x.name):PRODS).forEach(p => {
     ['仙台','京都'].forEach(b => {
       const q = (S.stock[b] || {})[p] || 0;
-      if (q > 0 && q < REORDER[p]) warn++;
+      if (q > 0 && q < _reorder(p, b)) warn++;   // 拠点別の発注点（従来は固定値を直参照していた）
     });
   });
   document.getElementById('stat-stock-warn').textContent = warn;
