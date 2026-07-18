@@ -161,6 +161,8 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
 .reg-alert-banner{display:none;align-items:center;justify-content:center;gap:10px;background:linear-gradient(90deg,rgba(90,200,120,.14),rgba(201,168,76,.14));border:1px solid rgba(120,200,140,.5);color:#bfe8c8;font-size:.8rem;padding:9px 14px;border-radius:10px;margin:0 auto 18px;max-width:680px;cursor:pointer;letter-spacing:.05em}
 .reg-alert-banner:hover{border-color:#96e0a8}
 .reg-alert-banner .dot{width:9px;height:9px;border-radius:50%;background:#4caf72;animation:oa-blink 1.1s infinite}
+.tile-mv-badge{position:absolute;top:10px;left:10px;background:#4f9dd9;color:#fff;font-size:.66rem;font-weight:700;padding:3px 9px;border-radius:99px;border:2px solid #0a0a0c;box-shadow:0 2px 10px rgba(79,157,217,.5);animation:oa-blink 1.4s infinite;z-index:5}
+.tile-mv-badge.late{background:#e6a23c;box-shadow:0 2px 10px rgba(230,162,60,.55)}
 .tile-reg-badge{position:absolute;top:-9px;right:-9px;background:#3a9d5d;color:#fff;font-size:.66rem;font-weight:700;padding:3px 9px;border-radius:99px;border:2px solid #0a0a0c;box-shadow:0 2px 10px rgba(58,157,93,.5);animation:oa-blink 1.1s infinite;z-index:5}
 @keyframes oa-blink{0%,100%{opacity:1}50%{opacity:.45}}
 .app-busy-spin{width:48px;height:48px;border:4px solid rgba(201,168,76,.25);border-top-color:#C9A84C;border-radius:50%;animation:app-busy-rot .8s linear infinite}
@@ -1004,6 +1006,39 @@ updateStatus();
     }
     await checkReg();
     setInterval(checkReg, 60000);
+
+    // ── 🚚 受領待ち（輸送中）バッジ：受発注・在庫システムのタイルに出す ──
+    async function checkMoves(){
+      try{
+        const _tk = (function(){ try{ return sessionStorage.getItem('lmb_token')||''; }catch(e){ return ''; } })();
+        const r = await fetch(gas + '?action=getMoves' + (_tk ? '&token=' + encodeURIComponent(_tk) : ''));
+        const d = await r.json();
+        const tr = (d && d.moves) ? d.moves.filter(x => x.status === '輸送中') : [];
+        renderMv(tr);
+      } catch(e) {}
+    }
+    function renderMv(tr){
+      const tile = document.getElementById('tile-sales');
+      let badge = document.getElementById('mv-badge');
+      const n = tr.length;
+      if (n > 0){
+        const bottles = tr.reduce((a,m) => a + (Number(m.qty)||0), 0);
+        const t0 = new Date().setHours(0,0,0,0);
+        const late = tr.some(m => (t0 - new Date(m.date).getTime()) / 86400000 >= 3);
+        if (tile && !badge){
+          badge = document.createElement('span');
+          badge.id = 'mv-badge';
+          tile.appendChild(badge);
+        }
+        if (badge){
+          badge.className = 'tile-mv-badge' + (late ? ' late' : '');
+          badge.textContent = '🚚 受領待ち ' + n + '件' + (late ? ' ⚠' : '');
+          badge.title = bottles + '本が輸送中です' + (late ? '（3日以上経過あり）' : '');
+        }
+      } else if (badge){ badge.remove(); }
+    }
+    await checkMoves();
+    setInterval(checkMoves, 60000);
   } catch(e) {}
 })();
 </script>

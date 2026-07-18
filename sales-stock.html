@@ -152,6 +152,12 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .stock-table tbody tr.out{background:rgba(231,76,60,.08)}
 .st-pname{color:var(--wh);white-space:nowrap}
 /* 調整権限なし（社長・閲覧者）には在庫調整・初期登録・拠点間移動・貸借残初期登録・協賛手動調整を非表示 */
+.tab-dot{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;margin-left:6px;padding:0 4px;
+  border-radius:99px;background:#4f9dd9;color:#fff;font-size:.62rem;font-weight:700;line-height:1;vertical-align:middle;
+  box-shadow:0 0 0 0 rgba(79,157,217,.7);animation:tabDotPulse 2s infinite}
+@keyframes tabDotPulse{0%{box-shadow:0 0 0 0 rgba(79,157,217,.6)}70%{box-shadow:0 0 0 7px rgba(79,157,217,0)}100%{box-shadow:0 0 0 0 rgba(79,157,217,0)}}
+.tab-dot.late{background:#e6a23c;box-shadow:0 0 0 0 rgba(230,162,60,.7);animation:tabDotPulseLate 1.4s infinite}
+@keyframes tabDotPulseLate{0%{box-shadow:0 0 0 0 rgba(230,162,60,.7)}70%{box-shadow:0 0 0 7px rgba(230,162,60,0)}100%{box-shadow:0 0 0 0 rgba(230,162,60,0)}}
 body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-transfer,body.no-adjust #lend-opening,body.no-adjust #sp-manual-adjust,body.no-adjust .st-adj,body.no-adjust .c-adj{display:none!important}
 .t-mini{display:none}
 @media (max-width:768px){
@@ -494,6 +500,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
     <div class="kpi"><div class="kpi-lbl">今月の注文</div><div class="kpi-val" id="kpi-orders-month">0</div><div class="kpi-sub">件</div></div>
     <div class="kpi"><div class="kpi-lbl">在庫警告</div><div class="kpi-val kv-b" id="kpi-stock-warn">0</div><div class="kpi-sub">品目</div></div>
     <div class="kpi"><div class="kpi-lbl">在庫切れ</div><div class="kpi-val kv-r" id="kpi-stock-out">0</div><div class="kpi-sub">品目</div></div>
+    <div class="kpi" id="kpi-transit-card" style="display:none;cursor:pointer" onclick="switchModule('moves', document.querySelector('.mtab[onclick*=&quot;moves&quot;]'))" title="クリックで拠点移動タブへ"><div class="kpi-lbl">🚚 受領待ち</div><div class="kpi-val" style="color:#4f9dd9" id="kpi-transit">0</div><div class="kpi-sub" id="kpi-transit-sub">件</div></div>
   </div>
 
   <!-- ═══ 親タブ ═══ -->
@@ -503,7 +510,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
     <button class="mtab" onclick="switchModule('stock',this)"><span class="mtab-ic">🍾</span>在庫管理</button>
     <button class="mtab" onclick="switchModule('slog',this)"><span class="mtab-ic">📜</span>在庫履歴</button>
     <button class="mtab" onclick="switchModule('lending',this)"><span class="mtab-ic">🤝</span>貸借管理</button>
-    <button class="mtab" onclick="switchModule('moves',this)"><span class="mtab-ic">🚚</span>拠点移動</button>
+    <button class="mtab" onclick="switchModule('moves',this)"><span class="mtab-ic">🚚</span>拠点移動<span id="mtab-moves-dot" class="tab-dot" style="display:none"></span></button>
     <button class="mtab" onclick="switchModule('purchase',this)"><span class="mtab-ic">🚚</span>仕入管理</button>
     <button class="mtab" onclick="switchModule('inventory',this)"><span class="mtab-ic">📦</span>棚卸計算</button>
     <button class="mtab" onclick="switchModule('sponsor',this)"><span class="mtab-ic">🎁</span>協賛管理</button>
@@ -1219,6 +1226,30 @@ function updateKPI(){
   });
   document.getElementById('kpi-stock-warn').textContent = warn;
   document.getElementById('kpi-stock-out').textContent = out;
+  updateTransitBadge();
+}
+
+// 受領待ち（輸送中）の件数を KPI・タブの印に反映。0件なら何も出さない。
+function updateTransitBadge(){
+  var tr = (typeof movesInTransit==='function') ? movesInTransit() : [];
+  var n = tr.length;
+  var bottles = tr.reduce(function(a,m){ return a+(Number(m.qty)||0); }, 0);
+  // 3日以上たった輸送中があれば警告色にする
+  var t0 = new Date(today()).getTime();
+  var late = tr.some(function(m){ return (t0 - new Date(m.date).getTime()) / 86400000 >= 3; });
+  var card = document.getElementById('kpi-transit-card');
+  if (card){
+    card.style.display = n ? '' : 'none';
+    var v = document.getElementById('kpi-transit'); if (v){ v.textContent = n; v.style.color = late ? '#e6a23c' : '#4f9dd9'; }
+    var sub = document.getElementById('kpi-transit-sub'); if (sub) sub.textContent = '件・' + fmt(bottles) + '本' + (late ? ' ⚠遅延' : '');
+  }
+  var dot = document.getElementById('mtab-moves-dot');
+  if (dot){
+    dot.style.display = n ? '' : 'none';
+    dot.textContent = n ? String(n) : '';
+    dot.className = 'tab-dot' + (late ? ' late' : '');
+    dot.title = n ? (n + '件の受領待ち' + (late ? '（3日以上経過あり）' : '')) : '';
+  }
 }
 
 // ─── GAS同期 ─────
@@ -1267,7 +1298,7 @@ async function syncFromGAS(){
     if (cust && cust.customers) S.customers = cust.customers;
 
     // ── 拠点移動（輸送中の在庫）──
-    try { const mv = await pMv; if (mv && mv.moves) { S.moves = mv.moves; } } catch(e){}
+    try { const mv = await pMv; if (mv && mv.moves) { S.moves = mv.moves; if (typeof updateTransitBadge==='function') updateTransitBadge(); } } catch(e){}
 
     // ── 商品マスター：これが全画面の商品リストの元（在庫・履歴・推移表・棚卸）──
     try {
@@ -4342,6 +4373,7 @@ async function transferStock(){
   document.getElementById('tr-memo').value = '';
   if (typeof renderMoves === 'function') renderMoves();
   if (typeof renderStock === 'function') renderStock();
+  if (typeof updateKPI === 'function') updateKPI();
   return;
 }
 
@@ -4376,7 +4408,7 @@ async function receiveMove(id){
   if (S.gasUrl){ gasPost({ action:'saveMove', id:m.id, date:m.date, from:m.from, to:m.to, product:m.product, qty:m.qty,
     used:JSON.stringify(m.used), status:m.status, memo:m.memo, sentBy:m.sentBy, recvQty:m.recvQty, recvDate:m.recvDate, recvBy:m.recvBy, lostQty:m.lostQty }); syncStockToGAS(); }
   toast(`✓ ${m.to} で ${rq}本 を受領しました` + (lost?`（紛失 ${lost}本 を記録）`:''));
-  renderMoves(); if (typeof renderStock === 'function') renderStock();
+  renderMoves(); if (typeof renderStock === 'function') renderStock(); if (typeof updateKPI === 'function') updateKPI();
 }
 
 // 取消：発送そのものを取り消し、移動元へ在庫を戻す（誤発送用）
@@ -4396,7 +4428,7 @@ async function cancelMove(id){
   if (S.gasUrl){ gasPost({ action:'saveMove', id:m.id, date:m.date, from:m.from, to:m.to, product:m.product, qty:m.qty,
     used:JSON.stringify(m.used), status:m.status, memo:m.memo, sentBy:m.sentBy, recvQty:'', recvDate:m.recvDate, recvBy:m.recvBy, lostQty:'' }); syncStockToGAS(); }
   toast(`✓ 発送を取り消しました（${m.from} に ${m.qty}本 戻しました）`);
-  renderMoves(); if (typeof renderStock === 'function') renderStock();
+  renderMoves(); if (typeof renderStock === 'function') renderStock(); if (typeof updateKPI === 'function') updateKPI();
 }
 
 // ══ 拠点移動タブ：輸送中一覧＋移動履歴 ══
@@ -4404,7 +4436,7 @@ async function loadMoves(){
   if (S.gasUrl){
     try{ const r = await gasGet('getMoves'); if (r && r.moves){ S.moves = r.moves; saveState(); } }catch(e){}
   }
-  renderMoves();
+  renderMoves(); if (typeof updateKPI === 'function') updateKPI();
 }
 function renderMoves(){
   const may = (typeof canAdjust==='function') ? canAdjust() : true;
