@@ -1800,7 +1800,13 @@ function openOrderForEdit(id){
   const pm = document.getElementById('no-pricemode'); if (pm) pm.value = (o.priceMode === '旧値') ? '旧値' : '新値';
   const tx = document.getElementById('no-tax');       if (tx) tx.value = (o.taxType === '税抜') ? '税抜' : '税込';
   const ot = document.getElementById('no-ordtype');   if (ot) ot.value = (o.orderType === 'sponsor') ? 'sponsor' : 'normal';
-  document.getElementById('no-date').value      = o.date     || today();
+  // 注文日は 'YYYY-MM-DD' と 時刻付きISO(2026-07-22T16:11:22.000Z) が混在するため、
+  // date欄が受け付ける 'YYYY-MM-DD' へ正規化してから入れる（正規化しないと空表示になる）
+  document.getElementById('no-date').value = (function(d){
+    if (!d) return today();
+    var m = String(d).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    return m ? (m[1] + '-' + ('0'+m[2]).slice(-2) + '-' + ('0'+m[3]).slice(-2)) : today();
+  })(o.date);
   const pay = document.getElementById('no-pay'); if (pay) pay.value = o.payMethod || '現金';
   const dd = document.getElementById('no-deldate');  if (dd) dd.value = o.deliveryDate || '';
   const bk = document.getElementById('no-bookdate'); if (bk) bk.value = o.bookDate || '';
@@ -4017,7 +4023,7 @@ function exportInventoryCSV(){
 <!-- ═══ 新規注文通知システム（10秒ポーリング + 在庫切れ警告） ═══ -->
 <script>
 // ─── 設定 ─────────────
-const POLL_INTERVAL_MS = 10000; // 10秒ごとにチェック
+const POLL_INTERVAL_MS = 30000; // 30秒ごとにチェック（急ぎの通知はOneSignalプッシュが担当。GAS呼び出し削減）
 let lastSeenOrderId = localStorage.getItem('lmb_lastSeenOrderId') || '';
 let pollTimer = null;
 let pendingOrder = null;
