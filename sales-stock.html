@@ -4198,7 +4198,9 @@ function fillLendSelectors(){
   if(ps){ const keep=ps.value; ps.innerHTML='<option value="">— 貸借先を選択 —</option>'+(S.lendPartners||[]).map(p=>'<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.name)+'</option>').join(''); if(keep) ps.value=keep; }
   const pr=document.getElementById('ln-prod');
   if(pr){ const keep=pr.value; const pl=_prodCols();
-    pr.innerHTML='<option value="">— 商品を選択 —</option>'+pl.map(p=>{const nm=(p&&p.name)?p.name:String(p);return '<option value="'+escapeHtml(String(nm))+'">'+escapeHtml(String(nm))+'</option>';}).join(''); if(keep) pr.value=keep; }
+    pr.innerHTML='<option value="">— 商品を選択 —</option>'+pl.map(p=>{const nm=(p&&p.name)?p.name:String(p);return '<option value="'+escapeHtml(String(nm))+'">'+escapeHtml(String(nm))+'</option>';}).join(''); if(keep) pr.value=keep;
+    if(!pr.value){ for(var _j=0;_j<pr.options.length;_j++){ if(/イエロー/.test(pr.options[_j].text)){ pr.selectedIndex=_j; break; } } }  // 初期選択=イエロー（貸出/借入 共通）
+  }
   const _ld=document.getElementById('ln-date'); if(_ld && !_ld.value) _ld.value=today();
 }
 
