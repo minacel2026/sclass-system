@@ -1841,6 +1841,10 @@ function openOrderForEdit(id){
   const tab = document.querySelector('.mtab[onclick*="neworder"]');
   switchModule('neworder', tab);
 
+  // 取引種別を「注文」に戻す（前回 仕入/貸出/移動 を選んでいるとその画面のままで編集できないため）
+  const _ek = document.getElementById('entry-kind');
+  if (_ek){ _ek.value = 'order'; if (typeof switchEntryKind === 'function') switchEntryKind('order'); }
+
   // フォームに注文内容を反映
   editingOrderId = id;
   currentOrderCust = (S.customers || []).find(x => x.name === o.store) || null;
@@ -2014,11 +2018,13 @@ function applyStoreInfo(){
     updateOrderTotal();
     updateSponsorHint(c);
     updateSponsorShipSection(c);
+    renderNewOrderProds();   // 協賛列の表示/非表示を切り替えるため再描画
   } else {
     // 顧客未選択：配達先プルダウンを初期状態にリセット
     rebuildDeliveryOptions(null);
     updateSponsorHint(null);
     updateSponsorShipSection(null);
+    renderNewOrderProds();   // 協賛列を消すため再描画
   }
 }
 
@@ -2940,13 +2946,13 @@ function renderNewOrderProds(){
           <button class="qty-btn" onclick="changeOrderQty('${p.key}',1)">＋</button>
         </div>
       </td>
-      <td>
+      ${_spColOn() ? `<td>
         <div class="pr-qty-cell">
           <button class="qty-btn sp" onclick="changeSponsorQty('${p.key}',-1)">−</button>
           <input class="pr-qty-val sp" id="sq-${p.key}" type="number" inputmode="numeric" min="0" step="1" value="${_spQtyOf(p.key)}" onfocus="this.select()" oninput="setSponsorQty('${p.key}', this.value)" onblur="normalizeSponsorQty('${p.key}')">
           <button class="qty-btn sp" onclick="changeSponsorQty('${p.key}',1)">＋</button>
         </div>
-      </td>
+      </td>` : ''}
       <td class="pr-sub" id="sub-${p.key}">${qty>0?'¥'+fmt(line.subExcl):'—'}</td>
     </tr>`;
   }).join('');
@@ -2958,7 +2964,7 @@ function renderNewOrderProds(){
           <th class="col-num">売値（税抜・掛率反映）</th>
           <th class="col-num">在庫（${branch}）</th>
           <th style="text-align:center">数量（販売）</th>
-          <th style="text-align:center;color:#c39bd3">数量（協賛・無料）<div id="sp-col-note" style="font-size:.62rem;font-weight:400;color:#c39bd3;margin-top:.15rem"></div></th>
+          ${_spColOn() ? '<th style="text-align:center;color:#c39bd3">数量（協賛・無料）<div id="sp-col-note" style="font-size:.62rem;font-weight:400;color:#c39bd3;margin-top:.15rem"></div></th>' : ''}
           <th class="col-num">小計（税抜）</th>
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -2976,6 +2982,11 @@ function changeOrderQty(key, delta){
 }
 
 // ── 協賛列（無料出荷）── 既存の sponsorShipDraft を読み書きするので、保存・在庫・残数の処理は変更不要
+// 協賛列を表示するか（協賛対象として登録された顧客を選んでいるときだけ出す）
+function _spColOn(){
+  var c = currentOrderCust;
+  return !!(c && c.sponsorEnabled);
+}
 function _spQtyOf(key){
   var it = (sponsorShipDraft || []).find(function(x){ return x.product === key; });
   return it ? (it.qty || 0) : 0;
