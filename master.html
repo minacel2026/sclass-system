@@ -1686,7 +1686,7 @@ function switchCustTab(name, el){
   document.querySelectorAll('#m-customers .tcon').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'list') renderCustList();
+  if (name === 'list') { var _k=_custKeepOnce; _custKeepOnce=false; renderCustList(_k); }
   if (name === 'uid')  loadCustPendingUids();
 }
 
@@ -1695,6 +1695,7 @@ let custKanaFilter = 'あ';
 let custShown = 50;  // 一覧の表示件数（もっと見るで+50）
 function custShowMore(){ custShown += 50; renderCustList(true); }
 // 削除など一覧を作り直す操作で、表示件数(もっと見る)とスクロール位置を保つ
+var _custKeepOnce = false;   // 削除直後の再描画で表示件数を50に戻さないための一時フラグ
 function renderCustListKeep(){
   const y = window.scrollY || window.pageYOffset || 0;
   renderCustList(true);                 // true = 表示件数を50件に戻さない
@@ -2475,6 +2476,7 @@ function deleteCust(){
   S.customers = (S.customers || []).filter(c => c.id !== custEditingId);
   saveState();
   toast('✓ 削除しました');
+  _custKeepOnce = true;   // 一覧へ戻る際、表示件数(もっと見る)を維持する
   clearCustForm();
   switchCustTab('list', document.querySelectorAll('#m-customers .tab')[0]);
 }
