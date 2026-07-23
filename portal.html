@@ -118,7 +118,7 @@ main{max-width:1200px;margin:0 auto;padding:3rem 2rem}
 .tile:hover::before{opacity:1}
 .tile-icon{font-size:1.8rem;margin-bottom:.45rem;line-height:1}
 .tile-icon svg{width:22px;height:22px;stroke:var(--gold-l);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:block}
-.tile-name{font-size:.95rem;font-weight:700;color:var(--gold-l);margin-bottom:.3rem;letter-spacing:.05em}
+.tile-name{font-size:.95rem;font-weight:700;color:var(--gold-l);margin-bottom:.3rem;letter-spacing:.05em;padding-right:96px}
 .tile-desc{font-size:.72rem;color:var(--wh2);line-height:1.6;flex:1;display:none}
 .tile-chip{flex:0 0 auto;box-sizing:border-box;text-align:center;font-size:.6rem;padding:.24rem 1ch;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.22);color:#cfc8b6;border-radius:2px;cursor:pointer;letter-spacing:.03em;transition:all .15s;white-space:nowrap}
 .tile-chip:hover{background:rgba(201,168,76,.25);color:var(--gold-l);border-color:rgba(201,168,76,.5)}
@@ -151,19 +151,21 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
 .order-alert-banner{display:none;align-items:center;justify-content:center;gap:10px;background:linear-gradient(90deg,rgba(255,80,80,.14),rgba(201,168,76,.14));border:1px solid rgba(255,99,99,.45);color:#ffb3ad;font-size:.8rem;padding:9px 14px;border-radius:10px;margin:0 auto 18px;max-width:680px;cursor:pointer;letter-spacing:.05em}
 .order-alert-banner:hover{border-color:#ff8a80}
 .order-alert-banner .dot{width:9px;height:9px;border-radius:50%;background:#ff5252;animation:oa-blink 1.1s infinite}
-.tile-order-badge{position:absolute;top:-9px;right:-9px;background:#d32f2f;color:#fff;font-size:.66rem;font-weight:700;padding:3px 9px;border-radius:99px;border:2px solid #0a0a0c;box-shadow:0 2px 10px rgba(211,47,47,.5);animation:oa-blink 1.1s infinite;z-index:5}
+.tile-badges{position:absolute;top:8px;right:8px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;z-index:5;max-width:calc(100% - 16px)}
+.tile-badges > span{font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:99px;color:#fff;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.tile-order-badge{background:#d32f2f;animation:oa-blink 1.1s infinite}
 /* ─── 未登録ユーザー連絡アラート ─── */
 .pending-alert-banner{display:none;align-items:center;justify-content:center;gap:10px;background:linear-gradient(90deg,rgba(80,160,255,.14),rgba(201,168,76,.12));border:1px solid rgba(99,160,255,.45);color:#bcd6ff;font-size:.8rem;padding:9px 14px;border-radius:10px;margin:0 auto 18px;max-width:680px;cursor:pointer;letter-spacing:.05em}
 .pending-alert-banner:hover{border-color:#8ab4ff}
 .pending-alert-banner .dot{width:9px;height:9px;border-radius:50%;background:#4a90e2;animation:oa-blink 1.1s infinite}
-.tile-pending-badge{position:absolute;top:-9px;left:-9px;background:#2e6fd3;color:#fff;font-size:.66rem;font-weight:700;padding:3px 9px;border-radius:99px;border:2px solid #0a0a0c;box-shadow:0 2px 10px rgba(46,111,211,.5);animation:oa-blink 1.1s infinite;z-index:5}
+.tile-pending-badge{background:#2e6fd3;animation:oa-blink 1.1s infinite}
 /* ─── 登録申請アラート ─── */
 .reg-alert-banner{display:none;align-items:center;justify-content:center;gap:10px;background:linear-gradient(90deg,rgba(90,200,120,.14),rgba(201,168,76,.14));border:1px solid rgba(120,200,140,.5);color:#bfe8c8;font-size:.8rem;padding:9px 14px;border-radius:10px;margin:0 auto 18px;max-width:680px;cursor:pointer;letter-spacing:.05em}
 .reg-alert-banner:hover{border-color:#96e0a8}
 .reg-alert-banner .dot{width:9px;height:9px;border-radius:50%;background:#4caf72;animation:oa-blink 1.1s infinite}
-.tile-mv-badge{position:absolute;top:10px;left:10px;background:#4f9dd9;color:#fff;font-size:.66rem;font-weight:700;padding:3px 9px;border-radius:99px;border:2px solid #0a0a0c;box-shadow:0 2px 10px rgba(79,157,217,.5);animation:oa-blink 1.4s infinite;z-index:5}
-.tile-mv-badge.late{background:#e6a23c;box-shadow:0 2px 10px rgba(230,162,60,.55)}
-.tile-reg-badge{position:absolute;top:-9px;right:-9px;background:#3a9d5d;color:#fff;font-size:.66rem;font-weight:700;padding:3px 9px;border-radius:99px;border:2px solid #0a0a0c;box-shadow:0 2px 10px rgba(58,157,93,.5);animation:oa-blink 1.1s infinite;z-index:5}
+.tile-mv-badge{background:#4f9dd9;animation:oa-blink 1.4s infinite}
+.tile-mv-badge.late{background:#e6a23c}
+.tile-reg-badge{background:#3a9d5d;animation:oa-blink 1.1s infinite}
 @keyframes oa-blink{0%,100%{opacity:1}50%{opacity:.45}}
 .app-busy-spin{width:48px;height:48px;border:4px solid rgba(201,168,76,.25);border-top-color:#C9A84C;border-radius:50%;animation:app-busy-rot .8s linear infinite}
 @keyframes app-busy-rot{to{transform:rotate(360deg)}}
@@ -873,6 +875,18 @@ updateStatus();
 
 
 <script>
+// タイル右上のバッジ帯（無ければ作る）。ここに入れると自動で横並びになり重ならない
+function _tileBadgeBox(tile){
+  if (!tile) return null;
+  var box = tile.querySelector('.tile-badges');
+  if (!box){
+    box = document.createElement('div');
+    box.className = 'tile-badges';
+    tile.appendChild(box);
+  }
+  return box;
+}
+
 // ─── 新規注文アラート（未処理＝新規受付の件数を表示。処理するまで消えない） ───
 (async function(){
   try {
@@ -898,7 +912,7 @@ updateStatus();
           badge = document.createElement('span');
           badge.id = 'order-badge';
           badge.className = 'tile-order-badge';
-          tile.appendChild(badge);
+          var _b1=_tileBadgeBox(tile); if(_b1) _b1.appendChild(badge);
         }
         if (badge) badge.textContent = '🔔 新規 ' + n + '件';
         if (!banner){
@@ -949,7 +963,7 @@ updateStatus();
           badge = document.createElement('span');
           badge.id = 'pending-badge';
           badge.className = 'tile-pending-badge';
-          tile.appendChild(badge);
+          var _b2=_tileBadgeBox(tile); if(_b2) _b2.appendChild(badge);
         }
         if (badge) badge.textContent = '🔔 未登録 ' + n + '件';
         if (!banner){
@@ -995,7 +1009,7 @@ updateStatus();
           badge = document.createElement('span');
           badge.id = 'reg-badge';
           badge.className = 'tile-reg-badge';
-          tile.appendChild(badge);
+          var _b3=_tileBadgeBox(tile); if(_b3) _b3.appendChild(badge);
         }
         if (badge) badge.textContent = '📝 申請 ' + n + '件';
         if (!banner){
@@ -1038,7 +1052,7 @@ updateStatus();
         if (tile && !badge){
           badge = document.createElement('span');
           badge.id = 'mv-badge';
-          tile.appendChild(badge);
+          var _b4=_tileBadgeBox(tile); if(_b4) _b4.appendChild(badge);
         }
         if (badge){
           badge.className = 'tile-mv-badge' + (late ? ' late' : '');
