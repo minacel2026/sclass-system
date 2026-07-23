@@ -477,6 +477,9 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     <button class="mtab" onclick="switchMaster('registrations',this)">
       <span class="mtab-ic">📝</span>登録申請<span id="mtab-registrations-dot" class="tab-dot" style="display:none"></span>
     </button>
+    <button class="mtab" onclick="switchMaster('staffapps',this)">
+      <span class="mtab-ic">🧑‍💼</span>スタッフ申請<span id="mtab-staffapps-dot" class="tab-dot" style="display:none"></span>
+    </button>
     <button class="mtab" onclick="switchMaster('products',this)">
       <span class="mtab-ic">🍾</span>商品マスター
     </button>
@@ -1004,6 +1007,24 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
   </div>
 
   <!-- ════════ 登録申請 ════════ -->
+  <div id="m-staffapps" class="mcon">
+    <div class="hint-box" style="margin-bottom:.8rem">
+      <strong>🧑‍💼 スタッフ申請</strong><br>
+      スタッフ本人が登録フォームから送った申請の一覧です。「承認してスタッフ登録へ」を押すと、申請内容が入ったスタッフ登録画面が開きます。<b>権限（役割）と拠点は、ここで管理者が決めて</b>保存してください。申請者は権限を選べません。
+    </div>
+    <div class="tbar" style="justify-content:flex-end">
+      <button class="btn btn-g" onclick="renderStaffApps()">↻ 更新</button>
+    </div>
+    <div class="cust-table-wrap">
+      <table class="cust-table" style="min-width:820px" id="sapp-table">
+        <thead>
+          <tr><th>申請日時</th><th>状態</th><th>氏名</th><th>メール</th><th>電話</th><th>希望拠点</th><th>LINE</th><th>備考</th><th style="text-align:center">操作</th></tr>
+        </thead>
+        <tbody id="sapp-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <div id="m-registrations" class="mcon">
     <div class="hint-box" style="margin-bottom:.8rem">
       <strong>📝 登録申請</strong><br>
@@ -1601,6 +1622,7 @@ function switchMaster(name, el){
   if (name === 'staff')     renderStaffList();
   if (name === 'uid')       loadCustPendingUids();
   if (name === 'registrations') renderRegistrations();
+  if (name === 'staffapps') renderStaffApps();
   if (name === 'company')   loadCompany();
   if (name === 'products')  renderProducts();
   if (name === 'referrers') renderReferrerList();
@@ -1954,6 +1976,79 @@ function lookupZipNow(opts){
 }
 
 // ─── 登録申請 一覧 ───────────────────────────────
+// ══ スタッフ申請（本人が申請 → 管理者が権限を決めて承認）══
+let _staffApps = [];
+async function renderStaffApps(){
+  const tb = document.getElementById('sapp-tbody');
+  if (!tb) return;
+  tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:1.2rem;color:var(--wh3)">読み込み中…</td></tr>';
+  try{
+    const d = await gasGet('getStaffApps');
+    _staffApps = (d && d.apps) ? d.apps : [];
+  }catch(e){ _staffApps = []; }
+  if (!_staffApps.length){
+    tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:1.2rem;color:var(--wh3)">申請はありません</td></tr>';
+    _updStaffAppDot(0); return;
+  }
+  tb.innerHTML = _staffApps.map(function(a){
+    const pend = (a.status === '申請中');
+    const badge = pend
+      ? '<span style="color:var(--gold-l);font-weight:700">申請中</span>'
+      : '<span style="color:var(--wh3)">' + escapeHtml(a.status) + '</span>';
+    const ops = pend
+      ? '<button class="ct-btn" onclick="approveStaffApp(' + a.rowNum + ')">承認してスタッフ登録へ</button>'
+        + ' <button class="ct-btn del" onclick="rejectStaffApp(' + a.rowNum + ')">却下</button>'
+      : '—';
+    return '<tr>'
+      + '<td style="font-size:.72rem;color:var(--wh2)">' + escapeHtml(a.at) + '</td>'
+      + '<td>' + badge + '</td>'
+      + '<td><strong>' + escapeHtml(a.name) + '</strong></td>'
+      + '<td style="font-size:.74rem">' + escapeHtml(a.email || '—') + '</td>'
+      + '<td style="font-size:.74rem">' + escapeHtml(a.tel || '—') + '</td>'
+      + '<td>' + escapeHtml(a.branch || '—') + '</td>'
+      + '<td style="font-size:.72rem;color:var(--wh2)">' + escapeHtml(a.lineName || (a.uid ? '連携済' : '—')) + '</td>'
+      + '<td style="font-size:.72rem;color:var(--wh2)">' + escapeHtml(a.note || '') + '</td>'
+      + '<td style="text-align:center;white-space:nowrap">' + ops + '</td>'
+      + '</tr>';
+  }).join('');
+  _updStaffAppDot(_staffApps.filter(function(a){ return a.status === '申請中'; }).length);
+}
+function _updStaffAppDot(n){
+  const dot = document.getElementById('mtab-staffapps-dot');
+  if (!dot) return;
+  if (!n){ dot.style.display = 'none'; return; }
+  dot.style.display = 'inline-flex';
+  dot.textContent = n > 99 ? '99+' : String(n);
+  dot.title = n + '件の承認待ち';
+}
+// 承認：申請内容をスタッフ登録フォームに入れて開く（権限は管理者が選ぶ）
+function approveStaffApp(rowNum){
+  const a = _staffApps.find(function(x){ return x.rowNum === rowNum; });
+  if (!a) return toast('申請が見つかりません', 'error');
+  window._approvingStaffRow = rowNum;
+  switchMaster('staff', document.querySelector('.mtab[onclick*="\'staff\'"]'));
+  setTimeout(function(){
+    if (typeof newStaffForm === 'function'){ try { newStaffForm(); } catch(e){} }
+    else { switchStaffTab('new', document.querySelectorAll('#m-staff .tab')[1]); }
+    setTimeout(function(){
+      const g = function(id){ return document.getElementById(id); };
+      if (g('sf-name'))   g('sf-name').value   = a.name || '';
+      if (g('sf-email'))  g('sf-email').value  = a.email || '';
+      if (g('sf-tel'))    g('sf-tel').value    = a.tel || '';
+      if (g('sf-branch') && a.branch) g('sf-branch').value = a.branch;
+      if (g('sf-uid'))    g('sf-uid').value    = a.uid || '';
+      if (g('sf-note'))   g('sf-note').value   = a.note || '';
+      toast('申請内容を読み込みました。権限（役割）を選んで保存してください');
+    }, 80);
+  }, 60);
+}
+async function rejectStaffApp(rowNum){
+  if (!confirm('この申請を却下しますか？')) return;
+  try { await gasPost({ action:'updateStaffAppStatus', rowNum: rowNum, status:'却下' }); } catch(e){}
+  toast('却下しました');
+  renderStaffApps();
+}
+
 async function renderRegistrations(){
   const tb = document.getElementById('reg-tbody');
   if (!tb) return;
@@ -3415,6 +3510,12 @@ function submitStaffForm(){
   }
   saveState();
   if (S.gasUrl) gasPost({ action: 'saveStaff', ...data });
+  // スタッフ申請から承認して登録した場合は、その申請を「承認済み」にする
+  if (window._approvingStaffRow){
+    const _r = window._approvingStaffRow; window._approvingStaffRow = null;
+    try { gasPost({ action:'updateStaffAppStatus', rowNum: _r, status:'承認済み' }); } catch(e){}
+    if (typeof renderStaffApps === 'function') setTimeout(renderStaffApps, 400);
+  }
   toast(staffEditingId ? '✓ 更新しました' : '✓ 登録しました');
   clearStaffForm();
   switchStaffTab('list', document.querySelectorAll('#m-staff .tab')[0]);

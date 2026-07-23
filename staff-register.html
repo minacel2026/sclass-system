@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>スタッフ登録申請 | Sclass</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root{ --gold:#C9A84C; --gold-l:#E4C97A; --gold-d:#8f7a3a; --bg:#0b0b0d; --card:#15151a; --wh:#efece3; --wh2:#b7b1a2; --wh3:#7d7869; --red:#e0685f; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--wh); font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif; -webkit-print-color-adjust:exact; }
+  .wrap{ max-width:520px; margin:0 auto; padding:1.1rem 1rem 3rem; }
+  .head{ text-align:center; padding:1.2rem 0 .6rem; }
+  .head .logo{ font-size:1.35rem; letter-spacing:.14em; color:var(--gold); font-weight:700; }
+  .head .sub{ font-size:.72rem; color:var(--wh2); margin-top:.3rem; letter-spacing:.05em; }
+  .lead{ background:var(--card); border:1px solid rgba(201,168,76,.25); border-radius:10px; padding:.8rem .9rem; font-size:.78rem; color:var(--wh2); line-height:1.7; margin:.4rem 0 1.1rem; }
+  .fg{ margin-bottom:.9rem; }
+  label{ display:block; font-size:.74rem; color:var(--gold-l); margin-bottom:.3rem; letter-spacing:.03em; }
+  label .req{ color:var(--red); margin-left:.2rem; }
+  .fc{ width:100%; background:#101014; color:var(--wh); border:1px solid #34343d; border-radius:8px; padding:.7rem .75rem; font-size:1rem; font-family:inherit; }
+  .fc:focus{ outline:none; border-color:var(--gold); }
+  .submit{ width:100%; background:linear-gradient(135deg,var(--gold),var(--gold-d)); color:#161006; border:none; border-radius:10px; padding:1rem; font-size:1.02rem; font-weight:700; letter-spacing:.05em; margin-top:.6rem; cursor:pointer; font-family:inherit; }
+  .submit:disabled{ opacity:.5; }
+  .note{ font-size:.68rem; color:var(--wh3); margin-top:.8rem; line-height:1.6; text-align:center; }
+  .done{ text-align:center; padding:2.5rem 1rem; }
+  .done .ic{ font-size:2.6rem; }
+  .done h2{ color:var(--gold-l); margin:.8rem 0 .5rem; font-size:1.1rem; }
+  .done p{ color:var(--wh2); font-size:.84rem; line-height:1.8; }
+  .hidden{ display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="logo">Sclass</div>
+    <div class="sub">スタッフ 登録申請</div>
+  </div>
+
+  <div id="form-area">
+    <div class="lead">
+      スタッフ登録の申請フォームです。下記をご入力のうえ送信してください。<br>
+      内容を管理者が確認し、権限を設定のうえご利用開始のご案内をいたします。
+    </div>
+
+    <div class="fg">
+      <label>氏名<span class="req">*</span></label>
+      <input class="fc" id="s-name" placeholder="例：山田 太郎" autocomplete="name">
+    </div>
+
+    <div class="fg">
+      <label>メールアドレス</label>
+      <input class="fc" id="s-email" type="email" placeholder="例：yamada@sclass.jp" autocomplete="email">
+      <div style="font-size:.68rem;color:var(--wh3);margin-top:.25rem">※PCからログインする場合に使います</div>
+    </div>
+
+    <div class="fg">
+      <label>電話番号</label>
+      <input class="fc" id="s-tel" type="tel" inputmode="tel" placeholder="例：090-1234-5678">
+    </div>
+
+    <div class="fg">
+      <label>希望拠点</label>
+      <select class="fc" id="s-branch">
+        <option value="">— 選択してください —</option>
+        <option>仙台</option>
+        <option>京都</option>
+        <option>両拠点</option>
+      </select>
+    </div>
+
+    <div class="fg">
+      <label>備考（任意）</label>
+      <input class="fc" id="s-note" placeholder="例：4月入社・営業担当">
+    </div>
+
+    <button class="submit" id="s-submit" onclick="submitApp()">この内容で申請する</button>
+    <div class="note" id="s-mode-note"></div>
+    <div class="note">※権限（管理者・スタッフ等）は管理者が設定します。このフォームでは選べません。</div>
+  </div>
+
+  <div id="done-area" class="hidden">
+    <div class="done">
+      <div class="ic">✅</div>
+      <h2>申請を受け付けました</h2>
+      <p>ご申請ありがとうございます。<br>管理者が内容を確認のうえ、権限を設定します。<br>ご利用開始まで今しばらくお待ちください。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
+// スタッフ登録申請用のLIFF ID（LINE Developersで発行して貼り付け。空ならブラウザからも申請可・UIDは付きません）
+const LIFF_ID = '';
+let lineProfile = null;
+
+async function submitApp(){
+  const name = document.getElementById('s-name').value.trim();
+  if (!name){ alert('氏名を入力してください'); return; }
+
+  const btn = document.getElementById('s-submit');
+  btn.disabled = true; btn.textContent = '送信中…';
+
+  const data = {
+    action: 'submitStaffApp',
+    name: name,
+    email: document.getElementById('s-email').value.trim(),
+    tel: document.getElementById('s-tel').value.trim(),
+    branch: document.getElementById('s-branch').value,
+    note: document.getElementById('s-note').value.trim(),
+    uid: (lineProfile && lineProfile.userId) || '',
+    lineName: (lineProfile && lineProfile.displayName) || ''
+  };
+
+  try{
+    await fetch(GAS_URL, { method:'POST', mode:'no-cors', body: JSON.stringify(data) });
+    document.getElementById('form-area').classList.add('hidden');
+    document.getElementById('done-area').classList.remove('hidden');
+    window.scrollTo(0,0);
+  } catch(e){
+    alert('送信に失敗しました。通信環境をご確認のうえ、もう一度お試しください。');
+    btn.disabled = false; btn.textContent = 'この内容で申請する';
+  }
+}
+
+async function init(){
+  const note = document.getElementById('s-mode-note');
+  try{
+    if (!LIFF_ID) throw new Error('no liff');
+    await liff.init({ liffId: LIFF_ID });
+    if (liff.isLoggedIn()){
+      lineProfile = await liff.getProfile();
+      note.textContent = 'LINEアカウントと紐づけて申請します（承認後そのままログインできます）';
+    } else {
+      note.textContent = '';
+    }
+  } catch(e){
+    // ブラウザから開いた場合も申請できる（LINE UIDは付かないため、承認後に管理者が紐づけ）
+    note.textContent = '';
+  }
+}
+init();
+</script>
+</body>
+</html>
