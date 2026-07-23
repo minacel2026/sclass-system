@@ -688,7 +688,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg" style="flex:0 1 80px"><label>拠点</label><select class="fc" id="pu-branch"><option>仙台</option><option>京都</option></select></div>
         <div class="fg" style="flex:1 1 130px"><label>商品 <span class="req">*</span></label><select class="fc" id="pu-product" onchange="updatePuCost()"></select></div>
         <div class="fg" style="flex:0 1 70px"><label>本数 <span class="req">*</span></label><input class="fc" id="pu-qty" type="number" min="1" step="1"></div>
-        <div class="fg" style="flex:0 1 90px"><label>仕入値の種類</label><select class="fc" id="pu-costtier" onchange="updatePuCost()"><option value="new">新値</option><option value="old">旧値</option></select></div>
+        <div class="fg" style="flex:0 1 90px"><label>仕入値の種類</label><select class="fc" id="pu-costtier" onchange="updatePuCost()"><option value="new">新値</option><option value="old">旧値</option><option value="sp">協賛（無償）</option></select></div>
         <div class="fg" style="flex:0 1 90px"><label>仕入単価</label><input class="fc" id="pu-cost" type="number" min="0" step="100" title="商品マスターの原価が自動入力されます（手動変更も可）"></div>
         <div class="fg" style="flex:1 1 110px"><label>備考</label><input class="fc" id="pu-note"></div>
         <div class="fg" style="flex:0 1 auto"><button class="btn btn-g" onclick="addPurchaseItem()">＋ 明細に追加</button></div>
@@ -4009,9 +4009,21 @@ function updatePuCost(){
   const list = _prodCols();
   const p = list.find(x => x.name === prodName || x.key === prodName);
   if (!p) return;
-  const cost = (tier === 'old') ? (p.costOld != null ? p.costOld : p.cost) : p.cost;
   const inp = document.getElementById('pu-cost');
-  if (inp) inp.value = cost || 0;
+  if (!inp) return;
+  if (tier === 'sp'){
+    // 協賛仕入は無償。単価は0で固定（手入力もさせない）
+    inp.value = 0;
+    inp.readOnly = true;
+    inp.style.opacity = '.6';
+    inp.title = '協賛仕入は無償のため0円で固定です';
+  } else {
+    const cost = (tier === 'old') ? (p.costOld != null ? p.costOld : p.cost) : p.cost;
+    inp.value = cost || 0;
+    inp.readOnly = false;
+    inp.style.opacity = '';
+    inp.title = '商品マスターの原価が自動入力されます（手動変更も可）';
+  }
 }
 
 function addPurchaseItem(){
@@ -4019,7 +4031,8 @@ function addPurchaseItem(){
   const qty  = parseInt(document.getElementById('pu-qty').value) || 0;
   const cost = parseInt(document.getElementById('pu-cost').value) || 0;
   if (!product || qty <= 0) return toast('商品と本数を入力してください', 'error');
-  purchaseDraft.push({ product, qty, cost });
+  const tier = (document.getElementById('pu-costtier') || {}).value || 'new';
+  purchaseDraft.push({ product, qty, cost: (tier === 'sp' ? 0 : cost), tier: tier });
   document.getElementById('pu-qty').value = '';
   renderPurchaseDraft();
   toast(`明細に追加：${product} ${qty}本`);
@@ -4076,20 +4089,23 @@ function submitPurchase(){
 
   let totalQty = 0;
   purchaseDraft.forEach(it => {
+    const _isSp = (it.tier === 'sp');            // 協賛仕入（無償）
     const purchase = {
       id: 'pu-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
-      date, supplier, branch, product: it.product, qty: it.qty, cost: it.cost, note,
+      date, supplier, branch, product: it.product, qty: it.qty, cost: (_isSp ? 0 : it.cost), note,
+      tier: it.tier || 'new',
       createdBy: currentUser.name,
       createdAt: new Date().toISOString(),
     };
     S.purchases.push(purchase);
-    // 在庫加算（仕入は新値バケツへ） + ログ
-    restoreStockBkt(branch, it.product, it.qty);
+    // 在庫加算：通常は新値バケツ、協賛仕入は協賛バケツへ（棚卸の評価額は0のまま保たれる）
+    if (_isSp) restoreStockBkt(branch, it.product, it.qty, { old:0, sp:it.qty, new:0 });
+    else       restoreStockBkt(branch, it.product, it.qty);
     S.slog.push({
       date, time: new Date().toTimeString().slice(0,5),
-      branch, type: '入庫', product: it.product, qty: it.qty,
+      branch, type: _isSp ? '協賛入庫' : '入庫', product: it.product, qty: it.qty,
       remaining: S.stock[branch][it.product],
-      note: `仕入: ${supplier}`,
+      note: _isSp ? `協賛仕入: ${supplier}（無償）` : `仕入: ${supplier}`,
       user: currentUser.name,
     });
     totalQty += it.qty;
