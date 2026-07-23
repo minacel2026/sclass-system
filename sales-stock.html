@@ -601,6 +601,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
           <option value="lend">貸出</option>
           <option value="borrow">借入</option>
           <option value="move">拠点間移動</option>
+          <option value="return">返却（貸借の返却）</option>
         </select>
       </div>
     </div>
@@ -724,6 +725,19 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       </div>
       <div id="ln-draft" style="margin-top:.5rem"></div>
       <div class="faction" style="margin-top:.4rem"><button class="btn btn-p" onclick="recordLending()">✓ まとめて記録</button></div>
+    </div>
+    </div>
+    <div id="entry-return" style="display:none">
+    <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
+      <div class="th-area"><h3>↩️ 貸借の返却を記録</h3><span style="font-size:.68rem;color:var(--wh3)">貸出の返却＝在庫が戻る／借入の返却＝在庫が減る</span></div>
+      <div class="hint-box" style="margin:.2rem 0 .5rem">未返却の貸借から選んで、返ってきた本数を入力します。一部だけの返却もできます（残りは未返却のまま残ります）。</div>
+      <div class="frow">
+        <div class="fg" style="flex:2;min-width:260px"><label>返却する貸借 <span class="req">*</span></label><select class="fc" id="rt-target" style="height:38px;box-sizing:border-box" onchange="onReturnTargetChange()"><option value="">— 未返却の貸借を選択 —</option></select></div>
+        <div class="fg"><label>返却本数 <span class="req">*</span></label><input class="fc" id="rt-qty" type="number" min="1" step="1" style="height:38px;box-sizing:border-box" placeholder="例：5"></div>
+        <div class="fg"><label>返却日</label><input class="fc" id="rt-date" type="date" style="height:38px;box-sizing:border-box"></div>
+      </div>
+      <div id="rt-info" style="font-size:.78rem;color:var(--wh2);margin:.4rem 0"></div>
+      <div class="faction" style="margin-top:.4rem"><button class="btn btn-p" onclick="submitReturn()">✓ 返却を記録する</button></div>
     </div>
     </div>
     <div id="entry-transfer" style="display:none">
@@ -4677,6 +4691,67 @@ function renderLendOpeningForm(){
 function _lendOutstanding(rec){ return Math.max(0, (Number(rec.qty)||0) - (Number(rec.returnedQty)||0)); }
 
 // 返却：取引まるごとではなく「何本返ってきたか」を記録する（分割返却が普通のため）
+// ══ 返却（注文登録タブから記録する）══
+//   既存の returnLending（貸借管理タブの返却ボタン）と同じ処理を、フォームから行えるようにしたもの
+function fillReturnTargets(){
+  var sel = document.getElementById('rt-target');
+  if (!sel) return;
+  var keep = sel.value;
+  var list = (S.lendings || []).filter(function(l){
+    return String(l.status||'') !== '返却済' && _lendOutstanding(l) > 0;
+  });
+  sel.innerHTML = '<option value="">— 未返却の貸借を選択 —</option>' + list.map(function(l){
+    var rest = _lendOutstanding(l);
+    return '<option value="' + escapeHtml(l.id) + '">'
+      + escapeHtml(l.kind + '｜' + (l.partnerName||'') + '｜' + l.product + '｜残り' + rest + '本（' + l.branch + '）')
+      + '</option>';
+  }).join('');
+  if (keep) sel.value = keep;
+  var d = document.getElementById('rt-date');
+  if (d && !d.value) d.value = today();
+  onReturnTargetChange();
+}
+function onReturnTargetChange(){
+  var id = (document.getElementById('rt-target')||{}).value;
+  var box = document.getElementById('rt-info');
+  var qty = document.getElementById('rt-qty');
+  if (!box) return;
+  if (!id){ box.textContent = ''; if (qty) qty.value = ''; return; }
+  var rec = (S.lendings || []).find(function(l){ return l.id === id; });
+  if (!rec){ box.textContent = ''; return; }
+  var rest = _lendOutstanding(rec);
+  box.innerHTML = '貸借 <b>' + (rec.qty||0) + '本</b>／返却済 <b>' + (Number(rec.returnedQty)||0) + '本</b>／<b style="color:var(--gold-l)">残り ' + rest + '本</b>'
+    + '　<span style="color:var(--wh3)">' + escapeHtml(rec.kind) + ' → 在庫は' + (rec.kind==='貸出' ? '戻ります（+）' : '減ります（−）') + '</span>';
+  if (qty) qty.value = rest;      // 全部返す想定を既定に（一部なら直す）
+}
+function submitReturn(){
+  if (typeof canEdit === 'function' && !canEdit()) return toast('🔒 返却を記録する権限がありません（閲覧のみ）', 'error');
+  var id = (document.getElementById('rt-target')||{}).value;
+  if (!id) return toast('返却する貸借を選んでください', 'error');
+  var rec = (S.lendings || []).find(function(l){ return l.id === id; });
+  if (!rec) return toast('貸借が見つかりません', 'error');
+  var rest = _lendOutstanding(rec);
+  var q = parseInt((document.getElementById('rt-qty')||{}).value || '', 10);
+  if (!(q > 0) || q > rest) return toast('1〜' + rest + ' の範囲で入力してください', 'error');
+  var rd = (document.getElementById('rt-date')||{}).value || today();
+
+  var sign = (rec.kind === '貸出') ? 1 : -1;
+  _lendStockMove(rec.branch, rec.product, sign*q, (rec.kind==='貸出' ? '返却受' : '借入返却'), '返却：' + (rec.partnerName||'') + '（' + q + '本）');
+  rec.returnedQty = (Number(rec.returnedQty)||0) + q;
+  var done = _lendOutstanding(rec) <= 0;
+  rec.status = done ? '返却済' : '未返却';
+  rec.returnedDate = rd;
+  saveState();
+  if (S.gasUrl){ gasPost({ action:'returnLending', id:rec.id, returnedDate:rec.returnedDate, returnedQty:rec.returnedQty, status:rec.status }); syncStockToGAS(); }
+  toast('✓ ' + q + '本の返却を記録しました' + (done ? '（完了）' : '（残り ' + _lendOutstanding(rec) + '本）'));
+  var qEl = document.getElementById('rt-qty'); if (qEl) qEl.value = '';
+  fillReturnTargets();
+  if (typeof renderLendBalance === 'function') renderLendBalance();
+  if (typeof renderLendList === 'function') renderLendList();
+  if (typeof renderStock === 'function') renderStock();
+  if (typeof updateTabDots === 'function') updateTabDots();
+}
+
 function returnLending(id){
   if(typeof canEdit==='function' && !canEdit()) return toast('🔒 返却を記録する権限がありません（閲覧のみ）','error');
   const rec=(S.lendings||[]).find(l=>l.id===id); if(!rec || rec.status==='返却済') return;
@@ -4862,6 +4937,8 @@ function switchEntryKind(kind){
   show('entry-purchase', kind==='purchase');
   show('entry-lending', (kind==='lend'||kind==='borrow'));
   show('entry-transfer', kind==='move');
+  show('entry-return', kind==='return');
+  if(kind==='return'){ if(typeof fillReturnTargets==='function'){ try{ fillReturnTargets(); }catch(e){} } }
   if(kind==='purchase'){ if(typeof renderPurchase==='function'){ try{ renderPurchase(); }catch(e){} } }
   if(kind==='move'){ if(typeof renderTransferForm==='function'){ try{ renderTransferForm(); }catch(e){} } }
   if(kind==='lend'||kind==='borrow'){
