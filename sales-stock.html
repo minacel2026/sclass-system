@@ -3973,7 +3973,7 @@ function renderPurchase(){
       <td class="col-amt">¥${fmt(p.cost||0)}</td>
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt((p.cost||0) * (p.qty||0))}</td>
       <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(p.note||'')}</td>
-      <td><button class="act-btn dn" onclick="deletePurchase('${p.id}')">削</button></td>
+      <td><button class="act-btn" onclick="editPurchase('${p.id}')">修正</button><button class="act-btn dn" onclick="deletePurchase('${p.id}')">削</button></td>
     </tr>
   `).join('');
 }
@@ -4084,12 +4084,12 @@ function submitPurchase(){
   updateKPI();
 }
 
-function deletePurchase(id){
+function deletePurchase(id, skipConfirm){
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
   const p = (S.purchases || []).find(x => x.id === id);
   if (!p) return toast('仕入記録が見つかりません', 'error');
-  if (!confirm('この仕入記録を削除しますか？')) return;
-  const restoreStock = confirm(
+  if (!skipConfirm && !confirm('この仕入記録を削除しますか？')) return;
+  const restoreStock = skipConfirm ? true : confirm(
     '在庫も戻しますか？\n\n' +
     '「OK」＝在庫を戻す（間違えて登録した場合）\n' +
     '「キャンセル」＝在庫はそのまま（記録だけ削除）'
@@ -4610,7 +4610,7 @@ function returnLending(id){
   renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock(); if(typeof updateTabDots==='function') updateTabDots();
 }
 
-function deleteLending(id){
+function deleteLending(id, skipConfirm){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 削除権限がありません（社長・閲覧者は不可）','error');
   const rec=(S.lendings||[]).find(l=>l.id===id); if(!rec) return;
   const q=Number(rec.qty)||0;
@@ -4658,11 +4658,85 @@ function renderLendList(){
         +'<td>'+(done?'<span style="color:var(--wh3)">返却済'+(l.returnedDate?'('+escapeHtml(l.returnedDate)+')':'')+'</span>'
                      :(part?'<span style="color:#4f9dd9">一部返却</span>':'<span style="color:#ffcf7a">未返却</span>'))+'</td>'
         +'<td style="white-space:nowrap">'
-          +(((!done?'<button class="btn-s" onclick="returnLending(\''+l.id+'\')">返却</button>':'')
+          +(((!done?'<button class="btn-s" onclick="returnLending(\''+l.id+'\')">返却</button> <button class="btn-s" onclick="editLending(\''+l.id+'\')">修正</button>':'')
             +(mayDel?((done?'':' ')+'<button class="btn-s" style="border-color:#e0685f;color:#e0685f" onclick="deleteLending(\''+l.id+'\')">削除</button>'):''))
             || '—')
         +'</td></tr>';
     }).join('')+'</tbody></table>';
+}
+
+// ══ 取引の「修正」（削除で在庫を戻し、内容を入力欄に復元して入れ直す）══
+//   ※ 在庫の巻き戻しは各delete処理に任せるため、二重計上が起きない
+function _gotoEntry(kind){
+  var tab = document.querySelector('.mtab[onclick*="neworder"]');
+  if (tab) switchModule('neworder', tab);
+  var ek = document.getElementById('entry-kind');
+  if (ek){ ek.value = kind; switchEntryKind(kind); }
+}
+// 貸借の修正
+function editLending(id){
+  if (typeof canEdit === 'function' && !canEdit()) return toast('🔒 編集権限がありません', 'error');
+  var rec = (S.lendings || []).find(function(l){ return l.id === id; });
+  if (!rec) return toast('貸借が見つかりません', 'error');
+  if ((Number(rec.returnedQty) || 0) > 0) return toast('返却済みの分があるため修正できません（削除して入れ直してください）', 'error');
+  if (!confirm('この貸借を修正します。\n\n・いまの記録は削除され、在庫は元に戻ります\n・内容が入力欄に入るので、直して登録し直してください\n\nよろしいですか？')) return;
+  var keep = { kind:rec.kind, branch:rec.branch, product:rec.product, qty:rec.qty, partnerId:rec.partnerId, dueDate:rec.dueDate, memo:rec.memo, date:rec.date };
+  deleteLending(id, true);                       // 確認を省いて削除（在庫は戻る）
+  _gotoEntry(keep.kind === '借入' ? 'borrow' : 'lend');
+  setTimeout(function(){
+    var g = function(i){ return document.getElementById(i); };
+    if (g('ln-partner')) g('ln-partner').value = keep.partnerId || '';
+    if (g('ln-branch'))  g('ln-branch').value  = keep.branch || '仙台';
+    if (g('ln-prod'))    g('ln-prod').value    = keep.product || '';
+    if (g('ln-qty'))     g('ln-qty').value     = keep.qty || '';
+    if (g('ln-due'))     g('ln-due').value     = keep.dueDate || '';
+    if (g('ln-memo'))    g('ln-memo').value    = keep.memo || '';
+    if (g('ln-date'))    g('ln-date').value    = keep.date || today();
+    toast('内容を復元しました。修正して登録してください');
+  }, 60);
+}
+// 仕入の修正
+function editPurchase(id){
+  if (typeof canEdit === 'function' && !canEdit()) return toast('🔒 編集権限がありません', 'error');
+  var rec = (S.purchases || []).find(function(x){ return x.id === id; });
+  if (!rec) return toast('仕入が見つかりません', 'error');
+  if (!confirm('この仕入を修正します。\n\n・いまの記録は削除され、在庫も戻します\n・内容が入力欄に入るので、直して登録し直してください\n\nよろしいですか？')) return;
+  var keep = { date:rec.date, supplier:rec.supplier, branch:rec.branch, product:rec.product, qty:rec.qty, cost:rec.cost, note:rec.note };
+  deletePurchase(id, true);                      // 確認を省いて削除（在庫を戻す）
+  _gotoEntry('purchase');
+  setTimeout(function(){
+    var g = function(i){ return document.getElementById(i); };
+    if (g('pu-date'))     g('pu-date').value     = keep.date || today();
+    if (g('pu-supplier')) g('pu-supplier').value = keep.supplier || '';
+    if (g('pu-branch'))   g('pu-branch').value   = keep.branch || '仙台';
+    if (g('pu-product'))  g('pu-product').value  = keep.product || '';
+    if (g('pu-qty'))      g('pu-qty').value      = keep.qty || '';
+    if (g('pu-cost'))     g('pu-cost').value     = keep.cost || '';
+    if (g('pu-note'))     g('pu-note').value     = keep.note || '';
+    toast('内容を復元しました。修正して登録してください');
+  }, 60);
+}
+// 拠点間移動の修正（輸送中のみ）
+function editMove(id){
+  if (typeof canEdit === 'function' && !canEdit()) return toast('🔒 編集権限がありません', 'error');
+  var m = (S.moves || []).find(function(x){ return x.id === id; });
+  if (!m) return toast('移動が見つかりません', 'error');
+  if (m.status !== '輸送中') return toast('受領済みの移動は修正できません', 'error');
+  if (!confirm('この移動を修正します。\n\n・いまの記録は取消され、在庫は移動元に戻ります\n・内容が入力欄に入るので、直して発送し直してください\n\nよろしいですか？')) return;
+  var keep = { from:m.from, to:m.to, product:m.product, qty:m.qty, memo:m.memo, date:m.date };
+  cancelMove(id, true);                          // 確認を省いて取消（在庫は戻る）
+  _gotoEntry('move');
+  setTimeout(function(){
+    var g = function(i){ return document.getElementById(i); };
+    if (g('tr-from')) g('tr-from').value = keep.from || '仙台';
+    if (g('tr-to'))   g('tr-to').value   = keep.to || '京都';
+    if (g('tr-prod')) g('tr-prod').value = keep.product || '';
+    if (g('tr-qty'))  g('tr-qty').value  = keep.qty || '';
+    if (g('tr-memo')) g('tr-memo').value = keep.memo || '';
+    if (g('tr-date')) g('tr-date').value = keep.date || today();
+    if (typeof updateTransferPreview === 'function') updateTransferPreview();
+    toast('内容を復元しました。修正して発送してください');
+  }, 60);
 }
 
 function switchEntryKind(kind){
@@ -4902,12 +4976,12 @@ async function receiveMove(id){
 }
 
 // 取消：発送そのものを取り消し、移動元へ在庫を戻す（誤発送用）
-async function cancelMove(id){
+async function cancelMove(id, skipConfirm){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 取消の権限がありません（社長・閲覧者は不可）','error');
   if (!(await guardStockWrite())) return;
   const m = (S.moves||[]).find(function(x){ return x.id===id; });
   if (!m || m.status!=='輸送中') return;
-  if (!confirm(`${m.product} ${m.qty}本（${m.from}→${m.to}）の発送を取り消します。\n\n・${m.from} の在庫が ${m.qty}本 戻ります\n・誤って発送した時だけ使ってください\n\nよろしいですか？`)) return;
+  if (!skipConfirm && !confirm(`${m.product} ${m.qty}本（${m.from}→${m.to}）の発送を取り消します。\n\n・${m.from} の在庫が ${m.qty}本 戻ります\n・誤って発送した時だけ使ってください\n\nよろしいですか？`)) return;
   const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : '';
   restoreStockBkt(m.from, m.product, m.qty, m.used);
   _sumStock(m.from, m.product);
@@ -4952,6 +5026,7 @@ function renderMoves(){
           + '<td style="color:var(--wh3);font-size:.72rem">' + escapeHtml(m.memo||'') + '</td>'
           + '<td style="white-space:nowrap">'
           + (may ? '<button class="btn-s" onclick="receiveMove(\'' + m.id + '\')">📥 受領</button> '
+                 + '<button class="btn-s" onclick="editMove(\'' + m.id + '\')">修正</button> '
                  + '<button class="btn-s" style="border-color:#e0685f;color:#e0685f" onclick="cancelMove(\'' + m.id + '\')">取消</button>'
                  : '—')
           + '</td></tr>';
