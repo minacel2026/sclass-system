@@ -237,34 +237,6 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 })();
 </script>
 
-<!-- ═══ OneSignal Web Push（アプリ通知・赤バッジ購読／スタッフ画面のみ） ═══ -->
-<script>
-(function(){
-  if (window.__lmbOneSignalInstalled) return;   // 二重初期化ガード
-  window.__lmbOneSignalInstalled = true;
-  var APP_ID = '0b286175-f5fb-4248-8505-614b270739dc';
-  // 配信先（GitHub Pagesのサブディレクトリ）から SW のパス/スコープを自動算出
-  var dir = location.pathname.replace(/[^/]*$/, '');                 // 例: /sclass-system/
-  var swScope = dir || '/';                                          // 例: /sclass-system/
-  var swPath  = dir.replace(/^\/+/, '') + 'OneSignalSDKWorker.js';   // 例: sclass-system/OneSignalSDKWorker.js
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  window.OneSignalDeferred.push(async function(OneSignal){
-    try{
-      await OneSignal.init({ appId: APP_ID, serviceWorkerPath: swPath, serviceWorkerParam: { scope: swScope } });
-      try{
-        if (OneSignal.Notifications && OneSignal.Notifications.permission === false
-            && OneSignal.Slidedown && OneSignal.Slidedown.promptPush){
-          OneSignal.Slidedown.promptPush();   // 未許可ならそっと購読を促す（連投はOneSignal側で抑制）
-        }
-      }catch(e){}
-    }catch(e){}
-  });
-  var s = document.createElement('script');
-  s.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
-  s.defer = true;
-  (document.head||document.documentElement).appendChild(s);
-})();
-</script>
 </head>
 <body>
 <!-- 読み込み中/反映中オーバーレイ（共通） -->
@@ -699,6 +671,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="tw" style="margin-bottom:1rem">
         <div class="th-area"><h3>自社販売実績（月次）</h3></div>
         <div id="sales-self-grid"></div>
+        <div id="sales-self-detail" style="margin-top:.8rem"></div>
       </div>
       <div class="card">
         <div class="form-section-title">▸ 自社実績売上の手動調整（A）— 注文に無い売上の追加・補正</div>
@@ -1817,6 +1790,78 @@ function switchSalesSub(name, el){
 }
 function renderSalesAll(){ renderSelfSalesMonthly(); renderAgentSalesMonthly(); renderSalesMonthly(); }
 
+// ── 月別売上の明細（自社実績＝注文のみ）＋フィルター ──
+var _sdMonth = '';   // 表示中の月（例 2026-04）
+// 会計の計上月と同じ基準で、その注文の計上年月を返す
+function _orderYm(o){ return _ymA(o.bookDate||o.deliveryDate||o.date||o.orderDate||o.timestamp||o.paidAt); }
+// 指定月に計上される注文だけを返す
+function _ordersOfMonth(ym){ return (S.orders||[]).filter(function(o){ return calcAmt(o) && _orderYm(o)===ym; }); }
+
+function showSelfSalesDetail(ym){
+  _sdMonth = ym;
+  renderSelfSalesDetail();
+  var box=document.getElementById('sales-self-detail');
+  if(box && box.scrollIntoView) box.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function closeSelfSalesDetail(){ _sdMonth=''; var b=document.getElementById('sales-self-detail'); if(b) b.innerHTML=''; }
+
+function renderSelfSalesDetail(){
+  var box=document.getElementById('sales-self-detail'); if(!box) return;
+  if(!_sdMonth){ box.innerHTML=''; return; }
+  var list=_ordersOfMonth(_sdMonth);
+
+  // フィルター候補（この月に出現する値だけ）
+  var stores=Array.from(new Set(list.map(function(o){return String(o.store||'');}).filter(Boolean))).sort();
+  var branches=Array.from(new Set(list.map(function(o){return String(o.branch||'');}).filter(Boolean))).sort();
+  var pays=Array.from(new Set(list.map(function(o){return String(o.payStatus||'');}).filter(Boolean))).sort();
+
+  var fSt=(document.getElementById('sd-store')||{}).value||'';
+  var fBr=(document.getElementById('sd-branch')||{}).value||'';
+  var fPy=(document.getElementById('sd-pay')||{}).value||'';
+  var fKw=((document.getElementById('sd-kw')||{}).value||'').trim();
+
+  var rows=list.filter(function(o){
+    if(fSt && String(o.store||'')!==fSt) return false;
+    if(fBr && String(o.branch||'')!==fBr) return false;
+    if(fPy && String(o.payStatus||'')!==fPy) return false;
+    if(fKw && String(o.store||'').indexOf(fKw)<0 && String(o.staff||'').indexOf(fKw)<0) return false;
+    return true;
+  }).sort(function(a,b){ return String(_orderYm(a)+(a.date||'')).localeCompare(String(_orderYm(b)+(b.date||''))); });
+
+  var sum=rows.reduce(function(t,o){ return t+(calcAmt(o)||0); },0);
+  function opt(arr,cur){ return '<option value="">すべて</option>'+arr.map(function(v){ return '<option value="'+escapeHtml(v)+'"'+(v===cur?' selected':'')+'>'+escapeHtml(v)+'</option>'; }).join(''); }
+  function itemsText(it){
+    try{ var o=(typeof it==='string')?JSON.parse(it):it; return Object.keys(o||{}).map(function(k){ return escapeHtml(k)+'×'+o[k]; }).join('、'); }
+    catch(e){ return escapeHtml(String(it||'')); }
+  }
+
+  var html='<div class="tw"><div class="th-area" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.4rem">'
+    +'<h3>'+_ymLabel(_sdMonth)+' の自社実績売上の明細（注文のみ・調整/代理は含みません）</h3>'
+    +'<button class="btn-s" onclick="closeSelfSalesDetail()">✕ 閉じる</button></div>'
+    +'<div class="fp" style="display:flex;gap:.5rem;flex-wrap:wrap;padding:.6rem .7rem">'
+    +'<div class="fg"><label>店舗名</label><select class="fc" id="sd-store" onchange="renderSelfSalesDetail()">'+opt(stores,fSt)+'</select></div>'
+    +'<div class="fg"><label>拠点</label><select class="fc" id="sd-branch" onchange="renderSelfSalesDetail()">'+opt(branches,fBr)+'</select></div>'
+    +'<div class="fg"><label>支払状況</label><select class="fc" id="sd-pay" onchange="renderSelfSalesDetail()">'+opt(pays,fPy)+'</select></div>'
+    +'<div class="fg" style="flex:1;min-width:140px"><label>キーワード（店舗・担当）</label><input class="fc" id="sd-kw" value="'+escapeHtml(fKw)+'" oninput="renderSelfSalesDetail()" placeholder="部分一致"></div>'
+    +'</div>'
+    +'<div style="padding:.4rem .7rem;font-size:.8rem;color:var(--wh2)">表示中: <b>'+rows.length+'</b>件 ／ 合計: <b style="color:var(--gold-l)">'+_yenA(sum)+'</b></div>';
+
+  if(!rows.length){ html+='<div style="padding:1.2rem;text-align:center;color:var(--wh3);font-size:.8rem">該当する注文がありません</div></div>'; box.innerHTML=html; return; }
+
+  html+='<table><thead><tr><th>計上日</th><th>注文日</th><th>拠点</th><th>店舗名</th><th>商品</th><th>支払</th><th style="text-align:right">金額</th></tr></thead><tbody>'
+    +rows.map(function(o){
+      var book=String(o.bookDate||o.deliveryDate||o.date||'').slice(0,10);
+      return '<tr><td>'+escapeHtml(book)+'</td><td>'+escapeHtml(String(o.date||'').slice(0,10))+'</td>'
+        +'<td>'+escapeHtml(String(o.branch||''))+'</td><td>'+escapeHtml(String(o.store||''))+'</td>'
+        +'<td style="font-size:.74rem">'+itemsText(o.items)+'</td>'
+        +'<td>'+escapeHtml(String(o.payStatus||''))+'</td>'
+        +'<td style="text-align:right">'+_yenA(calcAmt(o))+'</td></tr>';
+    }).join('')
+    +'<tr style="border-top:2px solid var(--line);font-weight:700"><td colspan="6">合計</td><td style="text-align:right;color:var(--gold-l)">'+_yenA(sum)+'</td></tr>'
+    +'</tbody></table></div>';
+  box.innerHTML=html;
+}
+
 // 自社販売実績（月次：自社実績＋手動調整）
 function renderSelfSalesMonthly(){
   const grid=document.getElementById('sales-self-grid'); if(!grid) return;
@@ -1825,7 +1870,7 @@ function renderSelfSalesMonthly(){
   if(!keys.length){ grid.innerHTML='<div style="padding:1.5rem;text-align:center;color:var(--wh3);font-size:.8rem">自社販売実績がありません</div>'; return; }
   let tS=0,tA=0;
   const rows=keys.map(k=>{ const s=self[k]||0,a=adj[k]||0,sub=s+a; tS+=s; tA+=a;
-    return '<tr><td>'+_ymLabel(k)+'</td><td style="text-align:right">'+_yenA(s)+'</td>'
+    return '<tr class="sd-row" style="cursor:pointer" title="クリックでこの月の明細を表示" onclick="showSelfSalesDetail(\''+k+'\')"><td>▸ '+_ymLabel(k)+'</td><td style="text-align:right">'+_yenA(s)+'</td>'
       +'<td style="text-align:right;color:'+(a<0?'#ff8a80':(a>0?'var(--gold-l)':'var(--wh3)'))+'">'+(a?_yenA(a):'—')+'</td>'
       +'<td style="text-align:right;font-weight:700;color:var(--gold-l)">'+_yenA(sub)+'</td></tr>'; }).join('');
   grid.innerHTML='<table><thead><tr><th>月</th><th style="text-align:right">自社実績売上（計上日/納品日）</th><th style="text-align:right">自社調整（手動）</th><th style="text-align:right">小計</th></tr></thead><tbody>'+rows
