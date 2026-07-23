@@ -125,6 +125,9 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .pr-qty-val{width:52px;text-align:center;background:var(--d3);border:1px solid rgba(201,168,76,.25);color:var(--wh);border-radius:4px;padding:.25rem 0;font-family:'Noto Sans JP',sans-serif;font-size:.9rem;-moz-appearance:textfield}
 .pr-qty-val::-webkit-outer-spin-button,.pr-qty-val::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .pr-qty-val:focus{outline:none;border-color:var(--gold)}
+.pr-qty-val.sp{border-color:rgba(195,155,211,.45);color:#e6d5ee}
+.pr-qty-val.sp:focus{border-color:#c39bd3}
+.qty-btn.sp{border-color:rgba(195,155,211,.45);color:#c39bd3}
 .pr-qty-cell{display:flex;align-items:center;gap:.4rem;justify-content:center}
 .pr-qty-val{min-width:34px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--wh)}
 .qty-btn{width:26px;height:26px;background:transparent;border:1px solid rgba(201,168,76,.35);color:var(--gold-l);cursor:pointer;font-size:.85rem;font-family:'Noto Sans JP',sans-serif;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -2910,6 +2913,13 @@ function renderNewOrderProds(){
           <button class="qty-btn" onclick="changeOrderQty('${p.key}',1)">＋</button>
         </div>
       </td>
+      <td>
+        <div class="pr-qty-cell">
+          <button class="qty-btn sp" onclick="changeSponsorQty('${p.key}',-1)">−</button>
+          <input class="pr-qty-val sp" id="sq-${p.key}" type="number" inputmode="numeric" min="0" step="1" value="${_spQtyOf(p.key)}" onfocus="this.select()" oninput="setSponsorQty('${p.key}', this.value)" onblur="normalizeSponsorQty('${p.key}')">
+          <button class="qty-btn sp" onclick="changeSponsorQty('${p.key}',1)">＋</button>
+        </div>
+      </td>
       <td class="pr-sub" id="sub-${p.key}">${qty>0?'¥'+fmt(line.subExcl):'—'}</td>
     </tr>`;
   }).join('');
@@ -2920,12 +2930,14 @@ function renderNewOrderProds(){
           <th>商品</th>
           <th class="col-num">売値（税抜・掛率反映）</th>
           <th class="col-num">在庫（${branch}）</th>
-          <th style="text-align:center">数量</th>
+          <th style="text-align:center">数量（販売）</th>
+          <th style="text-align:center;color:#c39bd3">数量（協賛・無料）<div id="sp-col-note" style="font-size:.62rem;font-weight:400;color:#c39bd3;margin-top:.15rem"></div></th>
           <th class="col-num">小計（税抜）</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
+  updateSpColNote();
 }
 
 function changeOrderQty(key, delta){
@@ -2934,6 +2946,85 @@ function changeOrderQty(key, delta){
   if (_el) _el.value = newOrderQty[key];              // 入力欄なので value を更新
   document.getElementById('pc-' + key).classList.toggle('has-qty', newOrderQty[key] > 0);
   updateOrderTotal();
+}
+
+// ── 協賛列（無料出荷）── 既存の sponsorShipDraft を読み書きするので、保存・在庫・残数の処理は変更不要
+function _spQtyOf(key){
+  var it = (sponsorShipDraft || []).find(function(x){ return x.product === key; });
+  return it ? (it.qty || 0) : 0;
+}
+// 今この注文で使える協賛の上限（過去の残数＋今回付与予定）
+function _spAvailable(){
+  var c = currentOrderCust;
+  if (!c) return 0;
+  try {
+    var bal = getSponsorBalance(c.id, editingOrderId);
+    var pending = calcPendingSponsorPoints(newOrderQty, c);
+    return (bal.pts || 0) + ((pending && pending.total) || 0);
+  } catch(e){ return 0; }
+}
+// 協賛列ヘッダーに「使える本数・使用中・残り」を表示（入力しながら確認できる）
+function updateSpColNote(){
+  var el = document.getElementById('sp-col-note');
+  if (!el) return;
+  var c = currentOrderCust;
+  if (!c || !c.sponsorEnabled){ el.textContent = ''; return; }
+  var avail = _spAvailable();
+  var used  = (sponsorShipDraft || []).reduce(function(s,x){ return s + (x.qty || 0); }, 0);
+  // 販売数を減らすと付与予定が減り、協賛の使用中が残数を超えることがある。
+  // その場合は超過分を自動で減らして、協賛残数がマイナスにならないようにする。
+  if (used > avail){
+    var over = used - avail;
+    for (var i = (sponsorShipDraft || []).length - 1; i >= 0 && over > 0; i--){
+      var cut = Math.min(sponsorShipDraft[i].qty || 0, over);
+      sponsorShipDraft[i].qty -= cut;
+      over -= cut;
+      if (sponsorShipDraft[i].qty <= 0) sponsorShipDraft.splice(i, 1);
+    }
+    used = (sponsorShipDraft || []).reduce(function(s,x){ return s + (x.qty || 0); }, 0);
+    try {
+      _prodCols().forEach(function(p){
+        var q = document.getElementById('sq-' + p.key);
+        if (q) q.value = _spQtyOf(p.key);
+      });
+      if (typeof renderSponsorShipDraft === 'function') renderSponsorShipDraft();
+      toast('協賛の使用本数を残数に合わせて調整しました', 'error');
+    } catch(e){}
+  }
+  var rest  = Math.max(0, avail - used);
+  el.innerHTML = '使える ' + avail + '本 / 使用中 ' + used + '本 / <strong>あと ' + rest + '本</strong>';
+}
+
+function setSponsorQty(key, raw){
+  var t = String(raw).split('.')[0].replace(/[^0-9]/g, '');
+  var n = parseInt(t, 10);
+  if (isNaN(n) || n < 0) n = 0;
+  var c = currentOrderCust;
+  if (n > 0 && !c){ toast('協賛出荷は顧客マスター登録済みの店舗のみ可能です', 'error'); n = 0; }
+  if (n > 0){
+    // 他商品ですでに使っている本数を除いた、この商品に割ける上限を超えないようにする
+    var others = (sponsorShipDraft || []).reduce(function(s, x){ return s + (x.product === key ? 0 : (x.qty || 0)); }, 0);
+    var limit = Math.max(0, _spAvailable() - others);
+    if (n > limit){ toast('協賛残数を超えます（この商品に使えるのは ' + limit + '本まで）', 'error'); n = limit; }
+  }
+  var idx = (sponsorShipDraft || []).findIndex(function(x){ return x.product === key; });
+  if (n > 0){
+    if (idx >= 0) sponsorShipDraft[idx].qty = n; else sponsorShipDraft.push({ product: key, qty: n });
+  } else if (idx >= 0){
+    sponsorShipDraft.splice(idx, 1);
+  }
+  var el = document.getElementById('sq-' + key);
+  if (el && String(el.value) !== String(n)) el.value = n;
+  if (typeof renderSponsorShipDraft === 'function') renderSponsorShipDraft();
+  updateOrderTotal();
+  updateSpColNote();
+}
+function changeSponsorQty(key, delta){
+  setSponsorQty(key, Math.max(0, _spQtyOf(key) + delta));
+}
+function normalizeSponsorQty(key){
+  var el = document.getElementById('sq-' + key);
+  if (el) el.value = _spQtyOf(key);
 }
 
 // 数量を直接入力したとき（キーボード入力）。空欄は0扱いにし、負数・小数は弾く
@@ -2946,6 +3037,7 @@ function setOrderQty(key, raw){
   var pc = document.getElementById('pc-' + key);
   if (pc) pc.classList.toggle('has-qty', n > 0);
   updateOrderTotal();
+  updateSpColNote();   // 販売数で協賛の付与予定が変わるため再表示
 }
 // 入力欄から離れたら表示を整える（空欄や「007」などを正しい数字に）
 function normalizeOrderQty(key){
