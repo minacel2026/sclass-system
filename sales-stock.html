@@ -804,6 +804,28 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       </div>
     </div>
     <div class="kpi-row" id="inv-kpi"></div>
+
+    <!-- ═══ 日次棚卸（実数を数えて差異を記録） ═══ -->
+    <div class="tw" style="margin-bottom:1rem">
+      <div class="th-area"><h3>📋 日次棚卸（実数を入力して差異を記録）</h3></div>
+      <div class="hint-box" style="margin:.4rem 0">実際に数えた本数を入力すると、システム上の在庫（帳簿）との差異が出ます。「記録する」を押すとその日の結果が履歴に残り、<b>あとから「いつ在庫が合っていたか」を確認できます</b>。</div>
+      <div class="fp">
+        <div class="frow">
+          <div class="fg"><label>棚卸日</label><input class="fc" id="st-date" type="date"></div>
+          <div class="fg"><label>拠点 <span class="req">*</span></label><select class="fc" id="st-branch" onchange="renderStocktakeForm()"><option>仙台</option><option>京都</option></select></div>
+          <div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-g" onclick="fillStocktakeWithBook()" title="実数欄に帳簿の数を入れます（差異のある商品だけ直す使い方）">帳簿値をコピー</button></div>
+        </div>
+      </div>
+      <div id="st-form"></div>
+      <div class="faction" style="margin-top:.5rem"><button class="btn btn-p" onclick="submitStocktake()">✓ この内容で記録する</button></div>
+    </div>
+
+    <!-- ═══ 棚卸の履歴 ═══ -->
+    <div class="tw" style="margin-bottom:1rem">
+      <div class="th-area" style="display:flex;align-items:center;gap:.5rem"><h3>🗓 棚卸の履歴（いつ在庫が合っていたか）</h3><button class="btn-s" style="margin-left:auto" onclick="loadStocktakes(true)">🔄 更新</button></div>
+      <div id="st-history"></div>
+    </div>
+
     <div class="tw">
       <div class="th-area"><h3>棚卸明細</h3></div>
       <table>
@@ -1248,7 +1270,7 @@ function switchModule(name, el){
   if (name === 'stock')     renderStock();
   if (name === 'slog')      renderSlog();
   if (name === 'purchase') { _markSeen('purchase'); renderPurchase(); }
-  if (name === 'inventory') renderInventory();
+  if (name === 'inventory') { renderInventory(); var _sd=document.getElementById('st-date'); if(_sd && !_sd.value) _sd.value=today(); renderStocktakeForm(); loadStocktakes(); }
   if (name === 'sponsor')   renderSponsor();
   if (name === 'lending')  { _markSeen('lending'); loadLending(); }
   if (name === 'moves')     loadMoves();
@@ -4077,6 +4099,143 @@ function deletePurchase(id){
   toast(restoreStock ? '✓ 削除し、在庫を戻しました' : '✓ 削除しました（在庫はそのまま）');
   renderPurchase();
   if (typeof renderStock === 'function') renderStock();
+}
+</script>
+
+<!-- ═══ 日次棚卸（実数入力・差異記録・履歴） ═══ -->
+<script>
+let stocktakeReal = {};     // { 商品キー: 実数 }
+let stocktakeList = [];     // 履歴
+
+// 帳簿在庫（システム上の在庫）
+function _bookQty(branch, key){
+  try { return (typeof _sumStock === 'function') ? (_sumStock(branch, key) || 0) : ((S.stock[branch]||{})[key] || 0); }
+  catch(e){ return 0; }
+}
+// 実数入力欄の更新
+function setStocktakeReal(key, raw){
+  var t = String(raw).split('.')[0].replace(/[^0-9]/g, '');
+  var n = parseInt(t, 10);
+  if (isNaN(n) || n < 0) n = 0;
+  stocktakeReal[key] = n;
+  renderStocktakeRowDiff(key);
+}
+// 1行分の差異表示を更新
+function renderStocktakeRowDiff(key){
+  var br = (document.getElementById('st-branch')||{}).value || '仙台';
+  var book = _bookQty(br, key);
+  var real = (stocktakeReal[key] === undefined) ? null : stocktakeReal[key];
+  var cell = document.getElementById('st-gap-' + key);
+  if (!cell) return;
+  if (real === null){ cell.textContent = '—'; cell.style.color = 'var(--wh3)'; }
+  else {
+    var gap = real - book;
+    cell.textContent = gap === 0 ? '±0' : (gap > 0 ? '+' + gap : String(gap));
+    cell.style.color = gap === 0 ? 'var(--grn)' : '#e0685f';
+  }
+  updateStocktakeSummary();
+}
+// 合計の表示
+function updateStocktakeSummary(){
+  var br = (document.getElementById('st-branch')||{}).value || '仙台';
+  var diffCnt = 0, diffSum = 0, entered = 0;
+  _prodCols().forEach(function(p){
+    var real = stocktakeReal[p.key];
+    if (real === undefined) return;
+    entered++;
+    var gap = real - _bookQty(br, p.key);
+    if (gap !== 0){ diffCnt++; diffSum += Math.abs(gap); }
+  });
+  var el = document.getElementById('st-summary');
+  if (!el) return;
+  if (!entered){ el.innerHTML = '<span style="color:var(--wh3)">実数を入力してください</span>'; return; }
+  el.innerHTML = diffCnt === 0
+    ? '<span style="color:var(--grn);font-weight:700">✓ 入力した ' + entered + ' 商品はすべて一致しています</span>'
+    : '<span style="color:#e0685f;font-weight:700">⚠ ' + diffCnt + ' 商品に差異（合計 ' + diffSum + ' 本）</span><span style="color:var(--wh3);font-size:.72rem"> ／ 入力 ' + entered + ' 商品</span>';
+}
+// 実数欄に帳簿値をまとめて入れる
+function fillStocktakeWithBook(){
+  var br = (document.getElementById('st-branch')||{}).value || '仙台';
+  _prodCols().forEach(function(p){ stocktakeReal[p.key] = _bookQty(br, p.key); });
+  renderStocktakeForm();
+  toast('帳簿の数を入れました。違う商品だけ直してください');
+}
+// 入力フォームの描画
+function renderStocktakeForm(){
+  var box = document.getElementById('st-form');
+  if (!box) return;
+  var br = (document.getElementById('st-branch')||{}).value || '仙台';
+  var rows = _prodCols().map(function(p){
+    var book = _bookQty(br, p.key);
+    var real = stocktakeReal[p.key];
+    return '<tr>'
+      + '<td><span class="pr-name"><span class="pr-dot" style="background:' + (p.color||'#888') + '"></span>' + escapeHtml(p.name) + '</span></td>'
+      + '<td class="col-qty">' + book + '</td>'
+      + '<td style="text-align:center"><input class="pr-qty-val" style="width:64px" type="number" inputmode="numeric" min="0" step="1" value="' + (real===undefined?'':real) + '" onfocus="this.select()" oninput="setStocktakeReal(\'' + p.key + '\', this.value)" placeholder="—"></td>'
+      + '<td class="col-qty" id="st-gap-' + p.key + '" style="font-weight:700">—</td>'
+      + '</tr>';
+  }).join('');
+  box.innerHTML = '<div style="padding:.4rem .7rem;font-size:.84rem" id="st-summary"></div>'
+    + '<table><thead><tr><th>商品</th><th class="col-qty">帳簿（システム）</th><th style="text-align:center">実数（数えた本数）</th><th class="col-qty">差異</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  _prodCols().forEach(function(p){ renderStocktakeRowDiff(p.key); });
+}
+// 記録する
+async function submitStocktake(){
+  if (typeof canEdit === 'function' && !canEdit()) return toast('🔒 編集権限がありません', 'error');
+  var br = (document.getElementById('st-branch')||{}).value || '';
+  var dt = (document.getElementById('st-date')||{}).value || today();
+  if (!br) return toast('拠点を選んでください', 'error');
+  var items = [];
+  _prodCols().forEach(function(p){
+    var real = stocktakeReal[p.key];
+    if (real === undefined) return;                 // 入力した商品だけ記録
+    items.push({ product: p.key, book: _bookQty(br, p.key), real: real });
+  });
+  if (!items.length) return toast('実数を1つ以上入力してください', 'error');
+  var diffCnt = items.filter(function(it){ return (it.real - it.book) !== 0; }).length;
+  var msg = diffCnt === 0
+    ? (br + ' / ' + dt + '\n\n入力した ' + items.length + ' 商品はすべて一致しています。\nこの内容で記録しますか？')
+    : (br + ' / ' + dt + '\n\n' + diffCnt + ' 商品に差異があります。\n差異も含めて記録しますか？\n（在庫の数は変わりません。記録のみです）');
+  if (!confirm(msg)) return;
+  var rec = {
+    id: 'st-' + Date.now() + '-' + Math.floor(Math.random()*9000+1000),
+    date: dt, branch: br, items: items,
+    staff: (typeof currentUser !== 'undefined' && currentUser && currentUser.name) || ''
+  };
+  if (S.gasUrl){
+    await gasPost({ action:'saveStocktake', id:rec.id, date:rec.date, branch:rec.branch, items: JSON.stringify(rec.items), staff: rec.staff });
+  }
+  toast(diffCnt === 0 ? '✓ 記録しました（すべて一致）' : '✓ 記録しました（差異 ' + diffCnt + ' 商品）');
+  stocktakeReal = {};
+  renderStocktakeForm();
+  loadStocktakes(true);
+}
+// 履歴の取得と描画
+async function loadStocktakes(force){
+  if (!S.gasUrl) return;
+  try {
+    var d = await gasGet('getStocktakes', { limit: 100 });
+    if (d && d.stocktakes) { stocktakeList = d.stocktakes; renderStocktakeHistory(); }
+  } catch(e){ if (force) toast('履歴の取得に失敗しました', 'error'); }
+}
+function renderStocktakeHistory(){
+  var box = document.getElementById('st-history');
+  if (!box) return;
+  if (!stocktakeList.length){ box.innerHTML = '<div style="padding:1.2rem;text-align:center;color:var(--wh3);font-size:.8rem">まだ棚卸の記録がありません</div>'; return; }
+  var rows = stocktakeList.map(function(r){
+    var ok = r.judge === '一致';
+    var detail = (r.items||[]).filter(function(it){ return (it.real - it.book) !== 0; })
+      .map(function(it){ var g = it.real - it.book; return escapeHtml(it.product) + (g>0?'+':'') + g; }).join('、');
+    return '<tr>'
+      + '<td>' + escapeHtml(r.date || '') + '</td>'
+      + '<td>' + escapeHtml(r.branch || '') + '</td>'
+      + '<td class="col-qty">' + (r.prodCount||0) + '</td>'
+      + '<td style="font-weight:700;color:' + (ok ? 'var(--grn)' : '#e0685f') + '">' + (ok ? '✓ 一致' : '⚠ 差異' + (r.diffCount||0) + '商品') + '</td>'
+      + '<td style="font-size:.72rem;color:var(--wh2)">' + (detail || '—') + '</td>'
+      + '<td>' + escapeHtml(r.staff || '') + '</td>'
+      + '</tr>';
+  }).join('');
+  box.innerHTML = '<table><thead><tr><th>日付</th><th>拠点</th><th class="col-qty">商品数</th><th>判定</th><th>差異の内訳</th><th>担当</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
 </script>
 
