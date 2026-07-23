@@ -690,6 +690,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
       <div class="tw">
         <div class="th-area"><h3>代理販売手数料売上（月次）</h3></div>
         <div id="sales-agent-grid"></div>
+        <div id="sales-agent-detail" style="margin-top:.8rem"></div>
       </div>
     </div>
 
@@ -739,7 +740,7 @@ const S = {
   stock:{仙台:{}, 京都:{}}, slog:[], collections:[], invoices:[],
   bankEntries:[], company:{}, products:null,
   purchases:[], cashEntries:[], expenses:[], pettyEntries:[], payments:[],
-  agentDeals:[], salesAdjust:[],
+  agentDeals:[], agents:[], salesAdjust:[],
   amexEntries:[], payables:[], dailyReps:[],
   gasUrl: (function(){var U='https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';try{if(localStorage.getItem('gasUrl')!==U)localStorage.setItem('gasUrl',U);}catch(e){}return U;})(),
 };
@@ -1729,6 +1730,7 @@ async function loadSalesTab(force){
   if(!S.gasUrl) return;
   try{
     const d=await gasGet('getAgentDeals');  if(d && d.deals)  S.agentDeals=d.deals;
+    const ag=await gasGet('getAgents');      if(ag && ag.agents) S.agents=ag.agents;
     const s=await gasGet('getSalesAdjust');  if(s && s.items)  S.salesAdjust=s.items;
     saveState();
     renderSalesAll(); renderSalesAdjustList();
@@ -1878,6 +1880,75 @@ function renderSelfSalesMonthly(){
 }
 
 // 代理販売手数料売上（月次：Sclass入金額のみ）
+// ── 代理販売手数料の明細（月別）＋フィルター ──
+var _adMonth = '';
+function _agentName(id){
+  var a=(S.agents||[]).find(function(x){ return String(x.id)===String(id); });
+  return a ? (a.name||String(id)) : String(id||'');
+}
+function _dealsOfMonth(ym){ return (S.agentDeals||[]).filter(function(x){ return _ymA(x.date)===ym; }); }
+
+function showAgentSalesDetail(ym){
+  _adMonth=ym; renderAgentSalesDetail();
+  var box=document.getElementById('sales-agent-detail');
+  if(box && box.scrollIntoView) box.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function closeAgentSalesDetail(){ _adMonth=''; var b=document.getElementById('sales-agent-detail'); if(b) b.innerHTML=''; }
+
+function renderAgentSalesDetail(){
+  var box=document.getElementById('sales-agent-detail'); if(!box) return;
+  if(!_adMonth){ box.innerHTML=''; return; }
+  var list=_dealsOfMonth(_adMonth);
+
+  var agents=Array.from(new Set(list.map(function(x){return _agentName(x.agentId);}).filter(Boolean))).sort();
+  var prods =Array.from(new Set(list.map(function(x){return String(x.prod||'');}).filter(Boolean))).sort();
+  var paids =Array.from(new Set(list.map(function(x){return String(x.paid||'');}).filter(Boolean))).sort();
+
+  var fAg=(document.getElementById('ad-agent')||{}).value||'';
+  var fPr=(document.getElementById('ad-prod')||{}).value||'';
+  var fPd=(document.getElementById('ad-paid')||{}).value||'';
+  var fKw=((document.getElementById('ad-kw')||{}).value||'').trim();
+
+  var rows=list.filter(function(x){
+    if(fAg && _agentName(x.agentId)!==fAg) return false;
+    if(fPr && String(x.prod||'')!==fPr) return false;
+    if(fPd && String(x.paid||'')!==fPd) return false;
+    if(fKw && String(x.cust||'').indexOf(fKw)<0 && _agentName(x.agentId).indexOf(fKw)<0) return false;
+    return true;
+  }).sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); });
+
+  var sum=rows.reduce(function(t,x){ return t+(Number(x.sclassAmt)||0); },0);
+  var sumQty=rows.reduce(function(t,x){ return t+(Number(x.qty)||0); },0);
+  function opt(arr,cur){ return '<option value="">すべて</option>'+arr.map(function(v){ return '<option value="'+escapeHtml(v)+'"'+(v===cur?' selected':'')+'>'+escapeHtml(v)+'</option>'; }).join(''); }
+
+  var html='<div class="tw"><div class="th-area" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.4rem">'
+    +'<h3>'+_ymLabel(_adMonth)+' の代理販売手数料売上の明細（Sclass入金額）</h3>'
+    +'<button class="btn-s" onclick="closeAgentSalesDetail()">✕ 閉じる</button></div>'
+    +'<div class="fp" style="display:flex;gap:.5rem;flex-wrap:wrap;padding:.6rem .7rem">'
+    +'<div class="fg"><label>代理店</label><select class="fc" id="ad-agent" onchange="renderAgentSalesDetail()">'+opt(agents,fAg)+'</select></div>'
+    +'<div class="fg"><label>商品</label><select class="fc" id="ad-prod" onchange="renderAgentSalesDetail()">'+opt(prods,fPr)+'</select></div>'
+    +'<div class="fg"><label>入金状況</label><select class="fc" id="ad-paid" onchange="renderAgentSalesDetail()">'+opt(paids,fPd)+'</select></div>'
+    +'<div class="fg" style="flex:1;min-width:140px"><label>キーワード（顧客・代理店）</label><input class="fc" id="ad-kw" value="'+escapeHtml(fKw)+'" oninput="renderAgentSalesDetail()" placeholder="部分一致"></div>'
+    +'</div>'
+    +'<div style="padding:.4rem .7rem;font-size:.8rem;color:var(--wh2)">表示中: <b>'+rows.length+'</b>件 ／ 本数: <b>'+sumQty+'</b> ／ 手数料売上合計: <b style="color:#7ee2a8">'+_yenA(sum)+'</b></div>';
+
+  if(!rows.length){ html+='<div style="padding:1.2rem;text-align:center;color:var(--wh3);font-size:.8rem">該当する取引がありません</div></div>'; box.innerHTML=html; return; }
+
+  html+='<table><thead><tr><th>日付</th><th>代理店</th><th>商品</th><th style="text-align:right">数量</th><th>顧客名</th><th>入金</th><th style="text-align:right">Sclass入金額</th></tr></thead><tbody>'
+    +rows.map(function(x){
+      return '<tr><td>'+escapeHtml(String(x.date||''))+'</td>'
+        +'<td>'+escapeHtml(_agentName(x.agentId))+'</td>'
+        +'<td>'+escapeHtml(String(x.prod||''))+'</td>'
+        +'<td style="text-align:right">'+(Number(x.qty)||0)+'</td>'
+        +'<td>'+escapeHtml(String(x.cust||''))+'</td>'
+        +'<td>'+escapeHtml(String(x.paid||''))+'</td>'
+        +'<td style="text-align:right;color:#7ee2a8">'+_yenA(Number(x.sclassAmt)||0)+'</td></tr>';
+    }).join('')
+    +'<tr style="border-top:2px solid var(--line);font-weight:700"><td colspan="6">合計</td><td style="text-align:right;color:#7ee2a8">'+_yenA(sum)+'</td></tr>'
+    +'</tbody></table></div>';
+  box.innerHTML=html;
+}
+
 function renderAgentSalesMonthly(){
   const grid=document.getElementById('sales-agent-grid'); if(!grid) return;
   const fee=_agentFeeByMonth();
@@ -1885,7 +1956,7 @@ function renderAgentSalesMonthly(){
   if(!keys.length){ grid.innerHTML='<div style="padding:1.5rem;text-align:center;color:var(--wh3);font-size:.8rem">代理販売手数料売上がありません</div>'; return; }
   let tF=0;
   const rows=keys.map(k=>{ const f=fee[k]||0; tF+=f;
-    return '<tr><td>'+_ymLabel(k)+'</td><td style="text-align:right;color:#7ee2a8">'+_yenA(f)+'</td></tr>'; }).join('');
+    return '<tr class="sd-row" style="cursor:pointer" title="クリックでこの月の明細を表示" onclick="showAgentSalesDetail(\''+k+'\')"><td>▸ '+_ymLabel(k)+'</td><td style="text-align:right;color:#7ee2a8">'+_yenA(f)+'</td></tr>'; }).join('');
   grid.innerHTML='<table><thead><tr><th>月</th><th style="text-align:right">代理販売手数料売上（Sclass入金額）</th></tr></thead><tbody>'+rows
     +'<tr style="border-top:2px solid var(--line);font-weight:700"><td>合計</td><td style="text-align:right;color:#7ee2a8">'+_yenA(tF)+'</td></tr></tbody></table>';
 }
