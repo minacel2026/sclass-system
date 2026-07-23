@@ -811,9 +811,9 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       <div class="hint-box" style="margin:.4rem 0">実際に数えた本数を入力すると、システム上の在庫（帳簿）との差異が出ます。「記録する」を押すとその日の結果が履歴に残り、<b>あとから「いつ在庫が合っていたか」を確認できます</b>。</div>
       <div class="fp">
         <div class="frow">
-          <div class="fg"><label>棚卸日</label><input class="fc" id="st-date" type="date"></div>
-          <div class="fg"><label>拠点 <span class="req">*</span></label><select class="fc" id="st-branch" onchange="renderStocktakeForm()"><option>仙台</option><option>京都</option></select></div>
-          <div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-g" onclick="fillStocktakeWithBook()" title="実数欄に帳簿の数を入れます（差異のある商品だけ直す使い方）">帳簿値をコピー</button></div>
+          <div class="fg"><label>棚卸日</label><input class="fc" id="st-date" type="date" style="height:38px;box-sizing:border-box"></div>
+          <div class="fg"><label>拠点 <span class="req">*</span></label><select class="fc" id="st-branch" style="height:38px;box-sizing:border-box" onchange="renderStocktakeForm()"><option>仙台</option><option>京都</option></select></div>
+          <div class="fg"><label>&nbsp;</label><button class="btn btn-g" style="height:38px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;white-space:nowrap" onclick="fillStocktakeWithBook()" title="実数欄に帳簿の数を入れます（差異のある商品だけ直す使い方）">帳簿値をコピー</button></div>
         </div>
       </div>
       <div id="st-form"></div>
