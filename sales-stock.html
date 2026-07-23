@@ -4038,6 +4038,11 @@ function removePurchaseDraftItem(idx){
 
 function submitPurchase(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  if (editingPurId){
+    var _oldPur = editingPurId; editingPurId = null;
+    try { deletePurchase(_oldPur, true); } catch(e){}
+    if (typeof _entryEditBanner === 'function') _entryEditBanner('purchase', false);
+  }
   const date     = document.getElementById('pu-date').value;
   const supplier = document.getElementById('pu-supplier').value;
   const branch   = document.getElementById('pu-branch').value;
@@ -4526,6 +4531,12 @@ function _lendStockMove(branch, product, signedQty, type, note){
 }
 
 function recordLending(){
+  // 修正中なら、先に元の記録を取り消して在庫を戻す（登録処理はそのまま続く＝置き換えになる）
+  if (editingLendId){
+    var _oldId = editingLendId; editingLendId = null;
+    try { deleteLending(_oldId, true); } catch(e){}
+    if (typeof _entryEditBanner === 'function') _entryEditBanner('lending', false);
+  }
   if(typeof canEdit==='function' && !canEdit()) return toast('🔒 貸借を記録する権限がありません（閲覧のみ）', 'error');
   const kind=document.getElementById('ln-kind').value;
   const pid=document.getElementById('ln-partner').value;
@@ -4665,81 +4676,109 @@ function renderLendList(){
     }).join('')+'</tbody></table>';
 }
 
-// ══ 取引の「修正」（削除で在庫を戻し、内容を入力欄に復元して入れ直す）══
-//   ※ 在庫の巻き戻しは各delete処理に任せるため、二重計上が起きない
+// ══ 取引の「修正」──注文と同じ方式 ══
+//   修正ボタンでは削除しない。内容をフォームへ復元し「修正中」にするだけ。
+//   登録ボタンを押したときに、元の記録を取り消して（在庫を戻して）新しい内容で登録する。
+//   途中でやめても元の記録は残る。他の種別へ移ると自動で解除（A方式）。
+var editingLendId = null;     // 修正中の貸借ID
+var editingPurId  = null;     // 修正中の仕入ID
+var editingMoveId = null;     // 修正中の移動ID
+
+function _clearEntryEditing(){ editingLendId = null; editingPurId = null; editingMoveId = null; }
+function _entryEditBanner(kind, on, text){
+  var host = document.getElementById('entry-' + kind);
+  if (!host) return;
+  var id = 'edit-banner-' + kind;
+  var el = document.getElementById(id);
+  if (!on){ if (el) el.remove(); return; }
+  if (!el){
+    el = document.createElement('div');
+    el.id = id;
+    el.className = 'hint-box';
+    el.style.cssText = 'margin:.4rem 0;border-color:var(--gold);color:var(--gold-l)';
+    host.insertBefore(el, host.firstChild);
+  }
+  el.innerHTML = '✏️ ' + text + '（登録すると元の記録が置き換わります）';
+}
 function _gotoEntry(kind){
   var tab = document.querySelector('.mtab[onclick*="neworder"]');
   if (tab) switchModule('neworder', tab);
   var ek = document.getElementById('entry-kind');
   if (ek){ ek.value = kind; switchEntryKind(kind); }
 }
-// 貸借の修正
+
+// 貸借の修正（削除はしない）
 function editLending(id){
   if (typeof canEdit === 'function' && !canEdit()) return toast('🔒 編集権限がありません', 'error');
   var rec = (S.lendings || []).find(function(l){ return l.id === id; });
   if (!rec) return toast('貸借が見つかりません', 'error');
   if ((Number(rec.returnedQty) || 0) > 0) return toast('返却済みの分があるため修正できません（削除して入れ直してください）', 'error');
-  if (!confirm('この貸借を修正します。\n\n・いまの記録は削除され、在庫は元に戻ります\n・内容が入力欄に入るので、直して登録し直してください\n\nよろしいですか？')) return;
-  var keep = { kind:rec.kind, branch:rec.branch, product:rec.product, qty:rec.qty, partnerId:rec.partnerId, dueDate:rec.dueDate, memo:rec.memo, date:rec.date };
-  deleteLending(id, true);                       // 確認を省いて削除（在庫は戻る）
-  _gotoEntry(keep.kind === '借入' ? 'borrow' : 'lend');
+  _clearEntryEditing();
+  editingLendId = id;
+  _gotoEntry(rec.kind === '借入' ? 'borrow' : 'lend');
   setTimeout(function(){
     var g = function(i){ return document.getElementById(i); };
-    if (g('ln-partner')) g('ln-partner').value = keep.partnerId || '';
-    if (g('ln-branch'))  g('ln-branch').value  = keep.branch || '仙台';
-    if (g('ln-prod'))    g('ln-prod').value    = keep.product || '';
-    if (g('ln-qty'))     g('ln-qty').value     = keep.qty || '';
-    if (g('ln-due'))     g('ln-due').value     = keep.dueDate || '';
-    if (g('ln-memo'))    g('ln-memo').value    = keep.memo || '';
-    if (g('ln-date'))    g('ln-date').value    = keep.date || today();
-    toast('内容を復元しました。修正して登録してください');
+    if (g('ln-partner')) g('ln-partner').value = rec.partnerId || '';
+    if (g('ln-branch'))  g('ln-branch').value  = rec.branch || '仙台';
+    if (g('ln-prod'))    g('ln-prod').value    = rec.product || '';
+    if (g('ln-qty'))     g('ln-qty').value     = rec.qty || '';
+    if (g('ln-due'))     g('ln-due').value     = rec.dueDate || '';
+    if (g('ln-memo'))    g('ln-memo').value    = rec.memo || '';
+    if (g('ln-date'))    g('ln-date').value    = rec.date || today();
+    _entryEditBanner('lending', true, '修正中：' + (rec.partnerName || '') + '／' + (rec.product || '') + ' ' + (rec.qty || 0) + '本');
+    toast('内容を読み込みました。直して登録してください');
   }, 60);
 }
-// 仕入の修正
+// 仕入の修正（削除はしない）
 function editPurchase(id){
   if (typeof canEdit === 'function' && !canEdit()) return toast('🔒 編集権限がありません', 'error');
   var rec = (S.purchases || []).find(function(x){ return x.id === id; });
   if (!rec) return toast('仕入が見つかりません', 'error');
-  if (!confirm('この仕入を修正します。\n\n・いまの記録は削除され、在庫も戻します\n・内容が入力欄に入るので、直して登録し直してください\n\nよろしいですか？')) return;
-  var keep = { date:rec.date, supplier:rec.supplier, branch:rec.branch, product:rec.product, qty:rec.qty, cost:rec.cost, note:rec.note };
-  deletePurchase(id, true);                      // 確認を省いて削除（在庫を戻す）
+  _clearEntryEditing();
+  editingPurId = id;
   _gotoEntry('purchase');
   setTimeout(function(){
     var g = function(i){ return document.getElementById(i); };
-    if (g('pu-date'))     g('pu-date').value     = keep.date || today();
-    if (g('pu-supplier')) g('pu-supplier').value = keep.supplier || '';
-    if (g('pu-branch'))   g('pu-branch').value   = keep.branch || '仙台';
-    if (g('pu-product'))  g('pu-product').value  = keep.product || '';
-    if (g('pu-qty'))      g('pu-qty').value      = keep.qty || '';
-    if (g('pu-cost'))     g('pu-cost').value     = keep.cost || '';
-    if (g('pu-note'))     g('pu-note').value     = keep.note || '';
-    toast('内容を復元しました。修正して登録してください');
+    if (g('pu-date'))     g('pu-date').value     = rec.date || today();
+    if (g('pu-supplier')) g('pu-supplier').value = rec.supplier || '';
+    if (g('pu-branch'))   g('pu-branch').value   = rec.branch || '仙台';
+    if (g('pu-product'))  g('pu-product').value  = rec.product || '';
+    if (g('pu-qty'))      g('pu-qty').value      = rec.qty || '';
+    if (g('pu-cost'))     g('pu-cost').value     = rec.cost || '';
+    if (g('pu-note'))     g('pu-note').value     = rec.note || '';
+    _entryEditBanner('purchase', true, '修正中：' + (rec.product || '') + ' ' + (rec.qty || 0) + '本');
+    toast('内容を読み込みました。直して登録してください');
   }, 60);
 }
-// 拠点間移動の修正（輸送中のみ）
+// 拠点間移動の修正（削除はしない・輸送中のみ）
 function editMove(id){
   if (typeof canEdit === 'function' && !canEdit()) return toast('🔒 編集権限がありません', 'error');
   var m = (S.moves || []).find(function(x){ return x.id === id; });
   if (!m) return toast('移動が見つかりません', 'error');
   if (m.status !== '輸送中') return toast('受領済みの移動は修正できません', 'error');
-  if (!confirm('この移動を修正します。\n\n・いまの記録は取消され、在庫は移動元に戻ります\n・内容が入力欄に入るので、直して発送し直してください\n\nよろしいですか？')) return;
-  var keep = { from:m.from, to:m.to, product:m.product, qty:m.qty, memo:m.memo, date:m.date };
-  cancelMove(id, true);                          // 確認を省いて取消（在庫は戻る）
+  _clearEntryEditing();
+  editingMoveId = id;
   _gotoEntry('move');
   setTimeout(function(){
     var g = function(i){ return document.getElementById(i); };
-    if (g('tr-from')) g('tr-from').value = keep.from || '仙台';
-    if (g('tr-to'))   g('tr-to').value   = keep.to || '京都';
-    if (g('tr-prod')) g('tr-prod').value = keep.product || '';
-    if (g('tr-qty'))  g('tr-qty').value  = keep.qty || '';
-    if (g('tr-memo')) g('tr-memo').value = keep.memo || '';
-    if (g('tr-date')) g('tr-date').value = keep.date || today();
+    if (g('tr-from')) g('tr-from').value = m.from || '仙台';
+    if (g('tr-to'))   g('tr-to').value   = m.to || '京都';
+    if (g('tr-prod')) g('tr-prod').value = m.product || '';
+    if (g('tr-qty'))  g('tr-qty').value  = m.qty || '';
+    if (g('tr-memo')) g('tr-memo').value = m.memo || '';
+    if (g('tr-date')) g('tr-date').value = m.date || today();
     if (typeof updateTransferPreview === 'function') updateTransferPreview();
-    toast('内容を復元しました。修正して発送してください');
+    _entryEditBanner('transfer', true, '修正中：' + (m.product || '') + ' ' + (m.qty || 0) + '本（' + (m.from||'') + '→' + (m.to||'') + '）');
+    toast('内容を読み込みました。直して発送してください');
   }, 60);
 }
 
 function switchEntryKind(kind){
+  // 別の種別へ移ったら「修正中」は自動解除（元の記録はそのまま残る）
+  if (typeof _clearEntryEditing === 'function'){
+    _clearEntryEditing();
+    ['lending','purchase','transfer'].forEach(function(k){ if (typeof _entryEditBanner === 'function') _entryEditBanner(k, false); });
+  }
   var show=function(id,on){ var e=document.getElementById(id); if(e) e.style.display=on?'':'none'; };
   show('entry-order', kind==='order');
   show('entry-purchase', kind==='purchase');
@@ -4899,6 +4938,11 @@ async function transferStock(){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
+  if (editingMoveId){
+    var _oldMv = editingMoveId; editingMoveId = null;
+    try { await cancelMove(_oldMv, true); } catch(e){}
+    if (typeof _entryEditBanner === 'function') _entryEditBanner('transfer', false);
+  }
   const from = (document.getElementById('tr-from')||{}).value;
   const to   = (document.getElementById('tr-to')||{}).value;
   const prod = (document.getElementById('tr-prod')||{}).value;
