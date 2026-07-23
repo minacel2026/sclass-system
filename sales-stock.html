@@ -709,6 +709,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg"><label>相手</label><select class="fc" id="ln-partner"><option value="">— 貸借先を選択 —</option></select></div>
         <div class="fg"><label>拠点</label><select class="fc" id="ln-branch"><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>商品</label><select class="fc" id="ln-prod"><option value="">— 商品を選択 —</option></select></div>
+        <div class="fg"><label>貸借日</label><input type="date" class="fc" id="ln-date"></div>
         <div class="fg"><label>数量（本）</label><input type="number" class="fc" id="ln-qty" min="1" placeholder="例:12"></div>
         <div class="fg"><label>返却予定日（任意）</label><input type="date" class="fc" id="ln-due"></div>
         <div class="fg" style="flex:1;min-width:140px"><label>メモ</label><input class="fc" id="ln-memo" placeholder="任意"></div>
@@ -724,6 +725,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg"><label>移動元</label><select class="fc" id="tr-from" onchange="syncTransferTo()"><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>移動先</label><select class="fc" id="tr-to"><option>京都</option><option>仙台</option></select></div>
         <div class="fg"><label>商品</label><select class="fc" id="tr-prod"></select></div>
+        <div class="fg"><label>発送日</label><input type="date" class="fc" id="tr-date"></div>
         <div class="fg"><label>本数</label><input class="fc" id="tr-qty" type="number" min="1" step="1" placeholder="例：5"></div>
         <div class="fg" style="flex:1;min-width:140px"><label>メモ（任意）</label><input class="fc" id="tr-memo" placeholder="例：他社返却分を京都へ"></div>
       </div>
@@ -4197,6 +4199,7 @@ function fillLendSelectors(){
   const pr=document.getElementById('ln-prod');
   if(pr){ const keep=pr.value; const pl=_prodCols();
     pr.innerHTML='<option value="">— 商品を選択 —</option>'+pl.map(p=>{const nm=(p&&p.name)?p.name:String(p);return '<option value="'+escapeHtml(String(nm))+'">'+escapeHtml(String(nm))+'</option>';}).join(''); if(keep) pr.value=keep; }
+  const _ld=document.getElementById('ln-date'); if(_ld && !_ld.value) _ld.value=today();
 }
 
 function _lendStockMove(branch, product, signedQty, type, note){
@@ -4221,7 +4224,7 @@ function recordLending(){
   const partner=(S.lendPartners||[]).find(p=>p.id===pid)||{};
   const sign=(kind==='貸出')?-1:1;
   _lendStockMove(branch, prod, sign*qty, kind, kind+'：'+(partner.name||'')+(memo?'（'+memo+'）':''));
-  const rec={ id:'ln-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:today(),
+  const rec={ id:'ln-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:(document.getElementById('ln-date').value||today()),
     partnerId:pid, partnerName:partner.name||'', partnerUid:partner.uid||'',
     kind, branch, product:prod, qty, dueDate:due, memo, status:'未返却', returnedDate:'',
     createdAt:new Date().toISOString(), createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
@@ -4278,12 +4281,13 @@ function returnLending(id){
   if(ans===null) return;
   const q=parseInt(ans,10);
   if(!(q>0) || q>rest) return toast('1〜'+rest+' の範囲で入力してください','error');
+  var _rd=prompt('返却日を入力してください（YYYY-MM-DD）', today()); if(_rd===null) return; _rd=String(_rd).trim(); if(!/^\d{4}-\d{2}-\d{2}$/.test(_rd)) _rd=today();
   const sign=(rec.kind==='貸出')?1:-1;
   _lendStockMove(rec.branch, rec.product, sign*q, (rec.kind==='貸出'?'返却受':'借入返却'), '返却：'+rec.partnerName+'（'+q+'本）');
   rec.returnedQty=(Number(rec.returnedQty)||0)+q;
   const done=_lendOutstanding(rec)<=0;
   rec.status=done?'返却済':'未返却';
-  rec.returnedDate=today();
+  rec.returnedDate=_rd;
   saveState();
   if(S.gasUrl){ gasPost({action:'returnLending', id:rec.id, returnedDate:rec.returnedDate, returnedQty:rec.returnedQty, status:rec.status}); syncStockToGAS(); }
   toast('✓ '+q+'本の返却を記録しました'+(done?'（完了）':'（残り '+_lendOutstanding(rec)+'本）'));
@@ -4467,11 +4471,13 @@ function renderTransferForm(){
   if (!sel) return;
   if (!sel.options.length){
     sel.innerHTML = _prodCols().map(p => `<option>${p.name}</option>`).join('');
+    for(var _i=0;_i<sel.options.length;_i++){ if(/イエロー/.test(sel.options[_i].text)){ sel.selectedIndex=_i; break; } }  // 初期選択=イエロー
     ['tr-from','tr-to','tr-prod','tr-bkt','tr-qty'].forEach(id => {
       const el = document.getElementById(id);
       if (el && !el._trBound){ el.addEventListener('input', updateTransferPreview); el.addEventListener('change', updateTransferPreview); el._trBound = true; }
     });
   }
+  const _td=document.getElementById('tr-date'); if(_td && !_td.value) _td.value=today();
   syncTransferTo();
 }
 function updateTransferPreview(){
@@ -4527,7 +4533,7 @@ async function transferStock(){
   if (!S.slog) S.slog = [];
   S.slog.push({ date: today(), time: t, branch: from, type: '移動出', product: prod, qty: qty, remaining: S.stock[from][prod], note: note, user: user });
 
-  const rec = { id:'mv-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date: today(), from: from, to: to,
+  const rec = { id:'mv-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date: (document.getElementById('tr-date').value||today()), from: from, to: to,
     product: prod, qty: qty, used: used, status:'輸送中', memo: memo, sentBy: user, sentAt: new Date().toISOString(),
     recvQty:'', recvDate:'', recvBy:'', lostQty:'' };
   S.moves = S.moves || []; S.moves.push(rec);
