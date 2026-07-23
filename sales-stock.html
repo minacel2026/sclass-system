@@ -710,6 +710,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
     <div id="entry-lending" style="display:none">
     <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
       <div class="th-area"><h3>📦 貸出・借入を記録</h3><span style="font-size:.68rem;color:var(--wh3)">貸出＝在庫が減る／借入＝在庫が増える（返却で戻る）</span></div>
+      <div class="hint-box" style="margin:.2rem 0 .5rem">複数の商品をまとめて記録できます。商品と本数を入れて<b>「＋ 明細に追加」</b>を繰り返し、最後に<b>「まとめて記録」</b>を押してください。</div>
       <div class="frow">
         <div class="fg"><label>種別</label><select class="fc" id="ln-kind"><option value="貸出">貸出（こちらが貸す）</option><option value="借入">借入（こちらが借りる）</option></select></div>
         <div class="fg"><label>相手</label><select class="fc" id="ln-partner"><option value="">— 貸借先を選択 —</option></select></div>
@@ -719,14 +720,16 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg"><label>数量（本）</label><input type="number" class="fc" id="ln-qty" min="1" placeholder="例:12"></div>
         <div class="fg"><label>返却予定日（任意）</label><input type="date" class="fc" id="ln-due"></div>
         <div class="fg" style="flex:1;min-width:140px"><label>メモ</label><input class="fc" id="ln-memo" placeholder="任意"></div>
-        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn" onclick="recordLending()" style="height:30px;padding:0 1.4rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 記録</button></div>
+        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn" onclick="addLendItem()" style="height:30px;padding:0 1.4rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 明細に追加</button></div>
       </div>
+      <div id="ln-draft" style="margin-top:.5rem"></div>
+      <div class="faction" style="margin-top:.4rem"><button class="btn btn-p" onclick="recordLending()">✓ まとめて記録</button></div>
     </div>
     </div>
     <div id="entry-transfer" style="display:none">
     <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
       <div class="th-area"><h3>🚚 拠点間移動：発送（仙台 ⇄ 京都）</h3><span style="font-size:.68rem;color:var(--wh3)">在庫を移すだけ・売上0</span></div>
-      <div class="hint-box" style="margin:.2rem 0 .5rem">現物が届くまで日数がかかるため<b>2段階</b>です。ここでの<b>発送</b>で移動元の在庫がすぐ減り、<b>「輸送中」</b>になります。移動先に届いたら<b>「拠点移動」タブで受領</b>すると、その拠点の在庫に入ります。輸送中も会社全体の在庫として数えます（「旧値→協賛→新値」の区分は保持され、受領時に同じ区分へ戻ります）。</div>
+      <div class="hint-box" style="margin:.2rem 0 .5rem">複数の商品をまとめて発送できます。商品と本数を入れて<b>「＋ 明細に追加」</b>を繰り返し、最後に<b>「まとめて発送」</b>を押してください。<br>現物が届くまで日数がかかるため<b>2段階</b>です。ここでの<b>発送</b>で移動元の在庫がすぐ減り、<b>「輸送中」</b>になります。移動先に届いたら<b>「拠点移動」タブで受領</b>すると、その拠点の在庫に入ります。輸送中も会社全体の在庫として数えます（「旧値→協賛→新値」の区分は保持され、受領時に同じ区分へ戻ります）。</div>
       <div class="frow">
         <div class="fg"><label>移動元</label><select class="fc" id="tr-from" onchange="syncTransferTo()"><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>移動先</label><select class="fc" id="tr-to"><option>京都</option><option>仙台</option></select></div>
@@ -734,9 +737,11 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg"><label>発送日</label><input type="date" class="fc" id="tr-date"></div>
         <div class="fg"><label>本数</label><input class="fc" id="tr-qty" type="number" min="1" step="1" placeholder="例：5"></div>
         <div class="fg" style="flex:1;min-width:140px"><label>メモ（任意）</label><input class="fc" id="tr-memo" placeholder="例：他社返却分を京都へ"></div>
+        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn" onclick="addMoveItem()" style="height:30px;padding:0 1.4rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 明細に追加</button></div>
       </div>
       <div id="tr-preview" style="font-size:.78rem;color:var(--wh2);margin:.4rem 0"></div>
-      <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="transferStock()">🚚 この内容で発送する</button></div>
+      <div id="tr-draft" style="margin-top:.5rem"></div>
+      <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="transferStock()">🚚 まとめて発送する</button></div>
     </div>
     </div>
   </div>
@@ -4530,6 +4535,66 @@ function _lendStockMove(branch, product, signedQty, type, note){
   S.slog.push({ date:today(), time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), branch, type, product, qty:Math.abs(signedQty), remaining:S.stock[branch][product], orderId:'', note });
 }
 
+// ══ 複数商品の明細（貸借・拠点間移動）══
+//   データ構造は「1レコード＝1商品」のまま。明細を積んで、登録時に商品ごとのレコードを作る。
+//   （返却・受領・修正・GAS側の処理を変えずに複数商品へ対応できる）
+var lendDraft = [];   // [{product, qty}]
+var moveDraft = [];   // [{product, qty}]
+
+function _draftTable(rows, onDel){
+  if (!rows.length) return '';
+  var body = rows.map(function(it, i){
+    return '<tr><td>' + escapeHtml(it.product) + '</td><td class="col-qty">' + it.qty + '本</td>'
+      + '<td style="text-align:center"><button class="act-btn dn" onclick="' + onDel + '(' + i + ')">削</button></td></tr>';
+  }).join('');
+  var total = rows.reduce(function(s2,x){ return s2 + (x.qty||0); }, 0);
+  return '<div class="tw"><table><thead><tr><th>商品</th><th class="col-qty">本数</th><th style="text-align:center">操作</th></tr></thead>'
+    + '<tbody>' + body + '</tbody>'
+    + '<tfoot><tr style="font-weight:700"><td>合計</td><td class="col-qty">' + total + '本</td><td></td></tr></tfoot></table></div>';
+}
+
+// ── 貸借の明細 ──
+function addLendItem(){
+  var prod = (document.getElementById('ln-prod')||{}).value;
+  var qty  = parseInt((document.getElementById('ln-qty')||{}).value || '', 10);
+  if (!prod) return toast('商品を選んでください', 'error');
+  if (!(qty > 0)) return toast('数量を入力してください', 'error');
+  var ex = lendDraft.find(function(x){ return x.product === prod; });
+  if (ex) ex.qty += qty; else lendDraft.push({ product: prod, qty: qty });
+  document.getElementById('ln-qty').value = '';
+  renderLendDraft();
+  toast('明細に追加：' + prod + ' ' + qty + '本');
+}
+function removeLendItem(i){ lendDraft.splice(i,1); renderLendDraft(); }
+function renderLendDraft(){
+  var box = document.getElementById('ln-draft');
+  if (box) box.innerHTML = _draftTable(lendDraft, 'removeLendItem');
+}
+
+// ── 移動の明細 ──
+function addMoveItem(){
+  var prod = (document.getElementById('tr-prod')||{}).value;
+  var qty  = parseInt((document.getElementById('tr-qty')||{}).value || '', 10);
+  var from = (document.getElementById('tr-from')||{}).value;
+  if (!prod) return toast('商品を選んでください', 'error');
+  if (!(qty > 0)) return toast('本数を入力してください', 'error');
+  // 在庫チェック（すでに明細に入れた分も考慮）
+  var already = moveDraft.reduce(function(s2,x){ return s2 + (x.product === prod ? (x.qty||0) : 0); }, 0);
+  var avail = (typeof _sumStock === 'function') ? _sumStock(from, prod) : 0;
+  if (already + qty > avail) return toast(from + 'の' + prod + 'は ' + avail + '本しかありません（追加済 ' + already + '本）', 'error');
+  var ex = moveDraft.find(function(x){ return x.product === prod; });
+  if (ex) ex.qty += qty; else moveDraft.push({ product: prod, qty: qty });
+  document.getElementById('tr-qty').value = '';
+  renderMoveDraft();
+  if (typeof updateTransferPreview === 'function') updateTransferPreview();
+  toast('明細に追加：' + prod + ' ' + qty + '本');
+}
+function removeMoveItem(i){ moveDraft.splice(i,1); renderMoveDraft(); }
+function renderMoveDraft(){
+  var box = document.getElementById('tr-draft');
+  if (box) box.innerHTML = _draftTable(moveDraft, 'removeMoveItem');
+}
+
 function recordLending(){
   // 修正中なら、先に元の記録を取り消して在庫を戻す（登録処理はそのまま続く＝置き換えになる）
   if (editingLendId){
@@ -4541,24 +4606,37 @@ function recordLending(){
   const kind=document.getElementById('ln-kind').value;
   const pid=document.getElementById('ln-partner').value;
   const branch=document.getElementById('ln-branch').value;
-  const prod=document.getElementById('ln-prod').value;
-  const qty=parseInt(document.getElementById('ln-qty').value||'',10);
   const due=document.getElementById('ln-due').value;
   const memo=(document.getElementById('ln-memo').value||'').trim();
   if(!pid) return toast('相手を選んでください','error');
-  if(!prod) return toast('商品を選んでください','error');
-  if(!(qty>0)) return toast('数量を入力してください','error');
+  // 明細が空なら、入力欄の内容を1件として扱う（1商品だけのときも今までどおり使える）
+  let _items = lendDraft.slice();
+  if(!_items.length){
+    const _p=document.getElementById('ln-prod').value;
+    const _q=parseInt(document.getElementById('ln-qty').value||'',10);
+    if(!_p) return toast('商品を選んでください','error');
+    if(!(_q>0)) return toast('数量を入力してください','error');
+    _items=[{product:_p, qty:_q}];
+  }
   const partner=(S.lendPartners||[]).find(p=>p.id===pid)||{};
   const sign=(kind==='貸出')?-1:1;
-  _lendStockMove(branch, prod, sign*qty, kind, kind+'：'+(partner.name||'')+(memo?'（'+memo+'）':''));
-  const rec={ id:'ln-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date:(document.getElementById('ln-date').value||today()),
-    partnerId:pid, partnerName:partner.name||'', partnerUid:partner.uid||'',
-    kind, branch, product:prod, qty, dueDate:due, memo, status:'未返却', returnedDate:'',
-    createdAt:new Date().toISOString(), createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
-  S.lendings=S.lendings||[]; S.lendings.push(rec); saveState();
-  if(S.gasUrl){ gasPost({action:'saveLending', id:rec.id, date:rec.date, partnerId:rec.partnerId, partnerName:rec.partnerName, partnerUid:rec.partnerUid, kind:rec.kind, branch:rec.branch, product:rec.product, qty:rec.qty, dueDate:rec.dueDate, memo:rec.memo, status:rec.status, createdBy:rec.createdBy }); syncStockToGAS(); }
+  const _lnDate=(document.getElementById('ln-date').value||today());
+  let _total=0;
+  _items.forEach(function(it, _i){
+    _lendStockMove(branch, it.product, sign*it.qty, kind, kind+'：'+(partner.name||'')+(memo?'（'+memo+'）':''));
+    const rec={ id:'ln-'+Date.now()+'-'+_i+'-'+Math.floor(Math.random()*9000+1000), date:_lnDate,
+      partnerId:pid, partnerName:partner.name||'', partnerUid:partner.uid||'',
+      kind, branch, product:it.product, qty:it.qty, dueDate:due, memo, status:'未返却', returnedDate:'',
+      createdAt:new Date().toISOString(), createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
+    S.lendings=S.lendings||[]; S.lendings.push(rec);
+    if(S.gasUrl){ gasPost({action:'saveLending', id:rec.id, date:rec.date, partnerId:rec.partnerId, partnerName:rec.partnerName, partnerUid:rec.partnerUid, kind:rec.kind, branch:rec.branch, product:rec.product, qty:rec.qty, dueDate:rec.dueDate, memo:rec.memo, status:rec.status, createdBy:rec.createdBy }); }
+    _total+=it.qty;
+  });
+  saveState();
+  if(S.gasUrl) syncStockToGAS();
+  lendDraft=[]; renderLendDraft();
   document.getElementById('ln-qty').value=''; document.getElementById('ln-memo').value=''; document.getElementById('ln-due').value='';
-  toast('✓ '+kind+'を記録しました（在庫'+(kind==='貸出'?'−':'+')+qty+'本）');
+  toast('✓ '+kind+' '+_items.length+'商品を記録しました（在庫'+(kind==='貸出'?'−':'+')+_total+'本）');
   renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock();
 }
 
@@ -4945,38 +5023,50 @@ async function transferStock(){
   }
   const from = (document.getElementById('tr-from')||{}).value;
   const to   = (document.getElementById('tr-to')||{}).value;
-  const prod = (document.getElementById('tr-prod')||{}).value;
-  const qty  = parseInt((document.getElementById('tr-qty')||{}).value) || 0;
   const memo = ((document.getElementById('tr-memo')||{}).value || '').trim();
   if (from === to) return toast('移動元と移動先が同じです', 'error');
-  if (!prod) return toast('商品を選んでください', 'error');
-  if (!(qty > 0)) return toast('本数を入力してください', 'error');
-  const _avail = _sumStock(from, prod);
-  if (qty > _avail) return toast(`${from}の${prod}は ${_avail}本しかありません（${qty}本は移動できません）`, 'error');
-  if (!confirm(`${prod} を ${qty}本\n${from} から発送します（${to} 宛て）。\n\n・${from} の在庫は今すぐ ${qty}本 減ります\n・${to} の在庫は「受領」した時に増えます\n・それまでは「輸送中」として管理されます\n\nよろしいですか？`)) return;
-
-  // 旧値 → 協賛 → 新値 の優先順で移動元から取り、内訳を保持して輸送中に載せる
-  const used = depleteStock(from, prod, qty);
-  _sumStock(from, prod);
+  // 明細が空なら、入力欄の内容を1件として扱う（1商品だけのときも今までどおり使える）
+  let _items = moveDraft.slice();
+  if (!_items.length){
+    const _p0 = (document.getElementById('tr-prod')||{}).value;
+    const _q0 = parseInt((document.getElementById('tr-qty')||{}).value) || 0;
+    if (!_p0) return toast('商品を選んでください', 'error');
+    if (!(_q0 > 0)) return toast('本数を入力してください', 'error');
+    _items = [{ product:_p0, qty:_q0 }];
+  }
+  // 在庫チェック（全明細ぶん）
+  for (const it of _items){
+    const av = _sumStock(from, it.product);
+    if (it.qty > av) return toast(`${from}の${it.product}は ${av}本しかありません（${it.qty}本は移動できません）`, 'error');
+  }
+  const _sum = _items.reduce((s2,x)=>s2+(x.qty||0),0);
+  const _lines = _items.map(x=>`・${x.product} ${x.qty}本`).join('\n');
+  if (!confirm(`${from} から ${to} へ発送します。\n\n${_lines}\n（合計 ${_sum}本）\n\n・${from} の在庫は今すぐ減ります\n・${to} の在庫は「受領」した時に増えます\n・それまでは「輸送中」として管理されます\n\nよろしいですか？`)) return;
 
   const t = new Date().toTimeString().slice(0,5);
-  const _p = []; if (used.old) _p.push('旧' + used.old); if (used.sp) _p.push('協' + used.sp); if (used.new) _p.push('新' + used.new);
-  const _brk = _p.length ? '（' + _p.join('・') + '）' : '';
-  const note = `拠点間移動 ${from}→${to}${_brk}` + (memo ? '：' + memo : '');
   const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : '';
+  const _mvDate = (document.getElementById('tr-date').value||today());
   if (!S.slog) S.slog = [];
-  S.slog.push({ date: today(), time: t, branch: from, type: '移動出', product: prod, qty: qty, remaining: S.stock[from][prod], note: note, user: user });
-
-  const rec = { id:'mv-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), date: (document.getElementById('tr-date').value||today()), from: from, to: to,
-    product: prod, qty: qty, used: used, status:'輸送中', memo: memo, sentBy: user, sentAt: new Date().toISOString(),
-    recvQty:'', recvDate:'', recvBy:'', lostQty:'' };
-  S.moves = S.moves || []; S.moves.push(rec);
-
+  S.moves = S.moves || [];
+  _items.forEach(function(it, _i){
+    // 旧値 → 協賛 → 新値 の優先順で移動元から取り、内訳を保持して輸送中に載せる
+    const used = depleteStock(from, it.product, it.qty);
+    _sumStock(from, it.product);
+    const _p = []; if (used.old) _p.push('旧' + used.old); if (used.sp) _p.push('協' + used.sp); if (used.new) _p.push('新' + used.new);
+    const _brk = _p.length ? '（' + _p.join('・') + '）' : '';
+    const note = `拠点間移動 ${from}→${to}${_brk}` + (memo ? '：' + memo : '');
+    S.slog.push({ date: today(), time: t, branch: from, type: '移動出', product: it.product, qty: it.qty, remaining: S.stock[from][it.product], note: note, user: user });
+    const rec = { id:'mv-'+Date.now()+'-'+_i+'-'+Math.floor(Math.random()*9000+1000), date: _mvDate, from: from, to: to,
+      product: it.product, qty: it.qty, used: used, status:'輸送中', memo: memo, sentBy: user, sentAt: new Date().toISOString(),
+      recvQty:'', recvDate:'', recvBy:'', lostQty:'' };
+    S.moves.push(rec);
+    if (S.gasUrl){ gasPost({ action:'saveMove', id:rec.id, date:rec.date, from:rec.from, to:rec.to, product:rec.product,
+      qty:rec.qty, used:JSON.stringify(rec.used), status:rec.status, memo:rec.memo, sentBy:rec.sentBy }); }
+  });
   saveState();
-  if (S.gasUrl){ gasPost({ action:'saveMove', id:rec.id, date:rec.date, from:rec.from, to:rec.to, product:rec.product,
-    qty:rec.qty, used:JSON.stringify(rec.used), status:rec.status, memo:rec.memo, sentBy:rec.sentBy }); }
   syncStockToGAS();
-  toast(`🚚 ${prod} ${qty}本を ${from}→${to} へ発送しました（${to}で受領すると在庫に入ります）`);
+  moveDraft = []; renderMoveDraft();
+  toast(`🚚 ${_items.length}商品 計${_sum}本を ${from}→${to} へ発送しました（${to}で受領すると在庫に入ります）`);
   document.getElementById('tr-qty').value = '';
   document.getElementById('tr-memo').value = '';
   if (typeof renderMoves === 'function') renderMoves();
