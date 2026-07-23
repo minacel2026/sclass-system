@@ -1354,11 +1354,16 @@ function updateTabDots(){
       var d = new Date(_ymd(l.dueDate)).getTime();
       return !isNaN(d) && d < t0;
     }).length;
-    // 新着の貸借（前回このタブを見た後に登録された分）も数える＝返却予定日が無くてもバッジが出る
-    var lendNew = _countUnseen(S.lendings, 'lending');
-    var lendTot = over + lendNew;
-    _setTabDot('lending', lendTot, over ? 'late' : '',
-      lendTot ? ((over ? over + '件が返却予定日を過ぎています' : '') + (over && lendNew ? '／' : '') + (lendNew ? lendNew + '件の新しい貸借' : '')) : '');
+    // 未返却が残っていれば常に印を出す（返却予定日が未入力でも出る＝返し忘れ防止）
+    //  ※「見たら消える」ではなく「返却が済むと消える」。対応が必要な件数を示す。
+    var outstanding = (S.lendings||[]).filter(function(l){
+      if (String(l.status||'') === '返却済') return false;
+      var q = Number(l.qty) || 0;
+      var r = Number(l.returnedQty) || 0;
+      return (q - r) > 0;                       // 未返却が1本でも残っている
+    }).length;
+    _setTabDot('lending', outstanding, over ? 'late' : '',
+      outstanding ? (outstanding + '件が未返却' + (over ? '（うち' + over + '件は返却予定日超過）' : '')) : '');
 
     // ④ 仕入管理：前回このタブを見た後に登録された仕入（見たら消える）
     var puNew = _countUnseen(S.purchases, 'purchase');
