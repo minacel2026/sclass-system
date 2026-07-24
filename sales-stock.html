@@ -602,6 +602,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
           <option value="borrow">借入</option>
           <option value="move">拠点間移動</option>
           <option value="return">返却（貸借の返却）</option>
+          <option value="free">無償提供（試供品・交際費など）</option>
         </select>
       </div>
     </div>
@@ -725,6 +726,26 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       </div>
       <div id="ln-draft" style="margin-top:.5rem"></div>
       <div class="faction" style="margin-top:.4rem"><button class="btn btn-p" onclick="recordLending()">✓ まとめて記録</button></div>
+    </div>
+    </div>
+    <div id="entry-free" style="display:none">
+    <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
+      <div class="th-area"><h3>🎁 無償提供を記録</h3><span style="font-size:.68rem;color:var(--wh3)">売上は立たず、在庫だけ減ります（経費計上用）</span></div>
+      <div class="hint-box" style="margin:.2rem 0 .5rem">試供品・交際費など、代金をいただかずにお渡しした分を記録します。<b>用途ごとに集計できる</b>ので、経費の把握に使えます。協賛残数は消費しません。</div>
+      <div class="frow">
+        <div class="fg"><label>提供日</label><input class="fc" id="fr-date" type="date" style="height:38px;box-sizing:border-box"></div>
+        <div class="fg"><label>拠点 <span class="req">*</span></label><select class="fc" id="fr-branch" style="height:38px;box-sizing:border-box"><option>仙台</option><option>京都</option></select></div>
+        <div class="fg"><label>用途 <span class="req">*</span></label><select class="fc" id="fr-purpose" style="height:38px;box-sizing:border-box"><option>試供品</option><option>交際費</option><option>広告宣伝</option><option>その他</option></select></div>
+        <div class="fg" style="flex:1;min-width:150px"><label>提供先（任意）</label><input class="fc" id="fr-to" style="height:38px;box-sizing:border-box" placeholder="例：〇〇様・展示会"></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>商品 <span class="req">*</span></label><select class="fc" id="fr-prod" style="height:38px;box-sizing:border-box"></select></div>
+        <div class="fg"><label>本数 <span class="req">*</span></label><input class="fc" id="fr-qty" type="number" min="1" step="1" style="height:38px;box-sizing:border-box" placeholder="例：2"></div>
+        <div class="fg" style="flex:1;min-width:150px"><label>メモ（任意）</label><input class="fc" id="fr-memo" style="height:38px;box-sizing:border-box" placeholder="任意"></div>
+        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn" onclick="addFreeItem()" style="height:38px;box-sizing:border-box;padding:0 1.2rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 明細に追加</button></div>
+      </div>
+      <div id="fr-draft" style="margin-top:.5rem"></div>
+      <div class="faction" style="margin-top:.4rem"><button class="btn btn-p" onclick="submitFree()">✓ 無償提供を記録する</button></div>
     </div>
     </div>
     <div id="entry-return" style="display:none">
@@ -3565,7 +3586,7 @@ function toggleBackstock(){
   p.style.display=open?'block':'none'; if(c) c.textContent=open?'▴':'▾';
   const d=document.getElementById('bs-date'); if(open && d && !d.value) d.value=today();
 }
-var _BS_OUT={'出庫':1,'協賛出庫':1,'移動出':1};   // 在庫が減る動き
+var _BS_OUT={'出庫':1,'協賛出庫':1,'移動出':1,'無償提供':1};   // 在庫が減る動き
 var _BS_IN ={'入庫':1,'戻入':1,'移動入':1};        // 在庫が増える動き
 function renderBackstock(){
   const date=(document.getElementById('bs-date')||{}).value;
@@ -4714,6 +4735,122 @@ function renderLendOpeningForm(){
 function _lendOutstanding(rec){ return Math.max(0, (Number(rec.qty)||0) - (Number(rec.returnedQty)||0)); }
 
 // 返却：取引まるごとではなく「何本返ってきたか」を記録する（分割返却が普通のため）
+// ══ 在庫履歴をスプレッドシートにも保存 ══
+//   S.slog への追加を横取りして、サーバへ自動送信する。
+//   こうすることで既存16か所の記録処理を書き換えずに済み、記録漏れも起きない。
+//   送信は少し待ってからまとめて行う（連続登録時の通信を1回にまとめるため）。
+var _slogQueue = [];
+var _slogTimer = null;
+function _slogFlush(){
+  _slogTimer = null;
+  if (!_slogQueue.length || !S.gasUrl) { _slogQueue = []; return; }
+  var batch = _slogQueue.splice(0, _slogQueue.length);
+  try { gasPost({ action:'saveStockLogs', logs: JSON.stringify(batch) }); } catch(e){}
+}
+function _slogEnqueue(entry){
+  if (!entry || typeof entry !== 'object') return entry;
+  // 一意なIDを付ける（二重送信しても増えないようにするため）
+  if (!entry.id) entry.id = 'sl-' + Date.now() + '-' + Math.floor(Math.random()*90000+10000);
+  if (!entry.user && typeof currentUser !== 'undefined' && currentUser) entry.user = currentUser.name || '';
+  _slogQueue.push({
+    id: entry.id, date: entry.date || today(), time: entry.time || '',
+    branch: entry.branch || '', type: entry.type || '', product: entry.product || '',
+    qty: entry.qty || 0, remaining: (entry.remaining === undefined ? '' : entry.remaining),
+    orderId: entry.orderId || '', note: entry.note || '', user: entry.user || ''
+  });
+  if (_slogTimer) clearTimeout(_slogTimer);
+  _slogTimer = setTimeout(_slogFlush, 1500);
+  return entry;
+}
+// S.slog.push を包む（1回だけ適用）
+(function(){
+  if (!S.slog) S.slog = [];
+  if (S.slog.__wrapped) return;
+  var _origPush = S.slog.push.bind(S.slog);
+  S.slog.push = function(){
+    for (var i=0;i<arguments.length;i++){ try { _slogEnqueue(arguments[i]); } catch(e){} }
+    return _origPush.apply(null, arguments);
+  };
+  try { Object.defineProperty(S.slog, '__wrapped', { value:true, enumerable:false }); } catch(e){}
+})();
+// 画面を閉じる前に未送信ぶんを送る
+window.addEventListener('beforeunload', function(){ if (_slogQueue.length) _slogFlush(); });
+
+// ══ 無償提供（試供品・交際費など）══
+//   売上は立たず、在庫だけ減る。協賛残数は消費しない。用途別に集計できるよう slog に記録する。
+var freeDraft = [];
+function initFreeForm(){
+  var sel=document.getElementById('fr-prod');
+  if (sel && !sel.options.length){
+    sel.innerHTML = _prodCols().map(function(p){ return '<option>'+escapeHtml(p.name)+'</option>'; }).join('');
+    for(var i=0;i<sel.options.length;i++){ if(/イエロー/.test(sel.options[i].text)){ sel.selectedIndex=i; break; } }
+  }
+  var d=document.getElementById('fr-date'); if(d && !d.value) d.value=today();
+  renderFreeDraft();
+}
+function addFreeItem(){
+  var prod=(document.getElementById('fr-prod')||{}).value;
+  var qty=parseInt((document.getElementById('fr-qty')||{}).value||'',10);
+  var br=(document.getElementById('fr-branch')||{}).value;
+  if(!prod) return toast('商品を選んでください','error');
+  if(!(qty>0)) return toast('本数を入力してください','error');
+  var already=freeDraft.reduce(function(s2,x){ return s2+(x.product===prod?(x.qty||0):0); },0);
+  var avail=(typeof _sumStock==='function')?_sumStock(br,prod):0;
+  if(already+qty>avail) return toast(br+'の'+prod+'は '+avail+'本しかありません（追加済 '+already+'本）','error');
+  var ex=freeDraft.find(function(x){ return x.product===prod; });
+  if(ex) ex.qty+=qty; else freeDraft.push({product:prod, qty:qty});
+  document.getElementById('fr-qty').value='';
+  renderFreeDraft();
+  toast('明細に追加：'+prod+' '+qty+'本');
+}
+function removeFreeItem(i){ freeDraft.splice(i,1); renderFreeDraft(); }
+function renderFreeDraft(){
+  var box=document.getElementById('fr-draft');
+  if(box) box.innerHTML=_draftTable(freeDraft,'removeFreeItem');
+}
+function submitFree(){
+  if (typeof canEdit==='function' && !canEdit()) return toast('🔒 記録する権限がありません（閲覧のみ）','error');
+  var br=(document.getElementById('fr-branch')||{}).value;
+  var dt=(document.getElementById('fr-date')||{}).value||today();
+  var purpose=(document.getElementById('fr-purpose')||{}).value||'試供品';
+  var to=((document.getElementById('fr-to')||{}).value||'').trim();
+  var memo=((document.getElementById('fr-memo')||{}).value||'').trim();
+  var items=freeDraft.slice();
+  if(!items.length){
+    var p0=(document.getElementById('fr-prod')||{}).value;
+    var q0=parseInt((document.getElementById('fr-qty')||{}).value||'',10);
+    if(!p0) return toast('商品を選んでください','error');
+    if(!(q0>0)) return toast('本数を入力してください','error');
+    items=[{product:p0, qty:q0}];
+  }
+  for (var i=0;i<items.length;i++){
+    var av=_sumStock(br, items[i].product);
+    if(items[i].qty>av) return toast(br+'の'+items[i].product+'は '+av+'本しかありません','error');
+  }
+  var total=items.reduce(function(s2,x){ return s2+x.qty; },0);
+  var lines=items.map(function(x){ return '・'+x.product+' '+x.qty+'本'; }).join('\n');
+  if(!confirm('無償提供として記録します（売上は立ちません）。\n\n用途：'+purpose+(to?'\n提供先：'+to:'')+'\n拠点：'+br+'\n\n'+lines+'\n（合計 '+total+'本）\n\n在庫が'+total+'本減ります。よろしいですか？')) return;
+  var user=(typeof currentUser!=='undefined'&&currentUser)?currentUser.name:'';
+  var t=new Date().toTimeString().slice(0,5);
+  if(!S.slog) S.slog=[];
+  items.forEach(function(it){
+    var used=depleteStock(br, it.product, it.qty);
+    var pk=[]; if(used.old) pk.push('旧'+used.old); if(used.sp) pk.push('協'+used.sp); if(used.new) pk.push('新'+used.new);
+    S.slog.push({ date:dt, time:t, branch:br, type:'無償提供', product:it.product, qty:it.qty,
+      remaining:S.stock[br][it.product],
+      note:'無償提供['+purpose+']'+(to?'：'+to:'')+(memo?'（'+memo+'）':'')+(pk.length?'（'+pk.join('・')+'）':''),
+      user:user });
+  });
+  saveState();
+  if(S.gasUrl) syncStockToGAS();
+  freeDraft=[]; renderFreeDraft();
+  document.getElementById('fr-qty').value='';
+  document.getElementById('fr-memo').value='';
+  toast('✓ 無償提供を記録しました（'+purpose+'／'+items.length+'商品 計'+total+'本）');
+  if(typeof renderStock==='function') renderStock();
+  if(typeof renderStockLog==='function') renderStockLog();
+}
+
 // ══ 返却（注文登録タブから記録する）══
 //   既存の returnLending（貸借管理タブの返却ボタン）と同じ処理を、フォームから行えるようにしたもの
 function fillReturnTargets(){
@@ -4961,6 +5098,8 @@ function switchEntryKind(kind){
   show('entry-lending', (kind==='lend'||kind==='borrow'));
   show('entry-transfer', kind==='move');
   show('entry-return', kind==='return');
+  show('entry-free', kind==='free');
+  if(kind==='free'){ if(typeof initFreeForm==='function'){ try{ initFreeForm(); }catch(e){} } }
   if(kind==='return'){ if(typeof fillReturnTargets==='function'){ try{ fillReturnTargets(); }catch(e){} } }
   if(kind==='purchase'){ if(typeof renderPurchase==='function'){ try{ renderPurchase(); }catch(e){} } }
   if(kind==='move'){ if(typeof renderTransferForm==='function'){ try{ renderTransferForm(); }catch(e){} } }
