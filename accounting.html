@@ -419,6 +419,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div class="fg"><label>日付 <span class="req">*</span></label><input class="fc" id="cb-date" type="date"></div>
         <div class="fg"><label>区分 <span class="req">*</span></label><select class="fc" id="cb-type" onchange="cbToggleCategory()"><option value="収入">収入</option><option value="支出" selected>支出</option></select></div>
         <div class="fg"><label>カテゴリ</label><select class="fc" id="cb-category"></select></div>
+        <div class="fg"><label>部門</label><select class="fc" id="cb-dept"><option value="liquor">🍷 酒販</option><option value="diffuser">🌿 ディフューザー</option><option value="kuchikomi">💬 口コミ365</option></select></div>
         <div class="fg"><label>拠点</label><select class="fc" id="cb-branch"><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>口座</label><select class="fc" id="cb-account"><option>現金</option><option>預金</option></select></div>
       </div>
@@ -763,6 +764,86 @@ const S = {
 function today(){ return new Date().toISOString().slice(0,10); }
 function fmt(n){ return (Number(n)||0).toLocaleString('ja-JP'); }
 function yen(n){ return '¥' + fmt(n); }
+// ══ 部門別サマリー（売上・経費・粗利）══
+function renderDeptSummary(){
+  var box=document.getElementById('dept-summary'); if(!box) return;
+  var sel=document.getElementById('dept-ym');
+  if(sel && !sel._built){
+    var ms={};
+    (S.orders||[]).forEach(function(o){ var m=_orderYm(o); if(m) ms[m]=1; });
+    (S.cashEntries||[]).forEach(function(c){ var m=_ymA(c.date); if(m) ms[m]=1; });
+    var list=Object.keys(ms).sort().reverse();
+    sel.innerHTML='<option value="">全期間</option>'+list.map(function(m){ return '<option value="'+m+'">'+_ymLabel(m)+'</option>'; }).join('');
+    sel._built=true;
+  }
+  var ym=(sel||{}).value||'';
+  var agg={};
+  DEPTS.forEach(function(d){ agg[d.key]={sales:0, cost:0, orders:0}; });
+  (S.orders||[]).forEach(function(o){
+    var amt=calcAmt(o); if(!amt) return;
+    if(ym && _orderYm(o)!==ym) return;
+    var d=deptOfOrder(o);
+    if(!agg[d]) agg[d]={sales:0,cost:0,orders:0};
+    agg[d].sales+=amt; agg[d].orders++;
+  });
+  (S.cashEntries||[]).forEach(function(c){
+    var t=String(c.type||'');
+    if(t.indexOf('出')<0 && t!=='支出') return;
+    if(ym && _ymA(c.date)!==ym) return;
+    var d=c.dept||'liquor';
+    if(!agg[d]) agg[d]={sales:0,cost:0,orders:0};
+    agg[d].cost+=(Number(c.amount)||0);
+  });
+  var totS=0, totC=0;
+  var rows=DEPTS.map(function(d){
+    var a=agg[d.key]||{sales:0,cost:0,orders:0};
+    totS+=a.sales; totC+=a.cost;
+    var gross=a.sales-a.cost;
+    return '<tr><td>'+d.label+'</td>'
+      + '<td style="text-align:right">'+a.orders+'件</td>'
+      + '<td style="text-align:right;color:var(--gold-l)">'+_yenA(a.sales)+'</td>'
+      + '<td style="text-align:right;color:#e0685f">'+_yenA(a.cost)+'</td>'
+      + '<td style="text-align:right;font-weight:700;color:'+(gross>=0?'var(--grn)':'#e0685f')+'">'+_yenA(gross)+'</td></tr>';
+  }).join('');
+  var tot=totS-totC;
+  box.innerHTML='<table><thead><tr><th>部門</th><th style="text-align:right">件数</th><th style="text-align:right">売上</th><th style="text-align:right">経費</th><th style="text-align:right">粗利</th></tr></thead>'
+    + '<tbody>'+rows+'</tbody>'
+    + '<tfoot><tr style="font-weight:700;border-top:2px solid var(--line)"><td>合計</td><td></td>'
+    + '<td style="text-align:right;color:var(--gold-l)">'+_yenA(totS)+'</td>'
+    + '<td style="text-align:right;color:#e0685f">'+_yenA(totC)+'</td>'
+    + '<td style="text-align:right;color:'+(tot>=0?'var(--grn)':'#e0685f')+'">'+_yenA(tot)+'</td></tr></tfoot></table>'
+    + '<div style="padding:.4rem .7rem;font-size:.7rem;color:var(--wh3)">売上は商品カテゴリから自動で部門を判定します。経費は入力時に選んだ部門で集計されます。</div>';
+}
+
+// ══ 部門（事業区分）══
+//  売上は商品カテゴリから自動判定、経費は入力時に選ぶ。
+//  分類を増やすときは DEPTS に足し、商品マスターのカテゴリを合わせるだけでよい。
+var DEPTS = [
+  { key:'liquor',   label:'🍷 酒販' },
+  { key:'diffuser', label:'🌿 ディフューザー' },
+  { key:'kuchikomi',label:'💬 口コミ365' }
+];
+function deptLabel(k){ var d=DEPTS.find(function(x){return x.key===k;}); return d?d.label:(k||'未分類'); }
+// 商品名 → 部門（商品マスターのカテゴリで判定）
+function deptOfProduct(name){
+  var p=(S.products||[]).find(function(x){ return (x.key||x.name)===name || x.name===name; });
+  var c=String((p&&p.category)||'');
+  if (/ディフューザー|ディフュ|diffuser/i.test(c)) return 'diffuser';
+  if (/口コミ|クチコミ|365/.test(c)) return 'kuchikomi';
+  return 'liquor';
+}
+// 注文 → 部門（複数商品が混ざる場合は金額の大きい方に寄せる）
+function deptOfOrder(o){
+  var items=Object.assign({}, o.items||{}, o.sponsorItems||{});
+  var keys=Object.keys(items);
+  if(!keys.length) return 'liquor';
+  var cnt={};
+  keys.forEach(function(k){ var d=deptOfProduct(k); cnt[d]=(cnt[d]||0)+(items[k]||0); });
+  var best='liquor', bv=-1;
+  Object.keys(cnt).forEach(function(d){ if(cnt[d]>bv){ bv=cnt[d]; best=d; } });
+  return best;
+}
+
 function calcAmt(o){
   if (o.orderType === 'sponsor') return 0;  // 協賛注文は無料出荷（売上0）
   if (typeof o.amount === 'number') return o.amount;  // 確定金額（価格モード・商品別掛率・税を反映済み）
@@ -899,7 +980,7 @@ function switchModule(name, el){
   if (el) el.classList.add('active');
   document.getElementById('m-' + name).classList.add('active');
 
-  if (name === 'sales')    loadSalesTab();
+  if (name === 'sales')    { loadSalesTab(); setTimeout(function(){ if(typeof renderDeptSummary==='function') renderDeptSummary(); }, 400); }
   if (name === 'cashbook') renderCashbook();
   if (name === 'expense')  renderExpenses();
   if (name === 'petty')    renderPetty();
@@ -1060,6 +1141,7 @@ function saveCashEntry(){
     id: 'cb-' + Date.now(), date, type, category: cat, branch,
     desc, amount, memo,
     account: (document.getElementById('cb-account')||{}).value || '現金',
+    dept: (document.getElementById('cb-dept')||{}).value || 'liquor',   // 部門（事業区分）
     addedBy: currentUser.name, addedAt: new Date().toISOString(),
   };
   S.cashEntries.push(entry);
