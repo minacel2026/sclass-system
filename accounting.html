@@ -83,7 +83,22 @@ main{padding:1.5rem 2rem;max-width:1500px;margin:0 auto}
 .fg{display:flex;flex-direction:column;gap:.25rem}
 .fg label{font-size:.65rem;letter-spacing:.08em;color:var(--wh2)}
 .fg label .req{color:var(--red)}
-.fc{background:var(--d3);border:1px solid rgba(201,168,76,.22);color:var(--wh);padding:.42rem .65rem;font-family:'Noto Sans JP',sans-serif;font-size:.8rem;outline:none;transition:border-color .2s;width:100%}
+.fc{background:var(--d3);border:1px solid rgba(201,168,76,.22);color:var(--wh);padding:.42rem .65rem;font-family:'Noto Sans JP',sans-serif;font-size:.8rem;outline:none;transition:border-color .2s;width:100%;height:var(--ctl-h);box-sizing:border-box;line-height:1.2}
+/* ── フォーム部品の高さを揃える（入力欄・選択・ボタンを同じ高さに） ── */
+:root{--ctl-h:38px}
+select.fc{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--gold-l) 50%),linear-gradient(135deg,var(--gold-l) 50%,transparent 50%);background-position:calc(100% - 14px) 52%,calc(100% - 9px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:1.7rem}
+textarea.fc{height:auto;min-height:var(--ctl-h)}
+/* 長い選択肢や文字でも枠からはみ出さない（重なり防止） */
+.fg{min-width:0}
+.fc{max-width:100%;text-overflow:ellipsis}
+.frow .btn,.frow .btn-s,.frow .btn-g,.frow .btn-p,.fp .faction .btn{height:var(--ctl-h);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+.fg{display:flex;flex-direction:column;justify-content:flex-end}
+.fg > label{min-height:1.05rem;display:block}
+/* ラベルが無い枠（ボタンだけ等）でも、隣の入力欄と下端が揃うようにする */
+.frow .fg:not(:has(> label)) > .btn,.frow .fg:not(:has(> label)) > .btn-s,
+.frow .fg:not(:has(> label)) > .btn-g,.frow .fg:not(:has(> label)) > .btn-p{margin-top:auto}
+/* 個別に display:flex 等で上書きされても、中のボタンは既定の高さを保つ */
+.frow .fg > .btn,.frow .fg > .btn-s,.frow .fg > .btn-g,.frow .fg > .btn-p{flex:0 0 auto;align-self:stretch}
 .fc:focus{border-color:var(--gold)}
 select.fc option{background:var(--d3)}
 textarea.fc{resize:vertical}
@@ -678,7 +693,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
           <div class="fg"><label>日付</label><input class="fc" type="date" id="sa-date"></div>
           <div class="fg"><label>金額（±）<span style="color:var(--wh3);font-size:.66rem">追加は+／控除は-</span></label><input class="fc" type="number" id="sa-amount" placeholder="例:50000"></div>
-          <div class="fg" style="flex:1;min-width:160px"><label>メモ</label><input class="fc" id="sa-memo" placeholder="例:イベント現地販売・○○商店 直販"></div>
+          <div class="fg"><label>メモ</label><input class="fc" id="sa-memo" placeholder="例:イベント現地販売・○○商店 直販"></div>
           <div><button class="btn btn-p" onclick="saveSalesAdjust()">＋ 調整を記録</button></div>
         </div>
         <div id="sales-adjust-list" style="margin-top:.9rem"></div>
@@ -1844,7 +1859,7 @@ function renderSelfSalesDetail(){
     +'<div class="fg"><label>店舗名</label><select class="fc" id="sd-store" onchange="renderSelfSalesDetail()">'+opt(stores,fSt)+'</select></div>'
     +'<div class="fg"><label>拠点</label><select class="fc" id="sd-branch" onchange="renderSelfSalesDetail()">'+opt(branches,fBr)+'</select></div>'
     +'<div class="fg"><label>支払状況</label><select class="fc" id="sd-pay" onchange="renderSelfSalesDetail()">'+opt(pays,fPy)+'</select></div>'
-    +'<div class="fg" style="flex:1;min-width:140px"><label>キーワード（店舗・担当）</label><input class="fc" id="sd-kw" value="'+escapeHtml(fKw)+'" oninput="renderSelfSalesDetail()" placeholder="部分一致"></div>'
+    +'<div class="fg"><label>キーワード（店舗・担当）</label><input class="fc" id="sd-kw" value="'+escapeHtml(fKw)+'" oninput="renderSelfSalesDetail()" placeholder="部分一致"></div>'
     +'</div>'
     +'<div style="padding:.4rem .7rem;font-size:.8rem;color:var(--wh2)">表示中: <b>'+rows.length+'</b>件 ／ 合計: <b style="color:var(--gold-l)">'+_yenA(sum)+'</b></div>';
 
@@ -1928,7 +1943,7 @@ function renderAgentSalesDetail(){
     +'<div class="fg"><label>代理店</label><select class="fc" id="ad-agent" onchange="renderAgentSalesDetail()">'+opt(agents,fAg)+'</select></div>'
     +'<div class="fg"><label>商品</label><select class="fc" id="ad-prod" onchange="renderAgentSalesDetail()">'+opt(prods,fPr)+'</select></div>'
     +'<div class="fg"><label>入金状況</label><select class="fc" id="ad-paid" onchange="renderAgentSalesDetail()">'+opt(paids,fPd)+'</select></div>'
-    +'<div class="fg" style="flex:1;min-width:140px"><label>キーワード（顧客・代理店）</label><input class="fc" id="ad-kw" value="'+escapeHtml(fKw)+'" oninput="renderAgentSalesDetail()" placeholder="部分一致"></div>'
+    +'<div class="fg"><label>キーワード（顧客・代理店）</label><input class="fc" id="ad-kw" value="'+escapeHtml(fKw)+'" oninput="renderAgentSalesDetail()" placeholder="部分一致"></div>'
     +'</div>'
     +'<div style="padding:.4rem .7rem;font-size:.8rem;color:var(--wh2)">表示中: <b>'+rows.length+'</b>件 ／ 本数: <b>'+sumQty+'</b> ／ 手数料売上合計: <b style="color:#7ee2a8">'+_yenA(sum)+'</b></div>';
 

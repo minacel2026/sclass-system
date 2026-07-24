@@ -87,11 +87,19 @@ main{padding:1.5rem 2rem;max-width:1500px;margin:0 auto}
 :root{--ctl-h:38px}
 select.fc{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--gold-l) 50%),linear-gradient(135deg,var(--gold-l) 50%,transparent 50%);background-position:calc(100% - 14px) 52%,calc(100% - 9px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:1.7rem}
 textarea.fc{height:auto;min-height:var(--ctl-h)}
+/* 長い選択肢や文字でも枠からはみ出さない（重なり防止） */
+.fg{min-width:0}
+.fc{max-width:100%;text-overflow:ellipsis}
 /* フォーム行の中のボタンも同じ高さに揃える */
 .frow .btn,.frow .btn-s,.frow .btn-g,.frow .btn-p,.fp .faction .btn{height:var(--ctl-h);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
 /* ラベルの高さも揃え、入力欄の上端をそろえる */
-.fg{display:flex;flex-direction:column}
+.fg{display:flex;flex-direction:column;justify-content:flex-end}
 .fg > label{min-height:1.05rem;display:block}
+/* ラベルが無い枠（ボタンだけ等）でも、隣の入力欄と下端が揃うようにする */
+.frow .fg:not(:has(> label)) > .btn,.frow .fg:not(:has(> label)) > .btn-s,
+.frow .fg:not(:has(> label)) > .btn-g,.frow .fg:not(:has(> label)) > .btn-p{margin-top:auto}
+/* 個別に display:flex 等で上書きされても、中のボタンは既定の高さを保つ */
+.frow .fg > .btn,.frow .fg > .btn-s,.frow .fg > .btn-g,.frow .fg > .btn-p{flex:0 0 auto;align-self:stretch}
 .fc:focus{border-color:var(--gold)}
 select.fc option{background:var(--d3)}
 textarea.fc{resize:vertical}
@@ -730,8 +738,8 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg"><label>貸借日</label><input type="date" class="fc" id="ln-date"></div>
         <div class="fg"><label>数量（本）</label><input type="number" class="fc" id="ln-qty" min="1" placeholder="例:12"></div>
         <div class="fg"><label>返却予定日（任意）</label><input type="date" class="fc" id="ln-due"></div>
-        <div class="fg" style="flex:1;min-width:140px"><label>メモ</label><input class="fc" id="ln-memo" placeholder="任意"></div>
-        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn-s" onclick="addLendItem()" title="複数の商品をまとめて記録したいときに使います" style="padding:0 1rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 商品を追加</button></div>
+        <div class="fg"><label>メモ</label><input class="fc" id="ln-memo" placeholder="任意"></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn-s" onclick="addLendItem()" title="複数の商品をまとめて記録したいときに使います" style="padding:0 1rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 商品を追加</button></div>
       </div>
       <div id="ln-draft" style="margin-top:.5rem"></div>
       <div class="faction" style="margin-top:.4rem"><button class="btn btn-p" onclick="recordLending()">✓ 記録する</button></div>
@@ -745,13 +753,13 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg"><label>提供日</label><input class="fc" id="fr-date" type="date"></div>
         <div class="fg"><label>拠点 <span class="req">*</span></label><select class="fc" id="fr-branch"><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>用途 <span class="req">*</span></label><select class="fc" id="fr-purpose"><option>試供品</option><option>交際費</option><option>広告宣伝</option><option>その他</option></select></div>
-        <div class="fg" style="flex:1;min-width:150px"><label>提供先（任意）</label><input class="fc" id="fr-to" placeholder="渡した相手・店舗名"></div>
+        <div class="fg"><label>提供先（任意）</label><input class="fc" id="fr-to" placeholder="渡した相手・店舗名"></div>
       </div>
       <div class="frow">
         <div class="fg"><label>商品 <span class="req">*</span></label><select class="fc" id="fr-prod"></select></div>
         <div class="fg"><label>本数 <span class="req">*</span></label><input class="fc" id="fr-qty" type="number" min="1" step="1" placeholder="例：2"></div>
-        <div class="fg" style="flex:1;min-width:150px"><label>メモ（任意）</label><input class="fc" id="fr-memo" placeholder="任意"></div>
-        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn-s" onclick="addFreeItem()" title="複数の商品をまとめて記録したいときに使います" style="padding:0 1rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 商品を追加</button></div>
+        <div class="fg"><label>メモ（任意）</label><input class="fc" id="fr-memo" placeholder="任意"></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn-s" onclick="addFreeItem()" title="複数の商品をまとめて記録したいときに使います" style="padding:0 1rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 商品を追加</button></div>
       </div>
       <div id="fr-draft" style="margin-top:.5rem"></div>
       <div class="faction" style="margin-top:.4rem"><button class="btn btn-p" onclick="submitFree()">✓ 無償提供を記録する</button></div>
@@ -762,7 +770,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       <div class="th-area"><h3>↩️ 貸借の返却を記録</h3><span style="font-size:.68rem;color:var(--wh3)">貸出の返却＝在庫が戻る／借入の返却＝在庫が減る</span></div>
       <div class="hint-box" style="margin:.2rem 0 .5rem">未返却の貸借から選んで、返ってきた本数を入力します。一部だけの返却もできます（残りは未返却のまま残ります）。</div>
       <div class="frow">
-        <div class="fg" style="flex:2;min-width:260px"><label>返却する貸借 <span class="req">*</span></label><select class="fc" id="rt-target" onchange="onReturnTargetChange()"><option value="">— 未返却の貸借を選択 —</option></select></div>
+        <div class="fg" style="grid-column:span 2"><label>返却する貸借 <span class="req">*</span></label><select class="fc" id="rt-target" onchange="onReturnTargetChange()"><option value="">— 未返却の貸借を選択 —</option></select></div>
         <div class="fg"><label>返却本数 <span class="req">*</span></label><input class="fc" id="rt-qty" type="number" min="1" step="1" placeholder="例：5"></div>
         <div class="fg"><label>返却日</label><input class="fc" id="rt-date" type="date"></div>
       </div>
@@ -780,8 +788,8 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg"><label>商品</label><select class="fc" id="tr-prod"></select></div>
         <div class="fg"><label>発送日</label><input type="date" class="fc" id="tr-date"></div>
         <div class="fg"><label>本数</label><input class="fc" id="tr-qty" type="number" min="1" step="1" placeholder="例：5"></div>
-        <div class="fg" style="flex:1;min-width:140px"><label>メモ（任意）</label><input class="fc" id="tr-memo" placeholder="例：他社返却分を京都へ"></div>
-        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn-s" onclick="addMoveItem()" title="複数の商品をまとめて発送したいときに使います" style="padding:0 1rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 商品を追加</button></div>
+        <div class="fg"><label>メモ（任意）</label><input class="fc" id="tr-memo" placeholder="例：他社返却分を京都へ"></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn-s" onclick="addMoveItem()" title="複数の商品をまとめて発送したいときに使います" style="padding:0 1rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 商品を追加</button></div>
       </div>
       <div id="tr-preview" style="font-size:.78rem;color:var(--wh2);margin:.4rem 0"></div>
       <div id="tr-draft" style="margin-top:.5rem"></div>
@@ -849,7 +857,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       <div class="frow">
         <div class="fg"><label>拠点</label><select class="fc" id="inv-br" onchange="renderInventory()"><option value="">両拠点</option><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>基準日</label><input class="fc" id="inv-date" type="date"></div>
-        <div class="fg" style="display:flex;justify-content:flex-end;align-items:flex-end"><button class="btn btn-g" onclick="exportInventoryCSV()">📥 CSV出力</button></div>
+        <div class="fg" style="align-items:flex-end"><button class="btn btn-g" onclick="exportInventoryCSV()">📥 CSV出力</button></div>
       </div>
     </div>
     <div class="kpi-row" id="inv-kpi"></div>
@@ -947,7 +955,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
           <option value="has">残あり</option>
           <option value="zero">残なし</option>
         </select></div>
-        <div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-g" onclick="exportSponsorCSV()" style="width:100%">📥 CSV出力</button></div>
+        <div class="fg"><button class="btn btn-g" onclick="exportSponsorCSV()" style="width:100%">📥 CSV出力</button></div>
       </div>
     </div>
 
@@ -955,11 +963,11 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       <div class="th-area"><h3>🎁 協賛残数の登録・調整</h3><span style="font-size:.68rem;color:var(--wh3)">繰越分の初期登録や、手作業での増減に使います</span></div>
       <div class="hint-box" style="margin:.2rem 0 .5rem">前月からの<b>繰越の協賛残数</b>を入れるときや、誤りを直すときに使います。マイナスを入れると残数を減らせます（例：−2）。注文による自動付与とは別に記録され、履歴に残ります。</div>
       <div class="frow">
-        <div class="fg" style="flex:2;min-width:220px"><label>顧客 <span class="req">*</span></label><select class="fc" id="spa-cust" onchange="renderSpAdjustInfo()"><option value="">— 協賛対象の顧客を選択 —</option></select></div>
+        <div class="fg" style="grid-column:span 2"><label>顧客 <span class="req">*</span></label><select class="fc" id="spa-cust" onchange="renderSpAdjustInfo()"><option value="">— 協賛対象の顧客を選択 —</option></select></div>
         <div class="fg"><label>商品 <span class="hint">空＝商品指定なし</span></label><select class="fc" id="spa-prod"></select></div>
         <div class="fg"><label>本数 <span class="req">*</span></label><input class="fc" id="spa-qty" type="number" step="1" placeholder="例：5／−2"></div>
         <div class="fg"><label>日付</label><input class="fc" id="spa-date" type="date"></div>
-        <div class="fg" style="flex:1;min-width:150px"><label>メモ</label><input class="fc" id="spa-memo" placeholder="例：3月からの繰越"></div>
+        <div class="fg"><label>メモ</label><input class="fc" id="spa-memo" placeholder="例：3月からの繰越"></div>
       </div>
       <div id="spa-info" style="font-size:.78rem;color:var(--wh2);margin:.4rem 0"></div>
       <div class="faction" style="margin-top:.4rem"><button class="btn btn-p" onclick="submitSpAdjust()">✓ 協賛残数に反映する</button></div>
@@ -971,10 +979,8 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg"><label>開始日</label><input type="date" class="fc" id="sp-rc-start"></div>
         <div class="fg"><label>終了日（変更日）</label><input type="date" class="fc" id="sp-rc-end"></div>
         <div class="fg"><label>ルール（ア用）</label><select class="fc" id="sp-rc-rule"><option value="">— ルールを選択 —</option></select></div>
-        <div class="fg" style="display:flex;align-items:flex-end;gap:.4rem;grid-column:span 2">
-          <button class="btn btn-g" onclick="spRunRecalc('rule')" title="選択した1ルールだけ再計算">選択ルールで再計算（ア）</button>
-          <button class="btn btn-g" onclick="spRunRecalc('all')" title="適用中の全ルールを再計算">全ルールで再計算（イ）</button>
-        </div>
+        <div class="fg"><label>&nbsp;</label><button class="btn btn-g" onclick="spRunRecalc('rule')" title="選択した1ルールだけ再計算">選択ルールで再計算</button></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn btn-g" onclick="spRunRecalc('all')" title="適用中の全ルールを再計算">全ルールで再計算</button></div>
       </div>
       <div id="sp-rc-preview"></div>
       <div id="sp-manual-adjust"><div class="th-area" style="margin-top:.6rem"><h4 style="margin:0;color:var(--gold-l);font-size:.82rem">手動調整（実績入力開始時の開始残数合わせ）</h4></div>
@@ -1037,7 +1043,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       <div class="frow">
         <div class="fg"><label>会社名</label><input class="fc" id="lp-name" placeholder="例：○○商事"></div>
         <div class="fg"><label>LINE UID（マイページ用・任意）</label><input class="fc" id="lp-uid" placeholder="後で設定可"></div>
-        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn" onclick="saveLendPartner()" style="padding:0 1.2rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 貸借先を登録</button></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn" onclick="saveLendPartner()" style="padding:0 1.2rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 貸借先を登録</button></div>
       </div>
       <div id="lend-partner-list" style="margin-top:.6rem"></div>
     </div>
