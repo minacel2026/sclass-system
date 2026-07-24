@@ -943,6 +943,20 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
     </div>
 
     <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
+      <div class="th-area"><h3>🎁 協賛残数の登録・調整</h3><span style="font-size:.68rem;color:var(--wh3)">繰越分の初期登録や、手作業での増減に使います</span></div>
+      <div class="hint-box" style="margin:.2rem 0 .5rem">前月からの<b>繰越の協賛残数</b>を入れるときや、誤りを直すときに使います。マイナスを入れると残数を減らせます（例：−2）。注文による自動付与とは別に記録され、履歴に残ります。</div>
+      <div class="frow">
+        <div class="fg" style="flex:2;min-width:220px"><label>顧客 <span class="req">*</span></label><select class="fc" id="spa-cust" style="height:38px;box-sizing:border-box" onchange="renderSpAdjustInfo()"><option value="">— 協賛対象の顧客を選択 —</option></select></div>
+        <div class="fg"><label>商品 <span class="hint">空＝商品指定なし</span></label><select class="fc" id="spa-prod" style="height:38px;box-sizing:border-box"></select></div>
+        <div class="fg"><label>本数 <span class="req">*</span></label><input class="fc" id="spa-qty" type="number" step="1" style="height:38px;box-sizing:border-box" placeholder="例：5／−2"></div>
+        <div class="fg"><label>日付</label><input class="fc" id="spa-date" type="date" style="height:38px;box-sizing:border-box"></div>
+        <div class="fg" style="flex:1;min-width:150px"><label>メモ</label><input class="fc" id="spa-memo" style="height:38px;box-sizing:border-box" placeholder="例：3月からの繰越"></div>
+      </div>
+      <div id="spa-info" style="font-size:.78rem;color:var(--wh2);margin:.4rem 0"></div>
+      <div class="faction" style="margin-top:.4rem"><button class="btn btn-p" onclick="submitSpAdjust()">✓ 協賛残数に反映する</button></div>
+    </div>
+
+    <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
       <div class="th-area"><h3>🔁 遡及再計算・整合性調整</h3><span style="font-size:.68rem;color:var(--wh3)">ルール修正後、過去の出荷済分を正しい付与へ補正（実行前にプレビュー）</span></div>
       <div class="frow">
         <div class="fg"><label>開始日</label><input type="date" class="fc" id="sp-rc-start"></div>
@@ -1311,7 +1325,7 @@ function switchModule(name, el){
   if (name === 'slog')      renderSlog();
   if (name === 'purchase') { _markSeen('purchase'); renderPurchase(); }
   if (name === 'inventory') { renderInventory(); var _sd=document.getElementById('st-date'); if(_sd && !_sd.value) _sd.value=today(); renderStocktakeForm(); loadStocktakes(); }
-  if (name === 'sponsor')   renderSponsor();
+  if (name === 'sponsor')   { renderSponsor(); if(typeof initSpAdjustForm==='function') initSpAdjustForm(); }
   if (name === 'lending')  { _markSeen('lending'); loadLending(); }
   if (name === 'moves')     loadMoves();
 }
@@ -2371,6 +2385,68 @@ function getSponsorBalance(custId, excludeOrderId){
   const earned = logs.filter(l => l.type === 'earned').reduce((s,l) => s + (l.qty || 0), 0);
   const used   = logs.filter(l => l.type === 'used').reduce((s,l) => s + (l.qty || 0), 0);
   return { pts: Math.max(0, earned - used), earned, used };
+}
+
+// ══ 協賛残数の登録・調整（繰越の初期値／手作業の増減）══
+function initSpAdjustForm(){
+  var cs=document.getElementById('spa-cust');
+  if (cs && cs.options.length<=1){
+    var list=(S.customers||[]).filter(function(c){ return c.sponsorEnabled; })
+      .sort(function(a,b){ return String(a.name).localeCompare(String(b.name),'ja'); });
+    cs.innerHTML='<option value="">— 協賛対象の顧客を選択 —</option>'
+      + list.map(function(c){ return '<option value="'+escapeHtml(c.id)+'">'+escapeHtml(c.name)+'</option>'; }).join('');
+  }
+  var ps=document.getElementById('spa-prod');
+  if (ps && !ps.options.length){
+    ps.innerHTML='<option value="">商品指定なし</option>'
+      + _prodCols().map(function(p){ return '<option>'+escapeHtml(p.name)+'</option>'; }).join('');
+  }
+  var d=document.getElementById('spa-date'); if(d && !d.value) d.value=today();
+  renderSpAdjustInfo();
+}
+function renderSpAdjustInfo(){
+  var box=document.getElementById('spa-info'); if(!box) return;
+  var id=(document.getElementById('spa-cust')||{}).value;
+  if(!id){ box.textContent=''; return; }
+  var bal=getSponsorBalance(id);
+  var byP=getSponsorBalanceByProduct(id);
+  var det=Object.keys(byP).filter(function(k){ return byP[k]>0; })
+    .map(function(k){ return escapeHtml(k)+' '+byP[k]+'本'; }).join('、');
+  box.innerHTML='現在の残数：<b style="color:var(--gold-l)">'+bal.pts+'本</b>'
+    + (det? '　<span style="color:var(--wh3)">（'+det+'）</span>':'')
+    + '　<span style="font-size:.72rem;color:var(--wh3)">付与計'+bal.earned+' / 使用計'+bal.used+'</span>';
+}
+function submitSpAdjust(){
+  if (typeof canEdit==='function' && !canEdit()) return toast('🔒 権限がありません（閲覧のみ）','error');
+  var id=(document.getElementById('spa-cust')||{}).value;
+  if(!id) return toast('顧客を選んでください','error');
+  var cust=(S.customers||[]).find(function(c){ return String(c.id)===String(id); });
+  if(!cust) return toast('顧客が見つかりません','error');
+  var qty=parseInt((document.getElementById('spa-qty')||{}).value||'',10);
+  if(!qty || isNaN(qty)) return toast('本数を入力してください（減らす場合は −2 のように入力）','error');
+  var prod=(document.getElementById('spa-prod')||{}).value||'商品指定なし';
+  var dt=(document.getElementById('spa-date')||{}).value||today();
+  var memo=((document.getElementById('spa-memo')||{}).value||'').trim();
+  var bal=getSponsorBalance(id);
+  if(qty<0 && bal.pts+qty<0) return toast('残数が足りません（現在 '+bal.pts+'本）','error');
+  if(!confirm(cust.name+'\n\n協賛残数を '+(qty>0?'+':'')+qty+'本 調整します。\n（現在 '+bal.pts+'本 → '+(bal.pts+qty)+'本）\n\nよろしいですか？')) return;
+  var log={
+    id:'spa-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000),
+    custId:cust.id, custName:cust.name, type:'earned', qty:qty, date:dt,
+    orderId:'', sponsorId:'', sponsorName:'手動調整', product:prod,
+    branch:cust.branch||'', note:memo||'手動調整',
+    createdAt:new Date().toISOString(),
+    createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||''
+  };
+  if(!S.sponsorLogs) S.sponsorLogs=[];
+  S.sponsorLogs.push(log);
+  saveState();
+  if(S.gasUrl){ try{ gasPost({action:'saveSponsorLog', ...log}); }catch(e){} }
+  toast('✓ 協賛残数を調整しました（'+(qty>0?'+':'')+qty+'本／残 '+(bal.pts+qty)+'本）');
+  document.getElementById('spa-qty').value='';
+  document.getElementById('spa-memo').value='';
+  renderSpAdjustInfo();
+  if(typeof renderSponsor==='function') renderSponsor();
 }
 
 // 協賛残数の商品別内訳（付与商品ごとに earned − used）
