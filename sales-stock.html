@@ -3401,6 +3401,13 @@ function submitNewOrder(){
   if (wasEditing){
     const tab = document.querySelector('.mtab[onclick*="orders"]');
     switchModule('orders', tab);  // 更新後は注文一覧へ戻る
+  } else {
+    // 続けて次の注文を入力しやすいよう、画面を一番上へ戻して店舗名にカーソルを置く
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e){ window.scrollTo(0,0); }
+    setTimeout(function(){
+      const st = document.getElementById('no-store');
+      if (st) st.focus();
+    }, 300);
   }
 }
 
