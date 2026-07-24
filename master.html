@@ -1069,6 +1069,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
       <div class="filter-bar">
         <label>検索</label>
         <input class="fc" id="pf-kw" placeholder="商品名・カテゴリ..." oninput="renderProducts()" style="width:220px">
+        <select class="fc" id="pf-group" onchange="renderProducts()" style="width:170px;margin-left:.4rem"><option value="">すべての種類</option><option value="wine">🍷 お酒</option><option value="supply">📦 備品</option><option value="diffuser">🌿 ディフューザー</option></select>
         <button class="btn btn-g" style="margin-left:auto" onclick="resetProducts()">🔄 初期値に戻す</button>
         <span style="font-size:.72rem;color:var(--wh2)"><span id="prod-count">0</span> 商品</span>
       </div>
@@ -1089,7 +1090,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
             <div class="fg"><label>カテゴリ</label><input class="fc" id="pf-category" list="prod-cat-list" placeholder="例：スパークリング"></div>
             <div class="fg fc-full"><label>表示名（任意）</label><input class="fc" id="pf-fullname" placeholder="例：001: Extra Brut（イエロー）"></div>
           </div>
-          <datalist id="prod-cat-list"><option>スパークリング</option><option>スティルワイン</option><option>ギフト</option></datalist>
+          <datalist id="prod-cat-list"><option>スパークリング</option><option>スティルワイン</option><option>ギフト</option><option>ポイントシール</option><option>備品</option><option>ディフューザー本体</option><option>ディフューザーオイル</option></datalist>
         </div>
         <div class="form-section">
           <div class="form-section-title">▸ 価格・原価</div>
@@ -3649,6 +3650,14 @@ function switchProductTab(name, el){
   if (name === 'list') renderProducts();
 }
 
+// 商品の大分類（在庫側と同じ判定）— カテゴリ名で判定するので分類追加はカテゴリを足すだけ
+function prodGroupOf(p){
+  var c = String((p && p.category) || '');
+  if (/シール|備品|消耗/.test(c)) return 'supply';
+  if (/ディフューザー|ディフュ|diffuser/i.test(c)) return 'diffuser';
+  return 'wine';
+}
+
 function renderProducts(){
   const list = _prodList();
   list.forEach(p => {
@@ -3658,7 +3667,9 @@ function renderProducts(){
     if (!p.key) p.key = p.name;
   });
   const kw = (document.getElementById('pf-kw') ? document.getElementById('pf-kw').value : '').trim().toLowerCase();
-  const filtered = list.filter(p => !kw || (`${p.name||''} ${p.category||''}`).toLowerCase().includes(kw));
+  const grp = (document.getElementById('pf-group') ? document.getElementById('pf-group').value : '');
+  const filtered = list.filter(p => (!kw || (`${p.name||''} ${p.category||''}`).toLowerCase().includes(kw))
+                                 && (!grp || prodGroupOf(p) === grp));
   const cnt = document.getElementById('prod-count'); if (cnt) cnt.textContent = filtered.length;
   const grid = document.getElementById('prod-grid'); if (!grid) return;
   grid.style.display = 'block';

@@ -688,6 +688,12 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <span style="color:var(--wh3);font-size:.7rem;margin-left:.3rem">本（通常）</span>
         <span id="no-sp-qty-total" style="color:#c39bd3;font-size:.78rem;margin-left:.5rem"></span>
       </div>
+      <div id="no-seal-box" style="display:none;align-items:center;gap:.4rem">
+        <span class="sm-label">🏷 ポイントシール:</span>
+        <input class="fc" id="no-seal-qty" type="number" min="0" step="1" style="width:70px;text-align:center" oninput="updateSealHint()" placeholder="0">
+        <span style="color:var(--wh3);font-size:.7rem">枚 同梱</span>
+        <span id="no-seal-hint" style="font-size:.72rem"></span>
+      </div>
       <div><span class="sm-label">合計（税込）:</span><span class="sm-total" id="no-total">¥0</span></div>
     </div>
 
@@ -808,6 +814,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       <div class="frow">
         <div class="fg"><label>拠点フィルタ</label><select class="fc" id="st-br" onchange="renderStock()"><option value="">両拠点</option><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>状態</label><select class="fc" id="st-state" onchange="renderStock()"><option value="">すべて</option><option value="low">補充警告のみ</option><option value="out">在庫切れのみ</option></select></div>
+        <div class="fg"><label>種類</label><select class="fc" id="st-group" onchange="renderStock()"><option value="">すべて</option><option value="wine">🍷 お酒</option><option value="supply">📦 備品</option><option value="diffuser">🌿 ディフューザー</option></select></div>
         <div class="fg"><label>&nbsp;</label><button class="btn-s" style="width:100%;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:0 .5rem;white-space:nowrap;font-size:.68rem" onclick="migrateToReserve()" title="一度だけ実行：既存の未出荷注文の本数を実在庫へ戻し、引当方式へ移行します（初回のみ）">⇄ 引当方式へ移行</button></div>
       </div>
     </div>
@@ -1143,8 +1150,79 @@ const COLOR   = Object.fromEntries(PROD_LIST.map(p => [p.key, p.color]));
 // 商品を追加・停止したら、在庫・履歴・推移表・棚卸すべてがこれ経由で自動的に追従する。
 // br を渡すと「その拠点の取扱商品」だけに絞る（取扱拠点が空＝両拠点）。
 // ★安全ルール：取扱外でも在庫が残っていれば表示する（消すと数字が合わなくなる・棚卸で見落とすため）。その商品は outOfScope=true。
+// ポイントシールの同梱枚数：ワインの合計本数と一致しているかを表示する
+function wineTotalOfOrder(){
+  var t=0;
+  Object.keys(newOrderQty||{}).forEach(function(k){ t += (newOrderQty[k]||0); });
+  (sponsorShipDraft||[]).forEach(function(x){ t += (x.qty||0); });   // 協賛出荷分も対象
+  return t;
+}
+function updateSealHint(){
+  var box=document.getElementById('no-seal-box');
+  var el=document.getElementById('no-seal-hint');
+  var inp=document.getElementById('no-seal-qty');
+  if(!box||!el||!inp) return;
+  var seal=_sealProduct();
+  if(!seal){ box.style.display='none'; return; }      // シール商品が未登録なら出さない
+  var wine=wineTotalOfOrder();
+  box.style.display = wine>0 ? 'flex' : 'none';
+  if(wine<=0){ el.textContent=''; return; }
+  if(inp.value===''){ inp.value=wine; }               // 既定はワイン本数と同じ
+  var n=parseInt(inp.value||'0',10)||0;
+  if(n===wine){ el.textContent='✓ ワイン'+wine+'本と一致'; el.style.color='var(--grn)'; }
+  else{ el.textContent='⚠ ワイン'+wine+'本と'+(n>wine?'+':'')+(n-wine)+'枚ちがいます'; el.style.color='#e0685f'; }
+}
+
+// 商品の大分類（在庫・商品マスターのタブ切替に使う）
+//  カテゴリ名に含まれる語で判定するので、新しい分類はカテゴリを足すだけで増やせる
+function prodGroupOf(p){
+  var c = String((p && p.category) || '');
+  if (/シール|備品|消耗/.test(c)) return 'supply';       // 備品・ポイントシール
+  if (/ディフューザー|ディフュ|diffuser/i.test(c)) return 'diffuser';  // ディフューザー（本体・オイル）
+  return 'wine';                                          // それ以外はお酒
+}
+var PROD_GROUPS = [
+  { key:'',         label:'すべて' },
+  { key:'wine',     label:'🍷 お酒' },
+  { key:'supply',   label:'📦 備品' },
+  { key:'diffuser', label:'🌿 ディフューザー' }
+];
+
+// 商品の分類：ワイン（販売用）／ポイントシール／備品 を見分ける
+//  カテゴリに「シール」を含む＝ポイントシール、「備品」を含む＝備品。それ以外はワイン扱い。
+function _isSealProd(p){ return /シール/.test(String((p&&p.category)||'')); }
+function _isSupplyProd(p){ return /備品|消耗/.test(String((p&&p.category)||'')); }
+function _isWineProd(p){ return !_isSealProd(p) && !_isSupplyProd(p); }
+// ポイントシールの商品（1つだけ想定。複数あれば先頭）
+function _sealProduct(){
+  var l=(S.products||[]).filter(function(p){ return p && p.active!==false && _isSealProd(p); });
+  return l.length ? (l[0].key || l[0].name) : '';
+}
+
+// 在庫管理・棚卸など「全商品」を対象にする画面で使う（種類での絞り込み付き）
+function _prodColsAll(br, group){
+  var l = (S.products && S.products.length) ? S.products.filter(function(p){ return p && p.active!==false; }) : (PROD_LIST||[]);
+  if(!l.length) l = PROD_LIST||[];
+  if (group) l = l.filter(function(p){ return prodGroupOf(p) === group; });
+  var out = l.map(function(p){
+    var k = p.key || p.name;
+    var d = (PROD_LIST||[]).find(function(x){ return x.key===k; }) || {};
+    return { key:k, name:(p.name||k), branches:String(p.branches||''),
+             color:(p.color||d.color||'#888'),
+             cost:(p.cost!=null?p.cost:d.cost), costOld:(p.costOld!=null?p.costOld:d.costOld),
+             price:(p.price!=null?p.price:d.price), priceOld:(p.priceOld!=null?p.priceOld:d.priceOld),
+             reorder:(p.reorder!=null?p.reorder:d.reorder), category:(p.category||d.category||''),
+             sortOrder:(p.sortOrder!=null?p.sortOrder:0) };
+  });
+  if (br) out = out.filter(function(p){ return !p.branches || p.branches.indexOf(br)>=0; });
+  out.sort(function(a,b){ return (a.sortOrder||0)-(b.sortOrder||0); });
+  return out;
+}
+
 function _prodCols(br){
   var l = (S.products && S.products.length) ? S.products.filter(function(p){ return p && p.active!==false; }) : (PROD_LIST||[]);
+  // 注文フォーム等ではワインのみ扱う（ポイントシール・備品は在庫管理側で扱う）
+  if (typeof _isWineProd === 'function') l = l.filter(_isWineProd);
   if(!l.length) l = PROD_LIST||[];
   var out = l.map(function(p){
     var k = p.key || p.name;
@@ -1747,6 +1825,18 @@ function applyShipEffects(order, shipDate){
     order._shipBkt.sponsorItems[p] = used;
     S.slog.push({ date: _d, time, branch, type: '協賛出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `協賛出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
   });
+  // ポイントシールを同梱した枚数ぶん、シールの在庫も減らす（同梱漏れの確認用）
+  const _sealQ = Number(order.sealQty) || 0;
+  const _sealP = (typeof _sealProduct === 'function') ? _sealProduct() : '';
+  if (_sealQ > 0 && _sealP){
+    const wineQ = Object.values(order.items||{}).reduce((a,b)=>a+(b||0),0)
+                + Object.values(order.sponsorItems||{}).reduce((a,b)=>a+(b||0),0);
+    depleteStock(branch, _sealP, _sealQ);
+    order._shipBkt.seal = { product:_sealP, qty:_sealQ };
+    S.slog.push({ date:_d, time, branch, type:'シール出庫', product:_sealP, qty:_sealQ,
+      remaining:S.stock[branch][_sealP], orderId:order.id,
+      note:`出荷#${String(order.id).slice(-6)} 同梱${_sealQ}枚 / ワイン${wineQ}本` + (_sealQ!==wineQ ? `（差${_sealQ-wineQ>0?'+':''}${_sealQ-wineQ}）` : '（一致）') });
+  }
   const cust = (S.customers || []).find(x => x.name === order.store);
   if (!S.sponsorLogs) S.sponsorLogs = [];
   if (order.orderType === 'sponsor' && cust){
@@ -3207,6 +3297,7 @@ function setOrderQty(key, raw){
   if (pc) pc.classList.toggle('has-qty', n > 0);
   updateOrderTotal();
   updateSpColNote();   // 販売数で協賛の付与予定が変わるため再表示
+  if (typeof updateSealHint==='function') updateSealHint();
 }
 // 入力欄から離れたら表示を整える（空欄や「007」などを正しい数字に）
 function normalizeOrderQty(key){
@@ -3402,6 +3493,7 @@ function submitNewOrder(){
     tel: document.getElementById('no-tel').value,
     items: items,
     sponsorItems: sponsorItems,  // 協賛出荷分（無料・残数から消費）
+    sealQty: (parseInt((document.getElementById('no-seal-qty')||{}).value||'0',10)||0),  // 同梱したポイントシール枚数
     orderType: isSponsor ? 'sponsor' : 'normal',
     condition: parseFloat(document.getElementById('no-rate').value) || 7,
     priceMode: (document.getElementById('no-pricemode')||{}).value || '新値',
@@ -3973,6 +4065,7 @@ function renderStock(){
   ensureAllBuckets();
   const br    = document.getElementById('st-br')?.value || '';
   const state = document.getElementById('st-state')?.value || '';
+  const grp   = document.getElementById('st-group')?.value || '';   // 種類（お酒/備品/ディフューザー）
   const branches = br ? [br] : ['仙台','京都'];
   const grid = document.getElementById('stock-grid');
 
@@ -3987,7 +4080,7 @@ function renderStock(){
 
   function buildTable(branch){
     let tOld = 0, tSp = 0, tNew = 0;
-    const rows = _prodCols(branch).map(p => {
+    const rows = _prodColsAll(branch, grp).map(p => {
       const ro = _reorder(p.key, branch);   // 拠点別の発注点
       const bk = _bkt(branch, p.key);
       const q = bk.old + bk.sp + bk.new;   // = S.stock合計
@@ -4309,7 +4402,7 @@ function renderStocktakeRowDiff(key){
 function updateStocktakeSummary(){
   var br = (document.getElementById('st-branch')||{}).value || '仙台';
   var diffCnt = 0, diffSum = 0, entered = 0;
-  _prodCols().forEach(function(p){
+  _prodColsAll().forEach(function(p){
     var real = stocktakeReal[p.key];
     if (real === undefined) return;
     entered++;
@@ -4326,7 +4419,7 @@ function updateStocktakeSummary(){
 // 実数欄に帳簿値をまとめて入れる
 function fillStocktakeWithBook(){
   var br = (document.getElementById('st-branch')||{}).value || '仙台';
-  _prodCols().forEach(function(p){ stocktakeReal[p.key] = _bookQty(br, p.key); });
+  _prodColsAll().forEach(function(p){ stocktakeReal[p.key] = _bookQty(br, p.key); });
   renderStocktakeForm();
   toast('帳簿の数を入れました。違う商品だけ直してください');
 }
@@ -4335,7 +4428,7 @@ function renderStocktakeForm(){
   var box = document.getElementById('st-form');
   if (!box) return;
   var br = (document.getElementById('st-branch')||{}).value || '仙台';
-  var rows = _prodCols().map(function(p){
+  var rows = _prodColsAll().map(function(p){
     var book = _bookQty(br, p.key);
     var real = stocktakeReal[p.key];
     return '<tr>'
@@ -4347,7 +4440,7 @@ function renderStocktakeForm(){
   }).join('');
   box.innerHTML = '<div style="padding:.4rem .7rem;font-size:.84rem" id="st-summary"></div>'
     + '<table><thead><tr><th>商品</th><th class="col-qty">帳簿（システム）</th><th style="text-align:center">実数（数えた本数）</th><th class="col-qty">差異</th></tr></thead><tbody>' + rows + '</tbody></table>';
-  _prodCols().forEach(function(p){ renderStocktakeRowDiff(p.key); });
+  _prodColsAll().forEach(function(p){ renderStocktakeRowDiff(p.key); });
 }
 // 記録する
 async function submitStocktake(){
@@ -4356,7 +4449,7 @@ async function submitStocktake(){
   var dt = (document.getElementById('st-date')||{}).value || today();
   if (!br) return toast('拠点を選んでください', 'error');
   var items = [];
-  _prodCols().forEach(function(p){
+  _prodColsAll().forEach(function(p){
     var real = stocktakeReal[p.key];
     if (real === undefined) return;                 // 入力した商品だけ記録
     items.push({ product: p.key, book: _bookQty(br, p.key), real: real });
