@@ -712,7 +712,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
     <div id="entry-lending" style="display:none">
     <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
       <div class="th-area"><h3>📦 貸出・借入を記録</h3><span style="font-size:.68rem;color:var(--wh3)">貸出＝在庫が減る／借入＝在庫が増える（返却で戻る）</span></div>
-      <div class="hint-box" style="margin:.2rem 0 .5rem">複数の商品をまとめて記録できます。商品と本数を入れて<b>「＋ 明細に追加」</b>を繰り返し、最後に<b>「まとめて記録」</b>を押してください。</div>
+      <div class="hint-box" style="margin:.2rem 0 .5rem">商品が1つなら、そのまま下の「記録」だけでOK。複数まとめるときは<b>「＋ 商品を追加」</b>を繰り返してから記録してください。</div>
       <div class="frow">
         <div class="fg"><label>種別</label><select class="fc" id="ln-kind"><option value="貸出">貸出（こちらが貸す）</option><option value="借入">借入（こちらが借りる）</option></select></div>
         <div class="fg"><label>相手</label><select class="fc" id="ln-partner"><option value="">— 貸借先を選択 —</option></select></div>
@@ -722,27 +722,27 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg"><label>数量（本）</label><input type="number" class="fc" id="ln-qty" min="1" placeholder="例:12"></div>
         <div class="fg"><label>返却予定日（任意）</label><input type="date" class="fc" id="ln-due"></div>
         <div class="fg" style="flex:1;min-width:140px"><label>メモ</label><input class="fc" id="ln-memo" placeholder="任意"></div>
-        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn" onclick="addLendItem()" style="height:30px;padding:0 1.4rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 明細に追加</button></div>
+        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn-s" onclick="addLendItem()" title="複数の商品をまとめて記録したいときに使います" style="height:30px;padding:0 1rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 商品を追加</button></div>
       </div>
       <div id="ln-draft" style="margin-top:.5rem"></div>
-      <div class="faction" style="margin-top:.4rem"><button class="btn btn-p" onclick="recordLending()">✓ まとめて記録</button></div>
+      <div class="faction" style="margin-top:.4rem"><button class="btn btn-p" onclick="recordLending()">✓ 記録する</button></div>
     </div>
     </div>
     <div id="entry-free" style="display:none">
     <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
       <div class="th-area"><h3>🎁 無償提供を記録</h3><span style="font-size:.68rem;color:var(--wh3)">売上は立たず、在庫だけ減ります（経費計上用）</span></div>
-      <div class="hint-box" style="margin:.2rem 0 .5rem">試供品・交際費など、代金をいただかずにお渡しした分を記録します。<b>用途ごとに集計できる</b>ので、経費の把握に使えます。協賛残数は消費しません。</div>
+      <div class="hint-box" style="margin:.2rem 0 .5rem">試供品・交際費など、代金をいただかずにお渡しした分を記録します。<b>用途ごとに集計できる</b>ので、経費の把握に使えます。協賛残数は消費しません。<br>商品が1つなら、そのまま下の「記録する」だけでOK。複数まとめるときは「＋ 商品を追加」を使ってください。</div>
       <div class="frow">
         <div class="fg"><label>提供日</label><input class="fc" id="fr-date" type="date" style="height:38px;box-sizing:border-box"></div>
         <div class="fg"><label>拠点 <span class="req">*</span></label><select class="fc" id="fr-branch" style="height:38px;box-sizing:border-box"><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>用途 <span class="req">*</span></label><select class="fc" id="fr-purpose" style="height:38px;box-sizing:border-box"><option>試供品</option><option>交際費</option><option>広告宣伝</option><option>その他</option></select></div>
-        <div class="fg" style="flex:1;min-width:150px"><label>提供先（任意）</label><input class="fc" id="fr-to" style="height:38px;box-sizing:border-box" placeholder="例：〇〇様・展示会"></div>
+        <div class="fg" style="flex:1;min-width:150px"><label>提供先（任意）</label><input class="fc" id="fr-to" style="height:38px;box-sizing:border-box" placeholder="渡した相手・店舗名"></div>
       </div>
       <div class="frow">
         <div class="fg"><label>商品 <span class="req">*</span></label><select class="fc" id="fr-prod" style="height:38px;box-sizing:border-box"></select></div>
         <div class="fg"><label>本数 <span class="req">*</span></label><input class="fc" id="fr-qty" type="number" min="1" step="1" style="height:38px;box-sizing:border-box" placeholder="例：2"></div>
         <div class="fg" style="flex:1;min-width:150px"><label>メモ（任意）</label><input class="fc" id="fr-memo" style="height:38px;box-sizing:border-box" placeholder="任意"></div>
-        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn" onclick="addFreeItem()" style="height:38px;box-sizing:border-box;padding:0 1.2rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 明細に追加</button></div>
+        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn-s" onclick="addFreeItem()" title="複数の商品をまとめて記録したいときに使います" style="height:38px;box-sizing:border-box;padding:0 1rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 商品を追加</button></div>
       </div>
       <div id="fr-draft" style="margin-top:.5rem"></div>
       <div class="faction" style="margin-top:.4rem"><button class="btn btn-p" onclick="submitFree()">✓ 無償提供を記録する</button></div>
@@ -764,7 +764,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
     <div id="entry-transfer" style="display:none">
     <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
       <div class="th-area"><h3>🚚 拠点間移動：発送（仙台 ⇄ 京都）</h3><span style="font-size:.68rem;color:var(--wh3)">在庫を移すだけ・売上0</span></div>
-      <div class="hint-box" style="margin:.2rem 0 .5rem">複数の商品をまとめて発送できます。商品と本数を入れて<b>「＋ 明細に追加」</b>を繰り返し、最後に<b>「まとめて発送」</b>を押してください。<br>現物が届くまで日数がかかるため<b>2段階</b>です。ここでの<b>発送</b>で移動元の在庫がすぐ減り、<b>「輸送中」</b>になります。移動先に届いたら<b>「拠点移動」タブで受領</b>すると、その拠点の在庫に入ります。輸送中も会社全体の在庫として数えます（「旧値→協賛→新値」の区分は保持され、受領時に同じ区分へ戻ります）。</div>
+      <div class="hint-box" style="margin:.2rem 0 .5rem">商品が1つなら、そのまま下の「発送する」だけでOK。複数まとめるときは<b>「＋ 商品を追加」</b>を繰り返してから発送してください。<br>現物が届くまで日数がかかるため<b>2段階</b>です。ここでの<b>発送</b>で移動元の在庫がすぐ減り、<b>「輸送中」</b>になります。移動先に届いたら<b>「拠点移動」タブで受領</b>すると、その拠点の在庫に入ります。輸送中も会社全体の在庫として数えます（「旧値→協賛→新値」の区分は保持され、受領時に同じ区分へ戻ります）。</div>
       <div class="frow">
         <div class="fg"><label>移動元</label><select class="fc" id="tr-from" onchange="syncTransferTo()"><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>移動先</label><select class="fc" id="tr-to"><option>京都</option><option>仙台</option></select></div>
@@ -772,11 +772,11 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg"><label>発送日</label><input type="date" class="fc" id="tr-date"></div>
         <div class="fg"><label>本数</label><input class="fc" id="tr-qty" type="number" min="1" step="1" placeholder="例：5"></div>
         <div class="fg" style="flex:1;min-width:140px"><label>メモ（任意）</label><input class="fc" id="tr-memo" placeholder="例：他社返却分を京都へ"></div>
-        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn" onclick="addMoveItem()" style="height:30px;padding:0 1.4rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 明細に追加</button></div>
+        <div class="fg" style="display:flex;flex-direction:column"><label>&nbsp;</label><button class="btn-s" onclick="addMoveItem()" title="複数の商品をまとめて発送したいときに使います" style="height:30px;padding:0 1rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 商品を追加</button></div>
       </div>
       <div id="tr-preview" style="font-size:.78rem;color:var(--wh2);margin:.4rem 0"></div>
       <div id="tr-draft" style="margin-top:.5rem"></div>
-      <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="transferStock()">🚚 まとめて発送する</button></div>
+      <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="transferStock()">🚚 発送する</button></div>
     </div>
     </div>
   </div>
