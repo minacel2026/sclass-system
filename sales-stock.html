@@ -88,12 +88,19 @@ main{padding:1.5rem 2rem;max-width:1500px;margin:0 auto}
 select.fc{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--gold-l) 50%),linear-gradient(135deg,var(--gold-l) 50%,transparent 50%);background-position:calc(100% - 14px) 52%,calc(100% - 9px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:1.7rem}
 textarea.fc{height:auto;min-height:var(--ctl-h)}
 /* ── 出荷リスト・納品書の印刷 ── */
+/* 納品書はA4に上下2枚（控え＋お客様用）。中央の点線で切り分けて使う */
+.ss-half{}
+.ss-cut{display:flex;align-items:center;gap:8px;margin:10px 0;color:#999;font-size:11px}
+.ss-cut::before,.ss-cut::after{content:'';flex:1;border-top:1px dashed #999}
 @media print{
   body > *:not(#ship-sheet){display:none !important}
   #ship-sheet{display:block !important;position:static !important;background:#fff !important;padding:0 !important;overflow:visible !important}
   #ship-sheet .no-print{display:none !important}
   #ship-sheet-body{box-shadow:none !important;border-radius:0 !important;padding:0 !important}
-  @page{size:A4;margin:14mm}
+  /* 半面ずつに収める（A4縦の約半分＝130mm） */
+  .ss-half{height:126mm;overflow:hidden;box-sizing:border-box;page-break-inside:avoid}
+  .ss-cut{margin:2mm 0}
+  @page{size:A4 portrait;margin:10mm}
 }
 /* 長い選択肢や文字でも枠からはみ出さない（重なり防止） */
 .fg{min-width:0}
@@ -4995,6 +5002,21 @@ function toggleSsCheck(key){
   _ssChecked[key] = !_ssChecked[key];
   renderShipSheet();
 }
+// 保存済みの注文から、商品ごとの単価・金額を求める（納品書用）
+//  注文には掛率(condition)と税(tax)が保存されているので、それを使って再現する
+function _ssUnit(o, prodName){
+  var pl=(S.products&&S.products.length)?S.products:(PROD_LIST||[]);
+  var p=pl.find(function(x){ return (x.key||x.name)===prodName || x.name===prodName; }) || {};
+  var base=(o.priceMode==='旧値') ? (p.priceOld||p.price||0) : (p.price||0);
+  var cond=(Number(o.condition)||10)/10;
+  return Math.round(base*cond);            // 税抜の単価（掛率適用後）
+}
+function _ssLineAmount(o, prodName, qty){
+  var unit=_ssUnit(o, prodName);
+  var taxRate=(String(o.tax||'').indexOf('あり')>=0 || o.taxType==='税込') ? 1.1 : 1;
+  return Math.round(unit*qty*taxRate);
+}
+
 // 出荷リストに載せる明細（ワイン＋協賛＋ポイントシール）
 function _ssLines(o){
   var lines=[];
@@ -5051,7 +5073,8 @@ function renderShipSheet(){
       + '<td style="border:1px solid #bbb;padding:6px 8px">' + escapeHtml(l.name)
       + (l.kind?' <span style="font-size:10px;color:#666">（'+escapeHtml(l.kind)+'）</span>':'') + '</td>'
       + '<td style="border:1px solid #bbb;padding:6px 8px;text-align:right;width:90px">' + l.qty + (l.unit||'本') + '</td>'
-      + (isPick?'':'<td style="border:1px solid #bbb;padding:6px 8px;text-align:right;width:110px">' + (l.kind==='協賛・無料'||l.unit==='枚' ? '—' : '') + '</td>')
+      + (isPick?'':'<td style="border:1px solid #bbb;padding:6px 8px;text-align:right;width:90px">' + (l.kind==='協賛・無料'||l.unit==='枚' ? '—' : yen(_ssUnit(o,l.name))) + '</td>')
+      + (isPick?'':'<td style="border:1px solid #bbb;padding:6px 8px;text-align:right;width:110px">' + (l.kind==='協賛・無料'||l.unit==='枚' ? '—' : yen(_ssLineAmount(o,l.name,l.qty))) + '</td>')
       + '</tr>';
   }).join('');
 
@@ -5059,6 +5082,7 @@ function renderShipSheet(){
     + (isPick?'<th style="border:1px solid #bbb;padding:6px">✓</th>':'')
     + '<th style="border:1px solid #bbb;padding:6px;text-align:left">商品</th>'
     + '<th style="border:1px solid #bbb;padding:6px;text-align:right">数量</th>'
+    + (isPick?'':'<th style="border:1px solid #bbb;padding:6px;text-align:right">単価</th>')
     + (isPick?'':'<th style="border:1px solid #bbb;padding:6px;text-align:right">金額</th>')
     + '</tr>';
 
@@ -5067,7 +5091,18 @@ function renderShipSheet(){
       + (lines.some(function(l){return l.unit==='枚';}) ? '＋ポイントシール' + (Number(o.sealQty)||0) + '枚' : '')
       + '</div>'
       + '<div style="margin-top:14px;font-size:11px;color:#555">確認者サイン：____________________　　出荷日：____ / ____</div>'
-    : '<div style="margin-top:10px;text-align:right;font-size:14px">合計金額（税込）　<b>' + yen(calcAmt(o)) + '</b></div>'
+    : (function(){
+        var taxRate=(String(o.tax||'').indexOf('あり')>=0 || o.taxType==='税込') ? 0.1 : 0;
+        var total=calcAmt(o);
+        var net=taxRate? Math.round(total/(1+taxRate)) : total;
+        var tax=total-net;
+        return '<div style="margin-top:12px;display:flex;justify-content:flex-end">'
+          + '<table style="font-size:12px;border-collapse:collapse">'
+          + '<tr><td style="padding:3px 12px;text-align:right;color:#555">小計（税抜）</td><td style="padding:3px 8px;text-align:right;min-width:110px">' + yen(net) + '</td></tr>'
+          + (taxRate? '<tr><td style="padding:3px 12px;text-align:right;color:#555">消費税（10%）</td><td style="padding:3px 8px;text-align:right">' + yen(tax) + '</td></tr>' : '')
+          + '<tr style="border-top:2px solid #333"><td style="padding:6px 12px;text-align:right;font-size:14px;font-weight:700">合計金額</td><td style="padding:6px 8px;text-align:right;font-size:15px;font-weight:700">' + yen(total) + '</td></tr>'
+          + '</table></div>';
+      })()
       + (o.note?'<div style="margin-top:10px;font-size:11px;color:#555">備考：' + escapeHtml(o.note) + '</div>':'')
       + (co.tel||co.addr?'<div style="margin-top:16px;font-size:11px;color:#555">' + escapeHtml([co.addr,co.tel].filter(Boolean).join('　')) + '</div>':'');
 
@@ -5076,11 +5111,29 @@ function renderShipSheet(){
       + (allChecked ? '✓ すべて確認できました。「出荷済にする」を押してください' : '☐ 未確認の商品があります（' + lines.filter(function(l){return !_ssChecked[l.key];}).length + '件）')
       + '</div>' : '';
 
-  box.innerHTML = head
-    + '<div style="height:1px;background:#333;margin:12px 0"></div>'
+  var sheet = head
+    + '<div style="height:1px;background:#333;margin:10px 0"></div>'
     + progress
     + '<table style="width:100%;border-collapse:collapse;font-size:12px">' + thead + rows + '</table>'
     + foot;
+
+  if (isPick){
+    box.innerHTML = sheet;                     // 出荷リストは1枚
+  } else if (lines.length > 8){
+    // 明細が多いと半面に収まらないため、A4全面（1枚）で印刷する
+    box.innerHTML = '<div class="no-print" style="background:#fff8e1;border:1px solid #e6c200;color:#7a5c00;padding:8px 10px;font-size:12px;margin-bottom:10px">'
+      + '商品が' + lines.length + '件あるため、A4全面（1枚）で印刷します。'
+      + '</div>' + sheet;
+  } else {
+    // 納品書：A4に上下2枚（控え／お客様用）。中央の点線で切って使う
+    var mark = function(t){
+      return '<div style="text-align:right;font-size:10px;color:#666;margin-bottom:2px">' + t + '</div>';
+    };
+    box.innerHTML =
+        '<div class="ss-half">' + mark('（控）') + sheet + '</div>'
+      + '<div class="ss-cut"><span>✂</span></div>'
+      + '<div class="ss-half">' + mark('（お客様控）') + sheet + '</div>';
+  }
 }
 function shipSheetComplete(){
   var o=(S.orders||[]).find(function(x){ return x.id===_ssOrderId; });
