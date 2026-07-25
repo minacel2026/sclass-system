@@ -756,7 +756,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
               </select>
             </div>
             <div class="fg"><label>営業日・時間</label><input class="fc" id="cf-biz-hours" placeholder="例：月-土 19:00-翌2:00"></div>
-            <div class="fg"><label>平均客単価</label><input class="fc" id="cf-avg-spend" type="number" min="0" placeholder="例：8000"><span style="font-size:.6rem;color:var(--wh3)">円</span></div>
+            <div class="fg"><label>平均客単価</label><div style="display:flex;align-items:center;gap:.3rem"><input class="fc" id="cf-avg-spend" type="number" min="0" placeholder="例：8000" style="flex:1;min-width:0"><span style="font-size:.7rem;color:var(--wh3);white-space:nowrap">円</span></div></div>
           </div>
         </div>
         <div class="form-section">
@@ -1585,9 +1585,20 @@ window.addEventListener('online', function(){ toast('📶 電波が戻りまし�
 window.addEventListener('offline', function(){ _qBadge(); });
 setInterval(function(){ if(_qLoad().length) _qFlush(false); }, 30000);
 window.addEventListener('load', function(){ setTimeout(function(){ _qBadge(); _qFlush(false); }, 1500); });
-// 未送信があるまま閉じようとしたら警告
+// 修正（編集）フォームを開いたまま、保存・更新・閉じる（一覧へ戻る/キャンセル）をしていないときだけ警告する。
+// ※未送信データは端末に保存され自動再送されるため、送信キューでは警告しない（左下バッジで確認可能）。
 window.addEventListener('beforeunload', function(e){
-  if(_qLoad().length){ e.preventDefault(); e.returnValue='未送信のデータがあります。画面を閉じてもよろしいですか？'; return e.returnValue; }
+  var ids = ['edit-status','staff-edit-status','prod-edit-status','ref-edit-status','agt-edit-status','spo-edit-status'];
+  var editingOpen = ids.some(function(id){
+    var el = document.getElementById(id);
+    // 編集フォームが「表示中」かつ「編集中: …」のときだけ（保存/更新/一覧へ戻る後は非表示 or 空欄になる）
+    return el && el.offsetParent !== null && /編集中/.test(el.textContent || '');
+  });
+  if (editingOpen){
+    e.preventDefault();
+    e.returnValue = '修正した内容がまだ保存されていません。保存・更新せずに移動してもよろしいですか？';
+    return e.returnValue;
+  }
 });
 
 

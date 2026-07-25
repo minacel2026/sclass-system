@@ -170,26 +170,10 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .qty-btn{width:26px;height:26px;background:transparent;border:1px solid rgba(201,168,76,.35);color:var(--gold-l);cursor:pointer;font-size:.85rem;font-family:'Noto Sans JP',sans-serif;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 .qty-btn:hover{background:rgba(201,168,76,.15)}
 
-/* ─── 商品カード（縦1列：1商品ずつ、販売＋協賛を同じブロックに）─── */
-.sp-avail-banner{background:rgba(155,89,182,.10);border:1px solid rgba(195,155,211,.35);color:#d9bfe8;border-radius:6px;padding:.4rem .6rem;font-size:.78rem;margin-bottom:.6rem}
-.sp-avail-banner strong{color:#e6d5ee}
-.pcard-list{display:flex;flex-direction:column;gap:.5rem}
-.pcard{border:1px solid rgba(201,168,76,.15);border-radius:6px;padding:.55rem .7rem;background:var(--d2);transition:background .15s,border-color .15s}
-.pcard.has-qty{background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.35)}
-.pcard.has-sp{border-color:rgba(195,155,211,.4)}
-.pcard-top{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;flex-wrap:wrap;margin-bottom:.5rem}
-.pcard-top .pr-name{font-size:.9rem}
-.pcard-meta{font-size:.74rem;color:var(--wh3);white-space:nowrap}
-.pcard-meta .low{color:var(--org)}
-.pcard-meta-sub{font-size:.62rem;color:var(--wh3)}
-.pcard-controls{display:flex;flex-direction:column;gap:.4rem}
-.pcard-ctl{display:flex;align-items:center;gap:.55rem}
-.pcard-ctl-lbl{min-width:3.6rem;font-size:.76rem;color:var(--gold-l);display:flex;align-items:center;gap:.25rem}
-.pcard-ctl.sp .pcard-ctl-lbl{color:#c39bd3}
-.pcard-ctl-lbl-sub{font-size:.6rem;color:var(--wh3)}
-.pcard-ctl .pr-qty-cell{justify-content:flex-start}
-.pcard-ctl .pr-sub,.pcard-sp-note{margin-left:auto;font-size:.82rem;white-space:nowrap}
-.pcard-sp-note{color:#c39bd3}
+/* ─── 入力欄の前後移動ボタン（▲前へ／▼次へ）─── */
+.fieldnav-btn{width:42px;height:42px;border-radius:50%;background:rgba(21,21,26,.92);border:1px solid var(--gold-d);color:var(--gold-l);font-size:1rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:inherit;-webkit-tap-highlight-color:transparent}
+.fieldnav-btn:hover{background:rgba(201,168,76,.2)}
+.fieldnav-btn:active{background:rgba(201,168,76,.35)}
 
 /* ─── 店舗名 候補ドロップダウン ─── */
 .suggest-box{position:absolute;top:100%;left:0;right:0;background:var(--d2);border:1px solid rgba(201,168,76,.4);border-top:none;max-height:240px;overflow-y:auto;z-index:50;display:none;box-shadow:0 8px 20px rgba(0,0,0,.55)}
@@ -665,6 +649,11 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       </div>
     </div>
     <div id="entry-order">
+    <div id="order-keynav-hint" style="font-size:.7rem;color:var(--wh3);margin:-.1rem 0 .6rem">⏎ Enter＝次の欄へ／⇧+Enter＝前の欄へ（右の <span style="color:var(--gold-l)">▲▼</span> ボタンでも移動できます）</div>
+    <div id="order-fieldnav" style="position:fixed;right:10px;top:50%;transform:translateY(-50%);z-index:8000;display:none;flex-direction:column;gap:8px">
+      <button type="button" class="fieldnav-btn" data-dir="-1" title="前の欄へ">▲</button>
+      <button type="button" class="fieldnav-btn" data-dir="1" title="次の欄へ">▼</button>
+    </div>
     <div class="form-section">
       <div class="form-section-title">▸ 顧客情報</div>
       <div class="frow">
@@ -1513,11 +1502,8 @@ function canAdjust(){ return currentUser && ['admin','manager','staff'].includes
 
 // ─── 親タブ切替 ─────
 function switchModule(name, el){
-  // 注文登録タブから他のタブへ移動するときは入力途中の内容をクリア
-  const current = document.querySelector('.mcon.active');
-  if (current && current.id === 'm-neworder' && name !== 'neworder'){
-    if (typeof clearNewOrder === 'function') clearNewOrder();
-  }
+  // 注文登録タブから他タブへ移動しても、入力途中（販売・協賛など）は保持する。
+  // （協賛管理などを確認して戻れるように。まっさらにしたいときは「クリア」ボタン。登録後は自動でクリアされる）
   document.querySelectorAll('.mtab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.mcon').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
@@ -2262,7 +2248,26 @@ function initNewOrder(){
   initOrderKeyNav();
 }
 
-// 注文フォーム：Enterで次の欄へ／Shift+Enterで前の欄へ（誤作動しない範囲だけ）
+// 注文フォーム内で、現在の欄を基準に前後の欄へフォーカスを移す共通処理
+let _orderNavLast = null;
+function _orderFieldMove(dir, fromEl){
+  const form = document.getElementById('entry-order');
+  if (!form) return;
+  const fields = Array.from(form.querySelectorAll('input:not([type=hidden]):not([disabled]), select:not([disabled])'))
+    .filter(el => el.offsetParent !== null);   // 表示中の欄だけ
+  if (!fields.length) return;
+  let cur = (fromEl && fields.indexOf(fromEl) >= 0) ? fromEl : document.activeElement;
+  let i = fields.indexOf(cur);
+  if (i < 0) i = fields.indexOf(_orderNavLast);   // ボタン操作でフォーカスが外れた場合の保険
+  if (i < 0) i = 0;
+  let ni = i + dir;
+  if (ni < 0) ni = 0;
+  if (ni >= fields.length) ni = fields.length - 1;
+  const next = fields[ni];
+  if (next){ next.focus(); if (next.select){ try { next.select(); } catch(_){} } }
+}
+
+// 注文フォーム：Enterで次の欄へ／Shift+Enterで前の欄へ。加えて画面の▲▼ボタンでも前後移動（Shiftキーの無い端末向け）
 function initOrderKeyNav(){
   const form = document.getElementById('entry-order');
   if (!form || form._keyNavBound) return;
@@ -2279,16 +2284,40 @@ function initOrderKeyNav(){
       if (open) return;
     }
     e.preventDefault();
-    const fields = Array.from(form.querySelectorAll('input:not([type=hidden]):not([disabled]), select:not([disabled])'))
-      .filter(el => el.offsetParent !== null);   // 表示中の欄だけ
-    const i = fields.indexOf(t);
-    if (i < 0) return;
-    let ni = e.shiftKey ? i - 1 : i + 1;
-    if (ni < 0) ni = 0;
-    if (ni >= fields.length) ni = fields.length - 1;
-    const next = fields[ni];
-    if (next){ next.focus(); if (next.select) { try { next.select(); } catch(_){} } }
+    _orderFieldMove(e.shiftKey ? -1 : 1, t);
   });
+
+  // 入力欄にフォーカスが入っている間だけ、画面の前後ボタンを表示する
+  form.addEventListener('focusin', function(e){
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT')){
+      _orderNavLast = t;
+      const nav = document.getElementById('order-fieldnav');
+      if (nav) nav.style.display = 'flex';
+    }
+  });
+  form.addEventListener('focusout', function(){
+    // フォーカスがフォーム外へ完全に外れたら隠す（ボタン押下時は維持）
+    setTimeout(function(){
+      const nav = document.getElementById('order-fieldnav');
+      if (!nav) return;
+      const ae = document.activeElement;
+      if (!form.contains(ae) && !nav.contains(ae)) nav.style.display = 'none';
+    }, 150);
+  });
+
+  // ▲前へ／▼次へ ボタン（押下で入力欄のフォーカスが外れないよう pointerdown で処理）
+  const nav = document.getElementById('order-fieldnav');
+  if (nav && !nav._bound){
+    nav._bound = true;
+    nav.querySelectorAll('.fieldnav-btn').forEach(function(btn){
+      btn.addEventListener('pointerdown', function(e){
+        e.preventDefault();   // 現在の入力欄のフォーカスを保持したまま移動する
+        const dir = parseInt(btn.getAttribute('data-dir'), 10) || 1;
+        _orderFieldMove(dir, _orderNavLast);
+      });
+    });
+  }
 }
 
 // 担当者の候補（担当区分＝営業/社長/オーナー、拠点一致 or 両拠点）をプルダウンに出す
@@ -3329,44 +3358,47 @@ function calcProdLine(p, qty){
 function renderNewOrderProds(){
   const grid = document.getElementById('no-prod-grid');
   const branch = (document.getElementById('no-branch')||{}).value || '仙台';
-  const spOn = _spColOn();
-  const cards = _prodCols().map(p => {
+  const rows = _prodCols().map(p => {
     const qty = newOrderQty[p.key] || 0;
-    const spq = _spQtyOf(p.key);
     const totalStock = S.stock[branch]?.[p.key] || 0;  // 選択中の拠点の在庫
     const low = totalStock <= (p.reorder || 0);
     const line = calcProdLine(p, qty);
     return `
-    <div class="pcard ${qty>0?'has-qty':''} ${spq>0?'has-sp':''}" id="pc-${p.key}">
-      <div class="pcard-top">
-        <span class="pr-name"><span class="pr-dot" style="background:${p.color}"></span>${p.name}</span>
-        <span class="pcard-meta">¥${fmt(line.unitExcl)}<span class="pcard-meta-sub">/本･税抜</span> ・ 在庫(${branch}) <span class="${low?'low':''}">${totalStock}</span>本</span>
-      </div>
-      <div class="pcard-controls">
-        <div class="pcard-ctl">
-          <span class="pcard-ctl-lbl">販売</span>
-          <div class="pr-qty-cell">
-            <button class="qty-btn" onclick="changeOrderQty('${p.key}',-1)">−</button>
-            <input class="pr-qty-val" id="qv-${p.key}" type="number" inputmode="numeric" min="0" step="1" value="${qty}" onfocus="this.select()" oninput="setOrderQty('${p.key}', this.value)" onblur="normalizeOrderQty('${p.key}')">
-            <button class="qty-btn" onclick="changeOrderQty('${p.key}',1)">＋</button>
-          </div>
-          <span class="pr-sub" id="sub-${p.key}">${qty>0?'小計 ¥'+fmt(line.subExcl):'—'}</span>
+    <tr class="${qty>0?'has-qty':''}" id="pc-${p.key}">
+      <td><span class="pr-name">${p.img ? `<img src="${p.img}" alt="" style="width:26px;height:26px;object-fit:cover;border-radius:4px;margin-right:.45rem;vertical-align:middle" onerror="this.style.display='none'">` : `<span class="pr-dot" style="background:${p.color}"></span>`}${p.name}</span></td>
+      <td class="pr-price" id="up-${p.key}">¥${fmt(line.unitExcl)}</td>
+      <td class="pr-stock ${low?'low':''}">${totalStock}本</td>
+      <td>
+        <div class="pr-qty-cell">
+          <button class="qty-btn" onclick="changeOrderQty('${p.key}',-1)">−</button>
+          <input class="pr-qty-val" id="qv-${p.key}" type="number" inputmode="numeric" min="0" step="1" value="${qty}" onfocus="this.select()" oninput="setOrderQty('${p.key}', this.value)" onblur="normalizeOrderQty('${p.key}')">
+          <button class="qty-btn" onclick="changeOrderQty('${p.key}',1)">＋</button>
         </div>
-        ${spOn ? `<div class="pcard-ctl sp">
-          <span class="pcard-ctl-lbl">協賛<span class="pcard-ctl-lbl-sub">無料</span></span>
-          <div class="pr-qty-cell">
-            <button class="qty-btn sp" onclick="changeSponsorQty('${p.key}',-1)">−</button>
-            <input class="pr-qty-val sp" id="sq-${p.key}" type="number" inputmode="numeric" min="0" step="1" value="${spq}" onfocus="this.select()" oninput="setSponsorQty('${p.key}', this.value)" onblur="normalizeSponsorQty('${p.key}')">
-            <button class="qty-btn sp" onclick="changeSponsorQty('${p.key}',1)">＋</button>
-          </div>
-          <span class="pcard-sp-note">${spq>0?'¥0（無料）':''}</span>
-        </div>` : ''}
-      </div>
-    </div>`;
+      </td>
+      ${_spColOn() ? `<td>
+        <div class="pr-qty-cell">
+          <button class="qty-btn sp" onclick="changeSponsorQty('${p.key}',-1)">−</button>
+          <input class="pr-qty-val sp" id="sq-${p.key}" type="number" inputmode="numeric" min="0" step="1" value="${_spQtyOf(p.key)}" onfocus="this.select()" oninput="setSponsorQty('${p.key}', this.value)" onblur="normalizeSponsorQty('${p.key}')">
+          <button class="qty-btn sp" onclick="changeSponsorQty('${p.key}',1)">＋</button>
+        </div>
+      </td>` : ''}
+      <td class="pr-sub" id="sub-${p.key}">${qty>0?'¥'+fmt(line.subExcl):'—'}</td>
+    </tr>`;
   }).join('');
-  grid.innerHTML =
-    (spOn ? '<div class="sp-avail-banner">🎁 協賛（無料）で出せる本数 <span id="sp-col-note"></span></div>' : '')
-    + '<div class="pcard-list">' + cards + '</div>';
+  grid.innerHTML = `
+    <div class="prod-table-wrap">
+      <table class="prod-table">
+        <thead><tr>
+          <th>商品</th>
+          <th class="col-num">売値（税抜・掛率反映）</th>
+          <th class="col-num">在庫（${branch}）</th>
+          <th style="text-align:center">数量（販売）</th>
+          ${_spColOn() ? '<th style="text-align:center;color:#c39bd3">数量（協賛・無料）<div id="sp-col-note" style="font-size:.62rem;font-weight:400;color:#c39bd3;margin-top:.15rem"></div></th>' : ''}
+          <th class="col-num">小計（税抜）</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
   updateSpColNote();
   if (typeof initSupplyBox === 'function') initSupplyBox();
 }
@@ -3463,8 +3495,6 @@ function setSponsorQty(key, raw){
   }
   var el = document.getElementById('sq-' + key);
   if (el && String(el.value) !== String(n)) el.value = n;
-  var pc = document.getElementById('pc-' + key);
-  if (pc) pc.classList.toggle('has-sp', n > 0);
   if (typeof renderSponsorShipDraft === 'function') renderSponsorShipDraft();
   updateOrderTotal();
   updateSpColNote();
