@@ -2247,6 +2247,11 @@ let storeSuggestIdx = -1;     // 店舗候補のキーボード選択位置
 let sponsorShipDraft = [];    // 協賛出荷の明細（複数商品対応）
 
 function initNewOrder(){
+  // 取引種別は毎回「販売（注文）」に戻す。前回の仕入・貸出・移動などが保持されないように。
+  // （編集や「登録し直し」導線は switchModule の後で種別を再設定するため、ここで戻しても上書きされる）
+  var _ek = document.getElementById('entry-kind');
+  if (_ek){ _ek.value = 'order'; if (typeof switchEntryKind === 'function') switchEntryKind('order'); }
+
   // 日付初期値
   if (!document.getElementById('no-date').value) {
     document.getElementById('no-date').value = today();
