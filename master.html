@@ -1087,10 +1087,27 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           <div class="form-section-title">▸ 基本情報</div>
           <div class="frow">
             <div class="fg"><label>商品名 <span class="req">*</span></label><input class="fc" id="pf-name" placeholder="例：イエロー"></div>
-            <div class="fg"><label>カテゴリ</label><input class="fc" id="pf-category" list="prod-cat-list" placeholder="例：スパークリング"></div>
+            <div class="fg"><label>カテゴリ <span class="hint">部門の判定に使います</span></label><select class="fc" id="pf-category">
+              <option value="">— 選択してください —</option>
+              <optgroup label="🍷 酒販">
+                <option>スパークリング</option>
+                <option>スティルワイン</option>
+                <option>ギフト</option>
+              </optgroup>
+              <optgroup label="📦 備品（在庫のみ・注文には出ません）">
+                <option>ポイントシール</option>
+                <option>備品</option>
+              </optgroup>
+              <optgroup label="🌿 ディフューザー">
+                <option>ディフューザー本体</option>
+                <option>ディフューザーオイル</option>
+              </optgroup>
+              <optgroup label="💬 口コミ365">
+                <option>口コミ365</option>
+              </optgroup>
+            </select></div>
             <div class="fg fc-full"><label>表示名（任意）</label><input class="fc" id="pf-fullname" placeholder="例：001: Extra Brut（イエロー）"></div>
           </div>
-          <datalist id="prod-cat-list"><option>スパークリング</option><option>スティルワイン</option><option>ギフト</option><option>ポイントシール</option><option>備品</option><option>ディフューザー本体</option><option>ディフューザーオイル</option></datalist>
         </div>
         <div class="form-section">
           <div class="form-section-title">▸ 価格・原価</div>
@@ -3653,9 +3670,10 @@ function switchProductTab(name, el){
 // 商品の大分類（在庫側と同じ判定）— カテゴリ名で判定するので分類追加はカテゴリを足すだけ
 function prodGroupOf(p){
   var c = String((p && p.category) || '');
-  if (/シール|備品|消耗/.test(c)) return 'supply';
-  if (/ディフューザー|ディフュ|diffuser/i.test(c)) return 'diffuser';
-  return 'wine';
+  if (/口コミ|クチコミ|365/.test(c)) return 'service';    // サービス（在庫を持たない）
+  if (/シール|備品|消耗/.test(c)) return 'supply';        // 備品・ポイントシール
+  if (/ディフューザー|ディフュ|diffuser/i.test(c)) return 'diffuser';  // ディフューザー（本体・オイル）
+  return 'wine';                                          // それ以外はお酒
 }
 
 function renderProducts(){
@@ -3812,7 +3830,17 @@ function openProduct(enc){
   productEditingKey = name;
   const g = id => document.getElementById(id);
   g('pf-name').value = p.name || '';
-  g('pf-category').value = p.category || '';
+  // 選択肢に無いカテゴリ（旧データ・手入力）でも消えないよう、その場で追加してから選ぶ
+  (function(){
+    var sel=g('pf-category'), v=p.category || '';
+    if(!sel) return;
+    if(v && !Array.from(sel.options).some(function(o){ return o.value===v || o.text===v; })){
+      var og=document.createElement('optgroup'); og.label='その他（登録済み）';
+      var op=document.createElement('option'); op.textContent=v; op.value=v;
+      og.appendChild(op); sel.appendChild(og);
+    }
+    sel.value=v;
+  })();
   g('pf-fullname').value = p.fullName || '';
   g('pf-cost').value = p.cost != null ? p.cost : '';
   g('pf-costold').value = p.costOld != null ? p.costOld : '';

@@ -1185,7 +1185,8 @@ function updateSealHint(){
 //  カテゴリ名に含まれる語で判定するので、新しい分類はカテゴリを足すだけで増やせる
 function prodGroupOf(p){
   var c = String((p && p.category) || '');
-  if (/シール|備品|消耗/.test(c)) return 'supply';       // 備品・ポイントシール
+  if (/口コミ|クチコミ|365/.test(c)) return 'service';    // サービス（在庫を持たない）
+  if (/シール|備品|消耗/.test(c)) return 'supply';        // 備品・ポイントシール
   if (/ディフューザー|ディフュ|diffuser/i.test(c)) return 'diffuser';  // ディフューザー（本体・オイル）
   return 'wine';                                          // それ以外はお酒
 }
@@ -1212,6 +1213,7 @@ function _prodColsAll(br, group){
   var l = (S.products && S.products.length) ? S.products.filter(function(p){ return p && p.active!==false; }) : (PROD_LIST||[]);
   if(!l.length) l = PROD_LIST||[];
   if (group) l = l.filter(function(p){ return prodGroupOf(p) === group; });
+  else l = l.filter(function(p){ return prodGroupOf(p) !== 'service'; });   // サービスは在庫を持たない
   var out = l.map(function(p){
     var k = p.key || p.name;
     var d = (PROD_LIST||[]).find(function(x){ return x.key===k; }) || {};
