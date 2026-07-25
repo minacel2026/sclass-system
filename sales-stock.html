@@ -731,6 +731,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
     <div class="faction">
       <button class="btn btn-p" id="no-submit-btn" onclick="submitNewOrder()">注文を登録</button>
       <button class="btn btn-g" onclick="clearNewOrder()">クリア</button>
+      <button class="btn btn-g" id="no-cancel-btn" style="display:none" onclick="cancelOrderEdit()">✕ 閉じる（一覧へ戻る）</button>
     </div>
     </div>
 
@@ -2219,9 +2220,11 @@ function openOrderForEdit(id){
   }
   if (typeof renderSponsorShipDraft === 'function') renderSponsorShipDraft();
 
-  // ボタン文言を「更新」に
+  // ボタン文言を「更新」に。編集中は「閉じる（一覧へ戻る）」も表示
   const btn = document.getElementById('no-submit-btn');
   if (btn) btn.textContent = '✏️ 注文を更新';
+  const cbtn = document.getElementById('no-cancel-btn');
+  if (cbtn) cbtn.style.display = '';
   toast('注文を読み込みました。修正して「更新」を押してください');
 }
 </script>
@@ -3510,6 +3513,8 @@ function clearNewOrder(){
   editingOrderId = null;  // 編集モード解除
   const btn = document.getElementById('no-submit-btn');
   if (btn) btn.textContent = '注文を登録';  // ボタン文言を戻す
+  const cbtn = document.getElementById('no-cancel-btn');
+  if (cbtn) cbtn.style.display = 'none';  // 編集中のみ出す「閉じる」を隠す
   ['no-store','no-staff','no-contact','no-tel','no-delnote','no-note'].forEach(id => {
     const e = document.getElementById(id); if (e) e.value = '';
   });
@@ -3532,6 +3537,16 @@ function clearNewOrder(){
   if (typeof renderSponsorShipDraft === 'function') renderSponsorShipDraft();
   renderNewOrderProds();
   updateOrderTotal();
+}
+
+// 修正を保存せずに閉じて注文一覧へ戻る（編集中のみ表示されるボタンから呼ぶ）
+function cancelOrderEdit(){
+  if (editingOrderId){
+    if (!confirm('修正を保存せずに閉じます。よろしいですか？')) return;
+  }
+  clearNewOrder();               // 編集モード解除＋フォーム初期化＋「閉じる」ボタン非表示
+  const tab = document.querySelector('.mtab[onclick*="orders"]');
+  switchModule('orders', tab);   // 注文一覧へ戻る
 }
 
 function submitNewOrder(){
