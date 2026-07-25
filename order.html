@@ -1313,17 +1313,25 @@ async function submitOrder() {
     shippingFee: ship.fee
   };
 
+  // ── 送信（電波が弱い場所でも注文が消えないようにする）──
+  //   no-cors は「届いたか」を確認できず、失敗しても完了画面に進んでしまうため、
+  //   応答を受け取れる方式で送り、届かない場合は端末に控えて後から送れるようにする。
   try {
-    // GASはプリフライトに非対応のため Content-Type を付けない（text/plain扱いで本文JSONをそのまま送る）
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: JSON.stringify(orderData)
-    });
+    const _url = GAS_URL + '?payload=' + encodeURIComponent(JSON.stringify(orderData)) + '&_=' + Date.now();
+    const _res = await fetch(_url, { method: 'GET', cache: 'no-store' });
+    if (!_res.ok) throw new Error('http ' + _res.status);
+    await _res.text();                              // 応答まで受け取って到達を確認
+    try { localStorage.removeItem('lmb_order_pending'); } catch(e){}
   } catch(e) {
+    // 届かなかった：注文内容を端末に保存し、あとで送れるようにする
+    try { localStorage.setItem('lmb_order_pending', JSON.stringify(orderData)); } catch(e2){}
     loading.style.display = 'none';
     btns.forEach(b => b.disabled = false);
-    alert('送信に失敗しました。通信環境をご確認のうえ、もう一度「注文送信」を押してください。');
+    alert('⚠ ご注文を送信できませんでした\n\n'
+        + '電波が届いていない可能性があります。\n'
+        + 'ご注文の内容はこの端末に保存しました。\n\n'
+        + '電波の良い場所で、もう一度「注文送信」を押してください。\n'
+        + '（この画面を閉じても内容は残ります）');
     return;
   }
 
@@ -1339,6 +1347,30 @@ async function submitOrder() {
 function closeLiff() {
   try { liff.closeWindow(); } catch(e) { window.close(); }
 }
+
+// 前回、電波が届かず送れなかった注文が残っていないか確認する
+(function(){
+  try{
+    const pend = localStorage.getItem('lmb_order_pending');
+    if (!pend) return;
+    const p = JSON.parse(pend);
+    setTimeout(function(){
+      if (confirm('⚠ 前回送信できなかったご注文があります。\n\n'
+        + (p.store || '') + '　' + (p.date || '') + '\n\n'
+        + '今すぐ送信しますか？')){
+        fetch(GAS_URL + '?payload=' + encodeURIComponent(pend) + '&_=' + Date.now(), { cache:'no-store' })
+          .then(function(r){ if(!r.ok) throw new Error(); return r.text(); })
+          .then(function(){
+            localStorage.removeItem('lmb_order_pending');
+            alert('✓ ご注文を送信しました\n注文番号：' + (p.id || ''));
+          })
+          .catch(function(){
+            alert('まだ送信できません。\n電波の良い場所で、もう一度お試しください。');
+          });
+      }
+    }, 900);
+  }catch(e){}
+})();
 
 init();
 </script>

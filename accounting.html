@@ -894,15 +894,83 @@ async function gasGet(action, params){
   const q = new URLSearchParams({ action, ...(params||{}) }).toString();
   try { const r = await fetch(S.gasUrl + '?' + q); return await r.json(); } catch(e){ return null; }
 }
+// ══ 送信キュー（電波が弱い場所でもデータを失わない仕組み）══
+//   ビル内など通信が不安定な場所では、送信が失敗しても no-cors では気づけない。
+//   そこで「送るものを必ず端末に控えておき、成功するまで自動で送り直す」方式にする。
+//   ・オフラインでも操作を続けられる
+//   ・電波が戻ると自動送信
+//   ・未送信の件数を画面に表示（0になったことを確認してから帰れる）
+var _QKEY='lmb_send_queue';
+function _qLoad(){ try{ return JSON.parse(localStorage.getItem(_QKEY)||'[]'); }catch(e){ return []; } }
+function _qSave(q){ try{ localStorage.setItem(_QKEY, JSON.stringify(q)); }catch(e){} }
+function _qAdd(data){
+  var q=_qLoad();
+  q.push({ _qid:'q-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), _try:0, data:data });
+  _qSave(q); _qBadge();
+}
+function _qBadge(){
+  var n=_qLoad().length;
+  var el=document.getElementById('send-queue-badge');
+  if(!el){
+    el=document.createElement('div'); el.id='send-queue-badge';
+    el.style.cssText='position:fixed;left:12px;bottom:12px;z-index:9500;padding:7px 12px;border-radius:20px;'
+      +'font-size:.74rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);display:none';
+    el.onclick=function(){ _qFlush(true); };
+    document.body.appendChild(el);
+  }
+  if(!n){ el.style.display='none'; return; }
+  var off=!navigator.onLine;
+  el.style.display='block';
+  el.style.background = off ? '#e0685f' : '#e6a23c';
+  el.style.color='#fff';
+  el.textContent = (off?'📴 オフライン ':'📤 ') + '未送信 ' + n + '件' + (off?'':'（タップで再送）');
+  el.title='サーバに未送信のデータです。電波が戻ると自動で送信されます。';
+}
+// キューを順に送る。成功したものだけ取り除く
+async function _qFlush(manual){
+  if (!S.gasUrl) return;
+  var q=_qLoad();
+  if(!q.length){ _qBadge(); return; }
+  if(!navigator.onLine){ _qBadge(); if(manual) toast('オフラインです。電波が戻ると自動で送信します','error'); return; }
+  var rest=[], sent=0;
+  for (var i=0;i<q.length;i++){
+    var item=q[i];
+    try{
+      // 到達確認できるGET経路で送る（GASのWebアプリはPOSTのCORS応答を返せないため）
+      //  応答が返れば確実にサーバへ届いたと判断できる
+      var url = S.gasUrl + '?payload=' + encodeURIComponent(JSON.stringify(item.data)) + '&_=' + Date.now();
+      var res = await fetch(url, { method:'GET', cache:'no-store' });
+      if (!res.ok) throw new Error('http ' + res.status);
+      await res.text();          // 応答本文まで受け取って到達を確認
+      sent++;
+    }catch(e){
+      item._try=(item._try||0)+1;
+      rest.push(item);
+    }
+  }
+  _qSave(rest); _qBadge();
+  if(sent && manual) toast('✓ '+sent+'件を送信しました');
+  if(rest.length && manual) toast(rest.length+'件がまだ送れません。電波の良い場所で再度お試しください','error');
+}
+
 async function gasPost(data){
   try{ if(typeof currentUser!=='undefined'&&currentUser){ if(!data._actor)data._actor=currentUser.name; if(!data._actorBranch)data._actorBranch=currentUser.branch||''; } }catch(e){}
-  if (!S.gasUrl) return null;
-  try {
-    await fetch(S.gasUrl, { method: 'POST', mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-    return { ok: true };
-  } catch(e){ return null; }
+  if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
+  _qAdd(data);          // まず端末に控える（失敗しても消えない）
+  _qFlush(false);       // すぐ送信を試みる
+  return { ok: true };
 }
+
+// 電波が戻ったら自動で送る / 定期的にも確認する
+window.addEventListener('online', function(){ toast('📶 電波が戻りました。未送信分を送信します'); _qFlush(false); });
+window.addEventListener('offline', function(){ _qBadge(); });
+setInterval(function(){ if(_qLoad().length) _qFlush(false); }, 30000);
+window.addEventListener('load', function(){ setTimeout(function(){ _qBadge(); _qFlush(false); }, 1500); });
+// 未送信があるまま閉じようとしたら警告
+window.addEventListener('beforeunload', function(e){
+  if(_qLoad().length){ e.preventDefault(); e.returnValue='未送信のデータがあります。画面を閉じてもよろしいですか？'; return e.returnValue; }
+});
+
 
 window.S=S; window.PROD_LIST=PROD_LIST; window.PRODS=PRODS;
 

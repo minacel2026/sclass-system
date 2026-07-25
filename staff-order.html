@@ -406,7 +406,13 @@ async function submitOrder(){
     _actorUid: UID
   };
   try {
-    await fetch(GAS_URL, { method:'POST', mode:'no-cors', body: JSON.stringify(payload) });
+    // 到達確認できる方式で送る（no-cors では失敗しても成功に見えてしまうため）
+    const _url = GAS_URL + '?payload=' + encodeURIComponent(JSON.stringify(payload)) + '&_=' + Date.now();
+    const _res = await fetch(_url, { method:'GET', cache:'no-store' });
+    if (!_res.ok) throw new Error('http ' + _res.status);
+    await _res.text();
+    // 送信できたので、控えがあれば消す
+    try { localStorage.removeItem('so_pending'); } catch(e){}
     const wrap = document.getElementById('wrap');
     document.getElementById('footer').style.display = 'none';
     wrap.innerHTML = '<div class="empty" style="color:#7ee2a8;border-color:rgba(80,200,120,.3)">'
@@ -415,10 +421,33 @@ async function submitOrder(){
       + '<div style="display:flex;gap:10px;margin-top:12px">'
       + '<button class="search" style="cursor:pointer;text-align:center" onclick="location.reload()">続けて別の注文</button></div>';
   } catch(e){
-    btn.disabled = false; btn.textContent = '注文送信';
-    alert('送信に失敗しました。通信環境をご確認のうえ、もう一度お試しください。');
+    // 電波が弱い場所でも注文が消えないよう、端末に控えて後から送れるようにする
+    try { localStorage.setItem('so_pending', JSON.stringify(payload)); } catch(e2){}
+    btn.disabled = false; btn.textContent = '再送する';
+    alert('⚠ 送信できませんでした（電波が届いていない可能性があります）\n\n'
+        + '注文内容はこの端末に保存しました。\n'
+        + '電波の良い場所で「再送する」を押してください。\n'
+        + '※この画面を閉じても内容は残ります');
   }
 }
+
+// 前回送れなかった注文が残っていないか確認する
+(function(){
+  try{
+    const pend = localStorage.getItem('so_pending');
+    if (!pend) return;
+    const p = JSON.parse(pend);
+    setTimeout(function(){
+      if (confirm('⚠ 前回送信できなかった注文があります。\n\n'
+        + (p.store||'') + '／' + (p.date||'') + '\n\n今すぐ送信しますか？')){
+        fetch(GAS_URL + '?payload=' + encodeURIComponent(pend) + '&_=' + Date.now(), { cache:'no-store' })
+          .then(function(r){ if(!r.ok) throw new Error(); return r.text(); })
+          .then(function(){ localStorage.removeItem('so_pending'); alert('✓ 送信しました'); })
+          .catch(function(){ alert('まだ送信できません。電波の良い場所で再度お試しください'); });
+      }
+    }, 800);
+  }catch(e){}
+})();
 
 init();
 </script>
