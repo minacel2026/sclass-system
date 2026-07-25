@@ -4344,6 +4344,7 @@ function submitPurchase(){
       createdAt: new Date().toISOString(),
     };
     S.purchases.push(purchase);
+    if (S.gasUrl) { try { gasPost({ action:'savePurchase', ...purchase }); } catch(e){} }   // サーバにも履歴を残す
     // 在庫加算：通常は新値バケツ、協賛仕入は協賛バケツへ（棚卸の評価額は0のまま保たれる）
     if (_isSp) restoreStockBkt(branch, it.product, it.qty, { old:0, sp:it.qty, new:0 });
     else       restoreStockBkt(branch, it.product, it.qty);
@@ -4371,6 +4372,8 @@ function submitPurchase(){
 }
 
 function deletePurchase(id, skipConfirm){
+  // サーバ側の履歴も消す（下のローカル削除と合わせる）
+  if (typeof S!=='undefined' && S.gasUrl){ try { gasPost({ action:'deletePurchase', id:id }); } catch(e){} }
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
   const p = (S.purchases || []).find(x => x.id === id);
   if (!p) return toast('仕入記録が見つかりません', 'error');
