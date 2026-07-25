@@ -2037,7 +2037,24 @@ function openOrderForEdit(id){
   fillTantouCandidates(false, o.staff || '');
   document.getElementById('no-contact').value   = o.contact  || '';
   document.getElementById('no-tel').value       = o.tel      || '';
-  document.getElementById('no-rate').value      = o.condition || '7';
+  // 掛率：保存値を使う。無い古い注文は、確定金額から逆算して復元する（7掛に戻って金額が変わるのを防ぐ）
+  document.getElementById('no-rate').value = (function(){
+    if (o.condition) return o.condition;
+    var amt = Number(o.amount)||0;
+    var items = o.items||{};
+    if (!amt || !Object.keys(items).length) return '7';
+    var pl=(S.products&&S.products.length)?S.products:(PROD_LIST||[]);
+    var base=0;
+    Object.keys(items).forEach(function(k){
+      var p=pl.find(function(x){ return (x.key||x.name)===k || x.name===k; })||{};
+      var pr=(o.priceMode==='旧値')?(p.priceOld||p.price||0):(p.price||0);
+      base += pr*(items[k]||0);
+    });
+    if (!base) return '7';
+    var taxRate = (String(o.taxType||o.tax||'').indexOf('抜')>=0) ? 1 : 1.1;
+    var r = Math.round((amt/taxRate/base)*10*10)/10;      // 掛率（小数1桁）
+    return (r>0 && r<=10) ? String(r) : '7';
+  })();
   const pm = document.getElementById('no-pricemode'); if (pm) pm.value = (o.priceMode === '旧値') ? '旧値' : '新値';
   const tx = document.getElementById('no-tax');       if (tx) tx.value = (o.taxType === '税抜') ? '税抜' : '税込';
   const ot = document.getElementById('no-ordtype');   if (ot) ot.value = (o.orderType === 'sponsor') ? 'sponsor' : 'normal';
