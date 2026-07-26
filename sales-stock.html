@@ -1487,7 +1487,8 @@ function showQueueDetail(){
   if (!q.length){
     box.innerHTML = '<div style="background:var(--d2,#15151a);border:1px solid rgba(201,168,76,.3);border-radius:8px;'
       + 'padding:1.2rem;max-width:520px;width:100%;color:var(--wh,#efece3)">'
-      + '<div style="font-size:.95rem;margin-bottom:.6rem">✅ 未送信のデータはありません</div>'
+      + '<div style="font-size:.95rem;margin-bottom:.6rem">✅ 未送信のデータはありません'
+      + '<span style="float:right;font-size:.66rem;color:#7d7869">版 ' + APP_VER + '</span></div>'
       + '<div style="text-align:right"><button class="btn btn-g" onclick="closeQueueDetail()">閉じる</button></div></div>';
     box.style.display = 'flex';
     return;
@@ -1503,6 +1504,9 @@ function showQueueDetail(){
         + (tries ? tries + '回失敗' : '未送信') + '</span>'
       + '</summary>'
       + '<div style="padding:.2rem .6rem .6rem">'
+        + (it._err ? '<div style="background:rgba(224,104,95,.12);border:1px solid rgba(224,104,95,.4);color:#e0685f;'
+            + 'padding:.35rem .5rem;border-radius:4px;font-size:.72rem;margin-bottom:.4rem">失敗理由：'
+            + escapeHtml(it._err) + '</div>' : '')
         + _qDetailHtml(it.data)
         + '<div style="display:flex;gap:.4rem;justify-content:flex-end;margin-top:.3rem">'
         + '<button class="btn btn-g" style="font-size:.68rem;padding:.2rem .5rem" onclick="copyQueueItem(\'' + it._qid + '\')">📋 内容をコピー</button>'
@@ -1512,7 +1516,8 @@ function showQueueDetail(){
   }).join('');
   box.innerHTML = '<div style="background:var(--d2,#15151a);border:1px solid rgba(201,168,76,.3);border-radius:8px;'
     + 'padding:1rem;max-width:640px;width:100%;max-height:80vh;overflow:auto;color:var(--wh,#efece3)">'
-    + '<div style="font-size:.95rem;font-weight:700;margin-bottom:.5rem">📤 未送信のデータ（' + q.length + '件）</div>'
+    + '<div style="font-size:.95rem;font-weight:700;margin-bottom:.5rem">📤 未送信のデータ（' + q.length + '件）'
+    + '<span style="float:right;font-size:.66rem;font-weight:400;color:#7d7869">版 ' + APP_VER + '</span></div>'
     + '<div style="font-size:.72rem;color:#b7b1a2;margin-bottom:.7rem">'
     + 'サーバに届いていないデータです。電波の良い場所で「今すぐ再送」を押してください。'
     + '端末に保存されているので消えません（このアプリのデータを消去した場合を除く）。</div>'
@@ -1558,30 +1563,58 @@ function _qBadge(){
   el.title='サーバに未送信のデータです。タップすると何が送れていないか一覧で確認できます。';
 }
 // キューを順に送る。成功したものだけ取り除く
+// このファイルの版。未送信パネルに表示するので、差し替えできているか一目で分かる
+var APP_VER = '2026-07-26e';
+var _qFlushing = false;   // 同時実行を防ぐ（重なると送信結果が上書きされデータを失う）
 async function _qFlush(manual){
   if (!S.gasUrl) return;
+  if (_qFlushing) return;                 // 前回の送信がまだ終わっていない
   var q=_qLoad();
   if(!q.length){ _qBadge(); return; }
   if(!navigator.onLine){ _qBadge(); if(manual) toast('オフラインです。電波が戻ると自動で送信します','error'); return; }
+  _qFlushing = true;
   var rest=[], sent=0;
-  for (var i=0;i<q.length;i++){
-    var item=q[i];
-    try{
-      // 到達確認できるGET経路で送る（GASのWebアプリはPOSTのCORS応答を返せないため）
-      //  応答が返れば確実にサーバへ届いたと判断できる
-      var url = S.gasUrl + '?payload=' + encodeURIComponent(JSON.stringify(item.data)) + '&_=' + Date.now();
-      var res = await fetch(url, { method:'GET', cache:'no-store' });
-      if (!res.ok) throw new Error('http ' + res.status);
-      await res.text();          // 応答本文まで受け取って到達を確認
-      sent++;
-    }catch(e){
-      item._try=(item._try||0)+1;
-      rest.push(item);
+  try{
+    for (var i=0;i<q.length;i++){
+      var item=q[i];
+      // 何度も失敗し続けるデータは自動送信では飛ばす（後ろの注文などが送れなくなるのを防ぐ）
+      //   「今すぐ再送」を押したときは、これも含めて全部試す
+      if (!manual && (item._try||0) >= 5){ rest.push(item); continue; }
+      try{
+        var payload = JSON.stringify(item.data);
+        var enc = encodeURIComponent(payload);
+        var res;
+        // 応答が返れば確実にサーバへ届いたと判断できる
+        // ★大きいデータ（在庫一括更新など）はURLに載せると長さ上限を超えて必ず失敗するためPOSTで送る
+        //   日本語はURLエンコードで約9倍に膨らむ。GAS側はGET/POSTとも同じ処理・同じ認証。
+        var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        var timer = ctl ? setTimeout(function(){ try{ ctl.abort(); }catch(_){}; }, 25000) : null;   // 応答なしで固まらせない
+        try{
+          if (enc.length > 6000){
+            res = await fetch(S.gasUrl, { method:'POST',
+              headers:{ 'Content-Type':'text/plain;charset=utf-8' },   // プリフライトを避ける
+              body: payload, redirect:'follow', signal: ctl ? ctl.signal : undefined });
+          } else {
+            res = await fetch(S.gasUrl + '?payload=' + enc + '&_=' + Date.now(),
+              { method:'GET', cache:'no-store', signal: ctl ? ctl.signal : undefined });
+          }
+        } finally { if (timer) clearTimeout(timer); }
+        if (!res.ok) throw new Error('http ' + res.status);
+        var _body = await res.text();          // 応答本文まで受け取って到達を確認
+        if (/"error"\s*:\s*"auth"/.test(_body)) throw new Error('認証エラー（keyが一致しません）');
+        sent++;
+      }catch(e){
+        item._try=(item._try||0)+1;
+        item._err=String((e && e.message) || e).slice(0,140);   // 失敗理由を控える（原因調査用）
+        rest.push(item);
+      }
     }
+  } finally {
+    _qFlushing = false;
   }
   _qSave(rest); _qBadge();
   if(sent && manual) toast('✓ '+sent+'件を送信しました');
-  if(rest.length && manual) toast(rest.length+'件がまだ送れません。電波の良い場所で再度お試しください','error');
+  if(rest.length && manual) toast(rest.length+'件がまだ送れません。内容を開くと失敗理由が確認できます','error');
 }
 
 async function gasPost(data){
