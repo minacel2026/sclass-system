@@ -694,7 +694,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
           <div id="no-delivery-info" style="margin-top:.3rem;padding:.4rem .6rem;background:rgba(155,127,212,.05);border:1px dashed rgba(155,127,212,.2);border-radius:3px;font-size:.7rem;color:var(--wh3);display:none"></div>
         </div>
         <div class="fg"><label>配達希望日</label><input class="fc" id="no-deldate" type="date"></div>
-        <div class="fg"><label>送料（円・税込） <span style="color:var(--wh3);font-size:.66rem">空欄=0円</span></label><input class="fc" id="no-shipfee" type="number" min="0" step="1" inputmode="numeric" placeholder="例：950" oninput="updateOrderTotal()"></div>
+        <div class="fg"><label>送料（円・税込） <span style="color:var(--wh3);font-size:.66rem">空欄=0円</span></label><input class="fc" id="no-shipfee" type="number" min="0" step="1" inputmode="numeric" placeholder="例：950" oninput="onShipFeeInput()"></div>
         <div class="fg"><label>売上計上日 <span style="color:var(--wh3);font-size:.66rem">空欄=納品日で計上</span></label><input class="fc" id="no-bookdate" type="date"></div>
         <div class="fg"><label>配達時間帯</label><select class="fc" id="no-deltime"><option value="">指定なし</option><option>午前中</option><option>14-16時</option><option>16-18時</option><option>18-20時</option></select></div>
         <div class="fg" style="grid-column:span 2"><label>配達メモ</label><input class="fc" id="no-delnote" placeholder="例：夜間搬入希望"></div>
@@ -1377,6 +1377,20 @@ async function gasGet(action, params){
 //   ・電波が戻ると自動送信
 //   ・未送信の件数を画面に表示（0になったことを確認してから帰れる）
 var _QKEY='lmb_send_queue';
+// 送信キューにまだ残っている（＝サーバへ届いていない）注文IDの一覧
+// これらは読み込み時にサーバデータで上書きしない（修正が元に戻るのを防ぐ）
+function _pendingOrderIds(){
+  var ids = {};
+  try{
+    _qLoad().forEach(function(it){
+      var d = it && it.data;
+      if (!d) return;
+      if (d.action === 'saveOrder' && d.id) ids[String(d.id)] = 1;
+      if (d.action === 'saveOrderDates' && d.orderId) ids[String(d.orderId)] = 1;
+    });
+  }catch(e){}
+  return ids;
+}
 function _qLoad(){ try{ return JSON.parse(localStorage.getItem(_QKEY)||'[]'); }catch(e){ return []; } }
 function _qSave(q){ try{ localStorage.setItem(_QKEY, JSON.stringify(q)); }catch(e){} }
 function _qAdd(data){
@@ -1680,6 +1694,7 @@ async function syncFromGAS(){
     var pStock = gasGet('getStock');
     var pSp = gasGet('getSponsorLogs');
     var pProd = gasGet('getProducts');
+    var pShip = gasGet('getShippingConfig');   // 送料設定（デフォルト送料・無料本数）
     var pMv = gasGet('getMoves');
     var pLd = gasGet('getLendings');   // タブの印（返却期限切れ）用。開かなくても出るように先読み
 
@@ -1750,14 +1765,34 @@ async function syncFromGAS(){
     const ords = await pOrds;
     if (ords && ords.orders) {
       const _nd = function(d){ if(!d) return ''; const s=String(d); const m=s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/); return m ? (m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2)+s.slice(m[0].length)) : s; };
-      S.orders = ords.orders.map(function(o){
+      // ★未送信の注文は上書きしない
+      //   保存は送信キュー経由（非同期）のため、サーバへ届く前にこの読み込みが走ると
+      //   古いサーバデータで上書きされ、修正した注文日などが元に戻ってしまう。
+      //   まだ送信できていない注文IDは、端末側の内容を優先して残す。
+      const _pending = _pendingOrderIds();
+      const _localById = {};
+      (S.orders || []).forEach(function(o){ if (o && o.id) _localById[String(o.id)] = o; });
+
+      const _merged = ords.orders.map(function(o){
+        const lo = _pending[String(o.id)] ? _localById[String(o.id)] : null;
+        if (lo) return lo;                 // 未送信の修正があるので端末側を優先
         o.date = _nd(o.date);
         if (!o.timestamp) o.timestamp = o.date;
         o.items = (typeof normalizeOrderItems === 'function') ? normalizeOrderItems(o.items) : o.items;
         o.amount = Number(o.amount) || 0;
         return o;
       });
+      // サーバにまだ存在しない未送信の新規注文が消えないよう、端末側だけにあるものを残す
+      const _seen = {};
+      _merged.forEach(function(o){ if (o && o.id) _seen[String(o.id)] = 1; });
+      (S.orders || []).forEach(function(o){
+        if (o && o.id && !_seen[String(o.id)] && _pending[String(o.id)]) _merged.push(o);
+      });
+      S.orders = _merged;
     }
+
+    // ── 送料設定（全体共通）──
+    try { const sc = await pShip; if (sc && typeof sc === 'object') S.shipping = sc; } catch(e){}
 
     const stock = await pStock;
     if (stock && stock.rev != null) S.stockRev = Number(stock.rev);   // 在庫版番号を記憶（競合検知用）
@@ -2198,6 +2233,7 @@ function openOrderForEdit(id){
   })(o.date);
   const pay = document.getElementById('no-pay'); if (pay) pay.value = o.payMethod || '現金';
   const sf = document.getElementById('no-shipfee'); if (sf) sf.value = (Number(o.shipFee) > 0) ? Number(o.shipFee) : '';
+  _shipFeeTouched = true;   // 既存注文の送料は保存値を優先（自動反映で上書きしない）
   const dd = document.getElementById('no-deldate');  if (dd) dd.value = o.deliveryDate || '';
   const bk = document.getElementById('no-bookdate'); if (bk) bk.value = o.bookDate || '';
   // 同梱したポイントシール・備品も元に戻す（戻さないと編集保存で同梱が消えてしまう）
@@ -2388,6 +2424,7 @@ function applyStoreInfo(){
     }
     // 配達先プルダウンを再構築
     rebuildDeliveryOptions(c);
+    autofillShipFee();       // 顧客登録の送料設定を反映（手入力済みなら尊重）
     updateOrderTotal();
     updateSponsorHint(c);
     updateSponsorShipSection(c);
@@ -3532,6 +3569,41 @@ function normalizeOrderQty(key){
   if (el) el.value = newOrderQty[key] || 0;
 }
 
+// 顧客登録の設定から送料の初期値を決める
+//   ① 顧客が「常時送料無料」なら 0円
+//   ② 顧客の「個別送料」があればその金額
+//   ③ 無ければ送料設定シートの「デフォルト送料」
+//   ④ 合計本数が「無料になる本数」以上なら 0円（LINE注文フォームと同じ判定）
+function _defaultShipFeeFor(cust, qtyTotal){
+  var cfg = S.shipping || {};
+  var defFee = (typeof cfg.defaultFee === 'number') ? cfg.defaultFee : 950;
+  var freeQty = (typeof cfg.freeQty === 'number' && cfg.freeQty > 0) ? cfg.freeQty : 6;
+  if (!cust) return 0;
+  if (cust.freeShipping) return 0;                       // 常時送料無料の顧客
+  var own = (cust.shipFee !== undefined && cust.shipFee !== null && String(cust.shipFee).trim() !== '')
+              ? Number(cust.shipFee) : NaN;
+  var fee = isFinite(own) ? own : defFee;                // 個別送料 → 無ければデフォルト
+  if ((qtyTotal || 0) >= freeQty) return 0;              // 規定本数以上は無料
+  return Math.max(0, Math.round(fee));
+}
+// 送料欄に初期値を入れる。手入力で変更された後は上書きしない（注文ごとに変わる場合に対応）
+var _shipFeeTouched = false;
+function autofillShipFee(force){
+  var el = document.getElementById('no-shipfee');
+  if (!el) return;
+  if (_shipFeeTouched && !force) return;                 // 手動で直した値は尊重する
+  var isSponsor = (document.getElementById('no-ordtype') || {}).value === 'sponsor';
+  if (isSponsor){ el.value = ''; return; }               // 協賛注文は送料なし
+  var qty = 0;
+  try { _prodCols().forEach(function(p){ qty += (newOrderQty[p.key] || 0); }); } catch(e){}
+  var fee = _defaultShipFeeFor(currentOrderCust, qty);
+  el.value = fee > 0 ? fee : '';
+}
+// 送料欄を手入力したら記憶し、合計を更新する
+function onShipFeeInput(){
+  _shipFeeTouched = true;
+  updateOrderTotal();
+}
 // 送料（入力欄の値。空欄・不正値は0）
 function _orderShipFee(){
   const el = document.getElementById('no-shipfee');
@@ -3557,6 +3629,8 @@ function updateOrderTotal(){
     }
   });
   document.getElementById('no-qty-total').textContent = qtyTotal;
+  // 本数で送料無料になる場合があるため、手入力していなければ送料を再計算する
+  if (!_shipFeeTouched && typeof autofillShipFee === 'function') autofillShipFee();
   // 協賛出荷分の本数を分けて表示（通常分と区別）
   const spEl = document.getElementById('no-sp-qty-total');
   if (spEl){
@@ -3581,6 +3655,7 @@ function clearNewOrder(){
   if (typeof renderSupplyDraft === 'function') renderSupplyDraft();
   const _sq0 = document.getElementById('no-seal-qty'); if (_sq0) _sq0.value = '';
   const _sf0 = document.getElementById('no-shipfee');  if (_sf0) _sf0.value = '';   // 送料もリセット
+  _shipFeeTouched = false;   // 次の注文では顧客登録の送料を自動反映する
   currentOrderCust = null;
   editingOrderId = null;  // 編集モード解除
   const btn = document.getElementById('no-submit-btn');
