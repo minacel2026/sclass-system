@@ -674,7 +674,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg"><label>税</label><select class="fc" id="no-tax" onchange="updateOrderTotal()"><option value="税込">税込（合計に+10%）</option><option value="税抜">税抜</option></select></div>
         <div class="fg"><label>連絡先</label><input class="fc" id="no-contact" placeholder="連絡先名"></div>
         <div class="fg"><label>電話番号</label><input class="fc" id="no-tel" type="tel" placeholder="連絡先電話番号"></div>
-        <div class="fg"><label>支払方法</label><select class="fc" id="no-pay"><option>振込</option><option>現金</option><option>代引き</option></select></div>
+        <div class="fg"><label>支払方法</label><select class="fc" id="no-pay" onchange="onPayMethodChange()"><option>振込</option><option>現金</option><option>代引き</option></select></div>
         <div class="fg"><label>注文日</label><input class="fc" id="no-date" type="date" min="2000-01-01" max="2100-12-31"></div>
       </div>
     </div>
@@ -698,6 +698,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         </div>
         <div class="fg"><label>配達希望日</label><input class="fc" id="no-deldate" type="date" min="2000-01-01" max="2100-12-31"></div>
         <div class="fg"><label>送料（円・税込） <span style="color:var(--wh3);font-size:.66rem">空欄=0円</span></label><input class="fc" id="no-shipfee" type="number" min="0" step="1" inputmode="numeric" placeholder="例：950" oninput="onShipFeeInput()"></div>
+        <div class="fg" id="no-codfee-wrap" style="display:none"><label>代引き手数料（円・税込） <span style="color:var(--wh3);font-size:.66rem">空欄=0円・送料とは別</span></label><input class="fc" id="no-codfee" type="number" min="0" step="1" inputmode="numeric" placeholder="例：330" oninput="updateOrderTotal()"></div>
         <div class="fg"><label>売上計上日 <span style="color:var(--wh3);font-size:.66rem">空欄=納品日で計上</span></label><input class="fc" id="no-bookdate" type="date" min="2000-01-01" max="2100-12-31"></div>
         <div class="fg"><label>配達時間帯</label><select class="fc" id="no-deltime"><option value="">指定なし</option><option>午前中</option><option>14-16時</option><option>16-18時</option><option>18-20時</option></select></div>
         <div class="fg" style="grid-column:span 2"><label>配達メモ</label><input class="fc" id="no-delnote" placeholder="例：夜間搬入希望"></div>
@@ -2528,6 +2529,8 @@ function openOrderForEdit(id){
   })(o.date);
   const pay = document.getElementById('no-pay'); if (pay) pay.value = o.payMethod || '現金';
   const sf = document.getElementById('no-shipfee'); if (sf) sf.value = (Number(o.shipFee) > 0) ? Number(o.shipFee) : '';
+  const cf = document.getElementById('no-codfee'); if (cf) cf.value = (Number(o.codFee) > 0) ? Number(o.codFee) : '';
+  if (typeof onPayMethodChange === 'function') onPayMethodChange();   // 代引きなら手数料欄を表示
   _shipFeeTouched = true;   // 既存注文の送料は保存値を優先（自動反映で上書きしない）
   const dd = document.getElementById('no-deldate');  if (dd) dd.value = o.deliveryDate || '';
   const bk = document.getElementById('no-bookdate'); if (bk) bk.value = o.bookDate || '';
@@ -3970,6 +3973,22 @@ function _orderShipFee(){
   const v = el ? Number(el.value) : 0;
   return (isFinite(v) && v > 0) ? Math.round(v) : 0;
 }
+// 代引き手数料（税込・手入力）。支払方法が「代引き」のときだけ有効。
+function _orderCodFee(){
+  var pay = (document.getElementById('no-pay')||{}).value || '';
+  if (pay !== '代引き') return 0;
+  var el = document.getElementById('no-codfee');
+  var v = el ? Number(el.value) : 0;
+  return (isFinite(v) && v > 0) ? Math.round(v) : 0;
+}
+// 支払方法を変えたら、代引き手数料欄の表示を切り替える（代引き以外は隠して0扱い）
+function onPayMethodChange(){
+  var pay = (document.getElementById('no-pay')||{}).value || '';
+  var wrap = document.getElementById('no-codfee-wrap');
+  if (wrap) wrap.style.display = (pay === '代引き') ? '' : 'none';
+  if (pay !== '代引き'){ var el=document.getElementById('no-codfee'); if(el) el.value=''; }
+  if (typeof updateOrderTotal === 'function') updateOrderTotal();
+}
 function updateOrderTotal(){
   const isSponsor = (document.getElementById('no-ordtype') || {}).value === 'sponsor';
   let totalIncl = 0, totalExcl = 0, qtyTotal = 0;
@@ -3997,12 +4016,13 @@ function updateOrderTotal(){
     const spTotal = sponsorShipDraft.reduce((s,it) => s + (it.qty||0), 0);
     spEl.textContent = spTotal > 0 ? `＋ 🎁協賛 ${spTotal}本（在庫から計${qtyTotal + spTotal}本出荷）` : '';
   }
-  // 送料（税込・手入力）。協賛注文は売上0のため送料も加算しない
+  // 送料・代引き手数料（税込・手入力）。協賛注文は売上0のため加算しない
   const shipFee = isSponsor ? 0 : _orderShipFee();
-  // 合計は税込（商品＋送料）。協賛注文は¥0
-  const totalWithShip = totalIncl + shipFee;
+  const codFee = isSponsor ? 0 : _orderCodFee();
+  // 合計は税込（商品＋送料＋代引き手数料）。協賛注文は¥0
+  const totalWithShip = totalIncl + shipFee + codFee;
   document.getElementById('no-total').textContent = isSponsor ? '¥0（協賛）'
-    : (yen(totalWithShip) + (shipFee > 0 ? `　(商品 ${yen(totalIncl)} ＋送料 ${yen(shipFee)})` : ''));
+    : (yen(totalWithShip) + ((shipFee > 0 || codFee > 0) ? `　(商品 ${yen(totalIncl)}` + (shipFee>0?` ＋送料 ${yen(shipFee)}`:'') + (codFee>0?` ＋代引 ${yen(codFee)}`:'') + `)` : ''));
   // 商品数量に応じて協賛出荷欄を更新（今回付与予定を反映）
   if (!isSponsor && typeof updateSponsorShipSection === 'function'){
     updateSponsorShipSection(currentOrderCust);
@@ -4015,6 +4035,7 @@ function clearNewOrder(){
   if (typeof renderSupplyDraft === 'function') renderSupplyDraft();
   const _sq0 = document.getElementById('no-seal-qty'); if (_sq0) _sq0.value = '';
   const _sf0 = document.getElementById('no-shipfee');  if (_sf0) _sf0.value = '';   // 送料もリセット
+  const _cf0 = document.getElementById('no-codfee');  if (_cf0) _cf0.value = '';   // 代引き手数料もリセット
   _shipFeeTouched = false;   // 次の注文では顧客登録の送料を自動反映する
   currentOrderCust = null;
   editingOrderId = null;  // 編集モード解除
@@ -4176,13 +4197,14 @@ function submitNewOrder(){
   let confirmedAmount = 0;
   let goodsAmount = 0;
   const shipFee = isSponsor ? 0 : _orderShipFee();   // 送料（税込・手入力）。協賛注文は0
+  const codFee = isSponsor ? 0 : _orderCodFee();     // 代引き手数料（税込・手入力・代引き時のみ）
   if (!isSponsor){
     _prodCols().forEach(p => {
       const q = items[p.key] || 0;
       if (q > 0) goodsAmount += calcProdLine(p, q).subIncl;
     });
-    // 確定合計は「商品＋送料」。amount は一覧・会計・請求・納品書の合計として使われる
-    confirmedAmount = goodsAmount + shipFee;
+    // 確定合計は「商品＋送料＋代引き手数料」。amount は一覧・会計・請求・納品書の合計として使われる
+    confirmedAmount = goodsAmount + shipFee + codFee;
   }
 
   // A列(日時)は「注文日(業務日付)」を基準にする。
@@ -4220,6 +4242,7 @@ function submitNewOrder(){
     amount: confirmedAmount,  // 確定合計（税込・送料込み）— calcAmtが優先使用
     goodsAmount: goodsAmount,  // 商品分のみ（送料を除いた金額）
     shipFee: shipFee,          // 送料（税込）
+    codFee: codFee,            // 代引き手数料（税込・代引き時のみ）
     payMethod: document.getElementById('no-pay').value,
     payStatus: '未収',
     status: editIdForSave ? (editPrevStatus || '新規受付') : '新規受付',
@@ -5853,6 +5876,7 @@ function _ssBuildSection(o, isWork){
           + '<tr><td style="padding:3px 12px;text-align:right;color:#555">小計（税抜）</td><td style="padding:3px 8px;text-align:right;min-width:110px">' + yen(net) + '</td></tr>'
           + (taxRate? '<tr><td style="padding:3px 12px;text-align:right;color:#555">消費税（10%）</td><td style="padding:3px 8px;text-align:right">' + yen(tax) + '</td></tr>' : '')
           + (ship>0? '<tr><td style="padding:3px 12px;text-align:right;color:#555">送料</td><td style="padding:3px 8px;text-align:right">' + yen(ship) + '</td></tr>' : '')
+          + (Number(o.codFee)>0? '<tr><td style="padding:3px 12px;text-align:right;color:#555">代引き手数料</td><td style="padding:3px 8px;text-align:right">' + yen(Number(o.codFee)) + '</td></tr>' : '')
           + '<tr style="border-top:2px solid #333"><td style="padding:6px 12px;text-align:right;font-size:14px;font-weight:700">合計金額</td><td style="padding:6px 8px;text-align:right;font-size:15px;font-weight:700">' + yen(total) + '</td></tr>'
           + '</table></div>';
       })()
