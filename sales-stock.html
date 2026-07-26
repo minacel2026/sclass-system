@@ -1398,6 +1398,96 @@ function _qAdd(data){
   q.push({ _qid:'q-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000), _try:0, data:data });
   _qSave(q); _qBadge();
 }
+// 未送信データを人が読める形にする（何が送られていないのか分かるように）
+function _qLabel(d){
+  if (!d) return { kind:'不明', detail:'' };
+  var map = {
+    saveOrder:'注文の保存', deleteOrder:'注文の削除',
+    updateAllStock:'在庫の更新', saveStockLogs:'在庫履歴',
+    saveSponsorLog:'協賛ログ', deleteSponsorLog:'協賛ログの削除',
+    savePurchase:'仕入の保存', deletePurchase:'仕入の削除',
+    saveLending:'貸借の保存', deleteLending:'貸借の削除', returnLending:'貸借の返却',
+    saveLendPartner:'貸借先の保存', deleteLendPartner:'貸借先の削除',
+    saveMove:'拠点間移動', saveStocktake:'棚卸の保存'
+  };
+  var kind = map[d.action] || (d.action || '不明');
+  var bits = [];
+  if (d.store)   bits.push(String(d.store));
+  if (d.date)    bits.push(String(d.date).slice(0,10));
+  if (d.branch)  bits.push(String(d.branch));
+  if (d.product) bits.push(String(d.product));
+  if (d.partner) bits.push(String(d.partner));
+  if (!bits.length && d.id) bits.push(String(d.id).slice(-8));
+  if (d.amount)  bits.push('¥' + (typeof fmt==='function' ? fmt(d.amount) : d.amount));
+  return { kind: kind, detail: bits.join(' / ') };
+}
+
+// 未送信の中身を一覧で表示する（どれが送れていないのか確認できる）
+function showQueueDetail(){
+  var q = _qLoad();
+  var box = document.getElementById('q-detail');
+  if (!box){
+    box = document.createElement('div');
+    box.id = 'q-detail';
+    box.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.7);display:flex;'
+      + 'align-items:center;justify-content:center;padding:1rem';
+    box.onclick = function(e){ if (e.target === box) closeQueueDetail(); };
+    document.body.appendChild(box);
+  }
+  if (!q.length){
+    box.innerHTML = '<div style="background:var(--d2,#15151a);border:1px solid rgba(201,168,76,.3);border-radius:8px;'
+      + 'padding:1.2rem;max-width:520px;width:100%;color:var(--wh,#efece3)">'
+      + '<div style="font-size:.95rem;margin-bottom:.6rem">✅ 未送信のデータはありません</div>'
+      + '<div style="text-align:right"><button class="btn btn-g" onclick="closeQueueDetail()">閉じる</button></div></div>';
+    box.style.display = 'flex';
+    return;
+  }
+  var rows = q.map(function(it, i){
+    var L = _qLabel(it.data);
+    var tries = (it._try || 0);
+    return '<tr>'
+      + '<td style="padding:.4rem .5rem;border-bottom:1px solid rgba(255,255,255,.08)">' + (i+1) + '</td>'
+      + '<td style="padding:.4rem .5rem;border-bottom:1px solid rgba(255,255,255,.08)">' + escapeHtml(L.kind) + '</td>'
+      + '<td style="padding:.4rem .5rem;border-bottom:1px solid rgba(255,255,255,.08);font-size:.72rem;color:#b7b1a2">'
+        + escapeHtml(L.detail) + '</td>'
+      + '<td style="padding:.4rem .5rem;border-bottom:1px solid rgba(255,255,255,.08);text-align:right;font-size:.72rem;color:'
+        + (tries >= 3 ? '#e0685f' : '#7d7869') + '">' + (tries ? tries + '回失敗' : '—') + '</td>'
+      + '<td style="padding:.4rem .5rem;border-bottom:1px solid rgba(255,255,255,.08);text-align:right">'
+        + '<button class="btn btn-g" style="font-size:.68rem;padding:.2rem .5rem" onclick="discardQueueItem(\'' + it._qid + '\')">破棄</button></td>'
+      + '</tr>';
+  }).join('');
+  box.innerHTML = '<div style="background:var(--d2,#15151a);border:1px solid rgba(201,168,76,.3);border-radius:8px;'
+    + 'padding:1rem;max-width:640px;width:100%;max-height:80vh;overflow:auto;color:var(--wh,#efece3)">'
+    + '<div style="font-size:.95rem;font-weight:700;margin-bottom:.5rem">📤 未送信のデータ（' + q.length + '件）</div>'
+    + '<div style="font-size:.72rem;color:#b7b1a2;margin-bottom:.7rem">'
+    + 'サーバに届いていないデータです。電波の良い場所で「今すぐ再送」を押してください。'
+    + '端末に保存されているので消えません（このアプリのデータを消去した場合を除く）。</div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:.8rem">'
+    + '<tr style="color:#E4C97A;font-size:.72rem"><th style="text-align:left;padding:.3rem .5rem">#</th>'
+    + '<th style="text-align:left;padding:.3rem .5rem">種別</th><th style="text-align:left;padding:.3rem .5rem">内容</th>'
+    + '<th style="text-align:right;padding:.3rem .5rem">状態</th><th></th></tr>'
+    + rows + '</table>'
+    + '<div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.9rem">'
+    + '<button class="btn btn-g" onclick="closeQueueDetail()">閉じる</button>'
+    + '<button class="btn btn-p" onclick="_qFlush(true).then(function(){ showQueueDetail(); })">📤 今すぐ再送</button>'
+    + '</div></div>';
+  box.style.display = 'flex';
+}
+function closeQueueDetail(){
+  var box = document.getElementById('q-detail');
+  if (box) box.style.display = 'none';
+}
+// 何度送っても失敗するデータを取り除く（内容を確認したうえで手動登録し直す用）
+function discardQueueItem(qid){
+  var q = _qLoad();
+  var it = q.find(function(x){ return x._qid === qid; });
+  if (!it) return;
+  var L = _qLabel(it.data);
+  if (!confirm('この未送信データを破棄します。サーバには保存されません。\n\n' + L.kind + '：' + L.detail + '\n\nよろしいですか？')) return;
+  _qSave(q.filter(function(x){ return x._qid !== qid; }));
+  _qBadge();
+  showQueueDetail();
+}
 function _qBadge(){
   var n=_qLoad().length;
   var el=document.getElementById('send-queue-badge');
@@ -1405,7 +1495,7 @@ function _qBadge(){
     el=document.createElement('div'); el.id='send-queue-badge';
     el.style.cssText='position:fixed;left:12px;bottom:12px;z-index:9500;padding:7px 12px;border-radius:20px;'
       +'font-size:.74rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);display:none';
-    el.onclick=function(){ _qFlush(true); };
+    el.onclick=function(){ showQueueDetail(); };   // タップで中身を一覧表示（再送もそこから）
     document.body.appendChild(el);
   }
   if(!n){ el.style.display='none'; return; }
@@ -1413,8 +1503,8 @@ function _qBadge(){
   el.style.display='block';
   el.style.background = off ? '#e0685f' : '#e6a23c';
   el.style.color='#fff';
-  el.textContent = (off?'📴 オフライン ':'📤 ') + '未送信 ' + n + '件' + (off?'':'（タップで再送）');
-  el.title='サーバに未送信のデータです。電波が戻ると自動で送信されます。';
+  el.textContent = (off?'📴 オフライン ':'📤 ') + '未送信 ' + n + '件（タップで内容確認）';
+  el.title='サーバに未送信のデータです。タップすると何が送れていないか一覧で確認できます。';
 }
 // キューを順に送る。成功したものだけ取り除く
 async function _qFlush(manual){
