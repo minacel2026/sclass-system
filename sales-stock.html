@@ -1472,6 +1472,86 @@ function copyQueueItem(qid){
   } catch(e){ toast('コピーできませんでした', 'error'); }
 }
 
+// ══ 接続確認：スプレッドシートと本当につながっているかを実際に試して報告する ══
+//    読み取り（diag）・書き込み（connTest）・GASの版（getShippingConfig）を実測する。
+async function checkConnection(){
+  var box = document.getElementById('conn-check');
+  if (!box){
+    box = document.createElement('div');
+    box.id = 'conn-check';
+    box.style.cssText = 'position:fixed;inset:0;z-index:9700;background:rgba(0,0,0,.75);display:flex;'
+      + 'align-items:center;justify-content:center;padding:1rem';
+    box.onclick = function(e){ if (e.target === box) box.style.display='none'; };
+    document.body.appendChild(box);
+  }
+  var card = function(inner){
+    return '<div style="background:var(--d2,#15151a);border:1px solid rgba(201,168,76,.3);border-radius:8px;'
+      + 'padding:1rem;max-width:600px;width:100%;max-height:80vh;overflow:auto;color:var(--wh,#efece3)">' + inner + '</div>';
+  };
+  box.innerHTML = card('<div style="font-size:.95rem;font-weight:700">🔌 接続を確認しています…</div>');
+  box.style.display = 'flex';
+
+  if (!S.gasUrl){
+    box.innerHTML = card('<div style="color:#e0685f;font-weight:700">✕ GAS URLが設定されていません</div>'
+      + '<div style="text-align:right;margin-top:.8rem"><button class="btn btn-g" onclick="document.getElementById(\'conn-check\').style.display=\'none\'">閉じる</button></div>');
+    return;
+  }
+
+  var get = async function(action, extra){
+    try{
+      var u = S.gasUrl + '?action=' + action + (extra || '') + '&_=' + Date.now();
+      var r = await fetch(u, { method:'GET', cache:'no-store' });
+      if (!r.ok) return { _ng:'http ' + r.status };
+      var t = await r.text();
+      try { return JSON.parse(t); } catch(e){ return { _ng:'応答が読めません' }; }
+    }catch(e){ return { _ng:String((e && e.message) || e) }; }
+  };
+
+  var ping = await get('ping');
+  var diag = await get('diag');
+  var ship = await get('getShippingConfig');
+  var wtst = await get('connTest', '&who=' + encodeURIComponent((typeof currentUser!=='undefined' && currentUser && currentUser.name) || ''));
+
+  var ok = function(b){ return b ? '<span style="color:#7ee2a8">✓ OK</span>' : '<span style="color:#e0685f">✕ NG</span>'; };
+  var connOK  = !!(ping && !ping._ng);
+  var readOK  = !!(diag && diag.ok);
+  var writeOK = !!(wtst && wtst.ok && wtst.wrote);
+  var newGas  = !!(ship && !ship._ng && typeof ship.defaultFee === 'number');
+
+  var rows = '';
+  rows += '<tr><td style="padding:.3rem .5rem">GASに接続</td><td style="padding:.3rem .5rem">' + ok(connOK)
+        + (connOK ? '' : '<span style="font-size:.7rem;color:#e0685f"> ' + escapeHtml(String(ping && ping._ng || '')) + '</span>') + '</td></tr>';
+  rows += '<tr><td style="padding:.3rem .5rem">スプレッドシート読み取り</td><td style="padding:.3rem .5rem">' + ok(readOK)
+        + (readOK ? ' <span style="font-size:.72rem;color:#b7b1a2">' + escapeHtml(String(diag.spreadsheetName || '')) + '</span>' : '') + '</td></tr>';
+  rows += '<tr><td style="padding:.3rem .5rem">スプレッドシート書き込み</td><td style="padding:.3rem .5rem">' + ok(writeOK)
+        + (writeOK ? ' <span style="font-size:.72rem;color:#b7b1a2">' + escapeHtml(String(wtst.at || '')) + ' に記録</span>'
+                   : '<span style="font-size:.7rem;color:#e0685f"> ' + escapeHtml(String((wtst && (wtst.error || wtst._ng)) || '不明')) + '</span>') + '</td></tr>';
+  rows += '<tr><td style="padding:.3rem .5rem">GASの版</td><td style="padding:.3rem .5rem">'
+        + (newGas ? '<span style="color:#7ee2a8">✓ 最新（送料設定を取得できました）</span>'
+                  : '<span style="color:#e6a23c">▲ 古い版です。デプロイを管理→新バージョンで更新してください</span>') + '</td></tr>';
+  rows += '<tr><td style="padding:.3rem .5rem">未送信データ</td><td style="padding:.3rem .5rem">'
+        + (_qLoad().length ? '<span style="color:#e6a23c">' + _qLoad().length + '件あります</span>' : '<span style="color:#7ee2a8">0件</span>')
+        + '</td></tr>';
+
+  var sheetRows = '';
+  if (readOK && Array.isArray(diag.sheets)){
+    var want = { '注文受付':1, '顧客':1, '商品':1, '在庫':1, '協賛':1, '仕入':1 };
+    sheetRows = diag.sheets.filter(function(sh){ return want[sh.name]; })
+      .map(function(sh){ return '<tr><td style="padding:.2rem .5rem;color:#b7b1a2">' + escapeHtml(sh.name)
+        + '</td><td style="padding:.2rem .5rem;text-align:right">' + Math.max(0, (sh.rows||0) - 1) + ' 件</td></tr>'; }).join('');
+  }
+
+  box.innerHTML = card(
+      '<div style="font-size:.95rem;font-weight:700;margin-bottom:.6rem">🔌 接続の確認結果'
+    + '<span style="float:right;font-size:.66rem;font-weight:400;color:#7d7869">画面の版 ' + APP_VER + '</span></div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:.82rem">' + rows + '</table>'
+    + (sheetRows ? '<div style="font-size:.78rem;color:#E4C97A;margin:.8rem 0 .2rem">スプレッドシートの中身</div>'
+        + '<table style="width:100%;border-collapse:collapse;font-size:.78rem">' + sheetRows + '</table>' : '')
+    + '<div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.9rem">'
+    + '<button class="btn btn-g" onclick="document.getElementById(\'conn-check\').style.display=\'none\'">閉じる</button>'
+    + '<button class="btn btn-p" onclick="checkConnection()">再確認</button></div>');
+}
+
 // 未送信の中身を一覧で表示する（どれが送れていないのか確認できる）
 function showQueueDetail(){
   var q = _qLoad();
@@ -1525,6 +1605,7 @@ function showQueueDetail(){
     + rows
     + '<div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.9rem">'
     + '<button class="btn btn-g" onclick="closeQueueDetail()">閉じる</button>'
+    + '<button class="btn btn-g" onclick="checkConnection()">🔌 接続を確認</button>'
     + '<button class="btn btn-p" onclick="_qFlush(true).then(function(){ showQueueDetail(); })">📤 今すぐ再送</button>'
     + '</div></div>';
   box.style.display = 'flex';
