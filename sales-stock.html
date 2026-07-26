@@ -1237,6 +1237,7 @@ function _prodColsAll(br, group){
     var d = (PROD_LIST||[]).find(function(x){ return x.key===k; }) || {};
     return { key:k, name:(p.name||k), branches:String(p.branches||''),
              color:(p.color||d.color||'#888'),
+             img:(p.img||d.img||''),   // 商品マスターの画像（サムネイル表示用）
              cost:(p.cost!=null?p.cost:d.cost), costOld:(p.costOld!=null?p.costOld:d.costOld),
              price:(p.price!=null?p.price:d.price), priceOld:(p.priceOld!=null?p.priceOld:d.priceOld),
              reorder:(p.reorder!=null?p.reorder:d.reorder), category:(p.category||d.category||''),
@@ -1258,6 +1259,7 @@ function _prodCols(br){
     return { key:k, name:(p.name||k),
              branches:String(p.branches||''),
              color:(p.color||d.color||'#888'),
+             img:(p.img||d.img||''),   // 商品マスターの画像（サムネイル表示用）
              price:(p.price!=null?Number(p.price):(d.price||0)),
              cost:(p.cost!=null?Number(p.cost):(d.cost||0)),
              reorder:(p.reorder!=null?Number(p.reorder):(d.reorder||0)),
