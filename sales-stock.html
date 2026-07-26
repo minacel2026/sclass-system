@@ -4965,6 +4965,7 @@ function submitPurchase(){
   saveState();
   syncStockToGAS();  // 仕入入庫をスプシへ反映
   toast(`✓ ${purchaseDraft.length}品目 計${totalQty}本を入庫しました`);
+  _backToOrderKind();   // 登録完了 → 取引種別を「注文（販売）」に戻す
 
   // ドラフトとフォームをリセット
   purchaseDraft = [];
@@ -5520,6 +5521,7 @@ function recordLending(){
   lendDraft=[]; renderLendDraft();
   document.getElementById('ln-qty').value=''; document.getElementById('ln-memo').value=''; document.getElementById('ln-due').value='';
   toast('✓ '+kind+' '+_items.length+'商品を記録しました（在庫'+(kind==='貸出'?'−':'+')+_total+'本）');
+  _backToOrderKind();   // 登録完了 → 取引種別を「注文（販売）」に戻す
   renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock();
 }
 
@@ -5873,6 +5875,7 @@ function submitFree(){
   document.getElementById('fr-qty').value='';
   document.getElementById('fr-memo').value='';
   toast('✓ 無償提供を記録しました（'+purpose+'／'+items.length+'商品 計'+total+'本）');
+  _backToOrderKind();   // 登録完了 → 取引種別を「注文（販売）」に戻す
   if(typeof renderStock==='function') renderStock();
   if(typeof renderStockLog==='function') renderStockLog();
 }
@@ -5930,6 +5933,7 @@ function submitReturn(){
   saveState();
   if (S.gasUrl){ gasPost({ action:'returnLending', id:rec.id, returnedDate:rec.returnedDate, returnedQty:rec.returnedQty, status:rec.status }); syncStockToGAS(); }
   toast('✓ ' + q + '本の返却を記録しました' + (done ? '（完了）' : '（残り ' + _lendOutstanding(rec) + '本）'));
+  _backToOrderKind();   // 登録完了 → 取引種別を「注文（販売）」に戻す
   var qEl = document.getElementById('rt-qty'); if (qEl) qEl.value = '';
   fillReturnTargets();
   if (typeof renderLendBalance === 'function') renderLendBalance();
@@ -5957,6 +5961,7 @@ function returnLending(id){
   saveState();
   if(S.gasUrl){ gasPost({action:'returnLending', id:rec.id, returnedDate:rec.returnedDate, returnedQty:rec.returnedQty, status:rec.status}); syncStockToGAS(); }
   toast('✓ '+q+'本の返却を記録しました'+(done?'（完了）':'（残り '+_lendOutstanding(rec)+'本）'));
+  _backToOrderKind();   // 登録完了 → 取引種別を「注文（販売）」に戻す
   renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock(); if(typeof updateTabDots==='function') updateTabDots();
 }
 
@@ -6112,6 +6117,15 @@ function editMove(id){
   }, 60);
 }
 
+// 仕入・貸出・借入・移動・返却・無償提供などを登録し終えたら、
+// 取引種別を「注文（販売）」に戻し、そのセレクトへカーソルを移す。
+function _backToOrderKind(){
+  var sel = document.getElementById('entry-kind');
+  if (!sel) return;
+  sel.value = 'order';
+  try { switchEntryKind('order'); } catch(e){}
+  try { sel.focus(); } catch(e){}
+}
 function switchEntryKind(kind){
   // 別の種別へ移ったら「修正中」は自動解除（元の記録はそのまま残る）
   if (typeof _clearEntryEditing === 'function'){
@@ -6332,6 +6346,7 @@ async function transferStock(){
   syncStockToGAS();
   moveDraft = []; renderMoveDraft();
   toast(`🚚 ${_items.length}商品 計${_sum}本を ${from}→${to} へ発送しました（${to}で受領すると在庫に入ります）`);
+  _backToOrderKind();   // 発送完了 → 取引種別を「注文（販売）」に戻す
   document.getElementById('tr-qty').value = '';
   document.getElementById('tr-memo').value = '';
   if (typeof renderMoves === 'function') renderMoves();
