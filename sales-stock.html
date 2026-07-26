@@ -88,10 +88,8 @@ main{padding:1.5rem 2rem;max-width:1500px;margin:0 auto}
 select.fc{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--gold-l) 50%),linear-gradient(135deg,var(--gold-l) 50%,transparent 50%);background-position:calc(100% - 14px) 52%,calc(100% - 9px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:1.7rem}
 textarea.fc{height:auto;min-height:var(--ctl-h)}
 /* ── 出荷リスト・納品書の印刷 ── */
-/* 1枚のA4に、上＝作業用（チェック欄）／下＝お客様用（金額）を並べ、中央の点線で切り分けて使う。
-   明細が多く半面に収まらない場合は、作業用とお客様用を別ページ（各1枚）に分けて印刷する。 */
+/* 納品書はA4に上下2枚（控え＋お客様用）。中央の点線で切り分けて使う */
 .ss-half{}
-.ss-page{}
 .ss-cut{display:flex;align-items:center;gap:8px;margin:10px 0;color:#999;font-size:11px}
 .ss-cut::before,.ss-cut::after{content:'';flex:1;border-top:1px dashed #999}
 @media print{
@@ -99,11 +97,8 @@ textarea.fc{height:auto;min-height:var(--ctl-h)}
   #ship-sheet{display:block !important;position:static !important;background:#fff !important;padding:0 !important;overflow:visible !important}
   #ship-sheet .no-print{display:none !important}
   #ship-sheet-body{box-shadow:none !important;border-radius:0 !important;padding:0 !important}
-  /* 上下 半面ずつに収める（A4縦の約半分＝126mm） */
+  /* 半面ずつに収める（A4縦の約半分＝130mm） */
   .ss-half{height:126mm;overflow:hidden;box-sizing:border-box;page-break-inside:avoid}
-  /* 明細多数時：作業用／お客様用を別ページ（各1枚）に分ける */
-  .ss-page{page-break-inside:avoid}
-  .ss-break{page-break-before:always}
   .ss-cut{margin:2mm 0}
   @page{size:A4 portrait;margin:10mm}
 }
@@ -169,11 +164,6 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .pr-qty-val{min-width:34px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--wh)}
 .qty-btn{width:26px;height:26px;background:transparent;border:1px solid rgba(201,168,76,.35);color:var(--gold-l);cursor:pointer;font-size:.85rem;font-family:'Noto Sans JP',sans-serif;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 .qty-btn:hover{background:rgba(201,168,76,.15)}
-
-/* ─── 入力欄の前後移動ボタン（▲前へ／▼次へ）─── */
-.fieldnav-btn{width:42px;height:42px;border-radius:50%;background:rgba(21,21,26,.92);border:1px solid var(--gold-d);color:var(--gold-l);font-size:1rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:inherit;-webkit-tap-highlight-color:transparent}
-.fieldnav-btn:hover{background:rgba(201,168,76,.2)}
-.fieldnav-btn:active{background:rgba(201,168,76,.35)}
 
 /* ─── 店舗名 候補ドロップダウン ─── */
 .suggest-box{position:absolute;top:100%;left:0;right:0;background:var(--d2);border:1px solid rgba(201,168,76,.4);border-top:none;max-height:240px;overflow-y:auto;z-index:50;display:none;box-shadow:0 8px 20px rgba(0,0,0,.55)}
@@ -649,11 +639,6 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       </div>
     </div>
     <div id="entry-order">
-    <div id="order-keynav-hint" style="font-size:.7rem;color:var(--wh3);margin:-.1rem 0 .6rem">⏎ Enter＝次の欄へ／⇧+Enter＝前の欄へ（右の <span style="color:var(--gold-l)">▲▼</span> ボタンでも移動できます）</div>
-    <div id="order-fieldnav" style="position:fixed;right:10px;top:50%;transform:translateY(-50%);z-index:8000;display:none;flex-direction:column;gap:8px">
-      <button type="button" class="fieldnav-btn" data-dir="-1" title="前の欄へ">▲</button>
-      <button type="button" class="fieldnav-btn" data-dir="1" title="次の欄へ">▼</button>
-    </div>
     <div class="form-section">
       <div class="form-section-title">▸ 顧客情報</div>
       <div class="frow">
@@ -682,7 +667,17 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       <div id="no-prod-grid"></div>
     </div>
 
-    <!-- 協賛（無料）は各商品カード内で入力します（LINE注文フォームに合わせて商品ごとに縦積み） -->
+    <div id="no-sponsor-ship" class="form-section" style="display:none;border:1px solid rgba(155,89,182,.45)">
+      <div class="form-section-title" style="color:#c39bd3">🎁 協賛出荷（無料・協賛残数から消費）</div>
+      <div style="font-size:.82rem;color:var(--gold-l);margin-bottom:.5rem">この顧客の協賛残数：<strong id="no-sp-balance">0本</strong></div>
+      <div class="frow" style="align-items:flex-end">
+        <div class="fg" style="flex:1 1 160px"><label>協賛で出す商品</label><select class="fc" id="no-sp-product"></select></div>
+        <div class="fg" style="flex:0 1 90px"><label>本数</label><input class="fc" id="no-sp-qty" type="number" min="1" step="1"></div>
+        <div class="fg" style="flex:0 1 auto"><button class="btn btn-g" onclick="addSponsorShipItem()">＋ 協賛に追加</button></div>
+      </div>
+      <div id="no-sp-draft" style="margin-top:.5rem"></div>
+      <div style="font-size:.7rem;color:var(--wh3);margin-top:.4rem">※協賛分は売上0円。複数商品を追加できます（例：イエロー1本＋オレンジ1本）。在庫から出荷され、協賛残数が消費されます</div>
+    </div>
 
     <div class="form-section">
       <div class="form-section-title">▸ 配送・備考</div>
@@ -731,7 +726,6 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
     <div class="faction">
       <button class="btn btn-p" id="no-submit-btn" onclick="submitNewOrder()">注文を登録</button>
       <button class="btn btn-g" onclick="clearNewOrder()">クリア</button>
-      <button class="btn btn-g" id="no-cancel-btn" style="display:none" onclick="cancelOrderEdit()">✕ 閉じる（一覧へ戻る）</button>
     </div>
     </div>
 
@@ -1502,8 +1496,11 @@ function canAdjust(){ return currentUser && ['admin','manager','staff'].includes
 
 // ─── 親タブ切替 ─────
 function switchModule(name, el){
-  // 注文登録タブから他タブへ移動しても、入力途中（販売・協賛など）は保持する。
-  // （協賛管理などを確認して戻れるように。まっさらにしたいときは「クリア」ボタン。登録後は自動でクリアされる）
+  // 注文登録タブから他のタブへ移動するときは入力途中の内容をクリア
+  const current = document.querySelector('.mcon.active');
+  if (current && current.id === 'm-neworder' && name !== 'neworder'){
+    if (typeof clearNewOrder === 'function') clearNewOrder();
+  }
   document.querySelectorAll('.mtab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.mcon').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
@@ -1878,12 +1875,8 @@ function renderOrders(){
 
   tbody.innerHTML = list.map(o => {
     const items = Object.entries(o.items || {}).filter(([,q]) => q > 0);
-    const spItems = Object.entries(o.sponsorItems || {}).filter(([,q]) => q > 0);
-    const itemsTxt = items.map(([p,q]) => `${_prodNameOf(p)}×${q}`).join(', ');
-    const spTxt = spItems.map(([p,q]) => `🎁${_prodNameOf(p)}×${q}`).join(', ');
-    const combinedTxt = [itemsTxt, spTxt].filter(Boolean).join('　/　');
+    const itemsTxt = items.map(([p,q]) => `${p}×${q}`).join(', ');
     const totalQty = items.reduce((s,[,q]) => s + q, 0);
-    const spTotal = spItems.reduce((s,[,q]) => s + q, 0);
     const amt = calcAmt(o);
     const payBadge = o.payStatus === '集金済み' ? 'bd-paid' : (o.payStatus === '売掛' ? 'bd-pending' : 'bd-unpaid');
     const stg = shipStatus(o);
@@ -1897,8 +1890,8 @@ function renderOrders(){
           : `<select class="ship-sel" style="background:rgba(255,99,99,.12);border:1px solid #ff6b6b;color:#ff8a80;font-size:.7rem;padding:.2rem .3rem;border-radius:3px;font-weight:700" onchange="setOrderBranch('${o.id}', this.value)" title="LINE注文は拠点未確定です。担当拠点を選んでください"><option value="">⚠拠点選択</option><option>仙台</option><option>京都</option></select>`
       }</td>
       <td>${escapeHtml(o.store||'')}</td>
-      <td style="font-size:.72rem;color:var(--wh2);max-width:200px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(combinedTxt)}</td>
-      <td class="col-qty">${totalQty}${spTotal?`<span style="color:#c39bd3;font-size:.7rem"> +🎁${spTotal}</span>`:''}</td>
+      <td style="font-size:.72rem;color:var(--wh2);max-width:200px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(itemsTxt)}</td>
+      <td class="col-qty">${totalQty}</td>
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
       <td><span class="badge ${payBadge}">${escapeHtml(o.payStatus||'未収')}</span></td>
       <td onclick="event.stopPropagation()"><select class="ship-sel" style="background:var(--d3);border:1px solid rgba(201,168,76,.3);color:var(--wh);font-size:.7rem;padding:.2rem .3rem;border-radius:3px" onchange="changeShipStatus('${o.id}', this.value)" title="出荷ステータス（その場で変更）"><option${stg==='新規受付'?' selected':''}>新規受付</option><option${stg==='対応中'?' selected':''}>対応中</option><option${stg==='出荷済'?' selected':''}>出荷済</option></select></td>
@@ -2204,22 +2197,26 @@ function openOrderForEdit(id){
 
   // 商品数量を復元
   newOrderQty = Object.assign({}, o.items || {});
-  // 協賛分は「描画より前」に復元する（後だと各商品カードの協賛欄が空表示になるため）。
-  // 旧データはキーが商品名のことがあるので現在の商品キーへ正規化しておく。
-  sponsorShipDraft = Object.entries(o.sponsorItems || {})
-    .filter(([, qty]) => (qty || 0) > 0)
-    .map(([product, qty]) => ({ product: _resolveProdKey(product), qty }));
-  renderNewOrderProds();            // 復元済みデータで販売＋協賛（縦カード）を描画
+  renderNewOrderProds();
   updateOrderTotal();
   if (typeof onOrderTypeChange === 'function') onOrderTypeChange();
-  updateSponsorShipSection(currentOrderCust);  // 協賛残数の表示更新（該当UIが無ければ何もしない）
+
+  // 協賛出荷分を復元（残数セクションを表示し明細に復元）
+  updateSponsorShipSection(currentOrderCust);
+  sponsorShipDraft = Object.entries(o.sponsorItems || {}).map(([product, qty]) => ({ product, qty }));
+  if (sponsorShipDraft.length){
+    const sec = document.getElementById('no-sponsor-ship');
+    if (sec) sec.style.display = 'block';
+    const spProd = document.getElementById('no-sp-product');
+    if (spProd && spProd.options.length === 0){
+      spProd.innerHTML = _prodCols().map(p => `<option>${p.name}</option>`).join('');
+    }
+  }
   if (typeof renderSponsorShipDraft === 'function') renderSponsorShipDraft();
 
-  // ボタン文言を「更新」に。編集中は「閉じる（一覧へ戻る）」も表示
+  // ボタン文言を「更新」に
   const btn = document.getElementById('no-submit-btn');
   if (btn) btn.textContent = '✏️ 注文を更新';
-  const cbtn = document.getElementById('no-cancel-btn');
-  if (cbtn) cbtn.style.display = '';
   toast('注文を読み込みました。修正して「更新」を押してください');
 }
 </script>
@@ -2233,11 +2230,6 @@ let storeSuggestIdx = -1;     // 店舗候補のキーボード選択位置
 let sponsorShipDraft = [];    // 協賛出荷の明細（複数商品対応）
 
 function initNewOrder(){
-  // 取引種別は毎回「販売（注文）」に戻す。前回の仕入・貸出・移動などが保持されないように。
-  // （編集や「登録し直し」導線は switchModule の後で種別を再設定するため、ここで戻しても上書きされる）
-  var _ek = document.getElementById('entry-kind');
-  if (_ek){ _ek.value = 'order'; if (typeof switchEntryKind === 'function') switchEntryKind('order'); }
-
   // 日付初期値
   if (!document.getElementById('no-date').value) {
     document.getElementById('no-date').value = today();
@@ -2248,26 +2240,7 @@ function initNewOrder(){
   initOrderKeyNav();
 }
 
-// 注文フォーム内で、現在の欄を基準に前後の欄へフォーカスを移す共通処理
-let _orderNavLast = null;
-function _orderFieldMove(dir, fromEl){
-  const form = document.getElementById('entry-order');
-  if (!form) return;
-  const fields = Array.from(form.querySelectorAll('input:not([type=hidden]):not([disabled]), select:not([disabled])'))
-    .filter(el => el.offsetParent !== null);   // 表示中の欄だけ
-  if (!fields.length) return;
-  let cur = (fromEl && fields.indexOf(fromEl) >= 0) ? fromEl : document.activeElement;
-  let i = fields.indexOf(cur);
-  if (i < 0) i = fields.indexOf(_orderNavLast);   // ボタン操作でフォーカスが外れた場合の保険
-  if (i < 0) i = 0;
-  let ni = i + dir;
-  if (ni < 0) ni = 0;
-  if (ni >= fields.length) ni = fields.length - 1;
-  const next = fields[ni];
-  if (next){ next.focus(); if (next.select){ try { next.select(); } catch(_){} } }
-}
-
-// 注文フォーム：Enterで次の欄へ／Shift+Enterで前の欄へ。加えて画面の▲▼ボタンでも前後移動（Shiftキーの無い端末向け）
+// 注文フォーム：Enterで次の欄へ／Shift+Enterで前の欄へ（誤作動しない範囲だけ）
 function initOrderKeyNav(){
   const form = document.getElementById('entry-order');
   if (!form || form._keyNavBound) return;
@@ -2284,40 +2257,16 @@ function initOrderKeyNav(){
       if (open) return;
     }
     e.preventDefault();
-    _orderFieldMove(e.shiftKey ? -1 : 1, t);
+    const fields = Array.from(form.querySelectorAll('input:not([type=hidden]):not([disabled]), select:not([disabled])'))
+      .filter(el => el.offsetParent !== null);   // 表示中の欄だけ
+    const i = fields.indexOf(t);
+    if (i < 0) return;
+    let ni = e.shiftKey ? i - 1 : i + 1;
+    if (ni < 0) ni = 0;
+    if (ni >= fields.length) ni = fields.length - 1;
+    const next = fields[ni];
+    if (next){ next.focus(); if (next.select) { try { next.select(); } catch(_){} } }
   });
-
-  // 入力欄にフォーカスが入っている間だけ、画面の前後ボタンを表示する
-  form.addEventListener('focusin', function(e){
-    const t = e.target;
-    if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT')){
-      _orderNavLast = t;
-      const nav = document.getElementById('order-fieldnav');
-      if (nav) nav.style.display = 'flex';
-    }
-  });
-  form.addEventListener('focusout', function(){
-    // フォーカスがフォーム外へ完全に外れたら隠す（ボタン押下時は維持）
-    setTimeout(function(){
-      const nav = document.getElementById('order-fieldnav');
-      if (!nav) return;
-      const ae = document.activeElement;
-      if (!form.contains(ae) && !nav.contains(ae)) nav.style.display = 'none';
-    }, 150);
-  });
-
-  // ▲前へ／▼次へ ボタン（押下で入力欄のフォーカスが外れないよう pointerdown で処理）
-  const nav = document.getElementById('order-fieldnav');
-  if (nav && !nav._bound){
-    nav._bound = true;
-    nav.querySelectorAll('.fieldnav-btn').forEach(function(btn){
-      btn.addEventListener('pointerdown', function(e){
-        e.preventDefault();   // 現在の入力欄のフォーカスを保持したまま移動する
-        const dir = parseInt(btn.getAttribute('data-dir'), 10) || 1;
-        _orderFieldMove(dir, _orderNavLast);
-      });
-    });
-  }
 }
 
 // 担当者の候補（担当区分＝営業/社長/オーナー、拠点一致 or 両拠点）をプルダウンに出す
@@ -3365,7 +3314,7 @@ function renderNewOrderProds(){
     const line = calcProdLine(p, qty);
     return `
     <tr class="${qty>0?'has-qty':''}" id="pc-${p.key}">
-      <td><span class="pr-name">${p.img ? `<img src="${p.img}" alt="" style="width:26px;height:26px;object-fit:cover;border-radius:4px;margin-right:.45rem;vertical-align:middle" onerror="this.style.display='none'">` : `<span class="pr-dot" style="background:${p.color}"></span>`}${p.name}</span></td>
+      <td><span class="pr-name">${p.img ? `<img src="${p.img}" alt="" style="width:28px;height:28px;object-fit:cover;border-radius:4px;margin-right:.45rem;vertical-align:middle;flex-shrink:0" onerror="this.outerHTML='<span class=\\'pr-dot\\' style=\\'background:${p.color}\\'></span>'">` : `<span class="pr-dot" style="background:${p.color}"></span>`}${p.name}</span></td>
       <td class="pr-price" id="up-${p.key}">¥${fmt(line.unitExcl)}</td>
       <td class="pr-stock ${low?'low':''}">${totalStock}本</td>
       <td>
@@ -3420,18 +3369,6 @@ function _spColOn(){
 function _spQtyOf(key){
   var it = (sponsorShipDraft || []).find(function(x){ return x.product === key; });
   return it ? (it.qty || 0) : 0;
-}
-// 保存済みの識別子（旧データは商品名のことがある）を、現在の商品キーに正規化する
-function _resolveProdKey(id){
-  var cols = _prodCols();
-  var hit = cols.find(function(p){ return p.key === id; }) || cols.find(function(p){ return p.name === id; });
-  return hit ? hit.key : id;
-}
-// キー（または名前）から表示用の商品名を得る
-function _prodNameOf(id){
-  var cols = _prodCols();
-  var hit = cols.find(function(p){ return p.key === id; }) || cols.find(function(p){ return p.name === id; });
-  return hit ? hit.name : id;
 }
 // 今この注文で使える協賛の上限（過去の残数＋今回付与予定）
 function _spAvailable(){
@@ -3568,8 +3505,6 @@ function clearNewOrder(){
   editingOrderId = null;  // 編集モード解除
   const btn = document.getElementById('no-submit-btn');
   if (btn) btn.textContent = '注文を登録';  // ボタン文言を戻す
-  const cbtn = document.getElementById('no-cancel-btn');
-  if (cbtn) cbtn.style.display = 'none';  // 編集中のみ出す「閉じる」を隠す
   ['no-store','no-staff','no-contact','no-tel','no-delnote','no-note'].forEach(id => {
     const e = document.getElementById(id); if (e) e.value = '';
   });
@@ -3592,16 +3527,6 @@ function clearNewOrder(){
   if (typeof renderSponsorShipDraft === 'function') renderSponsorShipDraft();
   renderNewOrderProds();
   updateOrderTotal();
-}
-
-// 修正を保存せずに閉じて注文一覧へ戻る（編集中のみ表示されるボタンから呼ぶ）
-function cancelOrderEdit(){
-  if (editingOrderId){
-    if (!confirm('修正を保存せずに閉じます。よろしいですか？')) return;
-  }
-  clearNewOrder();               // 編集モード解除＋フォーム初期化＋「閉じる」ボタン非表示
-  const tab = document.querySelector('.mtab[onclick*="orders"]');
-  switchModule('orders', tab);   // 注文一覧へ戻る
 }
 
 function submitNewOrder(){
@@ -5200,16 +5125,17 @@ function _slogEnqueue(entry){
 // 画面を閉じる前に未送信ぶんを送る
 window.addEventListener('beforeunload', function(){ if (_slogQueue.length) _slogFlush(); });
 
-// ══ 出荷リスト（作業用）＋納品書（お客様用）を1枚に ══
-//   1枚のA4に、上＝作業用（チェック欄つき・金額なし）／下＝お客様用（金額入り・チェック欄なし）を並べ、
-//   中央の点線で切り取って使う。出荷済への切替は注文一覧のプルダウン（changeShipStatus）で行う。
+// ══ 出荷リスト（作業用）／納品書（お客様用）══
+//   作業用：チェック欄つき・金額なし。画面でチェックしながら出荷し、全部そろったら「出荷済」に。
+//   納品書：金額あり・チェック欄なし。お客様へ同梱する。
 var _ssOrderId = null;
-var _ssChecked = {};         // 画面上のチェック状態（作業用の☐を画面でも消し込める）
+var _ssMode = 'pick';        // pick=出荷リスト / note=納品書
+var _ssChecked = {};         // 画面上のチェック状態
 
 function openShipSheet(id){
   var o = (S.orders||[]).find(function(x){ return x.id===id; });
   if(!o) return toast('注文が見つかりません','error');
-  _ssOrderId = id; _ssChecked = {};
+  _ssOrderId = id; _ssMode = 'pick'; _ssChecked = {};
   document.getElementById('ship-sheet').style.display='block';
   document.body.style.overflow='hidden';
   renderShipSheet();
@@ -5219,6 +5145,7 @@ function closeShipSheet(){
   document.body.style.overflow='';
   _ssOrderId=null;
 }
+function setShipSheetMode(m){ _ssMode=m; renderShipSheet(); }
 function toggleSsCheck(key){
   _ssChecked[key] = !_ssChecked[key];
   renderShipSheet();
@@ -5286,12 +5213,11 @@ function _ssLineAmount(o, prodName, qty){
 // 出荷リストに載せる明細（ワイン＋協賛＋ポイントシール）
 function _ssLines(o){
   var lines=[];
-  var _nm=function(p){ return (typeof _prodNameOf==='function') ? _prodNameOf(p) : p; };
   Object.keys(o.items||{}).forEach(function(p){
-    if((o.items[p]||0)>0) lines.push({key:'i-'+p, name:_nm(p), qty:o.items[p], kind:''});
+    if((o.items[p]||0)>0) lines.push({key:'i-'+p, name:p, qty:o.items[p], kind:''});
   });
   Object.keys(o.sponsorItems||{}).forEach(function(p){
-    if((o.sponsorItems[p]||0)>0) lines.push({key:'s-'+p, name:_nm(p), qty:o.sponsorItems[p], kind:'協賛・無料'});
+    if((o.sponsorItems[p]||0)>0) lines.push({key:'s-'+p, name:p, qty:o.sponsorItems[p], kind:'協賛・無料'});
   });
   Object.keys(o.supplyItems||{}).forEach(function(p){
     if((o.supplyItems[p]||0)>0) lines.push({key:'sup-'+p, name:p, qty:o.supplyItems[p], kind:'備品・同梱'});
@@ -5303,18 +5229,27 @@ function _ssLines(o){
   }
   return lines;
 }
-// 1セクション（作業用 or お客様用）を組み立てる。isWork=true で作業用（チェック欄・金額なし）。
-function _ssBuildSection(o, isWork){
+function renderShipSheet(){
+  var box=document.getElementById('ship-sheet-body');
+  var o=(S.orders||[]).find(function(x){ return x.id===_ssOrderId; });
+  if(!box||!o) return;
+  var isPick = (_ssMode==='pick');
+  // タブの見た目
+  var tp=document.getElementById('ss-tab-pick'), tn=document.getElementById('ss-tab-note');
+  if(tp) tp.style.borderColor = isPick ? 'var(--gold)' : '';
+  if(tn) tn.style.borderColor = isPick ? '' : 'var(--gold)';
+  var dn=document.getElementById('ss-done'); if(dn) dn.style.display = isPick ? '' : 'none';
+
   var cust=(S.customers||[]).find(function(c){ return c.name===o.store; }) || {};
   var addr=[cust.pref,cust.city,cust.addr1,cust.addr2].filter(Boolean).join('');
   var co=(S.company||{});
   var lines=_ssLines(o);
   var totalQty=lines.reduce(function(a,l){ return a+(l.unit==='枚'?0:l.qty); },0);
+  var allChecked = lines.every(function(l){ return _ssChecked[l.key]; });
 
   var head = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'
-    + '<div><div style="font-size:19px;font-weight:700;letter-spacing:.08em">' + (isWork?'出 荷 リ ス ト':'納 品 書') + '</div>'
-    + '<div style="font-size:10px;color:#666;margin-top:2px">' + (isWork?'作業用（控え）':'お客様用') + '</div>'
-    + '<div style="margin-top:8px;font-size:14px"><b>' + escapeHtml(o.store||'') + '</b> 御中</div>'
+    + '<div><div style="font-size:20px;font-weight:700;letter-spacing:.08em">' + (isPick?'出 荷 リ ス ト':'納 品 書') + '</div>'
+    + '<div style="margin-top:10px;font-size:14px"><b>' + escapeHtml(o.store||'') + '</b> 御中</div>'
     + (addr?'<div style="font-size:11px;color:#555">' + escapeHtml(addr) + '</div>':'')
     + '</div>'
     + '<div style="text-align:right;font-size:11px;line-height:1.7">'
@@ -5326,32 +5261,32 @@ function _ssBuildSection(o, isWork){
     + '</div></div>';
 
   var rows = lines.map(function(l){
-    var chk = isWork
+    var chk = isPick
       ? '<td style="width:34px;text-align:center;border:1px solid #bbb;padding:6px;cursor:pointer" onclick="toggleSsCheck(\''+l.key+'\')">'
         + (_ssChecked[l.key] ? '<span style="font-size:16px">☑</span>' : '<span style="font-size:16px;color:#999">☐</span>') + '</td>'
       : '';
     return '<tr>' + chk
       + '<td style="border:1px solid #bbb;padding:6px 8px">' + escapeHtml(l.name)
       + (l.kind?' <span style="font-size:10px;color:#666">（'+escapeHtml(l.kind)+'）</span>':'') + '</td>'
-      + '<td style="border:1px solid #bbb;padding:6px 8px;text-align:right;width:80px">' + l.qty + (l.unit||'本') + '</td>'
-      + (isWork?'':'<td style="border:1px solid #bbb;padding:6px 8px;text-align:right;width:90px">' + ((l.kind==='協賛・無料'||l.kind==='備品・同梱'||l.unit==='枚') ? '—' : yen(_ssUnit(o,l.name))) + '</td>')
-      + (isWork?'':'<td style="border:1px solid #bbb;padding:6px 8px;text-align:right;width:110px">' + ((l.kind==='協賛・無料'||l.kind==='備品・同梱'||l.unit==='枚') ? '—' : yen(_ssLineAmount(o,l.name,l.qty))) + '</td>')
+      + '<td style="border:1px solid #bbb;padding:6px 8px;text-align:right;width:90px">' + l.qty + (l.unit||'本') + '</td>'
+      + (isPick?'':'<td style="border:1px solid #bbb;padding:6px 8px;text-align:right;width:90px">' + ((l.kind==='協賛・無料'||l.kind==='備品・同梱'||l.unit==='枚') ? '—' : yen(_ssUnit(o,l.name))) + '</td>')
+      + (isPick?'':'<td style="border:1px solid #bbb;padding:6px 8px;text-align:right;width:110px">' + ((l.kind==='協賛・無料'||l.kind==='備品・同梱'||l.unit==='枚') ? '—' : yen(_ssLineAmount(o,l.name,l.qty))) + '</td>')
       + '</tr>';
   }).join('');
 
   var thead = '<tr style="background:#f0f0f0">'
-    + (isWork?'<th style="border:1px solid #bbb;padding:6px">✓</th>':'')
+    + (isPick?'<th style="border:1px solid #bbb;padding:6px">✓</th>':'')
     + '<th style="border:1px solid #bbb;padding:6px;text-align:left">商品</th>'
     + '<th style="border:1px solid #bbb;padding:6px;text-align:right">数量</th>'
-    + (isWork?'':'<th style="border:1px solid #bbb;padding:6px;text-align:right">単価</th>')
-    + (isWork?'':'<th style="border:1px solid #bbb;padding:6px;text-align:right">金額</th>')
+    + (isPick?'':'<th style="border:1px solid #bbb;padding:6px;text-align:right">単価</th>')
+    + (isPick?'':'<th style="border:1px solid #bbb;padding:6px;text-align:right">金額</th>')
     + '</tr>';
 
-  var foot = isWork
+  var foot = isPick
     ? '<div style="margin-top:10px;font-size:12px">合計 <b>' + totalQty + '本</b>'
       + (lines.some(function(l){return l.unit==='枚';}) ? '＋ポイントシール' + (Number(o.sealQty)||0) + '枚' : '')
       + '</div>'
-      + '<div style="margin-top:12px;font-size:11px;color:#555">確認者サイン：____________________　　出荷日：____ / ____</div>'
+      + '<div style="margin-top:14px;font-size:11px;color:#555">確認者サイン：____________________　　出荷日：____ / ____</div>'
     : (function(){
         var taxRate=(String(o.tax||'').indexOf('あり')>=0 || o.taxType==='税込') ? 0.1 : 0;
         var total=calcAmt(o);
@@ -5365,38 +5300,47 @@ function _ssBuildSection(o, isWork){
           + '</table></div>';
       })()
       + (o.note?'<div style="margin-top:10px;font-size:11px;color:#555">備考：' + escapeHtml(o.note) + '</div>':'')
-      + (co.tel||co.addr?'<div style="margin-top:12px;font-size:11px;color:#555">' + escapeHtml([co.addr,co.tel].filter(Boolean).join('　')) + '</div>':'');
+      + (co.tel||co.addr?'<div style="margin-top:16px;font-size:11px;color:#555">' + escapeHtml([co.addr,co.tel].filter(Boolean).join('　')) + '</div>':'');
 
-  return head
-    + '<div style="height:1px;background:#333;margin:8px 0"></div>'
+  var progress = isPick
+    ? '<div class="no-print" style="margin:8px 0;font-size:12px;color:' + (allChecked?'#2b8a3e':'#b33') + '">'
+      + (allChecked ? '✓ すべて確認できました。「出荷済にする」を押してください' : '☐ 未確認の商品があります（' + lines.filter(function(l){return !_ssChecked[l.key];}).length + '件）')
+      + '</div>' : '';
+
+  var sheet = head
+    + '<div style="height:1px;background:#333;margin:10px 0"></div>'
+    + progress
     + '<table style="width:100%;border-collapse:collapse;font-size:12px">' + thead + rows + '</table>'
     + foot;
-}
 
-function renderShipSheet(){
-  var box=document.getElementById('ship-sheet-body');
-  var o=(S.orders||[]).find(function(x){ return x.id===_ssOrderId; });
-  if(!box||!o) return;
-
-  var lines=_ssLines(o);
-  var work=_ssBuildSection(o, true);    // 上：作業用（チェック欄・金額なし）
-  var cust=_ssBuildSection(o, false);   // 下：お客様用（金額入り）
-
-  if (lines.length > 8){
-    // 明細が多いと半面に収まらないため、作業用／お客様用を別ページ（各1枚）に分ける
+  if (isPick){
+    box.innerHTML = sheet;                     // 出荷リストは1枚
+  } else if (lines.length > 8){
+    // 明細が多いと半面に収まらないため、A4全面（1枚）で印刷する
     box.innerHTML = '<div class="no-print" style="background:#fff8e1;border:1px solid #e6c200;color:#7a5c00;padding:8px 10px;font-size:12px;margin-bottom:10px">'
-      + '商品が' + lines.length + '件あるため、作業用とお客様用を別ページ（各1枚）で印刷します。'
-      + '</div>'
-      + '<div class="ss-page">' + work + '</div>'
-      + '<div class="ss-cut no-print"><span>— 次ページ：お客様用 —</span></div>'
-      + '<div class="ss-page ss-break">' + cust + '</div>';
+      + '商品が' + lines.length + '件あるため、A4全面（1枚）で印刷します。'
+      + '</div>' + sheet;
   } else {
-    // 1枚のA4に、上＝作業用／下＝お客様用。中央の点線で切り取って使う
+    // 納品書：A4に上下2枚（控え／お客様用）。中央の点線で切って使う
+    var mark = function(t){
+      return '<div style="text-align:right;font-size:10px;color:#666;margin-bottom:2px">' + t + '</div>';
+    };
     box.innerHTML =
-        '<div class="ss-half">' + work + '</div>'
-      + '<div class="ss-cut"><span>✂ ─ 切り取り線 ─</span></div>'
-      + '<div class="ss-half">' + cust + '</div>';
+        '<div class="ss-half">' + mark('（控）') + sheet + '</div>'
+      + '<div class="ss-cut"><span>✂</span></div>'
+      + '<div class="ss-half">' + mark('（お客様控）') + sheet + '</div>';
   }
+}
+function shipSheetComplete(){
+  var o=(S.orders||[]).find(function(x){ return x.id===_ssOrderId; });
+  if(!o) return;
+  var lines=_ssLines(o);
+  var rest=lines.filter(function(l){ return !_ssChecked[l.key]; });
+  if(rest.length){
+    if(!confirm('未確認の商品が ' + rest.length + '件 あります。\n\n' + rest.map(function(l){return '・'+l.name;}).join('\n') + '\n\nこのまま出荷済にしますか？')) return;
+  }
+  closeShipSheet();
+  if (typeof changeShipStatus==='function') changeShipStatus(o.id, '出荷済');
 }
 
 // ══ 無償提供（試供品・交際費など）══
@@ -6331,8 +6275,12 @@ window.addEventListener('load', enhanceScrollTabs);
   <div style="max-width:820px;margin:0 auto">
     <div class="no-print" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.6rem">
       <button class="btn btn-g" onclick="closeShipSheet()">✕ 閉じる</button>
-      <div style="margin-left:auto;font-size:.72rem;color:var(--wh3);display:flex;align-items:center;text-align:right">上：作業用（チェック欄）／下：お客様用（金額）— 切り取ってお使いください</div>
+      <div style="display:flex;gap:.3rem;margin-left:auto">
+        <button class="btn btn-g" id="ss-tab-pick" onclick="setShipSheetMode('pick')">📋 出荷リスト（作業用）</button>
+        <button class="btn btn-g" id="ss-tab-note" onclick="setShipSheetMode('note')">🧾 納品書（お客様用）</button>
+      </div>
       <button class="btn btn-p" onclick="window.print()">🖨 印刷 / PDF</button>
+      <button class="btn btn-p" id="ss-done" onclick="shipSheetComplete()">✓ 出荷済にする</button>
     </div>
     <div id="ship-sheet-body" style="background:#fff;color:#111;padding:18px 20px;border-radius:4px"></div>
   </div>
