@@ -1777,6 +1777,12 @@ async function syncFromGAS(){
         const lo = _pending[String(o.id)] ? _localById[String(o.id)] : null;
         if (lo) return lo;                 // 未送信の修正があるので端末側を優先
         o.date = _nd(o.date);
+        // ★スプシのO列（注文ID）が空の古い注文は、IDが無いため「修正」が新規登録になり
+        //   元の行が残って古い日付が復活していた。安定したIDを付けて編集できるようにする。
+        o._matchTs = o.timestamp || '';            // 元の作成日時（サーバ側で行を照合するのに使う）
+        if (!o.id){
+          o.id = 'ord-legacy-' + String(o._matchTs).replace(/[^0-9]/g,'') + '-' + String(o.store||'').slice(0,8);
+        }
         if (!o.timestamp) o.timestamp = o.date;
         o.items = (typeof normalizeOrderItems === 'function') ? normalizeOrderItems(o.items) : o.items;
         o.amount = Number(o.amount) || 0;
@@ -3708,6 +3714,9 @@ function submitNewOrder(){
 
   // 編集モードだったかを記録（メッセージ分岐用）＆ 編集時は注文IDを維持する
   const wasEditing = !!editingOrderId;
+  const _editOrigTs = wasEditing
+    ? (function(){ const _o = (S.orders || []).find(x => x.id === editingOrderId); return _o ? (_o._matchTs || _o.timestamp || '') : ''; })()
+    : '';
   const editIdForSave = editingOrderId;  // 編集時はこのIDを再登録時も維持（IDが変わると重複の原因になる）
   let shipStockTouched = false;  // 出荷済の在庫増減が起きたらtrue（最後にGAS同期するか判定）
   let editPrevStatus = null;  // 編集時：既存注文の出荷ステータスを維持（ステータス変更は一覧で行う）
@@ -3815,7 +3824,9 @@ function submitNewOrder(){
 
   const order = {
     id: editIdForSave || ('ord-' + Date.now()),  // 編集時は元IDを維持（重複防止）。新規は新ID
-    timestamp: new Date().toLocaleString('ja-JP'),  // スプシA列と一致させ削除照合を確実に
+    // 編集時は元の作成日時を維持する（A列が変わると行の照合ができなくなるため）
+    timestamp: (wasEditing && _editOrigTs) ? _editOrigTs : new Date().toLocaleString('ja-JP'),
+    _matchTimestamp: (wasEditing && _editOrigTs) ? _editOrigTs : '',   // O列が空の旧行を照合するための保険
     date: document.getElementById('no-date').value || today(),
     time: new Date().toTimeString().slice(0,5),
     branch: branch,
