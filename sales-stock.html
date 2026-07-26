@@ -3860,17 +3860,16 @@ function normalizeOrderQty(key){
 //   ④ 合計本数が「無料になる本数」以上なら 0円（LINE注文フォームと同じ判定）
 function _defaultShipFeeFor(cust, qtyTotal){
   var cfg = S.shipping || {};
-  // 送料設定を読めていないときは 0円 とする（勝手に請求してしまうより、入っていない方が安全）。
-  // 「送料設定」シートの「デフォルト送料」を変えれば、個別送料が空の顧客すべてに一括で効く。
-  var defFee = (typeof cfg.defaultFee === 'number') ? cfg.defaultFee : 0;
   var freeQty = (typeof cfg.freeQty === 'number' && cfg.freeQty > 0) ? cfg.freeQty : 6;
   if (!cust) return 0;
-  if (cust.freeShipping) return 0;                       // 常時送料無料の顧客
+  if (cust.freeShipping) return 0;                       // 常時送料無料（レガシー保護）：過去に設定済みの顧客は無料のまま
+  // 送料は「顧客に金額が入っているときだけ」発生する。空欄＝送料なし（0円）。
+  //   （デフォルト送料での自動請求はしない。取る顧客だけ顧客登録に金額を入れる方式）
   var own = (cust.shipFee !== undefined && cust.shipFee !== null && String(cust.shipFee).trim() !== '')
               ? Number(cust.shipFee) : NaN;
-  var fee = isFinite(own) ? own : defFee;                // 個別送料 → 無ければデフォルト
+  if (!isFinite(own) || own <= 0) return 0;              // 空欄・0・不正 → 送料なし
   if ((qtyTotal || 0) >= freeQty) return 0;              // 規定本数以上は無料
-  return Math.max(0, Math.round(fee));
+  return Math.max(0, Math.round(own));
 }
 // 送料欄に初期値を入れる。手入力で変更された後は上書きしない（注文ごとに変わる場合に対応）
 var _shipFeeTouched = false;

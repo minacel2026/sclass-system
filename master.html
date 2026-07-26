@@ -695,11 +695,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           </div>
           <!-- 配送設定 -->
           <div style="margin-top:1rem;padding-top:.8rem;border-top:1px solid rgba(255,255,255,.08)">
-            <div class="sponsor-toggle" style="margin-bottom:.6rem">
-              <input type="checkbox" id="cf-free-shipping">
-              <label for="cf-free-shipping" style="font-size:.78rem;color:var(--wh);cursor:pointer">この顧客は常時送料無料 <span class="hint">本数に関係なく送料0円</span></label>
-            </div>
-            <div class="fg"><label>個別送料 <span class="hint">空欄＝デフォルト送料（送料設定シート）を使用</span></label><input type="number" class="fc" id="cf-ship-fee" placeholder="例：950" min="0"><span style="font-size:.6rem;color:var(--wh3)">円（規定本数以上で無料）</span></div>
+            <div class="fg"><label>送料 <span class="hint">空欄＝送料なし（0円）。送料をいただく顧客だけ金額を入力</span></label><input type="number" class="fc" id="cf-ship-fee" placeholder="空欄＝送料0円" min="0"><span style="font-size:.6rem;color:var(--wh3)">円（規定本数以上で無料）</span></div>
             <div class="fg"><label>協賛分の送料カウント <span class="hint">無料判定の本数に協賛無料分を含めるか</span></label>
               <select class="fc" id="cf-ship-include-sponsor">
                 <option value="あり">含める</option>
@@ -2256,7 +2252,6 @@ function fillCustForm(c){
   // 適用協賛ルール（新方式）
   custSponsorIds = Array.isArray(c.sponsorIds) ? c.sponsorIds.slice() : [];
   document.getElementById('cf-sponsor-instant').checked = !!c.sponsorInstant;
-  document.getElementById('cf-free-shipping').checked = !!c.freeShipping;
   document.getElementById('cf-ship-fee').value = (c.shipFee != null) ? c.shipFee : '';
   document.getElementById('cf-ship-include-sponsor').value = (c.shipIncludeSponsor === 'なし') ? 'なし' : 'あり';
   document.getElementById('sponsor-rules').style.display = c.sponsorEnabled ? 'block' : 'none';
@@ -2302,7 +2297,6 @@ function clearCustForm(){
   document.getElementById('cf-common-tax').value = '税込';
   document.getElementById('cf-sponsor').checked = false;
   document.getElementById('cf-sponsor-instant').checked = false;
-  document.getElementById('cf-free-shipping').checked = false;
   document.getElementById('cf-ship-include-sponsor').value = 'あり';
   updateReferrerOptions('');
   custSponsorIds = [];
@@ -2644,7 +2638,7 @@ function submitCustForm(){
     sponsorProduct: g('cf-sponsor-product'),
     sponsorIds:     custSponsorIds.slice(),
     sponsorInstant: document.getElementById('cf-sponsor-instant').checked,
-    freeShipping: document.getElementById('cf-free-shipping').checked,
+    freeShipping: (function(){ var _o=(S.customers||[]).find(function(x){return x.id===custEditingId;}); return (_o&&_o.freeShipping)||false; })(),  // UIから外したが、既存の常時無料設定は保持（レガシー保護）
     shipFee: g('cf-ship-fee'),
     shipIncludeSponsor: g('cf-ship-include-sponsor'),
     // 詳細情報（分析用）
