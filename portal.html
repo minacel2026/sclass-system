@@ -851,14 +851,15 @@ function updateStatus() {
   });
   document.getElementById('stat-stock-warn').textContent = warn;
 
-  // GAS接続状態
+  // GAS接続状態（URLの有無だけでなく、実際に読み書きできるかを確かめる）
   const gasEl = document.getElementById('gas-status');
-  if (S.gasUrl) {
-    gasEl.textContent = 'GAS接続中';
-    gasEl.style.color = 'var(--grn)';
-  } else {
+  if (!S.gasUrl) {
     gasEl.textContent = 'GAS未接続';
     gasEl.style.color = 'var(--red)';
+  } else {
+    gasEl.textContent = '接続確認中…';
+    gasEl.style.color = 'var(--wh2)';
+    verifyConnection(gasEl);   // 実測（読み取り＋書き込み）
   }
 
   // 最終同期
@@ -871,6 +872,43 @@ function updateStatus() {
 }
 
 updateStatus();
+
+// スプレッドシートと本当につながっているかを実際に試して、ヘッダーの表示を更新する。
+// 読み取り(diag)と書き込み(connTest)の両方を確認する。押す操作は不要で、開くと自動で走る。
+async function verifyConnection(gasEl){
+  var url = S.gasUrl;
+  async function get(action){
+    try{
+      var r = await fetch(url + '?action=' + action + '&_=' + Date.now(), { cache:'no-store' });
+      if (!r.ok) return { _ng:'http ' + r.status };
+      try { return JSON.parse(await r.text()); } catch(e){ return { _ng:'応答が読めません' }; }
+    }catch(e){ return { _ng:String((e && e.message) || e) }; }
+  }
+  var diag = await get('diag');
+  var readOK = !!(diag && diag.ok);
+  if (!readOK){
+    gasEl.textContent = '❌ つながっていません';
+    gasEl.style.color = 'var(--red)';
+    gasEl.title = '読み取りに失敗：' + String((diag && diag._ng) || '不明')
+      + '／GASが新バージョンでデプロイされているか確認してください';
+    return;
+  }
+  var w = await get('connTest');
+  var writeOK = !!(w && w.ok && w.wrote);
+  if (writeOK){
+    gasEl.textContent = '✅ 接続OK（書込可）';
+    gasEl.style.color = 'var(--grn)';
+    gasEl.title = 'スプレッドシート「' + String(diag.spreadsheetName || '') + '」に読み書きできています（'
+      + String(w.at || '') + ' に記録）';
+  } else {
+    // 読み取りはできるが書き込みができない＝GASが古い版の可能性が高い
+    gasEl.textContent = '⚠️ 読取のみ（書込×）';
+    gasEl.style.color = 'var(--gold-l)';
+    gasEl.title = '読み取りはできますが、書き込みテストに失敗しました（'
+      + String((w && (w.error || w._ng)) || '不明')
+      + '）。GASを新バージョンでデプロイし直してください。';
+  }
+}
 </script>
 
 

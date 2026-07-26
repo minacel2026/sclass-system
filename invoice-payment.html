@@ -404,7 +404,7 @@ const S = {
   slog:[], collections:[], invoices:[],
   bankEntries:[], bankHistory:[], company:{}, products:null,
   purchases:[], cashEntries:[], dailyReps:[],
-  gasUrl: localStorage.getItem('gasUrl') || '',
+  gasUrl: (function(){var U='https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';try{if(localStorage.getItem('gasUrl')!==U)localStorage.setItem('gasUrl',U);}catch(e){}return U;})(),   // 他画面と同じ既定URL
 };
 
 function today(){ return new Date().toISOString().slice(0,10); }
@@ -437,7 +437,7 @@ function loadState(){
       const v = localStorage.getItem('lmb_' + k);
       if (v) try { S[k] = JSON.parse(v); } catch(e){}
     });
-    S.gasUrl = localStorage.getItem('gasUrl') || '';
+    S.gasUrl = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
   } catch(e){ console.warn('loadState error', e); }
 }
 
