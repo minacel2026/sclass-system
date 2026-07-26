@@ -1014,6 +1014,11 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
       </div>
       <div id="spa-info" style="font-size:.78rem;color:var(--wh2);margin:.4rem 0"></div>
       <div class="faction" style="margin-top:.4rem"><button class="btn btn-p" onclick="submitSpAdjust()">✓ 協賛残数に反映する</button></div>
+      <div class="hint-box" style="margin:.6rem 0 .3rem;border-color:rgba(111,207,151,.3)">🔁 <b>繰越購入数</b>：制度開始前に「もう○本買っている」を登録します（例：イエロー5本＝あと1本で協賛）。上の顧客・商品を選び、本数を入れて登録してください。累計に加算され、次の注文から正しく協賛が付きます。</div>
+      <div class="frow">
+        <div class="fg"><label>繰越購入数（本）</label><input class="fc" id="spa-carry-qty" type="number" min="0" step="1" placeholder="例：5"></div>
+        <div class="fg" style="align-self:end"><button class="btn btn-g" onclick="submitSpCarry()">🔁 繰越購入数を登録</button></div>
+      </div>
     </div>
 
     <div class="fp" style="border:1px solid rgba(201,168,76,.35)">
@@ -3040,8 +3045,20 @@ function updateSponsorHint(c){
       return tp + ' ' + (s.triggerQty || 0) + (s.triggerUnit || '本') + '→' + (s.rewardQty || 0) + '本';
     }).join(' / ');
     hint.style.display = 'block';
+    // 「あと何本で協賛」：現在の入力(newOrderQty)を加味した繰越進捗
+    var toNextTxt = '';
+    try {
+      var pend = calcPendingSponsorPoints((typeof newOrderQty!=='undefined'?newOrderQty:{}), c);
+      var parts = [];
+      Object.keys(pend.toNext||{}).forEach(function(prod){
+        var rem = pend.toNext[prod];
+        if (rem > 0) parts.push(prod + ' あと' + rem + '本');
+      });
+      if (pend.total > 0) toNextTxt = ' ／ <strong style="color:#7ee2a8">この注文で協賛+' + pend.total + '本</strong>';
+      else if (parts.length) toNextTxt = ' ／ 次の協賛まで：' + parts.join('・');
+    } catch(e){}
     hint.innerHTML = '🎁 <strong>協賛対象</strong>：' + ruleTexts +
-      ' / 現在残数 <strong>' + bal.pts + '本</strong>（累計付与 ' + bal.earned + '本・使用 ' + bal.used + '本）';
+      ' / 現在残数 <strong>' + bal.pts + '本</strong>（累計付与 ' + bal.earned + '本・使用 ' + bal.used + '本）' + toNextTxt;
   } else {
     hint.style.display = 'none';
   }
@@ -3132,6 +3149,37 @@ function submitSpAdjust(){
   if(typeof renderSponsor==='function') renderSponsor();
 }
 
+// 繰越購入数（carrybuy）を登録：制度開始前の購入本数を累計に加える（協賛残数は増やさない・進捗だけ繰越）
+function submitSpCarry(){
+  if (typeof canEdit==='function' && !canEdit()) return toast('🔒 権限がありません（閲覧のみ）','error');
+  var id=(document.getElementById('spa-cust')||{}).value;
+  if(!id) return toast('顧客を選んでください','error');
+  var cust=(S.customers||[]).find(function(c){ return String(c.id)===String(id); });
+  if(!cust) return toast('顧客が見つかりません','error');
+  var qty=parseInt((document.getElementById('spa-carry-qty')||{}).value||'',10);
+  if(!qty || isNaN(qty) || qty<0) return toast('繰越購入数を入力してください（0以上）','error');
+  var prod=(document.getElementById('spa-prod')||{}).value||'商品指定なし';
+  if(prod==='商品指定なし') return toast('繰越購入数は商品を選んでください','error');
+  var dt=(document.getElementById('spa-date')||{}).value||today();
+  var memo=((document.getElementById('spa-memo')||{}).value||'').trim();
+  if(!confirm(cust.name+'\n\n'+prod+' の繰越購入数を '+qty+'本 登録します。\n（累計購入に加算され、次の注文から正しく協賛が付きます）\n\nよろしいですか？')) return;
+  var log={
+    id:'spc-'+Date.now()+'-'+Math.floor(Math.random()*9000+1000),
+    custId:cust.id, custName:cust.name, type:'carrybuy', qty:qty, date:dt,
+    orderId:'', sponsorId:'', sponsorName:'繰越購入数', product:prod,
+    branch:cust.branch||'', note:memo||'制度開始前の繰越購入数',
+    createdAt:new Date().toISOString(),
+    createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||''
+  };
+  if(!S.sponsorLogs) S.sponsorLogs=[];
+  S.sponsorLogs.push(log);
+  saveState();
+  if(S.gasUrl){ try{ gasPost({action:'saveSponsorLog', ...log}); }catch(e){} }
+  toast('✓ 繰越購入数を登録しました（'+prod+' '+qty+'本）');
+  document.getElementById('spa-carry-qty').value='';
+  renderSpAdjustInfo();
+}
+
 // 協賛残数の商品別内訳（付与商品ごとに earned − used）
 function getSponsorBalanceByProduct(custId, excludeOrderId){
   if (!S.sponsorLogs) S.sponsorLogs = [];
@@ -3150,7 +3198,7 @@ function getSponsorBalanceByProduct(custId, excludeOrderId){
 // 今回の注文（items）で付与される協賛を事前計算（記録はせず本数だけ算出）
 // checkAndAddSponsorPoints と同じ判定ロジックで、登録前に「今回付与予定」を出す
 function calcPendingSponsorPoints(items, c){
-  const result = { total: 0, byProd: {} };
+  const result = { total: 0, byProd: {}, toNext: {} };
   if (!c || !c.sponsorEnabled) return result;
   const ids = Array.isArray(c.sponsorIds) ? c.sponsorIds : [];
   if (!ids.length) return result;
@@ -3164,11 +3212,19 @@ function calcPendingSponsorPoints(items, c){
     const rewardQty = parseInt(s.rewardQty) || 1;
     if (!trig) return;
     const targetProd = s.targetProduct || 'all';
+    // 累計方式のプレビュー：この注文を出荷したときに新たに付く協賛本数（＝差分）を出す。
     const grant = function(prod, buyQty){
-      const pts = Math.floor(Math.abs(buyQty || 0) / trig) * rewardQty;
-      if (!pts) return;
+      const bq = Math.abs(buyQty || 0);
+      const cum = _spCumBought(c, prod, null) + bq;            // 出荷済累計 ＋ 今回のドラフト
+      const should = Math.floor(cum / trig) * rewardQty;
+      const already = _spAlreadyEarned(c.id, s.id, prod);
+      const pts = should - already;
+      // 「あと何本で次の協賛が付くか」も記録（残り0＝ちょうど付与）
+      const rem = (trig - (cum % trig)) % trig;
+      if (!result.toNext[prod] || rem < result.toNext[prod]) result.toNext[prod] = rem;
+      if (pts <= 0) return;
       result.total += pts;
-      result.byProd[prod] = (result.byProd[prod] || 0) + pts;  // 同じ商品で還元
+      result.byProd[prod] = (result.byProd[prod] || 0) + pts;
     };
     if (targetProd === 'all'){
       // 全商品共通: 商品ごとに判定（同じ商品で付与）
@@ -3208,19 +3264,36 @@ function spBuildRecalcPlan(opts){
   const custByName={}; (S.customers||[]).forEach(c=>custByName[c.name]=c);
   const ruleById={};   (S.sponsors||[]).forEach(s=>ruleById[String(s.id)]=s);
 
+  // 累計方式：顧客×ルール×商品ごとに日付順で累積し、閾値を跨いだ注文に付与を割り当てる（繰越carrybuyも初期累計に含める）。
   const correct={};
-  (S.orders||[]).forEach(o=>{
-    if(shipStatus(o)!=='出荷済') return; if(!inR(o.date)) return;
+  const _cumMap={};   // "custId|sponsorId|prod" -> {cum, granted}
+  const _ordersSorted=(S.orders||[])
+    .filter(o=>shipStatus(o)==='出荷済' && inR(o.date))
+    .slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+  _ordersSorted.forEach(o=>{
     const c=custByName[o.store]; if(!c||!c.sponsorEnabled) return;
     (Array.isArray(c.sponsorIds)?c.sponsorIds:[]).forEach(id=>{
       if(scope!=='all'&&String(id)!==String(scope)) return;
       const s=ruleById[String(id)]; if(!s||!validOn(s,o.date)) return;
       const trig=parseInt(s.triggerQty)||0; if(!trig) return;
       const rq=parseInt(s.rewardQty)||1, tp=s.targetProduct||'all';
-      const grant=(prod,buyQ)=>{ const pts=Math.floor(Math.abs(buyQ||0)/trig)*rq; if(!pts)return;
+      const grant=(prod,buyQ)=>{
+        const bq=Math.abs(buyQ||0); if(!bq) return;
+        const ckey=c.id+'|'+s.id+'|'+prod;
+        if(!_cumMap[ckey]){
+          const seed=(S.sponsorLogs||[]).filter(l=>l.type==='carrybuy'&&String(l.custId)===String(c.id)&&(l.product||'')===prod).reduce((a,l)=>a+(l.qty||0),0);
+          _cumMap[ckey]={cum:seed, granted:0};   // 繰越は累計に入れ、付与は累計判定で行う（liveと一致）
+        }
+        const m=_cumMap[ckey];
+        m.cum += bq;
+        const should=Math.floor(m.cum/trig)*rq;
+        const pts=should - m.granted;
+        m.granted=should;
+        if(pts<=0) return;
         const key=o.id+'|'+s.id+'|'+prod;
         if(!correct[key]) correct[key]={custId:c.id,custName:c.name,sponsorId:String(s.id),sponsorName:s.name,product:prod,qty:0,date:o.date,orderId:o.id,targetProduct:tp};
-        correct[key].qty+=pts; };
+        correct[key].qty+=pts;
+      };
       if(tp==='all') Object.entries(o.items||{}).forEach(e=>grant(e[0],e[1]));
       else grant(tp,(o.items||{})[tp]||0);
     });
@@ -4361,6 +4434,32 @@ function submitNewOrder(){
 }
 
 // ─── 協賛ポイント自動付与 ─────
+// 累計購入数を返す：協賛の繰越(carrybuy)＋この顧客の出荷済注文でのその商品の購入数。
+//   currentOrder を渡すと、それは二重計上せず必ず1回だけ数える（出荷確定の瞬間でも正しく）。
+function _spCumBought(cu, product, currentOrder){
+  if (!cu) return 0;
+  var seed = (S.sponsorLogs||[]).filter(function(l){
+    return l.type==='carrybuy' && String(l.custId)===String(cu.id) && (l.product||'')===product;
+  }).reduce(function(a,l){ return a + (l.qty||0); }, 0);
+  var bought = 0;
+  (S.orders||[]).forEach(function(o){
+    if (o.store !== cu.name) return;
+    if (currentOrder && String(o.id)===String(currentOrder.id)) return;   // 現注文は別途加算
+    if (typeof shipStatus==='function' && shipStatus(o)!=='出荷済') return;
+    bought += (o.items && o.items[product]) ? Number(o.items[product])||0 : 0;
+  });
+  if (currentOrder){
+    bought += (currentOrder.items && currentOrder.items[product]) ? Number(currentOrder.items[product])||0 : 0;
+  }
+  return seed + bought;
+}
+// 既に付与済みの協賛本数（この顧客×ルール×商品）
+function _spAlreadyEarned(custId, sponsorId, product){
+  return (S.sponsorLogs||[]).filter(function(l){
+    return l.type==='earned' && String(l.custId)===String(custId)
+        && String(l.sponsorId)===String(sponsorId) && (l.product||'')===product;
+  }).reduce(function(a,l){ return a + (l.qty||0); }, 0);
+}
 function checkAndAddSponsorPoints(order){
   if (!S.sponsorLogs) S.sponsorLogs = [];
   const cu = (S.customers || []).find(x => x.name === order.store);
@@ -4385,10 +4484,14 @@ function checkAndAddSponsorPoints(order){
 
     const targetProd = s.targetProduct || 'all';
 
-    // 付与処理（商品とその購入本数から協賛本数を計算してログ追加）
+    // 付与処理（累計方式）：累計購入(繰越+出荷済)からあるべき付与数を出し、既付与との差分だけ足す。
+    //   これで1注文の端数が切り捨てられず、次の注文へ繰り越される。
     const grant = function(prod, buyQty){
-      const pts = Math.floor(Math.abs(buyQty || 0) / trig) * rewardQty;
-      if (!pts) return;
+      const cum   = _spCumBought(cu, prod, order);            // この注文までの累計購入数
+      const should = Math.floor(cum / trig) * rewardQty;      // あるべき累計付与数
+      const already = _spAlreadyEarned(cu.id, s.id, prod);    // 既に付与済み
+      const pts = should - already;                           // 今回の差分
+      if (pts <= 0) return;
       totalPts += pts;
       msgs.push(`${prod} +${pts}本`);
       S.sponsorLogs.push({
@@ -4397,9 +4500,9 @@ function checkAndAddSponsorPoints(order){
         type: 'earned', qty: pts,
         date: order.date, orderId: order.id,
         sponsorId: s.id, sponsorName: s.name,
-        product: prod,            // 報酬は購入した商品と同じ（同一商品で還元）
+        product: prod,
         targetProduct: targetProd,
-        note: `${s.name}: ${prod} ${Math.abs(buyQty)}本購入 → 協賛+${pts}本`,
+        note: `${s.name}: 累計${cum}本 → 協賛${should}本（今回+${pts}）`,
         createdAt: new Date().toISOString(),
         createdBy: currentUser.name,
       });
