@@ -388,7 +388,12 @@ async function submitOrder(){
   const payload = {
     action: 'saveOrder',
     id: 'so-' + Date.now(),
-    timestamp: new Date().toLocaleString('ja-JP'),
+    // 注文日（U列）＝当日。日時（A列）も注文日基準に揃える（sales-stock 版f と同じ挙動）。
+    //   従来は注文日を送っておらず、日時も送信時刻のままだった。
+    date: (function(){ var d=new Date(); var p=function(n){return('0'+n).slice(-2);};
+      return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); })(),
+    timestamp: (function(){ var d=new Date(); var p=function(n){return('0'+n).slice(-2);};
+      return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); })(),
     branch: selCust.branch || '',
     staff: STAFF,
     store: selCust.name,
