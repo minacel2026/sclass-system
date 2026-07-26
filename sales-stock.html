@@ -3779,7 +3779,9 @@ function normalizeOrderQty(key){
 //   ④ 合計本数が「無料になる本数」以上なら 0円（LINE注文フォームと同じ判定）
 function _defaultShipFeeFor(cust, qtyTotal){
   var cfg = S.shipping || {};
-  var defFee = (typeof cfg.defaultFee === 'number') ? cfg.defaultFee : 950;
+  // 送料設定を読めていないときは 0円 とする（勝手に請求してしまうより、入っていない方が安全）。
+  // 「送料設定」シートの「デフォルト送料」を変えれば、個別送料が空の顧客すべてに一括で効く。
+  var defFee = (typeof cfg.defaultFee === 'number') ? cfg.defaultFee : 0;
   var freeQty = (typeof cfg.freeQty === 'number' && cfg.freeQty > 0) ? cfg.freeQty : 6;
   if (!cust) return 0;
   if (cust.freeShipping) return 0;                       // 常時送料無料の顧客
