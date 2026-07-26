@@ -222,6 +222,7 @@ footer{border-top:1px solid rgba(201,168,76,.15);padding:2rem;text-align:center;
 
 </head>
 <body>
+<div id="conn-banner" onclick="this.style.display='none'" style="display:none;position:fixed;top:0;left:0;right:0;z-index:2147483647;padding:14px 16px;text-align:center;font-weight:700;font-size:15px;color:#fff;cursor:pointer;box-shadow:0 3px 14px rgba(0,0,0,.4)">接続を確認しています…</div>
 <!-- 読み込み中/反映中オーバーレイ（共通） -->
 <div id="app-busy" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99999;flex-direction:column;align-items:center;justify-content:center;gap:1rem">
   <div class="app-busy-spin"></div>
@@ -875,7 +876,13 @@ updateStatus();
 
 // スプレッドシートと本当につながっているかを実際に試して、ヘッダーの表示を更新する。
 // 読み取り(diag)と書き込み(connTest)の両方を確認する。押す操作は不要で、開くと自動で走る。
+function _connBanner(bg, text, autohide){
+  var b=document.getElementById('conn-banner'); if(!b) return;
+  b.style.background=bg; b.textContent=text; b.style.display='block';
+  if(autohide) setTimeout(function(){ b.style.display='none'; }, 6000);
+}
 async function verifyConnection(gasEl){
+  var _bn=document.getElementById('conn-banner'); if(_bn){ _bn.style.background='#555'; _bn.textContent='接続を確認しています…'; _bn.style.display='block'; }
   var url = S.gasUrl;
   async function get(action){
     try{
@@ -889,8 +896,8 @@ async function verifyConnection(gasEl){
   if (!readOK){
     gasEl.textContent = '❌ つながっていません';
     gasEl.style.color = 'var(--red)';
-    gasEl.title = '読み取りに失敗：' + String((diag && diag._ng) || '不明')
-      + '／GASが新バージョンでデプロイされているか確認してください';
+    gasEl.title = '読み取りに失敗：' + String((diag && diag._ng) || '不明') + '／GASが新バージョンでデプロイされているか確認してください';
+    _connBanner('#c0392b', '❌ つながっていません — 理由：' + String((diag && diag._ng) || '不明') + '。GASのデプロイ／URLをご確認ください', false);
     return;
   }
   var w = await get('connTest');
@@ -898,15 +905,14 @@ async function verifyConnection(gasEl){
   if (writeOK){
     gasEl.textContent = '✅ 接続OK（書込可）';
     gasEl.style.color = 'var(--grn)';
-    gasEl.title = 'スプレッドシート「' + String(diag.spreadsheetName || '') + '」に読み書きできています（'
-      + String(w.at || '') + ' に記録）';
+    gasEl.title = 'スプレッドシート「' + String(diag.spreadsheetName || '') + '」に読み書きできています（' + String(w.at || '') + ' に記録）';
+    _connBanner('#1e7d4f', '✅ つながっています — スプレッドシート「' + String(diag.spreadsheetName || '') + '」に読み書きできました（' + String(w.at || '') + '）。タップで閉じる', true);
   } else {
     // 読み取りはできるが書き込みができない＝GASが古い版の可能性が高い
     gasEl.textContent = '⚠️ 読取のみ（書込×）';
     gasEl.style.color = 'var(--gold-l)';
-    gasEl.title = '読み取りはできますが、書き込みテストに失敗しました（'
-      + String((w && (w.error || w._ng)) || '不明')
-      + '）。GASを新バージョンでデプロイし直してください。';
+    gasEl.title = '読み取りはできますが、書き込みテストに失敗しました（' + String((w && (w.error || w._ng)) || '不明') + '）。GASを新バージョンでデプロイし直してください。';
+    _connBanner('#b5851f', '⚠️ 書き込みができません — GASを「新バージョンでデプロイ」し直してください。理由：' + String((w && (w.error || w._ng)) || '不明'), false);
   }
 }
 </script>
