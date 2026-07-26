@@ -1645,7 +1645,7 @@ function _qBadge(){
 }
 // キューを順に送る。成功したものだけ取り除く
 // このファイルの版。未送信パネルに表示するので、差し替えできているか一目で分かる
-var APP_VER = '2026-07-26e';
+var APP_VER = '2026-07-26f';
 var _qFlushing = false;   // 同時実行を防ぐ（重なると送信結果が上書きされデータを失う）
 async function _qFlush(manual){
   if (!S.gasUrl) return;
@@ -4102,13 +4102,24 @@ function submitNewOrder(){
     confirmedAmount = goodsAmount + shipFee;
   }
 
+  // A列(日時)は「注文日(業務日付)」を基準にする。
+  //   従来は入力/更新した瞬間の日時が入り、過去日付の注文でも日時が当日になっていた。
+  //   時刻は、元の作成日時があればその時刻を維持、無ければ現在時刻を付ける。
+  const _bizDate = document.getElementById('no-date').value || today();
+  let _origHM = '';
+  if (wasEditing && _editOrigTs){
+    const _m = String(_editOrigTs).match(/(\d{1,2}):(\d{2})/);
+    if (_m) _origHM = ('0'+_m[1]).slice(-2) + ':' + _m[2];
+  }
+  const _hm = _origHM || new Date().toTimeString().slice(0,5);
+  const _stamp = _bizDate + ' ' + _hm;   // 例: 2026-04-10 14:30（A列に入る値）
+
   const order = {
     id: editIdForSave || ('ord-' + Date.now()),  // 編集時は元IDを維持（重複防止）。新規は新ID
-    // 編集時は元の作成日時を維持する（A列が変わると行の照合ができなくなるため）
-    timestamp: (wasEditing && _editOrigTs) ? _editOrigTs : new Date().toLocaleString('ja-JP'),
-    _matchTimestamp: (wasEditing && _editOrigTs) ? _editOrigTs : '',   // O列が空の旧行を照合するための保険
-    date: document.getElementById('no-date').value || today(),
-    time: new Date().toTimeString().slice(0,5),
+    timestamp: _stamp,                       // A列(日時)＝注文日ベース。修正すると日時も追随する
+    _matchTimestamp: (wasEditing && _editOrigTs) ? _editOrigTs : '',   // 既存行の照合は「元のA列値」で行う（O列IDが主）
+    date: _bizDate,
+    time: _hm,
     branch: branch,
     staff: document.getElementById('no-staff').value,
     store: store,
