@@ -1769,6 +1769,8 @@ async function syncFromGAS(){
       //   保存は送信キュー経由（非同期）のため、サーバへ届く前にこの読み込みが走ると
       //   古いサーバデータで上書きされ、修正した注文日などが元に戻ってしまう。
       //   まだ送信できていない注文IDは、端末側の内容を優先して残す。
+      // ★GASの版を判定（この後の処理で timestamp を補完するため、必ず先に調べる）
+      const _gasIsOld = !!(ords.orders[0] && ords.orders[0].timestamp === undefined);
       const _pending = _pendingOrderIds();
       const _localById = {};
       (S.orders || []).forEach(function(o){ if (o && o.id) _localById[String(o.id)] = o; });
@@ -1795,6 +1797,27 @@ async function syncFromGAS(){
         if (o && o.id && !_seen[String(o.id)] && _pending[String(o.id)]) _merged.push(o);
       });
       S.orders = _merged;
+
+      // ★GASが古い版だと注文の修正が保存されない（既存行を更新できず新しい行が増える）。
+      //   新しいGASは getOrders で timestamp を返すため、それで版を判定して明示的に知らせる。
+      try {
+        if (_gasIsOld){
+          toast('⚠️ GASが古い版です。注文日などの修正が保存されず元に戻ります。最新のガステンプレートを貼り付けて「デプロイを管理→新バージョン」で更新してください', 'error');
+        }
+      } catch(e){}
+
+      // 同じ注文が二重に入っていないか点検（古いGASで修正すると重複行ができる）
+      try {
+        const _cnt = {};
+        S.orders.forEach(function(o){
+          const k = String(o._matchTs || o.timestamp || '') + '|' + String(o.store || '');
+          if (k.trim() !== '|') _cnt[k] = (_cnt[k] || 0) + 1;
+        });
+        const _dup = Object.keys(_cnt).filter(function(k){ return _cnt[k] > 1; }).length;
+        if (_dup > 0){
+          toast('⚠️ 重複した注文が ' + _dup + ' 件あります。GAS側で 診断_注文データ() を実行すると、どの行かが分かります', 'error');
+        }
+      } catch(e){}
     }
 
     // ── 送料設定（全体共通）──
