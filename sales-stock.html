@@ -4159,7 +4159,11 @@ function submitNewOrder(){
 
   const items = {};
   Object.entries(newOrderQty).forEach(([k,v]) => { if (v > 0) items[k] = v; });
-  if (Object.keys(items).length === 0) return toast('商品を選択してください', 'error');
+  // 有料商品が0でも、協賛・試供品が入っていれば登録できる（協賛のみ／試供品のみの注文に対応）
+  const _spTotalChk   = (typeof sponsorShipDraft!=='undefined' ? sponsorShipDraft : []).reduce((a,it)=>a+(it.qty||0),0);
+  const _freeTotalChk = (typeof freeShipDraft!=='undefined'   ? freeShipDraft   : []).reduce((a,it)=>a+(it.qty||0),0);
+  if (Object.keys(items).length === 0 && _spTotalChk === 0 && _freeTotalChk === 0)
+    return toast('商品・協賛・試供品のいずれかを入力してください', 'error');
 
   // 編集モードだったかを記録（メッセージ分岐用）＆ 編集時は注文IDを維持する
   const wasEditing = !!editingOrderId;
