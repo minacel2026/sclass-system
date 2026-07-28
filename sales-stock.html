@@ -1961,6 +1961,11 @@ async function syncFromGAS(){
     var pShip = gasGet('getShippingConfig');   // 送料設定（デフォルト送料・無料本数）
     var pMv = gasGet('getMoves');
     var pLd = gasGet('getLendings');   // タブの印（返却期限切れ）用。開かなくても出るように先読み
+    // ★起動高速化：従来は下で逐次 await gasGet(...) していた3本を、ここで並列launchに合流。
+    //   通信だけを t=0 で前倒しし、マージ処理は従来の await 位置のまま行う＝保存される数字は不変。
+    var pSlog = gasGet('getStockLogs', { limit: 1000 });
+    var pPur  = gasGet('getPurchases', { limit: 500 });
+    var pNew  = gasGet('getNewOrders', { since: '' });
 
     try { const pong = await pPing; if (pong && !pong.updateAllStock){ toast('⚠️ GASが古い版です。在庫がスプシに反映されません。最新のgas-templateを貼り付けて「デプロイを管理→新バージョン」で更新してください', 'error'); } } catch(e){}
 
@@ -1973,7 +1978,7 @@ async function syncFromGAS(){
     // ── 在庫履歴（別端末での入出庫も見えるように統合）──
     //   ローカルの履歴は消さず、サーバにしか無いものだけ足す
     try {
-      const sl = await gasGet('getStockLogs', { limit: 1000 });
+      const sl = await pSlog;   // ★冒頭で並列launch済み（通信は既に進行中）
       if (sl && sl.logs){
         const seen = {};
         (S.slog||[]).forEach(function(x){ if(x && x.id) seen[x.id]=1; });
@@ -1993,7 +1998,7 @@ async function syncFromGAS(){
     // ── 仕入（別端末で登録した分も見えるように統合）──
     //   ローカルにしか無い古い仕入は消さず、サーバ分と突き合わせて足りないものだけ追加する
     try {
-      const pu = await gasGet('getPurchases', { limit: 500 });
+      const pu = await pPur;   // ★冒頭で並列launch済み（通信は既に進行中）
       if (pu && pu.purchases){
         const have = {};
         (S.purchases||[]).forEach(function(x){ if(x && x.id) have[x.id]=x; });
@@ -2113,7 +2118,7 @@ async function syncFromGAS(){
     }
 
     // ── 新着注文は getOrders 完了後（S.orders へ追加）＝直列を維持（数字を狂わせない要） ──
-    const ord = await gasGet('getNewOrders', { since: '' });
+    const ord = await pNew;   // ★冒頭で並列launch済み。突き合わせは S.orders 確定後のこの位置で実施＝順序不変
     if (ord && Array.isArray(ord.orders)){
       let added = 0;
       ord.orders.forEach(function(o){
