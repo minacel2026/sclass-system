@@ -3865,6 +3865,8 @@ function changeOrderQty(key, delta){
   if (_el) _el.value = newOrderQty[key];              // 入力欄なので value を更新
   document.getElementById('pc-' + key).classList.toggle('has-qty', newOrderQty[key] > 0);
   updateOrderTotal();
+  updateSpColNote();   // ★販売数(+/-)で協賛の付与予定が変わるため、使える本数を即再表示（数値直接入力 setOrderQty と同じ挙動に）
+  if (typeof updateSealHint==='function') updateSealHint();
 }
 
 // ── 協賛列（無料出荷）── 既存の sponsorShipDraft を読み書きするので、保存・在庫・残数の処理は変更不要
