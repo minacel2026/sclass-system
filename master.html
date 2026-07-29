@@ -547,7 +547,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
     </div>
 
     <!-- 新規登録 -->
-    <div id="tab-new" class="tcon">
+    <div id="tab-new" class="tcon" onkeydown="custFormKey(event)">
       <div class="action-bar">
         <button class="btn-s" onclick="switchCustTab('list',document.querySelectorAll('#m-customers .tab')[0])">← 一覧に戻る</button>
         <span id="edit-status" style="color:var(--gold-l);font-size:.8rem"></span>
@@ -703,6 +703,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
                 <option value="なし">含めない</option>
               </select>
             </div>
+            <div class="fg"><label style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="checkbox" id="cf-ship-always" style="width:16px;height:16px;accent-color:var(--gold)"> 本数に関わらず送料を取る <span class="hint">規定本数以上でも無料にせず、常に上の送料を請求する</span></label></div>
           </div>
         </div>
         <div class="form-section">
@@ -1886,7 +1887,7 @@ function renderKanaTabs(base){
 function listNav(e){
   var box = document.getElementById((e.target && e.target.dataset && e.target.dataset.listnav) || '');
   if (!box) return;
-  var rows = Array.prototype.slice.call(box.querySelectorAll('tbody tr[onclick]'))
+  var rows = Array.prototype.slice.call(box.querySelectorAll('tr[onclick]'))
               .filter(function(r){ return r.offsetParent !== null; });   // 見えている行だけ
   if (!rows.length) return;
   var cur = rows.findIndex(function(r){ return r.classList.contains('knav-hi'); });
@@ -2283,6 +2284,7 @@ function fillCustForm(c){
   document.getElementById('cf-sponsor-instant').checked = !!c.sponsorInstant;
   document.getElementById('cf-ship-fee').value = (c.shipFee != null) ? c.shipFee : '';
   document.getElementById('cf-ship-include-sponsor').value = (c.shipIncludeSponsor === 'なし') ? 'なし' : 'あり';
+  document.getElementById('cf-ship-always').checked = !!c.shipAlways;
   document.getElementById('sponsor-rules').style.display = c.sponsorEnabled ? 'block' : 'none';
   rebuildCustSponsorOptions();
   renderCustSponsors();
@@ -2327,6 +2329,7 @@ function clearCustForm(){
   document.getElementById('cf-sponsor').checked = false;
   document.getElementById('cf-sponsor-instant').checked = false;
   document.getElementById('cf-ship-include-sponsor').value = 'あり';
+  document.getElementById('cf-ship-always').checked = false;
   updateReferrerOptions('');
   custSponsorIds = [];
   document.getElementById('sponsor-rules').style.display = 'none';
@@ -2343,6 +2346,11 @@ function clearCustForm(){
 function cancelCustEdit(){
   clearCustForm();
   switchCustTab('list', document.querySelectorAll('#m-customers .tab')[0]);
+}
+// 顧客フォームのキーボードショートカット：Esc＝キャンセル / Ctrl(⌘)+Enter＝保存
+function custFormKey(e){
+  if (e.key === 'Escape'){ e.preventDefault(); cancelCustEdit(); }
+  else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); submitCustForm(); }
 }
 
 function renderCustContacts(){
@@ -2670,6 +2678,7 @@ function submitCustForm(){
     freeShipping: (function(){ var _o=(S.customers||[]).find(function(x){return x.id===custEditingId;}); return (_o&&_o.freeShipping)||false; })(),  // UIから外したが、既存の常時無料設定は保持（レガシー保護）
     shipFee: g('cf-ship-fee'),
     shipIncludeSponsor: g('cf-ship-include-sponsor'),
+    shipAlways: document.getElementById('cf-ship-always').checked,
     // 詳細情報（分析用）
     bizType:      g('cf-biz-type'),
     openDate:     g('cf-open-date'),
