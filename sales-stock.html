@@ -4027,7 +4027,7 @@ function _defaultShipFeeFor(cust, qtyTotal){
   var own = (cust.shipFee !== undefined && cust.shipFee !== null && String(cust.shipFee).trim() !== '')
               ? Number(cust.shipFee) : NaN;
   if (!isFinite(own) || own <= 0) return 0;              // 空欄・0・不正 → 送料なし
-  if ((qtyTotal || 0) >= freeQty) return 0;              // 規定本数以上は無料
+  if (!cust.shipAlways && (qtyTotal || 0) >= freeQty) return 0;   // 規定本数以上は無料（ただし「本数に関わらず送料を取る」顧客は除外）
   return Math.max(0, Math.round(own));
 }
 // 送料欄に初期値を入れる。手入力で変更された後は上書きしない（注文ごとに変わる場合に対応）
