@@ -891,8 +891,11 @@ async function verifyConnection(gasEl){
       try { return JSON.parse(await r.text()); } catch(e){ return { _ng:'応答が読めません' }; }
     }catch(e){ return { _ng:String((e && e.message) || e) }; }
   }
-  var diag = await get('diag');
-  var readOK = !!(diag && diag.ok);
+  // ★高速化：重い diag（全シート走査＋注文受付を全読み・約9秒）は使わず、軽い ping で読み取り確認。
+  //   さらに読み取り(ping)と書き込み(connTest)を並列実行し、接続診断を約11秒→約3秒に短縮。
+  var _res = await Promise.all([ get('ping'), get('connTest') ]);
+  var diag = _res[0], w = _res[1];
+  var readOK = !!(diag && (diag.ok || diag.status === 'ok'));
   if (!readOK){
     gasEl.textContent = '❌ つながっていません';
     gasEl.style.color = 'var(--red)';
@@ -900,13 +903,12 @@ async function verifyConnection(gasEl){
     _connBanner('#c0392b', '❌ つながっていません — 理由：' + String((diag && diag._ng) || '不明') + '。GASのデプロイ／URLをご確認ください', false);
     return;
   }
-  var w = await get('connTest');
   var writeOK = !!(w && w.ok && w.wrote);
   if (writeOK){
     gasEl.textContent = '✅ 接続OK（書込可）';
     gasEl.style.color = 'var(--grn)';
-    gasEl.title = 'スプレッドシート「' + String(diag.spreadsheetName || '') + '」に読み書きできています（' + String(w.at || '') + ' に記録）';
-    _connBanner('#1e7d4f', '✅ つながっています — スプレッドシート「' + String(diag.spreadsheetName || '') + '」に読み書きできました（' + String(w.at || '') + '）。タップで閉じる', true);
+    gasEl.title = 'スプレッドシートに読み書きできています（' + String(w.at || '') + ' に記録）';
+    _connBanner('#1e7d4f', '✅ つながっています — スプレッドシートに読み書きできました（' + String(w.at || '') + '）。タップで閉じる', true);
   } else {
     // 読み取りはできるが書き込みができない＝GASが古い版の可能性が高い
     gasEl.textContent = '⚠️ 読取のみ（書込×）';
