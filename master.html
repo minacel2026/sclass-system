@@ -2511,7 +2511,7 @@ function renderCustProdRates(existing){
     <div class="prate-item">
       <div class="prate-name">${escapeHtml(p.name)}</div>
       <div class="prate-controls">
-        <input type="number" id="pr-${p.key}" step="0.5" min="0" max="10"
+        <input type="number" id="pr-${p.key}" step="0.01" min="0" max="10"
           value="${existMap[p.key]||''}" placeholder="掛率">
         <select id="pm-${p.key}" title="価格モード">
           <option value="新値" ${mode==='新値'?'selected':''}>新値</option>

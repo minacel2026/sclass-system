@@ -666,7 +666,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         </div>
         <div class="fg"><label>拠点</label><select class="fc" id="no-branch" onchange="renderNewOrderProds(); fillTantouCandidates(true)"><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>担当者</label><select class="fc" id="no-staff"><option value="">選択してください</option></select></div>
-        <div class="fg"><label>掛率</label><input class="fc" id="no-rate" type="number" step="0.5" min="0" max="10" value="7" oninput="updateOrderTotal()"></div>
+        <div class="fg"><label>掛率</label><input class="fc" id="no-rate" type="number" step="0.01" min="0" max="10" value="7" oninput="updateOrderTotal()"></div>
       </div>
       <div class="frow" style="margin-top:.5rem">
         <div class="fg"><label>注文種別</label><select class="fc" id="no-ordtype" onchange="onOrderTypeChange()"><option value="normal">通常注文</option><option value="sponsor">🎁 協賛注文（無料出荷）</option></select></div>
