@@ -1609,7 +1609,12 @@ setInterval(function(){ if(_qLoad().length) _qFlush(false); }, 30000);
 window.addEventListener('load', function(){ setTimeout(function(){ _qBadge(); _qFlush(false); }, 1500); });
 // 未送信があるまま閉じようとしたら警告
 window.addEventListener('beforeunload', function(e){
-  if(_qLoad().length){ e.preventDefault(); e.returnValue='未送信のデータがあります。画面を閉じてもよろしいですか？'; return e.returnValue; }
+  // 送信中／送信待ち（_try:0＝まだ一度も失敗していない）では警告しない。
+  //   キューはlocalStorageに残り、次にこのページを開いた時（load時・30秒ごと・オンライン復帰時）に
+  //   自動で再送されるので消えない。＝保存直後に画面を離れても誤って警告が出ていた問題を解消。
+  // 「本当に送れていない＝1回以上送信に失敗している」項目がある時だけ警告する。
+  var stuck = _qLoad().filter(function(it){ return it && (it._try||0) >= 1; });
+  if(stuck.length){ e.preventDefault(); e.returnValue='未送信のデータがあります。画面を閉じてもよろしいですか？'; return e.returnValue; }
 });
 
 
