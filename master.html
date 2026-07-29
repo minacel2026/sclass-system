@@ -703,7 +703,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
                 <option value="なし">含めない</option>
               </select>
             </div>
-            <div class="fg"><label style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="checkbox" id="cf-ship-always" style="width:16px;height:16px;accent-color:var(--gold)"> 本数に関わらず送料を取る <span class="hint">規定本数以上でも無料にせず、常に上の送料を請求する</span></label></div>
+            <div class="fg" style="margin-top:.7rem;padding-top:.7rem;border-top:1px solid rgba(255,255,255,.06)"><label style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="checkbox" id="cf-ship-always" style="width:16px;height:16px;accent-color:var(--gold)"> 本数に関わらず送料を取る <span class="hint">規定本数以上でも無料にせず、常に上の送料を請求する</span></label></div>
           </div>
         </div>
         <div class="form-section">
@@ -2301,7 +2301,12 @@ function fillCustForm(c){
   g('cf-biz-hours').value     = c.bizHours     || '';
   g('cf-avg-spend').value     = c.avgSpend     || '';
   toggleCustSponsor();
-  custContactRows = (c.contacts && c.contacts.length > 0) ? [...c.contacts] : [];
+  // 担当者：空の行は除外し、実データが無ければ1行だけ表示（あとは「＋担当者を追加」で増やす）
+  var _cts = c.contacts;
+  if (typeof _cts === 'string'){ try { _cts = JSON.parse(_cts); } catch(e){ _cts = []; } }
+  if (!Array.isArray(_cts)) _cts = [];
+  _cts = _cts.filter(function(r){ return r && (r.name || r.tel); }).map(function(r){ return {name:r.name||'', tel:r.tel||''}; });
+  custContactRows = _cts.length ? _cts : [{name:'',tel:''}];
   renderCustContacts();
   custBankRows = (c.bankNames && c.bankNames.length > 0) ? [...c.bankNames] : [];
   renderCustBanks();
@@ -2335,7 +2340,7 @@ function clearCustForm(){
   document.getElementById('sponsor-rules').style.display = 'none';
   renderCustSponsors();
   toggleCustSponsor();
-  custContactRows = []; custBankRows = []; custDeliveryRows = [];
+  custContactRows = [{name:'',tel:''}]; custBankRows = []; custDeliveryRows = [];
   renderCustContacts(); renderCustBanks(); renderCustDeliveries();
   renderCustProdRates([]);
   document.getElementById('edit-status').textContent = '';

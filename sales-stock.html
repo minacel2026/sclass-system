@@ -3173,6 +3173,9 @@ function submitSpAdjust(){
   saveState();
   if(S.gasUrl){ try{ gasPost({action:'saveSponsorLog', ...log}); }catch(e){} }
   toast('✓ 協賛残数を調整しました（'+(qty>0?'+':'')+qty+'本／残 '+(bal.pts+qty)+'本）');
+  // 反映後は入力欄を一度リセット（次の入力に備える。日付は連続入力しやすいよう保持）
+  var _c=document.getElementById('spa-cust'); if(_c) _c.value='';
+  var _p=document.getElementById('spa-prod'); if(_p) _p.value='';
   document.getElementById('spa-qty').value='';
   document.getElementById('spa-memo').value='';
   renderSpAdjustInfo();
