@@ -670,7 +670,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg"><label>掛率</label><input class="fc" id="no-rate" type="number" step="0.01" min="0" max="10" value="7" oninput="updateOrderTotal()"></div>
       </div>
       <div class="frow" style="margin-top:.5rem">
-        <div class="fg"><label>注文種別</label><select class="fc" id="no-ordtype" onchange="onOrderTypeChange()"><option value="normal">通常注文</option><option value="sponsor">🎁 協賛注文（無料出荷）</option></select></div>
+        <div class="fg" style="display:none"><label>注文種別</label><select class="fc" id="no-ordtype" onchange="onOrderTypeChange()"><option value="normal">通常注文</option><option value="sponsor">🎁 協賛注文（無料出荷）</option></select></div>
         <div class="fg"><label>価格モード</label><select class="fc" id="no-pricemode" onchange="updateOrderTotal()"><option value="新値">新値</option><option value="旧値">旧値</option></select></div>
         <div class="fg"><label>税</label><select class="fc" id="no-tax" onchange="updateOrderTotal()"><option value="税込">税込（合計に+10%）</option><option value="税抜">税抜</option></select></div>
         <div class="fg"><label>連絡先</label><input class="fc" id="no-contact" placeholder="連絡先名"></div>
