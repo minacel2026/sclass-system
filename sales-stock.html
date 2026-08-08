@@ -916,6 +916,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
           <div class="fg"><label>棚卸日</label><input class="fc" id="st-date" type="date" min="2000-01-01" max="2100-12-31"></div>
           <div class="fg"><label>拠点 <span class="req">*</span></label><select class="fc" id="st-branch" onchange="renderStocktakeForm()"><option>仙台</option><option>京都</option></select></div>
           <div class="fg"><label>&nbsp;</label><button class="btn btn-g" style="display:flex;align-items:center;justify-content:center;white-space:nowrap" onclick="fillStocktakeWithBook()" title="実数欄に帳簿の数を入れます（差異のある商品だけ直す使い方）">帳簿値をコピー</button></div>
+          <div class="fg"><label>&nbsp;</label><button class="btn-s" style="display:flex;align-items:center;justify-content:center;white-space:nowrap" onclick="printStocktakeSheet()" title="登録商品一覧＋チェック欄のA4シートを印刷（手書き・保管用）">🖨 A4棚卸シート印刷</button></div>
         </div>
       </div>
       <div id="st-form"></div>
@@ -3180,6 +3181,7 @@ function submitSpAdjust(){
   document.getElementById('spa-memo').value='';
   renderSpAdjustInfo();
   if(typeof renderSponsor==='function') renderSponsor();
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e){ window.scrollTo(0,0); }   // 反映後は一番上へ
 }
 
 // 繰越購入数（carrybuy）を登録：制度開始前の購入本数を累計に加える（協賛残数は増やさない・進捗だけ繰越）
@@ -3211,6 +3213,7 @@ function submitSpCarry(){
   toast('✓ 繰越購入数を登録しました（'+prod+' '+qty+'本）');
   document.getElementById('spa-carry-qty').value='';
   renderSpAdjustInfo();
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e){ window.scrollTo(0,0); }   // 登録後は一番上へ
 }
 
 // 協賛残数の商品別内訳（付与商品ごとに earned − used）
@@ -5375,6 +5378,58 @@ function renderStocktakeForm(){
   _prodColsAll().forEach(function(p){ renderStocktakeRowDiff(p.key); });
 }
 // 記録する
+// 月末在庫用：登録商品一覧＋チェック欄のA4棚卸シートを印刷（手書き・保管用）
+function printStocktakeSheet(){
+  var br = (document.getElementById('st-branch')||{}).value || '仙台';
+  var prods = (typeof _prodColsAll==='function') ? _prodColsAll(br, '') : [];
+  if (!prods.length){ toast('商品が読み込めていません。GAS同期後にお試しください'); return; }
+  var now = new Date();
+  var ymText = now.getFullYear()+'年 '+(now.getMonth()+1)+'月';
+  var rows = prods.map(function(p){
+    var bk = (typeof _bkt==='function') ? _bkt(br, p.key) : {old:0,sp:0,new:0};
+    var book = (bk.old||0)+(bk.sp||0)+(bk.new||0);
+    return '<tr><td class="chk">□</td><td class="nm">'+escapeHtml(p.name||'')+'</td><td class="num book">'+book+'</td><td class="num"></td><td class="num"></td><td class="memo"></td></tr>';
+  }).join('');
+  var html = '<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>月末在庫 棚卸シート '+br+'</title><style>'
+    + '@page{size:A4 portrait;margin:12mm}'
+    + '*{box-sizing:border-box}'
+    + 'body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;color:#000;font-size:11px;margin:0}'
+    + 'h1{font-size:16px;margin:0 0 2px}'
+    + '.sub{font-size:10px;color:#555;margin-bottom:8px}'
+    + '.hdr{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11px;margin-bottom:8px;border:1px solid #333;padding:6px 8px}'
+    + '.blank{display:inline-block;border-bottom:1px solid #333;min-width:70px}'
+    + 'table{width:100%;border-collapse:collapse}'
+    + 'th,td{border:1px solid #333;padding:3px 6px}'
+    + 'th{background:#eee;font-size:10px}'
+    + '.chk{width:22px;text-align:center;font-size:14px}'
+    + '.nm{text-align:left}'
+    + '.num{width:64px;text-align:right}'
+    + '.book{color:#666}'
+    + '.memo{width:130px}'
+    + 'tbody tr{height:22px}'
+    + '.foot{margin-top:10px;font-size:10px;display:flex;justify-content:space-between}'
+    + '@media print{.noprint{display:none}}'
+    + '</style></head><body>'
+    + '<h1>月末在庫 棚卸チェックシート</h1>'
+    + '<div class="sub">拠点：'+br+'　／　登録商品 '+prods.length+' 品目　／　出力：'+now.getFullYear()+'/'+(now.getMonth()+1)+'/'+now.getDate()+'</div>'
+    + '<div class="hdr">'
+    +   '<span><b>拠点：</b>'+br+'</span>'
+    +   '<span><b>対象月：</b><span class="blank">'+ymText+'</span></span>'
+    +   '<span><b>実施日：</b><span class="blank"></span></span>'
+    +   '<span><b>実施者（数えた人）：</b><span class="blank" style="min-width:110px"></span></span>'
+    +   '<span><b>確認者：</b><span class="blank" style="min-width:90px"></span></span>'
+    + '</div>'
+    + '<table><thead><tr><th class="chk">✓</th><th class="nm">商品名</th><th class="num">帳簿(参考)</th><th class="num">実数</th><th class="num">差異</th><th class="memo">備考</th></tr></thead><tbody>'
+    + rows
+    + '</tbody></table>'
+    + '<div class="foot"><span>※ 実数を数えたら ✓ を記入 → 帳簿との差異を記入。保管用に署名してください。</span><span>実施者印：______　確認者印：______</span></div>'
+    + '<div class="noprint" style="text-align:center;margin-top:14px"><button onclick="window.print()" style="padding:8px 20px;font-size:14px;cursor:pointer">印刷する</button></div>'
+    + '<scr'+'ipt>setTimeout(function(){try{window.print();}catch(e){}},400);<\/scr'+'ipt>'
+    + '</body></html>';
+  var w = window.open('', '_blank');
+  if (!w){ toast('ポップアップがブロックされました。ブラウザで許可してから再度お試しください'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
 async function submitStocktake(){
   if (typeof canEdit === 'function' && !canEdit()) return toast('🔒 編集権限がありません', 'error');
   var br = (document.getElementById('st-branch')||{}).value || '';
@@ -5404,6 +5459,7 @@ async function submitStocktake(){
   stocktakeReal = {};
   renderStocktakeForm();
   loadStocktakes(true);
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e){ window.scrollTo(0,0); }   // 記録後は一番上へ
 }
 // 履歴の取得と描画
 async function loadStocktakes(force){
@@ -6419,6 +6475,7 @@ function _backToOrderKind(){
   sel.value = 'order';
   try { switchEntryKind('order'); } catch(e){}
   try { sel.focus(); } catch(e){}
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e){ window.scrollTo(0,0); }  // 登録後は一番上（取引種別）へ戻す
 }
 function switchEntryKind(kind){
   // 別の種別へ移ったら「修正中」は自動解除（元の記録はそのまま残る）
@@ -6780,6 +6837,7 @@ async function saveStockInit(){
   syncStockToGAS();
   toast(`✓ ${br}の在庫を初期登録（上書き）しました`);
   renderStock(); renderStockInit(); updateKPI();
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e){ window.scrollTo(0,0); }   // 登録後は一番上へ
 }
 
 function syncStockToGAS(){
