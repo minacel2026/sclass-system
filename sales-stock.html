@@ -1796,24 +1796,54 @@ function canDelete(){ return currentUser && ['admin','manager','president'].incl
 function canAdjust(){ return currentUser && ['admin','manager','staff'].includes(currentUser.role); }
 
 // ─── 親タブ切替 ─────
+// ─── 部分出荷の純ロジック（在庫・保存には一切触れない。読み取りと計算のみ）───
+// 注文の「出荷済数」マップ。o.shipped が無い古いデータは status から推定（出荷済＝全量／それ以外＝0）。
+function orderShipped(o){
+  if (!o) return {};
+  var sh = o.shipped;
+  if (typeof sh === 'string'){ try { sh = JSON.parse(sh); } catch(e){ sh = null; } }
+  if (sh && typeof sh === 'object'){
+    var out = {}; Object.keys(sh).forEach(function(k){ var v = Number(sh[k]) || 0; if (v > 0) out[k] = v; }); return out;
+  }
+  // 古いデータの遅延移行：出荷済なら全量出荷済、それ以外は未出荷（0）
+  if (shipStatus(o) === '出荷済'){
+    var all = {}; Object.entries(o.items || {}).forEach(function(e){ var v = Number(e[1]) || 0; if (v > 0) all[e[0]] = v; }); return all;
+  }
+  return {};
+}
+// この注文・この商品の残り（未出荷）本数
+function remainingQty(o, product){
+  var ordered = Number((o.items || {})[product]) || 0;
+  var shipped = Number(orderShipped(o)[product]) || 0;
+  return Math.max(0, ordered - shipped);
+}
+// 注文全体の出荷状態を明細から判定：未発送／一部出荷／出荷済
+function deriveShipState(o){
+  var items = o.items || {}, sh = orderShipped(o), ordTot = 0, shpTot = 0;
+  Object.keys(items).forEach(function(p){ ordTot += Number(items[p]) || 0; });
+  Object.keys(sh).forEach(function(p){ shpTot += Math.min(Number(sh[p]) || 0, Number(items[p]) || 0); });
+  if (ordTot <= 0 || shpTot <= 0) return '未発送';
+  if (shpTot >= ordTot) return '出荷済';
+  return '一部出荷';
+}
 // ─── 取り寄せ管理（フェーズ1：表示のみ／在庫・保存には一切触れない）───
 //   未出荷（出荷済でない）の注文明細を、拠点×商品ごとに集計して「あと何本必要か」を見える化する。
 //   ※現状は注文まるごと単位（部分出荷はフェーズ2で対応予定）。
 function renderBackorders(){
   var box = document.getElementById('backorder-list');
   if (!box) return;
-  var orders = (S.orders || []).filter(function(o){ return o && shipStatus(o) !== '出荷済' && o.status !== 'キャンセル'; });
+  var orders = (S.orders || []).filter(function(o){ return o && o.status !== 'キャンセル'; });
   var nameMap = {};
   ['仙台','京都'].forEach(function(b){ (_prodColsAll(b, '') || []).forEach(function(p){ nameMap[p.key] = p.name; }); });
   var agg = {};   // key = 拠点|商品
   orders.forEach(function(o){
     var br = o.branch || '仙台';
-    Object.entries(o.items || {}).forEach(function(e){
-      var p = e[0], q = Number(e[1]) || 0; if (q <= 0) return;
+    Object.keys(o.items || {}).forEach(function(p){
+      var rem = remainingQty(o, p); if (rem <= 0) return;   // 残り（未出荷）だけ集計。一部出荷にも自動対応
       var k = br + '|' + p;
       if (!agg[k]) agg[k] = { branch: br, prod: p, total: 0, list: [] };
-      agg[k].total += q;
-      agg[k].list.push({ store: o.store || '', qty: q, date: o.date || '' });
+      agg[k].total += rem;
+      agg[k].list.push({ store: o.store || '', qty: rem, date: o.date || '' });
     });
   });
   var keys = Object.keys(agg);
@@ -4643,8 +4673,19 @@ function reservedFor(branch, product, excludeId){
   (S.orders || []).forEach(o => {
     if (excludeId && String(o.id) === String(excludeId)) return;
     if ((o.branch || '') !== branch) return;
-    if (shipStatus(o) === '出荷済') return;  // 出荷済は実在庫から引き済みなので引当に含めない
-    r += ((o.items && o.items[product]) || 0) + ((o.sponsorItems && o.sponsorItems[product]) || 0);
+    if (o.status === 'キャンセル') return;
+    // 引当＝まだ出荷していない分（残り）。出荷済分は既に実在庫から引かれているので含めない。
+    // remainingQty があれば「注文数−出荷済数」で部分出荷に対応。無ければ従来どおり（出荷済は全量除外）。
+    if (typeof remainingQty === 'function'){
+      r += remainingQty(o, product);
+      var _shSp = (typeof orderShipped === 'function') ? (Number(orderShipped(o)[product]) || 0) : 0;
+      var _spOrder = (o.sponsorItems && o.sponsorItems[product]) || 0;
+      // 協賛分は items の出荷済数に含まれない範囲でのみ引当（協賛は現状まるごと出荷/未出荷）
+      if (shipStatus(o) !== '出荷済') r += _spOrder;
+    } else {
+      if (shipStatus(o) === '出荷済') return;
+      r += ((o.items && o.items[product]) || 0) + ((o.sponsorItems && o.sponsorItems[product]) || 0);
+    }
   });
   return r;
 }
