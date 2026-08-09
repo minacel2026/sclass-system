@@ -592,6 +592,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
     <button class="mtab" onclick="switchModule('lending',this)"><span class="mtab-ic">🤝</span>貸借管理<span id="mtab-lending-dot" class="tab-dot" style="display:none"></span></button>
     <button class="mtab" onclick="switchModule('moves',this)"><span class="mtab-ic">🚚</span>拠点移動<span id="mtab-moves-dot" class="tab-dot" style="display:none"></span></button>
     <button class="mtab" onclick="switchModule('purchase',this)"><span class="mtab-ic">🚚</span>仕入管理<span id="mtab-purchase-dot" class="tab-dot" style="display:none"></span></button>
+    <button class="mtab" onclick="switchModule('backorder',this)"><span class="mtab-ic">🧾</span>取り寄せ管理<span id="mtab-backorder-dot" class="tab-dot" style="display:none"></span></button>
     <button class="mtab" onclick="switchModule('inventory',this)"><span class="mtab-ic">📦</span>棚卸計算</button>
     <button class="mtab" onclick="switchModule('sponsor',this)"><span class="mtab-ic">🎁</span>協賛管理</button>
   </div>
@@ -890,6 +891,14 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <tbody id="pu-tbody"></tbody>
       </table>
     </div>
+  </div>
+
+  <!-- ════════ 取り寄せ管理 ════════ -->
+  <div id="m-backorder" class="mcon">
+    <div class="tw" style="margin-bottom:.6rem">
+      <div class="th-area" style="display:flex;align-items:center;gap:.5rem"><h3>🧾 取り寄せ管理（未出荷の注文を商品ごとに集計）</h3><button class="btn-s" style="margin-left:auto" onclick="renderBackorders()">🔄 更新</button></div>
+    </div>
+    <div id="backorder-list"></div>
   </div>
 
   <!-- ════════ 棚卸計算 ════════ -->
@@ -1787,6 +1796,60 @@ function canDelete(){ return currentUser && ['admin','manager','president'].incl
 function canAdjust(){ return currentUser && ['admin','manager','staff'].includes(currentUser.role); }
 
 // ─── 親タブ切替 ─────
+// ─── 取り寄せ管理（フェーズ1：表示のみ／在庫・保存には一切触れない）───
+//   未出荷（出荷済でない）の注文明細を、拠点×商品ごとに集計して「あと何本必要か」を見える化する。
+//   ※現状は注文まるごと単位（部分出荷はフェーズ2で対応予定）。
+function renderBackorders(){
+  var box = document.getElementById('backorder-list');
+  if (!box) return;
+  var orders = (S.orders || []).filter(function(o){ return o && shipStatus(o) !== '出荷済' && o.status !== 'キャンセル'; });
+  var nameMap = {};
+  ['仙台','京都'].forEach(function(b){ (_prodColsAll(b, '') || []).forEach(function(p){ nameMap[p.key] = p.name; }); });
+  var agg = {};   // key = 拠点|商品
+  orders.forEach(function(o){
+    var br = o.branch || '仙台';
+    Object.entries(o.items || {}).forEach(function(e){
+      var p = e[0], q = Number(e[1]) || 0; if (q <= 0) return;
+      var k = br + '|' + p;
+      if (!agg[k]) agg[k] = { branch: br, prod: p, total: 0, list: [] };
+      agg[k].total += q;
+      agg[k].list.push({ store: o.store || '', qty: q, date: o.date || '' });
+    });
+  });
+  var keys = Object.keys(agg);
+  if (!keys.length){
+    box.innerHTML = '<div class="tw" style="text-align:center;color:var(--wh3);padding:1rem">未出荷の注文はありません 🎉</div>';
+    return;
+  }
+  var html = '';
+  ['仙台','京都'].forEach(function(br){
+    var bkeys = keys.filter(function(k){ return agg[k].branch === br; })
+                    .sort(function(a, b){ return agg[b].total - agg[a].total; });
+    if (!bkeys.length) return;
+    var rows = bkeys.map(function(k){
+      var a = agg[k];
+      var bk = (typeof _bkt === 'function') ? _bkt(br, a.prod) : { old:0, sp:0, new:0 };
+      var phys = (bk.old||0) + (bk.sp||0) + (bk.new||0);
+      var diff = phys - a.total;   // マイナス＝不足（仕入れが必要）
+      var diffCol = diff < 0
+        ? '<span style="color:var(--red);font-weight:700">不足 ' + (-diff) + '本</span>'
+        : '<span style="color:var(--grn)">在庫内 (+' + diff + ')</span>';
+      var detail = a.list.slice().sort(function(x, y){ return String(x.date||'').localeCompare(String(y.date||'')); })
+        .map(function(d){ return escapeHtml(d.store || '(不明)') + ' ' + d.qty + '本' + (d.date ? '（' + String(d.date).slice(5) + '）' : ''); })
+        .join(' / ');
+      return '<tr><td>' + escapeHtml(nameMap[a.prod] || a.prod) + '</td>'
+        + '<td class="col-qty" style="font-weight:700">' + a.total + '</td>'
+        + '<td class="col-qty">' + phys + '</td>'
+        + '<td class="col-qty">' + diffCol + '</td>'
+        + '<td style="font-size:.72rem;color:var(--wh2)">' + detail + '</td></tr>';
+    }).join('');
+    html += '<div class="tw" style="margin-bottom:1rem"><div class="th-area"><h3>📍 ' + br + '</h3></div>'
+      + '<table><thead><tr><th>商品</th><th class="col-qty">未出荷</th><th class="col-qty">実在庫</th><th class="col-qty">過不足</th><th>注文（店舗・本数）</th></tr></thead><tbody>'
+      + rows + '</tbody></table></div>';
+  });
+  var note = '<div class="hint-box" style="margin-bottom:.6rem">未出荷（出荷済でない）の注文明細を、拠点×商品ごとに集計しています。<b>「不足」＝仕入れが必要な本数</b>の目安です。<br>※現在は注文まるごと単位で集計しています（商品ごとの部分出荷はこの次の段階で対応予定）。</div>';
+  box.innerHTML = note + html;
+}
 function switchModule(name, el){
   // 注文登録タブから他タブへ移動しても、入力途中（販売・協賛など）は保持する。
   // まっさらにしたいときは「クリア」ボタン。登録後は自動でクリアされる。
@@ -1804,6 +1867,7 @@ function switchModule(name, el){
   if (name === 'sponsor')   { renderSponsor(); if(typeof initSpAdjustForm==='function') initSpAdjustForm(); }
   if (name === 'lending')  { _markSeen('lending'); loadLending(); }
   if (name === 'moves')     loadMoves();
+  if (name === 'backorder') renderBackorders();
 }
 
 // ─── KPI更新 ─────
