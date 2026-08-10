@@ -210,7 +210,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .tab-dot.danger{background:#e0685f;box-shadow:0 0 0 0 rgba(224,104,95,.7);animation:tabDotPulseLate 1.4s infinite}
 .tab-dot.late{background:#e6a23c;box-shadow:0 0 0 0 rgba(230,162,60,.7);animation:tabDotPulseLate 1.4s infinite}
 @keyframes tabDotPulseLate{0%{box-shadow:0 0 0 0 rgba(230,162,60,.7)}70%{box-shadow:0 0 0 7px rgba(230,162,60,0)}100%{box-shadow:0 0 0 0 rgba(230,162,60,0)}}
-body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-transfer,body.no-adjust #lend-opening,body.no-adjust #sp-manual-adjust,body.no-adjust .st-adj,body.no-adjust .c-adj{display:none!important}
+body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-transfer,body.no-adjust #lend-opening,body.no-adjust #sp-manual-adjust,body.no-adjust .st-adj,body.no-adjust .c-adj{display:none!important}
 .t-mini{display:none}
 @media (max-width:768px){
   /* 在庫一覧（#stock-grid）だけ：横スクロールせず小さい文字で1行に収める */
@@ -854,11 +854,11 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="fg"><label>状態</label><select class="fc" id="st-state" onchange="renderStock()"><option value="">すべて</option><option value="low">補充警告のみ</option><option value="out">在庫切れのみ</option></select></div>
         <div class="fg"><label>種類</label><select class="fc" id="st-group" onchange="renderStock()"><option value="">すべて</option><option value="wine">🍷 お酒</option><option value="supply">📦 備品</option><option value="diffuser">🌿 ディフューザー</option></select></div>
         <div class="fg"><label>基準日（この日の在庫）</label><div style="display:flex;gap:.25rem"><input class="fc" id="st-asof" type="date" min="2000-01-01" max="2100-12-31" style="flex:1;min-width:0" onchange="renderStock()"><button class="btn-s" style="padding:0 .6rem;white-space:nowrap;font-size:.68rem" onclick="var e=document.getElementById('st-asof');if(e)e.value='';renderStock()" title="今の在庫に戻す">今</button></div></div>
-        <div class="fg"><label>&nbsp;</label><button class="btn-s" style="width:100%;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:0 .5rem;white-space:nowrap;font-size:.68rem" onclick="migrateToReserve()" title="一度だけ実行：既存の未出荷注文の本数を実在庫へ戻し、引当方式へ移行します（初回のみ）">⇄ 引当方式へ移行</button></div>
+        <div class="fg"><label>&nbsp;</label><div style="display:flex;gap:.3rem;width:100%"><button class="btn-s" style="flex:1;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:0 .5rem;white-space:nowrap;font-size:.68rem" onclick="migrateToReserve()" title="一度だけ実行：既存の未出荷注文の本数を実在庫へ戻し、引当方式へ移行します（初回のみ）">⇄ 引当方式へ移行</button><button id="btn-stock-init" class="btn-s" style="flex:1;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:0 .5rem;white-space:nowrap;font-size:.68rem" onclick="var d=document.getElementById('stock-init');var open=(d.style.display!=='none');d.style.display=open?'none':'block';if(!open){if(typeof renderStockInit==='function')renderStockInit();d.scrollIntoView({block:'nearest',behavior:'smooth'});}" title="旧値・協賛・新値を一括登録／上書き">⊕ 初期登録</button></div></div>
       </div>
     </div>
-    <details class="fp" id="stock-init" style="margin-bottom:1rem">
-      <summary style="cursor:pointer;font-weight:700;color:var(--gold-l)">⊕ 在庫初期登録（旧値・協賛・新値を一括登録／上書き）</summary>
+    <div class="fp" id="stock-init" style="margin-bottom:1rem;display:none">
+      <div style="font-weight:700;color:var(--gold-l);margin-bottom:.2rem">🗃 在庫初期登録（旧値・協賛・新値を一括登録／上書き）</div>
       <div style="margin-top:.6rem">
         <div class="frow">
           <div class="fg"><label>登録先 拠点</label><select class="fc" id="si-br" onchange="renderStockInit()"><option>仙台</option><option>京都</option></select></div>
@@ -867,9 +867,7 @@ body.no-adjust #stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-
         <div class="tw"><table class="stock-table" style="width:100%"><thead><tr><th style="text-align:left">商品</th><th style="text-align:center;width:110px;color:#e8b85a">🟠 旧値</th><th style="text-align:center;width:110px;color:#d3a8e0">🟣 協賛</th><th style="text-align:center;width:110px;color:#8fe0ab">🟢 新値</th><th style="text-align:center;width:80px">合計</th></tr></thead><tbody id="si-tbody"></tbody></table></div>
         <div class="faction" style="margin-top:.6rem"><button class="btn btn-g" onclick="saveStockInit()">💾 この拠点に保存（上書き）</button></div>
       </div>
-    </details>
-
-    <div class="hint-box" style="margin-bottom:1rem">▸ 拠点間移動の入力は「注文登録」タブに統合しました（取引種別＝拠点間移動）。ここでは在庫状況・入出庫履歴を確認できます。</div>
+    </div>
 
     <div class="stock-grid" id="stock-grid"></div>
   </div>
@@ -1877,7 +1875,7 @@ function renderBackorders(){
       + '<table><thead><tr><th>商品</th><th class="col-qty">未出荷</th><th class="col-qty">実在庫</th><th class="col-qty">過不足</th><th>注文（店舗・本数）</th></tr></thead><tbody>'
       + rows + '</tbody></table></div>';
   });
-  var note = '<div class="hint-box" style="margin-bottom:.6rem">未出荷（出荷済でない）の注文明細を、拠点×商品ごとに集計しています。<b>「不足」＝仕入れが必要な本数</b>の目安です。<br>※現在は注文まるごと単位で集計しています（商品ごとの部分出荷はこの次の段階で対応予定）。</div>';
+  var note = '<div class="hint-box" style="margin-bottom:.6rem">未出荷の残り本数を、拠点×商品ごとに集計しています。<b>「不足」＝仕入れが必要な本数</b>の目安です。<br>※部分出荷に対応：出荷済みの本数は差し引き、<b>残り本数だけ</b>を集計します。</div>';
   box.innerHTML = note + html;
 }
 function switchModule(name, el){
@@ -2360,7 +2358,7 @@ function renderOrders(){
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
       <td><span class="badge ${payBadge}">${escapeHtml(o.payStatus||'未収')}</span></td>
       <td onclick="event.stopPropagation()"><select class="ship-sel" style="background:var(--d3);border:1px solid rgba(201,168,76,.3);color:var(--wh);font-size:.7rem;padding:.2rem .3rem;border-radius:3px" onchange="changeShipStatus('${o.id}', this.value)" title="出荷ステータス（その場で変更）"><option${stg==='新規受付'?' selected':''}>新規受付</option><option${stg==='対応中'?' selected':''}>対応中</option><option${stg==='出荷済'?' selected':''}>出荷済</option></select></td>
-      <td onclick="event.stopPropagation()"><button class="act-btn" onclick="openShipSheet('${o.id}')" title="出荷リスト・納品書">📋</button><button class="act-btn" onclick="openOrderForEdit('${o.id}')">修正</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
+      <td onclick="event.stopPropagation()"><button class="act-btn" onclick="openShipPanel('${o.id}')" title="出荷（明細ごとの部分出荷）">🚚</button><button class="act-btn" onclick="openShipSheet('${o.id}')" title="出荷リスト・納品書">📋</button><button class="act-btn" onclick="openOrderForEdit('${o.id}')">修正</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
     </tr>`;
   }).join('');
 }
@@ -2398,65 +2396,92 @@ function _ymd(v){
   if (!isNaN(d)) return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   return today();
 }
+// ─── 部分出荷ヘルパ ───
+// _shipBkt（消費した3バケツ内訳）を「消さずに用意」する。既に部分出荷済みなら積み増しの土台を保つ。
+function _ensureShipBkt(order){
+  if (!order._shipBkt) order._shipBkt = { items:{}, sponsorItems:{}, freeItems:{} };
+  order._shipBkt.items        = order._shipBkt.items        || {};
+  order._shipBkt.sponsorItems = order._shipBkt.sponsorItems || {};
+  order._shipBkt.freeItems    = order._shipBkt.freeItems    || {};
+  return order._shipBkt;
+}
+// 消費バケツ内訳を「積み増し」（同じ明細を複数回に分けて出荷しても、取消時に正確に戻せる）
+function _accBkt(dst, p, used){
+  if (!dst[p]) dst[p] = { old:0, sp:0, new:0 };
+  dst[p].old += (used.old||0); dst[p].sp += (used.sp||0); dst[p].new += (used.new||0);
+}
+
+// 注文まるごとの「出荷確定」：有償明細は“残り”だけ出庫（部分出荷済みを二重に引かない）、shippedは全量化。
+// 協賛/試供品/備品/シール/協賛付与は「まるごと出荷確定」で一度だけ行う（_extrasDone で保護）。
 function applyShipEffects(order, shipDate){
   const branch = order.branch || '仙台';
+  const wasShipped = shipStatus(order) === '出荷済';   // 既に出荷済のオーダーへ誤って再実行しても協賛/試供品を二重に引かない保険
   // 在庫が動いた日＝出荷日で記録する（注文日ではない）。
   // 注文日で記録すると月をまたいだ時に在庫が過去へ遡って減り、締めた月の在庫・評価額が変わってしまう。
   const _d = _ymd(shipDate || order.shipDate || today());
   const time = new Date().toTimeString().slice(0,5);
   if (!S.slog) S.slog = [];
-  order._shipBkt = { items:{}, sponsorItems:{}, freeItems:{} };   // 消費した3バケツ内訳を保存（取消時に正確に戻す）
+  const _sb = _ensureShipBkt(order);   // 既存の部分出荷分（_shipBkt）を消さない（init-if-absent）
+  order.shipped = order.shipped || {};
+  // 有償明細：まだ出していない「残り」だけ出庫。shipped は全量化（残り0に）。
   Object.entries(order.items || {}).forEach(([p, q]) => {
-    const used = depleteStock(branch, p, q || 0);   // 旧→協賛→新 の順で引き当て
-    order._shipBkt.items[p] = used;
-    S.slog.push({ date: _d, time, branch, type: '出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+    const rem = (typeof remainingQty === 'function') ? remainingQty(order, p) : (Number(q)||0);
+    if (rem > 0){
+      const used = depleteStock(branch, p, rem);   // 旧→協賛→新 の順で引き当て
+      _accBkt(_sb.items, p, used);
+      S.slog.push({ date: _d, time, branch, type: '出庫', product: p, qty: rem, remaining: S.stock[branch][p], orderId: order.id, note: `出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+    }
+    order.shipped[p] = Number(q) || 0;   // 全量化
   });
-  Object.entries(order.sponsorItems || {}).forEach(([p, q]) => {
-    const used = depleteStock(branch, p, q || 0);
-    order._shipBkt.sponsorItems[p] = used;
-    S.slog.push({ date: _d, time, branch, type: '協賛出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `協賛出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
-  });
-  Object.entries(order.freeItems || {}).forEach(([p, q]) => {
-    const used = depleteStock(branch, p, q || 0);
-    order._shipBkt.freeItems[p] = used;
-    S.slog.push({ date: _d, time, branch, type: '試供出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `試供品#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
-  });
-  // 同梱した備品ぶん、備品の在庫も減らす（売上には含めない）
-  Object.entries(order.supplyItems || {}).forEach(function(e){
-    var _p=e[0], _q=Number(e[1])||0;
-    if(!(_q>0)) return;
-    depleteStock(branch, _p, _q);
-    S.slog.push({ date:_d, time, branch, type:'備品出庫', product:_p, qty:_q,
-      remaining:S.stock[branch][_p], orderId:order.id,
-      note:'出荷#'+String(order.id).slice(-6)+' 備品同梱' });
-  });
-
-  // ポイントシールを同梱した枚数ぶん、シールの在庫も減らす（同梱漏れの確認用）
-  const _sealQ = Number(order.sealQty) || 0;
-  const _sealP = (typeof _sealProduct === 'function') ? _sealProduct() : '';
-  if (_sealQ > 0 && _sealP){
-    const wineQ = Object.values(order.items||{}).reduce((a,b)=>a+(b||0),0)
-                + Object.values(order.sponsorItems||{}).reduce((a,b)=>a+(b||0),0);
-    depleteStock(branch, _sealP, _sealQ);
-    order._shipBkt.seal = { product:_sealP, qty:_sealQ };
-    S.slog.push({ date:_d, time, branch, type:'シール出庫', product:_sealP, qty:_sealQ,
-      remaining:S.stock[branch][_sealP], orderId:order.id,
-      note:`出荷#${String(order.id).slice(-6)} 同梱${_sealQ}枚 / ワイン${wineQ}本` + (_sealQ!==wineQ ? `（差${_sealQ-wineQ>0?'+':''}${_sealQ-wineQ}）` : '（一致）') });
-  }
-  const cust = (S.customers || []).find(x => x.name === order.store);
-  if (!S.sponsorLogs) S.sponsorLogs = [];
-  if (order.orderType === 'sponsor' && cust){
-    const totalQty = Object.values(order.items || {}).reduce((s, q) => s + (q || 0), 0);
-    const prodList = Object.keys(order.items || {}).join('・');
-    S.sponsorLogs.push({ id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), custId: cust.id, custName: cust.name, type: 'used', qty: totalQty, date: _d, orderId: order.id, product: prodList, branch, note: `協賛注文 ${totalQty}本出荷（${prodList}）`, createdAt: new Date().toISOString(), createdBy: currentUser.name });
-    if (S.gasUrl){ try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
-  } else {
-    checkAndAddSponsorPoints(order);  // 通常注文の協賛付与(earned)
-    if (cust && order.sponsorItems && Object.keys(order.sponsorItems).length){
-      Object.entries(order.sponsorItems).forEach(([prod, qty]) => {
-        S.sponsorLogs.push({ id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), custId: cust.id, custName: cust.name, type: 'used', qty, date: _d, orderId: order.id, product: prod, branch, note: `協賛出荷 ${qty}本（${prod}）`, createdAt: new Date().toISOString(), createdBy: currentUser.name });
-        if (S.gasUrl){ try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
-      });
+  // 協賛・試供品・備品・シール・協賛付与は「まるごと出荷確定」で一度だけ
+  if (!order._extrasDone && !wasShipped){
+    order._extrasDone = true;
+    Object.entries(order.sponsorItems || {}).forEach(([p, q]) => {
+      const used = depleteStock(branch, p, q || 0);
+      _accBkt(_sb.sponsorItems, p, used);
+      S.slog.push({ date: _d, time, branch, type: '協賛出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `協賛出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+    });
+    Object.entries(order.freeItems || {}).forEach(([p, q]) => {
+      const used = depleteStock(branch, p, q || 0);
+      _accBkt(_sb.freeItems, p, used);
+      S.slog.push({ date: _d, time, branch, type: '試供出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `試供品#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+    });
+    // 同梱した備品ぶん、備品の在庫も減らす（売上には含めない）
+    Object.entries(order.supplyItems || {}).forEach(function(e){
+      var _p=e[0], _q=Number(e[1])||0;
+      if(!(_q>0)) return;
+      depleteStock(branch, _p, _q);
+      S.slog.push({ date:_d, time, branch, type:'備品出庫', product:_p, qty:_q,
+        remaining:S.stock[branch][_p], orderId:order.id,
+        note:'出荷#'+String(order.id).slice(-6)+' 備品同梱' });
+    });
+    // ポイントシールを同梱した枚数ぶん、シールの在庫も減らす（同梱漏れの確認用）
+    const _sealQ = Number(order.sealQty) || 0;
+    const _sealP = (typeof _sealProduct === 'function') ? _sealProduct() : '';
+    if (_sealQ > 0 && _sealP){
+      const wineQ = Object.values(order.items||{}).reduce((a,b)=>a+(b||0),0)
+                  + Object.values(order.sponsorItems||{}).reduce((a,b)=>a+(b||0),0);
+      depleteStock(branch, _sealP, _sealQ);
+      _sb.seal = { product:_sealP, qty:_sealQ };
+      S.slog.push({ date:_d, time, branch, type:'シール出庫', product:_sealP, qty:_sealQ,
+        remaining:S.stock[branch][_sealP], orderId:order.id,
+        note:`出荷#${String(order.id).slice(-6)} 同梱${_sealQ}枚 / ワイン${wineQ}本` + (_sealQ!==wineQ ? `（差${_sealQ-wineQ>0?'+':''}${_sealQ-wineQ}）` : '（一致）') });
+    }
+    const cust = (S.customers || []).find(x => x.name === order.store);
+    if (!S.sponsorLogs) S.sponsorLogs = [];
+    if (order.orderType === 'sponsor' && cust){
+      const totalQty = Object.values(order.items || {}).reduce((s, q) => s + (q || 0), 0);
+      const prodList = Object.keys(order.items || {}).join('・');
+      S.sponsorLogs.push({ id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), custId: cust.id, custName: cust.name, type: 'used', qty: totalQty, date: _d, orderId: order.id, product: prodList, branch, note: `協賛注文 ${totalQty}本出荷（${prodList}）`, createdAt: new Date().toISOString(), createdBy: currentUser.name });
+      if (S.gasUrl){ try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
+    } else {
+      checkAndAddSponsorPoints(order);  // 通常注文の協賛付与(earned)
+      if (cust && order.sponsorItems && Object.keys(order.sponsorItems).length){
+        Object.entries(order.sponsorItems).forEach(([prod, qty]) => {
+          S.sponsorLogs.push({ id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), custId: cust.id, custName: cust.name, type: 'used', qty, date: _d, orderId: order.id, product: prod, branch, note: `協賛出荷 ${qty}本（${prod}）`, createdAt: new Date().toISOString(), createdBy: currentUser.name });
+          if (S.gasUrl){ try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
+        });
+      }
     }
   }
   saveState();
@@ -2466,12 +2491,23 @@ function applyShipEffects(order, shipDate){
 function reverseShipEffects(order){
   const branch = order.branch || '仙台';
   const bk = order._shipBkt || {};
-  ['items','sponsorItems'].forEach(k => {
-    Object.entries(order[k] || {}).forEach(([p, q]) => {
-      restoreStockBkt(branch, p, q || 0, (bk[k] || {})[p]);   // 出荷時に消費したバケツへ正確に戻す
-    });
+  const shippedMap = orderShipped(order);   // 有償の出荷済数（部分出荷でも過不足なく戻す）
+  const extrasShipped = !!order._extrasDone
+    || (bk.sponsorItems && Object.keys(bk.sponsorItems).length > 0)
+    || (bk.freeItems && Object.keys(bk.freeItems).length > 0)
+    || shipStatus(order) === '出荷済';
+  // 有償：出荷済数だけ、消費したバケツへ正確に戻す（未出荷分は元々引いていないので戻さない）
+  Object.entries(shippedMap).forEach(([p, q]) => {
+    restoreStockBkt(branch, p, q || 0, (bk.items || {})[p]);
   });
+  // 協賛/試供品：出庫済みのときだけ、まるごと戻す（試供品freeItemsも戻す。以前は戻し漏れがあり在庫が目減りしていた）
+  if (extrasShipped){
+    Object.entries(order.sponsorItems || {}).forEach(([p, q]) => { restoreStockBkt(branch, p, q || 0, (bk.sponsorItems || {})[p]); });
+    Object.entries(order.freeItems    || {}).forEach(([p, q]) => { restoreStockBkt(branch, p, q || 0, (bk.freeItems    || {})[p]); });
+  }
   delete order._shipBkt;
+  order.shipped = {};          // 出荷済数をクリア（残数＝注文数に戻す）
+  order._extrasDone = false;   // 協賛/試供品の“一度だけ”フラグを解除（再出荷で再度引けるように）
   const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === order.id);
   if (relLogs.length){
     S.sponsorLogs = S.sponsorLogs.filter(l => l.orderId !== order.id);
@@ -2479,6 +2515,171 @@ function reverseShipEffects(order){
   }
   saveState();
   if (S.gasUrl) syncStockToGAS();
+}
+
+// ─── 部分出荷：明細ごとの出荷／取消（書き込み）───
+// 有償明細を「○本だけ」出荷する。全明細が出荷し切ったら applyShipEffects で協賛/試供品/協賛付与を確定。
+function shipLine(id, product, qty){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const o = (S.orders || []).find(x => String(x.id) === String(id));
+  if (!o) return toast('注文が見つかりません', 'error');
+  if (!o.branch){ toast('⚠ 拠点が未確定です。先に拠点（仙台/京都）を選んでください', 'error'); return; }
+  const branch = o.branch;
+  const rem = remainingQty(o, product);
+  let q = Math.min(Number(qty) || 0, rem);
+  if (q <= 0){ toast('出荷できる残りがありません', 'error'); return; }
+  if (!o.shipDate) o.shipDate = today();
+  const _d = _ymd(o.shipDate);
+  const _sb = _ensureShipBkt(o);
+  const used = depleteStock(branch, product, q);
+  _accBkt(_sb.items, product, used);
+  o.shipped = o.shipped || {};
+  o.shipped[product] = (Number(orderShipped(o)[product]) || 0) + q;
+  if (!S.slog) S.slog = [];
+  S.slog.push({ date:_d, time:new Date().toTimeString().slice(0,5), branch, type:'出庫', product, qty:q, remaining:S.stock[branch][product], orderId:o.id, note:`部分出荷#${String(o.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+  // 全明細が出荷し切ったら「まるごと出荷確定」（残り0なので有償の追加出庫はなし・協賛/試供品/協賛付与のみ確定）
+  const allDone = Object.keys(o.items || {}).every(p => remainingQty(o, p) <= 0);
+  if (allDone){
+    applyShipEffects(o, o.shipDate);   // 内部で saveState + syncStockToGAS
+    o.status = '出荷済';
+    if (!o.shippedAt) o.shippedAt = new Date().toISOString();
+  } else {
+    o.status = '対応中';
+    saveState();
+    if (S.gasUrl) syncStockToGAS();
+  }
+  if (S.gasUrl){ try { gasPost({ action:'saveOrder', ...o }); } catch(e){} }
+  toast(`✓ ${_prodNameOf(product)} を ${q}本 出荷`);
+  if (_spOrderId === o.id) renderShipPanel();
+  renderOrders(); if (typeof updateKPI === 'function') updateKPI();
+  if (typeof renderStock === 'function') renderStock();
+  if (typeof renderBackorders === 'function') renderBackorders();
+}
+
+// 明細の出荷を取消（その明細ぶんを丸ごと在庫に戻す。協賛/試供品・協賛付与の取消は行わない＝それは「出荷済→未出荷」の全体取消で）
+function unshipLine(id, product){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const o = (S.orders || []).find(x => String(x.id) === String(id));
+  if (!o) return toast('注文が見つかりません', 'error');
+  const branch = o.branch || '仙台';
+  const shq = Number(orderShipped(o)[product]) || 0;
+  if (shq <= 0){ toast('取り消す出荷がありません', 'error'); return; }
+  const _sb = _ensureShipBkt(o);
+  restoreStockBkt(branch, product, shq, (_sb.items || {})[product]);   // 消費バケツがあれば正確に、無ければ新値へ
+  if (o.shipped) delete o.shipped[product];
+  if (_sb.items) delete _sb.items[product];
+  if (!S.slog) S.slog = [];
+  S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, note:`出荷取消#${String(o.id).slice(-6)}` });
+  const st = deriveShipState(o);
+  o.status = (st === '出荷済') ? '出荷済' : (st === '一部出荷' ? '対応中' : '新規受付');
+  saveState();
+  if (S.gasUrl){ try { gasPost({ action:'saveOrder', ...o }); } catch(e){} }
+  if (S.gasUrl) syncStockToGAS();
+  toast(`✓ ${_prodNameOf(product)} の出荷を取消`);
+  if (_spOrderId === o.id) renderShipPanel();
+  renderOrders(); if (typeof updateKPI === 'function') updateKPI();
+  if (typeof renderStock === 'function') renderStock();
+  if (typeof renderBackorders === 'function') renderBackorders();
+}
+
+// ─── 出荷パネル（🚚）：明細ごとに 注文/出荷済/残り を表示し、全部出荷・○本出荷・取消 ───
+let _spOrderId = null;
+function openShipPanel(id){
+  const o = (S.orders || []).find(x => String(x.id) === String(id));
+  if (!o) return toast('注文が見つかりません', 'error');
+  _spOrderId = o.id;
+  const el = document.getElementById('ship-panel');
+  if (el) el.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  renderShipPanel();
+}
+function closeShipPanel(){
+  _spOrderId = null;
+  const el = document.getElementById('ship-panel');
+  if (el) el.style.display = 'none';
+  document.body.style.overflow = '';
+}
+// パネルの各行はインデックスで操作（商品キーをonclickに埋め込まないため安全）
+function _spPaidList(o){ return Object.entries(o.items || {}).filter(([,q]) => q > 0); }
+function shipLineFromPanel(id, idx){
+  const o = (S.orders||[]).find(x=>String(x.id)===String(id)); if(!o) return;
+  const ent = _spPaidList(o)[idx]; if(!ent) return;
+  const inp = document.getElementById('spq-'+idx);
+  const qty = inp ? (parseInt(inp.value)||0) : 0;
+  shipLine(id, ent[0], qty);
+}
+function shipLineAllFromPanel(id, idx){
+  const o = (S.orders||[]).find(x=>String(x.id)===String(id)); if(!o) return;
+  const ent = _spPaidList(o)[idx]; if(!ent) return;
+  shipLine(id, ent[0], remainingQty(o, ent[0]));
+}
+function unshipLineFromPanel(id, idx){
+  const o = (S.orders||[]).find(x=>String(x.id)===String(id)); if(!o) return;
+  const ent = _spPaidList(o)[idx]; if(!ent) return;
+  unshipLine(id, ent[0]);
+}
+function shipAllRemaining(id){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const o = (S.orders || []).find(x => String(x.id) === String(id));
+  if (!o) return;
+  if (!o.branch){ toast('⚠ 拠点が未確定です。先に拠点を選んでください', 'error'); return; }
+  if (deriveShipState(o) === '出荷済'){ toast('すべて出荷済みです'); return; }
+  if (!o.shipDate) o.shipDate = today();
+  applyShipEffects(o, o.shipDate);   // 残り全部＋協賛/試供品を確定
+  o.status = '出荷済';
+  if (!o.shippedAt) o.shippedAt = new Date().toISOString();
+  if (S.gasUrl){ try { gasPost({ action:'saveOrder', ...o }); } catch(e){} }
+  toast('✓ すべて出荷しました');
+  if (_spOrderId === o.id) renderShipPanel();
+  renderOrders(); if (typeof updateKPI === 'function') updateKPI();
+  if (typeof renderStock === 'function') renderStock();
+  if (typeof renderBackorders === 'function') renderBackorders();
+}
+function renderShipPanel(){
+  const box = document.getElementById('ship-panel-body');
+  if (!box) return;
+  const o = (S.orders || []).find(x => String(x.id) === String(_spOrderId));
+  if (!o){ box.innerHTML = '<div style="padding:1rem;color:var(--wh2)">注文が見つかりません</div>'; return; }
+  const sh = orderShipped(o);
+  const st = deriveShipState(o);
+  const paid = _spPaidList(o);
+  const stColor = st==='出荷済' ? 'var(--grn)' : (st==='一部出荷' ? '#ffcf7a' : 'var(--wh2)');
+  const rows = paid.map(([p, q], idx) => {
+    const shipped = Number(sh[p]) || 0;
+    const rem = Math.max(0, (Number(q)||0) - shipped);
+    const done = rem <= 0;
+    return `<tr style="border-top:1px solid rgba(201,168,76,.12)">
+      <td style="padding:.45rem .5rem">${escapeHtml(_prodNameOf(p))}</td>
+      <td style="text-align:center">${q}</td>
+      <td style="text-align:center;color:var(--gold-l)">${shipped}</td>
+      <td style="text-align:center;font-weight:700;color:${done?'var(--wh3)':'#ff8a80'}">${rem}</td>
+      <td style="text-align:right;white-space:nowrap">
+        ${done ? '<span style="color:var(--grn);font-size:.72rem">✓ 出荷済</span>'
+               : `<input type="number" min="1" max="${rem}" value="${rem}" id="spq-${idx}" class="ship-sel" style="width:54px;text-align:center;margin-right:.25rem">
+                  <button class="act-btn" onclick="shipLineFromPanel('${o.id}',${idx})">出荷</button>
+                  <button class="act-btn" onclick="shipLineAllFromPanel('${o.id}',${idx})" title="残り全部">全</button>`}
+        ${shipped > 0 ? `<button class="act-btn dn" onclick="unshipLineFromPanel('${o.id}',${idx})">取消</button>` : ''}
+      </td></tr>`;
+  }).join('');
+  const allDone = paid.every(([p,q]) => (Number(q)||0) - (Number(sh[p])||0) <= 0);
+  box.innerHTML =
+    `<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.5rem">
+       <div style="font-weight:700;color:var(--gold-l)">${escapeHtml(o.store||'')}</div>
+       <span style="font-size:.72rem;color:var(--wh3)">No.${escapeHtml(String(o.id))}</span>
+       <span style="font-size:.72rem;color:var(--wh3)">拠点:${escapeHtml(o.branch||'未確定')}</span>
+       <span style="margin-left:auto;font-size:.74rem;color:${stColor};font-weight:700">${st}</span>
+     </div>
+     <table style="width:100%;border-collapse:collapse;font-size:.8rem">
+       <thead><tr style="color:var(--wh2);font-size:.7rem">
+         <th style="text-align:left;padding:.3rem .5rem">商品</th><th>注文</th><th>出荷済</th><th>残り</th><th style="text-align:right;padding-right:.5rem">操作</th>
+       </tr></thead>
+       <tbody>${rows || '<tr><td colspan="5" style="padding:.6rem;color:var(--wh3)">有償明細がありません</td></tr>'}</tbody>
+     </table>
+     <div style="margin-top:.7rem;display:flex;gap:.5rem;flex-wrap:wrap">
+       <button class="btn btn-g" onclick="shipAllRemaining('${o.id}')" ${allDone?'disabled style="opacity:.5"':''}>🚚 全部出荷（この注文）</button>
+       <button class="btn" onclick="closeShipPanel()">閉じる</button>
+     </div>
+     <div style="margin-top:.5rem;font-size:.68rem;color:var(--wh3);line-height:1.6">※協賛・試供品・協賛ポイントは「全部出荷（＝出荷済）」で確定します。全体を未出荷に戻すときは一覧のステータスを「新規受付」に戻してください（協賛付与も取り消されます）。</div>`;
 }
 
 // 注文の拠点を確定/変更（LINE注文は拠点空で届くため、一覧から直接設定できるようにする）
@@ -2524,7 +2725,11 @@ function changeShipStatus(id, val){
     o.shipDate = _sd;
     applyShipEffects(o, _sd);
   }
-  else if (wasShipped && !willShip) reverseShipEffects(o);
+  else if (!willShip){
+    // 出荷済／一部出荷（対応中で shipped あり）から「非出荷」へ戻すときは、出荷済分の在庫を戻す
+    const anyShipped = Object.keys(orderShipped(o)).length > 0 || !!o._shipBkt;
+    if (wasShipped || anyShipped) reverseShipEffects(o);
+  }
   o.status = val;
   if (willShip && !o.shippedAt) o.shippedAt = new Date().toISOString();
   saveState();
@@ -2540,14 +2745,23 @@ function deleteOrder(id){
   const order = (S.orders || []).find(o => o.id === id);
   if (!order) return toast('注文が見つかりません', 'error');
 
-  const wasShipped = shipStatus(order) === '出荷済';
-  const totalQty = Object.values(order.items || {}).reduce((s,q) => s + (q||0), 0)
-                 + Object.values(order.sponsorItems || {}).reduce((s,q) => s + (q||0), 0);
+  const shippedMap = orderShipped(order);   // 有償の出荷済数（部分出荷対応）
+  const _bkD = order._shipBkt || {};
+  const extrasShipped = !!order._extrasDone
+    || (_bkD.sponsorItems && Object.keys(_bkD.sponsorItems).length > 0)
+    || (_bkD.freeItems && Object.keys(_bkD.freeItems).length > 0)
+    || shipStatus(order) === '出荷済';   // 協賛/試供品が出庫済みか
+  const shippedPaidQty  = Object.values(shippedMap).reduce((s,q)=>s+(q||0),0);
+  const shippedExtraQty = extrasShipped
+    ? (Object.values(order.sponsorItems||{}).reduce((s,q)=>s+(q||0),0) + Object.values(order.freeItems||{}).reduce((s,q)=>s+(q||0),0))
+    : 0;
+  const wasShipped = (shippedPaidQty + shippedExtraQty) > 0;   // 実在庫を戻す必要があるか（部分出荷でもtrue）
+  const totalQty = shippedPaidQty + shippedExtraQty;
   const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === id);
   const earnedQty = relLogs.filter(l => l.type === 'earned').reduce((s,l)=>s+(l.qty||0),0);
   const usedQty   = relLogs.filter(l => l.type === 'used').reduce((s,l)=>s+(l.qty||0),0);
   let msg = 'この注文を削除しますか？';
-  if (wasShipped) msg += `\n・出荷済のため実在庫を ${totalQty}本 戻します`;
+  if (wasShipped) msg += `\n・出荷済み分の実在庫 ${totalQty}本 を戻します`;
   else            msg += '\n・未出荷のため実在庫は変動しません（引当が解除されます）';
   if (earnedQty) msg += `\n・協賛付与 ${earnedQty}本 を取り消します`;
   if (usedQty)   msg += `\n・協賛使用 ${usedQty}本 を戻します`;
@@ -2555,10 +2769,11 @@ function deleteOrder(id){
 
   const branch = order.branch || '仙台';
 
-  // 1. 実在庫を戻すのは「出荷済だった注文」だけ（未出荷は元々減算していない＝引当が外れるだけ）
+  // 1. 実在庫を戻すのは「出荷済み分」だけ（部分出荷にも対応）。未出荷分は元々減算していない＝引当が外れるだけ。
   if (wasShipped){
     const bk = order._shipBkt || {};
-    Object.entries(order.items || {}).forEach(([p, q]) => {
+    // 有償明細：出荷済数（shippedMap）だけ戻す
+    Object.entries(shippedMap).forEach(([p, q]) => {
       restoreStockBkt(branch, p, q || 0, (bk.items || {})[p]);
       if (!S.slog) S.slog = [];
       S.slog.push({
@@ -2568,12 +2783,15 @@ function deleteOrder(id){
         orderId: id, note: `注文削除#${String(id).slice(-6)} による在庫戻し`
       });
     });
-    Object.entries(order.sponsorItems || {}).forEach(([p, q]) => {
-      restoreStockBkt(branch, p, q || 0, (bk.sponsorItems || {})[p]);
-    });
-    Object.entries(order.freeItems || {}).forEach(([p, q]) => {
-      restoreStockBkt(branch, p, q || 0, (bk.freeItems || {})[p]);
-    });
+    // 協賛/試供品：出庫済みのときだけ戻す（まるごと出荷確定で出庫される）
+    if (extrasShipped){
+      Object.entries(order.sponsorItems || {}).forEach(([p, q]) => {
+        restoreStockBkt(branch, p, q || 0, (bk.sponsorItems || {})[p]);
+      });
+      Object.entries(order.freeItems || {}).forEach(([p, q]) => {
+        restoreStockBkt(branch, p, q || 0, (bk.freeItems || {})[p]);
+      });
+    }
   }
 
   // 2. 協賛ログを取り消す（出荷済の記録・旧モデルの前倒し記録とも）
@@ -5318,6 +5536,8 @@ function removePurchaseDraftItem(idx){
 
 function submitPurchase(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  // 注文の修正中に「仕入」で記録した場合は、元の注文を取り消してから登録（重複防止）
+  _removeEditingOrderForConvert();
   if (editingPurId){
     var _oldPur = editingPurId; editingPurId = null;
     try { deletePurchase(_oldPur, true); } catch(e){}
@@ -5931,6 +6151,8 @@ function renderMoveDraft(){
 }
 
 function recordLending(){
+  // 注文の修正中に「貸出」で記録した場合は、元の注文を取り消してから登録（重複防止）
+  _removeEditingOrderForConvert();
   // 修正中なら、先に元の記録を取り消して在庫を戻す（登録処理はそのまま続く＝置き換えになる）
   if (editingLendId){
     var _oldId = editingLendId; editingLendId = null;
@@ -6293,6 +6515,8 @@ function renderFreeDraft(){
 }
 function submitFree(){
   if (typeof canEdit==='function' && !canEdit()) return toast('🔒 記録する権限がありません（閲覧のみ）','error');
+  // 注文の修正中に「試供品（無償提供）」で記録した場合は、元の注文を取り消してから登録（重複防止）
+  _removeEditingOrderForConvert();
   var br=(document.getElementById('fr-branch')||{}).value;
   var dt=(document.getElementById('fr-date')||{}).value||today();
   var purpose=(document.getElementById('fr-purpose')||{}).value||'試供品';
@@ -6484,6 +6708,39 @@ var editingPurId  = null;     // 修正中の仕入ID
 var editingMoveId = null;     // 修正中の移動ID
 
 function _clearEntryEditing(){ editingLendId = null; editingPurId = null; editingMoveId = null; }
+
+// 注文の修正中に、取引種別を「貸出／仕入／移動／試供品」へ変えて記録したときの後始末。
+// これをしないと、変換元の注文が一覧に残って重複する。出荷済みだった場合は在庫も戻す。
+function _removeEditingOrderForConvert(){
+  if (!editingOrderId) return false;
+  var id = editingOrderId; editingOrderId = null;
+  var old = (S.orders || []).find(function(o){ return o.id === id; });
+  if (old){
+    // 出荷済み分があれば在庫を戻す（reverseShipEffects は出荷済数ベースで戻し・協賛ログも削除する）
+    if ((typeof shipStatus === 'function' && shipStatus(old) === '出荷済')
+        || (typeof orderShipped === 'function' && Object.keys(orderShipped(old)).length > 0)
+        || old._shipBkt){
+      try { reverseShipEffects(old); } catch(e){}
+    } else {
+      // 未出荷：在庫は動いていないので協賛ログの掃除だけ
+      var relLogs = (S.sponsorLogs || []).filter(function(l){ return l.orderId === id; });
+      if (relLogs.length){
+        S.sponsorLogs = S.sponsorLogs.filter(function(l){ return l.orderId !== id; });
+        if (S.gasUrl) relLogs.forEach(function(l){ try { gasPost({ action:'deleteSponsorLog', id:l.id }); } catch(e){} });
+      }
+    }
+    // スプシの注文行を削除（別種別へ変換するので、注文としては消す）
+    if (S.gasUrl){ try { gasPost({ action:'deleteOrder', id:id, timestamp:old.timestamp, store:old.store, amount:old.amount }); } catch(e){} }
+    S.orders = (S.orders || []).filter(function(o){ return o.id !== id; });
+    saveState();
+  }
+  // 注文フォームの「修正中」表示を通常へ戻す
+  var _cb = document.getElementById('no-cancel-btn'); if (_cb) _cb.style.display = 'none';
+  var _sb = document.getElementById('no-submit-btn'); if (_sb) _sb.textContent = '注文を登録';
+  if (typeof renderOrders === 'function') renderOrders();
+  if (typeof updateKPI === 'function') updateKPI();
+  return true;
+}
 function _entryEditBanner(kind, on, text){
   var host = document.getElementById('entry-' + kind);
   if (!host) return;
@@ -6513,6 +6770,7 @@ function editLending(id){
   if (!rec) return toast('貸借が見つかりません', 'error');
   if ((Number(rec.returnedQty) || 0) > 0) return toast('返却済みの分があるため修正できません（削除して入れ直してください）', 'error');
   _clearEntryEditing();
+  editingOrderId = null;   // 注文の修正中フラグが残っていても混線しないよう解除
   editingLendId = id;
   _gotoEntry(rec.kind === '借入' ? 'borrow' : 'lend');
   setTimeout(function(){
@@ -6534,6 +6792,7 @@ function editPurchase(id){
   var rec = (S.purchases || []).find(function(x){ return x.id === id; });
   if (!rec) return toast('仕入が見つかりません', 'error');
   _clearEntryEditing();
+  editingOrderId = null;   // 注文の修正中フラグが残っていても混線しないよう解除
   editingPurId = id;
   _gotoEntry('purchase');
   setTimeout(function(){
@@ -6556,6 +6815,7 @@ function editMove(id){
   if (!m) return toast('移動が見つかりません', 'error');
   if (m.status !== '輸送中') return toast('受領済みの移動は修正できません', 'error');
   _clearEntryEditing();
+  editingOrderId = null;   // 注文の修正中フラグが残っていても混線しないよう解除
   editingMoveId = id;
   _gotoEntry('move');
   setTimeout(function(){
@@ -6751,6 +7011,8 @@ async function transferStock(){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
+  // 注文の修正中に「拠点間移動」で記録した場合は、元の注文を取り消してから登録（重複防止）
+  _removeEditingOrderForConvert();
   if (editingMoveId){
     var _oldMv = editingMoveId; editingMoveId = null;
     try { await cancelMove(_oldMv, true); } catch(e){}
@@ -7210,6 +7472,17 @@ window.addEventListener('load', enhanceScrollTabs);
       <button class="btn btn-p" onclick="window.print()">🖨 印刷 / PDF</button>
     </div>
     <div id="ship-sheet-body" style="background:#fff;color:#111;padding:18px 20px;border-radius:4px"></div>
+  </div>
+</div>
+
+<!-- 出荷パネル（🚚 明細ごとの部分出荷）-->
+<div id="ship-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9100;overflow:auto;padding:1rem">
+  <div style="max-width:560px;margin:6vh auto 0">
+    <div style="display:flex;align-items:center;margin-bottom:.5rem">
+      <div style="font-weight:700;color:var(--gold-l)">🚚 出荷</div>
+      <button class="btn btn-g" style="margin-left:auto" onclick="closeShipPanel()">✕ 閉じる</button>
+    </div>
+    <div id="ship-panel-body" style="background:var(--d2);border:1px solid rgba(201,168,76,.25);color:var(--wh);padding:14px 16px;border-radius:6px"></div>
   </div>
 </div>
 </body>
