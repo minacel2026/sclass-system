@@ -611,7 +611,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         <div class="fg"><label>キーワード</label><input class="fc" id="sk-kw" placeholder="店舗名・担当者...（↓↑で選択・Enterで開く）" oninput="renderOrders()" onkeydown="listNav(event)" data-listnav="ord-tbody"></div>
         <div class="fg"><label>拠点</label><select class="fc" id="sk-br" onchange="renderOrders()"><option value="">全拠点</option><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>支払状況</label><select class="fc" id="sk-pay" onchange="renderOrders()"><option value="">すべて</option><option>未収</option><option>集金済み</option><option>売掛</option></select></div>
-        <div class="fg"><label>ステータス</label><select class="fc" id="sk-st" onchange="renderOrders()"><option value="">すべて</option><option>新規受付</option><option>対応中</option><option>出荷済</option></select></div>
+        <div class="fg"><label>ステータス</label><select class="fc" id="sk-st" onchange="renderOrders()"><option value="">すべて</option><option>新規受付</option><option>対応中</option><option>一部出荷</option><option>出荷済</option></select></div>
         <div class="fg"><label>年で表示</label><select class="fc" id="sk-year" onchange="renderOrders()"><option value="">月別表示</option></select></div>
       </div>
     </div>
@@ -2318,7 +2318,7 @@ function renderOrders(){
   if (kw)  list = list.filter(o => (`${o.store||''} ${o.staff||''} ${o.contact||''}`).toLowerCase().includes(kw));
   if (br)  list = list.filter(o => o.branch === br);
   if (pay) list = list.filter(o => o.payStatus === pay);
-  if (st)  list = list.filter(o => shipStatus(o) === st);
+  if (st)  list = list.filter(o => _ordDisp(o) === st);
 
   list.sort((a,b) => (b.date+b.time||'').localeCompare(a.date+a.time||''));
 
@@ -2343,7 +2343,11 @@ function renderOrders(){
     const amt = calcAmt(o);
     const payBadge = o.payStatus === '集金済み' ? 'bd-paid' : (o.payStatus === '売掛' ? 'bd-pending' : 'bd-unpaid');
     const stg = shipStatus(o);
-    const stBadge = stg === '出荷済' ? 'bd-done' : (stg === '対応中' ? 'bd-pending' : 'bd-new');
+    const disp = _ordDisp(o);
+    const isPartial = disp === '一部出荷';
+    const stSelStyle = isPartial
+      ? 'background:rgba(230,162,60,.16);border:1px solid #e6a23c;color:#ffcf7a;font-weight:700;font-size:.7rem;padding:.2rem .3rem;border-radius:3px'
+      : 'background:var(--d3);border:1px solid rgba(201,168,76,.3);color:var(--wh);font-size:.7rem;padding:.2rem .3rem;border-radius:3px';
     return `
     <tr onclick="openOrderForEdit('${o.id}')" style="cursor:pointer" title="クリックで修正">
       <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(o.date||'')}</td>
@@ -2357,7 +2361,7 @@ function renderOrders(){
       <td class="col-qty">${totalQty}${spTotal?`<span style="color:#c39bd3;font-size:.7rem"> +🎁${spTotal}</span>`:''}</td>
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt(amt)}</td>
       <td><span class="badge ${payBadge}">${escapeHtml(o.payStatus||'未収')}</span></td>
-      <td onclick="event.stopPropagation()"><select class="ship-sel" style="background:var(--d3);border:1px solid rgba(201,168,76,.3);color:var(--wh);font-size:.7rem;padding:.2rem .3rem;border-radius:3px" onchange="changeShipStatus('${o.id}', this.value)" title="出荷ステータス（その場で変更）"><option${stg==='新規受付'?' selected':''}>新規受付</option><option${stg==='対応中'?' selected':''}>対応中</option><option${stg==='出荷済'?' selected':''}>出荷済</option></select></td>
+      <td onclick="event.stopPropagation()"><select class="ship-sel" style="${stSelStyle}" onchange="changeShipStatus('${o.id}', this.value)" title="${isPartial?'一部出荷中（🚚出荷パネルで出荷）。ここで新規受付/出荷済に切り替え可能':'出荷ステータス（その場で変更）'}">${isPartial?'<option selected disabled>一部出荷</option>':''}<option${!isPartial&&stg==='新規受付'?' selected':''}>新規受付</option><option${!isPartial&&stg==='対応中'?' selected':''}>対応中</option><option${!isPartial&&stg==='出荷済'?' selected':''}>出荷済</option></select></td>
       <td onclick="event.stopPropagation()"><button class="act-btn" onclick="openShipPanel('${o.id}')" title="出荷（明細ごとの部分出荷）">🚚</button><button class="act-btn" onclick="openShipSheet('${o.id}')" title="出荷リスト・納品書">📋</button><button class="act-btn" onclick="openOrderForEdit('${o.id}')">修正</button><button class="act-btn dn" onclick="deleteOrder('${o.id}')">削</button></td>
     </tr>`;
   }).join('');
@@ -2379,6 +2383,15 @@ function shipStatus(o){
   if (s === '対応中') return '対応中';
   if (s === '出荷済' || s === '発送' || s === '完了') return '出荷済';
   return '新規受付';
+}
+
+// 一覧ST列・フィルタ用の「表示状態」。出荷済数（deriveShipState）を優先し、部分出荷を「一部出荷」として自動表示する。
+// ※これは表示専用。在庫を動かす処理(changeShipStatus等)には一切影響しない。
+function _ordDisp(o){
+  var d = (typeof deriveShipState === 'function') ? deriveShipState(o) : '';
+  if (d === '一部出荷') return '一部出荷';
+  if (d === '出荷済')  return '出荷済';
+  return shipStatus(o);   // 未発送のときは手動ステータス（新規受付／対応中）
 }
 
 // 出荷ステータスを変更（注文一覧のステータス列ドロップダウンから直接）
