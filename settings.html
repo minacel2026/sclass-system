@@ -918,11 +918,27 @@ function escapeHtml(s){
   return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// ── タブ説明バー（タブ直下に選択中タブの説明を表示）──
+var _TAB_DESC = {"gas":"スプレッドシート連携（GASのURL）を設定します。","gascode":"サーバ側（GAS）に貼るコードを確認・コピーします。","line":"LINE公式アカウント連携（チャネル等）を設定します。","liff":"各画面用のLIFF ID（LINEミニアプリ）を登録します。","rmenu":"LINEのリッチメニューを設定します。","oplog":"誰がいつ何をしたかの操作ログを確認します。","restore":"データのバックアップ・復元を行います。","etc":"その他の設定項目です。"};
+function _setTabDesc(name){
+  try{
+    var tb=document.querySelector('.master-tabs');
+    var td=document.getElementById('tab-desc');
+    if(tb && !td){ td=document.createElement('div'); td.id='tab-desc'; td.style.cssText="margin:.35rem 0 .5rem;padding:.4rem .7rem;font-size:.75rem;color:var(--wh2,#b9b9c2);background:rgba(201,168,76,.06);border-left:3px solid rgba(201,168,76,.5);border-radius:4px;line-height:1.55"; tb.parentNode.insertBefore(td, tb.nextSibling); }
+    if(td) td.textContent=_TAB_DESC[name]||'';
+  }catch(e){}
+}
+document.addEventListener('DOMContentLoaded', function(){
+  var a=document.querySelector('.mtab.active');
+  var m=a && a.getAttribute('onclick') && a.getAttribute('onclick').match(/switchModule\('([a-zA-Z]+)'/);
+  _setTabDesc(m?m[1]:'');
+});
 function switchModule(name, el){
   document.querySelectorAll('.mtab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.mcon').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
   document.getElementById('m-' + name).classList.add('active');
+  _setTabDesc(name);
 
   if (name === 'gascode') loadGasCode();
   if (name === 'etc') updateSysInfo();

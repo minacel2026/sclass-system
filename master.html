@@ -1734,11 +1734,20 @@ function updateMasterTabDots(){
     _mstCount.agents ? (_mstCount.agents + '件の代理店申請が未登録です') : '');
 }
 
+// ── タブ説明バー（タブ直下に選択中タブの説明を表示）──
+var _TAB_DESC={"customers":"顧客（取引先）の基本情報を登録・編集します。一覧と新規登録があります。","staff":"スタッフの登録・権限（役割）・拠点を管理します。権限はここで管理者が設定します。","uid":"LINE連携待ちの未登録UIDを確認し、顧客・スタッフに紐づけます。","registrations":"登録フォームから届いた新規取引の申請を確認・承認します。","staffapps":"スタッフ本人が送った登録申請の一覧です。承認するとスタッフ登録画面が開きます（権限・拠点は管理者が設定）。","products":"取り扱い商品（銘柄）のマスタを登録・編集します。","referrers":"紹介者マスタ。紹介者の登録と報酬計算方式を管理します。","sponsors":"協賛マスタ。協賛先と付与ルールを管理します。","agents":"代理店マスタ。代理店の登録と取引を管理します。","company":"自社（弊社）の会社情報を登録・編集します（請求書などに使用）。"};
+function _setTabDesc(name){
+  try{ var tb=document.querySelector('.master-tabs'); var td=document.getElementById('tab-desc');
+    if(tb && !td){ td=document.createElement('div'); td.id='tab-desc'; td.style.cssText="margin:.35rem 0 .5rem;padding:.4rem .7rem;font-size:.75rem;color:var(--wh2,#b9b9c2);background:rgba(201,168,76,.06);border-left:3px solid rgba(201,168,76,.5);border-radius:4px;line-height:1.55"; tb.parentNode.insertBefore(td, tb.nextSibling); }
+    if(td) td.textContent=_TAB_DESC[name]||''; }catch(e){}
+}
+document.addEventListener('DOMContentLoaded', function(){ var a=document.querySelector('.mtab.active'); var m=a && a.getAttribute('onclick') && a.getAttribute('onclick').match(/switchMaster\('([a-zA-Z]+)'/); _setTabDesc(m?m[1]:''); });
 function switchMaster(name, el){
   document.querySelectorAll('.mtab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.mcon').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
   document.getElementById('m-' + name).classList.add('active');
+  _setTabDesc(name);
 
   // 初回表示時の描画
   if (name === 'customers') renderCustList();

@@ -597,6 +597,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
     <button class="mtab" onclick="switchModule('sponsor',this)"><span class="mtab-ic">🎁</span>協賛管理</button>
     <button class="mtab" onclick="switchModule('analysis',this)"><span class="mtab-ic">📊</span>実績分析</button>
   </div>
+  <div id="tab-desc" style="margin:.35rem 0 .5rem;padding:.4rem .7rem;font-size:.75rem;color:var(--wh2);background:rgba(201,168,76,.06);border-left:3px solid rgba(201,168,76,.5);border-radius:4px;line-height:1.55">受けた注文の一覧です。検索・出荷（🚚）・修正・削除ができ、下に合計売上（翌月計上を除く額つき）も出ます。</div>
 
   <!-- ════════ 注文一覧 ════════ -->
   <div id="m-orders" class="mcon active">
@@ -1964,6 +1965,22 @@ function switchModule(name, el){
   document.querySelectorAll('.mcon').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
   document.getElementById('m-' + name).classList.add('active');
+  // タブの説明をタブバー直下に表示（選択中タブのぶんだけ差し替え）
+  var _tabDescMap = {
+    orders:    '受けた注文の一覧です。検索・出荷（🚚）・修正・削除ができ、下に合計売上（翌月計上を除く額つき）も出ます。',
+    neworder:  '新しい取引を登録します。取引種別で「注文／仕入／貸出・借入／拠点間移動／試供品」を切り替えて入力します。',
+    stock:     '拠点ごとの在庫を確認・調整します。基準日でその日の在庫を表示、A4棚卸チェックシートの印刷もできます。',
+    slog:      '入出庫の履歴です。いつ・どの拠点・どの商品が何本動いたかを、店舗名つきで確認・検索できます。',
+    lending:   '外部会社への貸出・借入の残数と履歴を管理します。貸借先の登録もここで行います。',
+    moves:     '仙台↔京都の在庫移動（輸送中・受領）を管理します。実際の入力は注文登録タブに統合されています。',
+    purchase:  '仕入（入庫）の登録と履歴です。在庫が増える取引を記録します。',
+    backorder: '未出荷で不足している本数を、拠点×商品で集計します。仕入・取り寄せの目安に使えます。',
+    inventory: '現在の在庫を原価・売価で評価します（会計用）。CSV出力できます。日付指定の棚卸は在庫管理タブへ。',
+    sponsor:   '協賛先・付与ルール・協賛ポイントの残高と履歴を管理します。',
+    analysis:  '過去実績の手入力＋実際の注文を、期（4月始まりの年度）ごとに売上集計・前年比で比較します（在庫には影響しません）。'
+  };
+  var _td = document.getElementById('tab-desc');
+  if (_td) _td.textContent = _tabDescMap[name] || '';
 
   if (name === 'orders')    renderOrders();
   if (name === 'neworder')  initNewOrder();
