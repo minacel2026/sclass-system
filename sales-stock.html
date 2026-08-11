@@ -2152,6 +2152,11 @@ async function syncFromGAS(){
   if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
   showSyncOverlay();
   try {
+    // ★同期でデータを取得する前に、未送信の保存をサーバへ送り切る。
+    //   顧客・拠点移動・貸借・商品などは同期でサーバ値に丸ごと上書きされるため、
+    //   送信前だと直近のローカル変更が一時的に元へ戻ってしまう（注文で起きた“戻る”と同種の穴）。
+    //   先に送っておけば、取得結果に自分の変更が反映され、戻らない。
+    try { await _qFlush(true); } catch(e){}
     // ── 独立データは並列で読み込み（版確認・顧客・注文・在庫・協賛）──
     //   各タスクは自分の置き場だけをGASの値で上書き。相互依存なし＝保存される数字は従来と同一。
     var pPing = gasGet('ping');
@@ -2327,9 +2332,14 @@ async function syncFromGAS(){
       ord.orders.forEach(function(o){
         o.items = normalizeOrderItems(o.items);
         normalizeGasOrderDate(o);
+        // 内容キー（店舗＋日付＋明細＋金額）。id や timestamp の表記ゆれで既存判定が外れると、
+        // 同じLINE注文が「新規受付」で再追加され、出荷済にした注文が同期のたびに戻ってしまう。
+        // それを防ぐため、内容が一致する注文が既にあれば同一とみなして再追加しない。
+        var _ck = String(o.store||'')+'|'+String(o.date||'')+'|'+JSON.stringify(o.items||{})+'|'+String(o.amount||'');
         const exists = (S.orders || []).find(x =>
           String(x.id) === String(o.id) ||
-          (x.timestamp && o.timestamp && String(x.timestamp) === String(o.timestamp) && String(x.store) === String(o.store))
+          (x.timestamp && o.timestamp && String(x.timestamp) === String(o.timestamp) && String(x.store) === String(o.store)) ||
+          (String(x.store||'')+'|'+String(x.date||'')+'|'+JSON.stringify(x.items||{})+'|'+String(x.amount||'')) === _ck
         );
         if (!exists){ if (!S.orders) S.orders = []; S.orders.push(o); added++; }
       });
@@ -7777,21 +7787,35 @@ async function guardStockWrite(){
 // 注文の重複を排除（同IDは最新を残す／別IDでも内容が同一なら統合）
 function dedupeOrders(orders){
   if (!Array.isArray(orders)) return [];
-  const result = [];
-  const seenId = new Set();
-  const seenContent = new Set();
-  // 後ろ（新しい方）から見て最新を優先、元の並びは維持
-  for (let i = orders.length - 1; i >= 0; i--){
-    const o = orders[i] || {};
-    const id = String(o.id || '');
-    const ck = String(o.store||'') + '|' + String(o.date||'') + '|' + JSON.stringify(o.items||{}) + '|' + String(o.amount||'');
-    if (id && seenId.has(id)) continue;       // 同ID重複（編集前の残骸など）
-    if (seenContent.has(ck)) continue;          // 別IDでも内容が同一（取込重複など）
-    if (id) seenId.add(id);
-    seenContent.add(ck);
-    result.unshift(o);
-  }
-  return result;
+  // 進捗ランク：同一内容の重複が来たら「進んでいる方（出荷済）」を残す。
+  //  （LINE注文が新規受付で再追加された等で、出荷済が新規受付に上書きされるのを防ぐ）
+  var _rank = function(o){
+    var s = (o && o.status) || '';
+    if (s === '出荷済' || s === '発送' || s === '完了') return 3;
+    var sh = o && o.shipped;
+    var hasShip = sh && ((typeof sh === 'object' && Object.keys(sh).length) || (typeof sh === 'string' && sh.replace(/[^0-9]/g,'').length));
+    if (s === '対応中' || hasShip) return 2;
+    return 1;
+  };
+  var out = [];      // 残す注文（元の並びを維持）
+  var idPos = {};    // id → out内index
+  var ckPos = {};    // 内容キー → out内index
+  orders.forEach(function(o){
+    o = o || {};
+    var id = String(o.id || '');
+    var ck = String(o.store||'') + '|' + String(o.date||'') + '|' + JSON.stringify(o.items||{}) + '|' + String(o.amount||'');
+    var pos = (id && idPos[id] !== undefined) ? idPos[id]
+            : (ckPos[ck] !== undefined ? ckPos[ck] : undefined);
+    if (pos === undefined){
+      pos = out.length; out.push(o);
+      if (id) idPos[id] = pos;
+      ckPos[ck] = pos;
+    } else if (_rank(o) > _rank(out[pos])){
+      out[pos] = o;                 // 進んでいる方（出荷済）で置き換え
+      if (id) idPos[id] = pos;
+    }
+  });
+  return out;
 }
 
 function normalizeAllOrders(){

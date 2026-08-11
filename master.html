@@ -1777,6 +1777,8 @@ async function syncAllFromGAS(opts){
   if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
   if (!opts.silent) toast('同期中...');
   _custFullCache = null; // 完全データのキャッシュを破棄（同期で最新化）
+  // ★取得前に未送信の保存を送り切る（顧客・スタッフ等の丸ごと上書きで直近の変更が戻るのを防ぐ）
+  if(typeof _qFlush==='function'){ try{ await _qFlush(true); }catch(e){} }
 
   // 9本のGETを「並列」で投げる（順次awaitだと各往復の待ち時間の合計になり遅い）。
   // 1本が失敗しても他を止めないよう、それぞれ .catch でnullに落とす。
