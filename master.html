@@ -859,12 +859,12 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
 
   <!-- ════════ 未登録UID（親タブ：スタッフの右） ════════ -->
   <div id="m-uid" class="mcon">
-    <div class="action-bar">
-      <button class="btn-s" onclick="loadCustPendingUids()">🔄 UID一覧を更新</button>
-    </div>
     <div class="hint-box">
       <strong>📌 未登録UIDとは</strong><br>
       LINE公式アカウントにメッセージを送ったが、顧客マスター／スタッフマスターに登録されていないLINE UIDの一覧です。<strong>顧客・スタッフのどちらにも紐付けできます。</strong>
+    </div>
+    <div class="action-bar">
+      <button class="btn-s" onclick="loadCustPendingUids()">🔄 UID一覧を更新</button>
     </div>
     <div id="pending-list"></div>
   </div>
