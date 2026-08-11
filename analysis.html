@@ -773,7 +773,7 @@ function _setTabDesc(name){
     var tb=document.querySelector('.master-tabs');
     var td=document.getElementById('tab-desc');
     if(tb && !td){ td=document.createElement('div'); td.id='tab-desc'; td.style.cssText="margin:.35rem 0 .5rem;padding:.4rem .7rem;font-size:.75rem;color:var(--wh2,#b9b9c2);background:rgba(201,168,76,.06);border-left:3px solid rgba(201,168,76,.5);border-radius:4px;line-height:1.55"; tb.parentNode.insertBefore(td, tb.nextSibling); }
-    if(td) td.textContent=_TAB_DESC[name]||'';
+    if(td){ var mc=document.getElementById('m-'+name); var own=false, ch=mc?mc.children:[]; for(var i=0;i<ch.length;i++){ var cn=' '+(ch[i].className||'')+' '; if(cn.indexOf(' hint-box ')>=0||cn.indexOf(' mod-head ')>=0){ own=true; break; } } if(own){ td.style.display='none'; } else { td.style.display=''; td.textContent=_TAB_DESC[name]||''; } }
   }catch(e){}
 }
 document.addEventListener('DOMContentLoaded', function(){

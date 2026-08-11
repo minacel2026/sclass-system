@@ -1982,7 +1982,15 @@ function switchModule(name, el){
     analysis:  '過去実績の手入力＋実際の注文を、期（4月始まりの年度）ごとに売上集計・前年比で比較します（在庫には影響しません）。'
   };
   var _td = document.getElementById('tab-desc');
-  if (_td) _td.textContent = _tabDescMap[name] || '';
+  if (_td){
+    // そのタブに元から説明（hint-box / mod-head）があるときは、バーを出さない（二重表示を防ぐ）
+    // ※ :scope セレクタは一部のアプリ内ブラウザで効かないため、子要素を直接調べる確実な方法にする
+    var _mc = document.getElementById('m-' + name);
+    var _own = false, _ch = _mc ? _mc.children : [];
+    for (var _i = 0; _i < _ch.length; _i++){ var _cn = ' ' + (_ch[_i].className || '') + ' '; if (_cn.indexOf(' hint-box ') >= 0 || _cn.indexOf(' mod-head ') >= 0){ _own = true; break; } }
+    if (_own){ _td.style.display = 'none'; }
+    else { _td.style.display = ''; _td.textContent = _tabDescMap[name] || ''; }
+  }
 
   if (name === 'orders')    renderOrders();
   if (name === 'neworder')  initNewOrder();
