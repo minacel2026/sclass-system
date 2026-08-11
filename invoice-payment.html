@@ -507,6 +507,8 @@ async function _qFlush(manual){
       //   「今すぐ再送」を押したときは、これも含めて全部試す
       if (!manual && (item._try||0) >= 5){ rest.push(item); continue; }
       try{
+        // ★予防：書き込みにもログインのセッショントークンを付ける（将来セッション必須の保存を足しても弾かれないように）。副作用なし。
+        try{ var _tok = sessionStorage.getItem('lmb_token') || ''; if(_tok){ item.data._token = _tok; if(item.data.token==null) item.data.token = _tok; } }catch(_e){}
         var payload = JSON.stringify(item.data);
         var enc = encodeURIComponent(payload);
         var res;
