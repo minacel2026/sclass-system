@@ -4557,6 +4557,8 @@ function updateSpColNote(){
   }
   var rest  = Math.max(0, avail - used);
   el.innerHTML = '使える ' + avail + '本 / 使用中 ' + used + '本 / <strong>あと ' + rest + '本</strong>';
+  // 上部の協賛バナー（🎁 協賛対象／この注文で協賛+N本）も販売数の変更に追従させる
+  if (typeof updateSponsorHint === 'function') updateSponsorHint(currentOrderCust);
 }
 
 function setSponsorQty(key, raw){
