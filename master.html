@@ -1560,6 +1560,11 @@ async function _qFlush(manual){
       //   「今すぐ再送」を押したときは、これも含めて全部試す
       if (!manual && (item._try||0) >= 5){ rest.push(item); continue; }
       try{
+        // ★ 書き込みにもログインのセッショントークンを付ける。
+        //   saveStaff / deleteStaff は GAS 側で _verifySession(payload._token) が必須なため、
+        //   これが無いと auth エラーで弾かれ「未送信」に残る（＝スタッフ更新が保存できない原因）。
+        //   送信の直前に付けることで、再送時も常に最新のトークンを使う。
+        try{ var _tok = sessionStorage.getItem('lmb_token') || ''; if(_tok){ item.data._token = _tok; if(item.data.token==null) item.data.token = _tok; } }catch(_e){}
         var payload = JSON.stringify(item.data);
         var enc = encodeURIComponent(payload);
         var res;
@@ -1585,6 +1590,10 @@ async function _qFlush(manual){
       }catch(e){
         item._try=(item._try||0)+1;
         item._err=String((e && e.message) || e).slice(0,140);   // 失敗理由を控える（原因調査用）
+        // 認証エラーは黙ってキューに残さず、初回だけ理由を画面に出す（再送のたびには出さない）
+        if (item._try===1 && /認証|auth/i.test(item._err)){
+          try{ toast('保存できませんでした：ログインの期限切れの可能性があります。一度ログアウト→ログインし直してから、左下の「未送信」を再送してください','error'); }catch(_t){}
+        }
         rest.push(item);
       }
     }
