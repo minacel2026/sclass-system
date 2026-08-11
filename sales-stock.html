@@ -210,7 +210,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .tab-dot.danger{background:#e0685f;box-shadow:0 0 0 0 rgba(224,104,95,.7);animation:tabDotPulseLate 1.4s infinite}
 .tab-dot.late{background:#e6a23c;box-shadow:0 0 0 0 rgba(230,162,60,.7);animation:tabDotPulseLate 1.4s infinite}
 @keyframes tabDotPulseLate{0%{box-shadow:0 0 0 0 rgba(230,162,60,.7)}70%{box-shadow:0 0 0 7px rgba(230,162,60,0)}100%{box-shadow:0 0 0 0 rgba(230,162,60,0)}}
-body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-transfer,body.no-adjust #lend-opening,body.no-adjust #sp-manual-adjust,body.no-adjust .st-adj,body.no-adjust .c-adj{display:none!important}
+body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-transfer,body.no-adjust #lend-opening,body.no-adjust #btn-lend-opening,body.no-adjust #sp-manual-adjust,body.no-adjust .st-adj,body.no-adjust .c-adj{display:none!important}
 .t-mini{display:none}
 @media (max-width:768px){
   /* 在庫一覧（#stock-grid）だけ：横スクロールせず小さい文字で1行に収める */
@@ -595,6 +595,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
     <button class="mtab" onclick="switchModule('backorder',this)"><span class="mtab-ic">🧾</span>取り寄せ管理<span id="mtab-backorder-dot" class="tab-dot" style="display:none"></span></button>
     <button class="mtab" onclick="switchModule('inventory',this)"><span class="mtab-ic">📦</span>棚卸計算</button>
     <button class="mtab" onclick="switchModule('sponsor',this)"><span class="mtab-ic">🎁</span>協賛管理</button>
+    <button class="mtab" onclick="switchModule('analysis',this)"><span class="mtab-ic">📊</span>実績分析</button>
   </div>
 
   <!-- ════════ 注文一覧 ════════ -->
@@ -617,7 +618,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
     </div>
     <div class="summary-bar">
       <div><span class="sm-label">表示中:</span><span id="ord-cnt" style="color:var(--gold-l)">0</span><span style="color:var(--wh3);font-size:.7rem">件</span></div>
-      <div><span class="sm-label">合計:</span><span class="sm-total" id="ord-total">¥0</span></div>
+      <div><span class="sm-label">合計:</span><span class="sm-total" id="ord-total">¥0</span><span id="ord-total-ex-wrap" style="display:none;margin-left:.4rem;font-size:.72rem;color:var(--wh3)">（翌月計上を除く <span id="ord-total-ex" style="color:var(--gold-l)">¥0</span>）</span></div>
     </div>
     <div class="tw">
       <table>
@@ -853,7 +854,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         <div class="fg"><label>拠点フィルタ</label><select class="fc" id="st-br" onchange="renderStock()"><option value="">両拠点</option><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>状態</label><select class="fc" id="st-state" onchange="renderStock()"><option value="">すべて</option><option value="low">補充警告のみ</option><option value="out">在庫切れのみ</option></select></div>
         <div class="fg"><label>種類</label><select class="fc" id="st-group" onchange="renderStock()"><option value="">すべて</option><option value="wine">🍷 お酒</option><option value="supply">📦 備品</option><option value="diffuser">🌿 ディフューザー</option></select></div>
-        <div class="fg"><label>基準日（この日の在庫）</label><div style="display:flex;gap:.25rem"><input class="fc" id="st-asof" type="date" min="2000-01-01" max="2100-12-31" style="flex:1;min-width:0" onchange="renderStock()"><button class="btn-s" style="padding:0 .6rem;white-space:nowrap;font-size:.68rem" onclick="var e=document.getElementById('st-asof');if(e)e.value='';renderStock()" title="今の在庫に戻す">今</button></div></div>
+        <div class="fg"><label>基準日（この日の在庫）</label><div style="display:flex;gap:.25rem"><input class="fc" id="st-asof" type="date" min="2000-01-01" max="2100-12-31" style="flex:1;min-width:0" onchange="renderStock()"><button class="btn-s" style="padding:0 .6rem;white-space:nowrap;font-size:.68rem" onclick="var e=document.getElementById('st-asof');if(e)e.value='';renderStock()" title="今の在庫に戻す">今</button><button class="btn-s" style="padding:0 .6rem;white-space:nowrap;font-size:.68rem" onclick="printStocktakeSheetAsOf()" title="基準日の在庫でA4棚卸チェックシートを印刷（手書き照合用）">🖨 棚卸</button></div></div>
         <div class="fg"><label>&nbsp;</label><div style="display:flex;gap:.3rem;width:100%"><button class="btn-s" style="flex:1;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:0 .5rem;white-space:nowrap;font-size:.68rem" onclick="migrateToReserve()" title="一度だけ実行：既存の未出荷注文の本数を実在庫へ戻し、引当方式へ移行します（初回のみ）">⇄ 引当方式へ移行</button><button id="btn-stock-init" class="btn-s" style="flex:1;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:0 .5rem;white-space:nowrap;font-size:.68rem" onclick="var d=document.getElementById('stock-init');var open=(d.style.display!=='none');d.style.display=open?'none':'block';if(!open){if(typeof renderStockInit==='function')renderStockInit();d.scrollIntoView({block:'nearest',behavior:'smooth'});}" title="旧値・協賛・新値を一括登録／上書き">⊕ 初期登録</button></div></div>
       </div>
     </div>
@@ -979,7 +980,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:auto">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
-          <tr><th>日付</th><th>時刻</th><th>拠点</th><th>種類</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th></tr>
+          <tr><th>日付</th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th></tr>
         </thead>
         <tbody id="slog-tbody"></tbody>
       </table>
@@ -1106,10 +1107,13 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       <div id="lend-partner-list" style="margin-top:.6rem"></div>
     </div>
 
-    <div class="hint-box">▸ 貸出・借入の入力は「注文登録」タブに統合しました（取引種別＝貸出／借入）。ここでは貸借先の登録・残数・履歴を確認できます。</div>
+    <div class="hint-box" style="display:flex;align-items:center;gap:.5rem;font-size:.68rem;padding:.4rem .6rem;margin-bottom:1rem">
+      <span style="flex:1;min-width:0">▸ 貸出・借入の入力は「注文登録」タブに統合しました（取引種別＝貸出／借入）。ここでは貸借先の登録・残数・履歴を確認できます。</span>
+      <button id="btn-lend-opening" class="btn-s" style="white-space:nowrap;font-size:.68rem;padding:0 .6rem;flex:none" onclick="var d=document.getElementById('lend-opening');var open=(d.style.display!=='none');d.style.display=open?'none':'block';if(!open){if(typeof renderLendOpeningForm==='function')renderLendOpeningForm();d.scrollIntoView({block:'nearest',behavior:'smooth'});}" title="稼働開始時点で既に貸借中だった残数を登録（在庫は動きません）">⊕ 貸借残初期登録</button>
+    </div>
 
-    <details class="fp" id="lend-opening" style="margin-bottom:1rem">
-      <summary style="cursor:pointer;font-weight:700;color:var(--gold-l)">⊕ 貸借残 初期登録（在庫に影響しません・残数のみ登録）</summary>
+    <div class="fp" id="lend-opening" style="margin-bottom:1rem;display:none">
+      <div style="font-weight:700;color:var(--gold-l);margin-bottom:.2rem">🗃 貸借残 初期登録（在庫に影響しません・残数のみ登録）</div>
       <div style="margin-top:.6rem">
         <div class="hint-box" style="margin:.2rem 0 .5rem">稼働開始時点で既に貸出中／借入中だった残数を、相手・商品ごとに登録します。<b>在庫は一切動きません</b>（4/1期首在庫に貸借中も含めて数えているため）。通常運用の貸出/借入は「注文登録」タブで行ってください（そちらは在庫が動きます）。</div>
         <div class="frow">
@@ -1122,7 +1126,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         </div>
         <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="recordLendingOpening()">＋ 残数のみ登録（在庫を動かさない）</button></div>
       </div>
-    </details>
+    </div>
 
     <div class="fp">
       <div class="th-area"><h3>📊 貸借残数（相手ごと・未返却）</h3></div>
@@ -1131,6 +1135,45 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
     <div class="fp">
       <div class="th-area"><h3>📋 貸借履歴</h3></div>
       <div id="lend-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══ 実績分析（在庫に触れない・過去実績の入力と集計） ═══ -->
+  <div id="m-analysis" class="mcon">
+    <div class="mod-head">
+      <strong>📊 実績分析</strong><br>
+      <span style="color:var(--wh2);font-size:.82rem">過去の売上実績を「月×店舗×商品」で入力して、期（4月始まりの年度）ごとに集計します。<b>在庫・引当・棚卸には一切影響しません</b>（分析専用）。</span>
+    </div>
+
+    <div class="fp">
+      <div class="th-area"><h3>➕ 実績を入力</h3></div>
+      <div class="frow">
+        <div class="fg"><label>年月 <span class="req">*</span></label><input class="fc" id="an-ym" type="month" min="2000-01" max="2100-12"></div>
+        <div class="fg"><label>店舗 <span class="req">*</span></label><input class="fc" id="an-store" list="an-store-list" placeholder="店舗名"><datalist id="an-store-list"></datalist></div>
+        <div class="fg"><label>商品 <span class="req">*</span></label><input class="fc" id="an-prod" list="an-prod-list" placeholder="商品名"><datalist id="an-prod-list"></datalist></div>
+        <div class="fg"><label>本数</label><input class="fc" id="an-qty" type="number" inputmode="numeric" step="1" placeholder="0"></div>
+        <div class="fg"><label>金額(円)</label><input class="fc" id="an-amount" type="number" inputmode="numeric" step="1" placeholder="0"></div>
+        <div class="fg" style="flex:1"><label>メモ（任意）</label><input class="fc" id="an-memo" placeholder="例：移行前の実績"></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn btn-g" style="white-space:nowrap" onclick="addActual()">＋ 追加</button></div>
+      </div>
+      <div class="hint-box" style="margin:.2rem 0 0;font-size:.68rem">※ 同じ「年月×店舗×商品」を再度追加すると、本数・金額を上書きします（入れ直しが簡単なように）。CSVでまとめて入れたい場合は言ってください（取り込み口を作れます）。</div>
+    </div>
+
+    <div class="fp">
+      <div class="th-area" style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+        <h3 style="margin:0">📈 集計</h3>
+        <label style="font-size:.72rem;color:var(--wh2)">期(年度)</label>
+        <select class="fc" id="an-fy" style="width:auto;min-width:140px" onchange="renderAnalysis()"></select>
+        <select class="fc" id="an-store-f" style="width:auto;min-width:120px" onchange="renderAnalysis()"><option value="">全店舗</option></select>
+        <label style="font-size:.72rem;color:var(--wh2);display:flex;align-items:center;gap:.25rem;white-space:nowrap"><input type="checkbox" id="an-inc-orders" checked onchange="renderAnalysis()"> 実際の注文も含める</label>
+        <button class="btn-s" style="margin-left:auto" onclick="exportActualsCsv()">⬇ CSV出力</button>
+      </div>
+      <div id="an-summary"></div>
+    </div>
+
+    <div class="fp">
+      <div class="th-area"><h3>🗂 実績の明細（この期）</h3><span id="an-cnt" style="font-size:.72rem;color:var(--wh2)"></span></div>
+      <div id="an-list" style="overflow-x:auto"></div>
     </div>
   </div>
 
@@ -1324,7 +1367,7 @@ const S = {
   bankEntries:[], bankHistory:[], company:{}, products:null,
   purchases:[], suppliers:['マルシェジャパン','オーク酒販'],
   cashEntries:[], dailyReps:[],
-  referrers:[], sponsors:[],
+  referrers:[], sponsors:[], actuals:[],
   gasUrl: (function(){var U='https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';try{if(localStorage.getItem('gasUrl')!==U)localStorage.setItem('gasUrl',U);}catch(e){}return U;})(),
 };
 
@@ -1344,11 +1387,21 @@ function calcAmt(o){
   return Math.round(total);
 }
 
+// 売上を「翌月（以降）」に計上している注文か？
+// bookDate（売上計上日）が納品日（無ければ受注日）の月より後なら繰延＝翌月計上とみなす。
+function _isDeferredSale(o){
+  if (!o || !o.bookDate) return false;
+  var base = o.deliveryDate || o.date || '';
+  var bym = String(o.bookDate).slice(0,7);   // 計上年月 YYYY-MM
+  var nym = String(base).slice(0,7);          // 本来の月（納品/受注）
+  return !!(bym && nym && bym > nym);
+}
+
 function saveState(){
   try {
     const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','moves','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
-                  'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
+                  'cashEntries','dailyReps','sponsorLogs','referrers','sponsors','actuals'];
     keys.forEach(k => localStorage.setItem('lmb_' + k, JSON.stringify(S[k])));
   } catch(e){ console.warn('saveState error', e); }
 }
@@ -1356,7 +1409,7 @@ function loadState(){
   try {
     const keys = ['orders','customers','staff','stock','stockDetail','slog','lendings','lendPartners','moves','collections',
                   'invoices','bankEntries','bankHistory','company','products','purchases',
-                  'cashEntries','dailyReps','sponsorLogs','referrers','sponsors'];
+                  'cashEntries','dailyReps','sponsorLogs','referrers','sponsors','actuals'];
     keys.forEach(k => {
       const v = localStorage.getItem('lmb_' + k);
       if (v) try { S[k] = JSON.parse(v); } catch(e){}
@@ -1801,7 +1854,7 @@ function orderShipped(o){
   var sh = o.shipped;
   if (typeof sh === 'string'){ try { sh = JSON.parse(sh); } catch(e){ sh = null; } }
   if (sh && typeof sh === 'object'){
-    var out = {}; Object.keys(sh).forEach(function(k){ var v = Number(sh[k]) || 0; if (v > 0) out[k] = v; }); return out;
+    var out = {}; Object.keys(sh).forEach(function(k){ if (k.indexOf('sp:') === 0) return; /* 協賛分は別管理 */ var v = Number(sh[k]) || 0; if (v > 0) out[k] = v; }); return out;
   }
   // 古いデータの遅延移行：出荷済なら全量出荷済、それ以外は未出荷（0）
   if (shipStatus(o) === '出荷済'){
@@ -1809,17 +1862,43 @@ function orderShipped(o){
   }
   return {};
 }
+// 協賛（🎁）の出荷済数。o.shipped 内に "sp:商品名" のキーで持つ（有償と同じ保存領域＝リロードしても残る）。
+function orderShippedSponsor(o){
+  if (!o) return {};
+  var sh = o.shipped;
+  if (typeof sh === 'string'){ try { sh = JSON.parse(sh); } catch(e){ sh = null; } }
+  var out = {};
+  if (sh && typeof sh === 'object'){
+    Object.keys(sh).forEach(function(k){ if (k.indexOf('sp:') === 0){ var v = Number(sh[k]) || 0; if (v > 0) out[k.slice(3)] = v; } });
+    if (Object.keys(out).length) return out;   // 明示データがあればそれが正
+  }
+  // sp: キーが無く、旧データで出荷済なら協賛も全量出荷済とみなす
+  if (shipStatus(o) === '出荷済'){
+    Object.entries(o.sponsorItems || {}).forEach(function(e){ var v = Number(e[1]) || 0; if (v > 0) out[e[0]] = v; });
+  }
+  return out;
+}
 // この注文・この商品の残り（未出荷）本数
 function remainingQty(o, product){
   var ordered = Number((o.items || {})[product]) || 0;
   var shipped = Number(orderShipped(o)[product]) || 0;
   return Math.max(0, ordered - shipped);
 }
-// 注文全体の出荷状態を明細から判定：未発送／一部出荷／出荷済
+// 協賛（🎁）のこの商品の残り本数
+function remainingSponsorQty(o, product){
+  var ordered = Number((o.sponsorItems || {})[product]) || 0;
+  var shipped = Number(orderShippedSponsor(o)[product]) || 0;
+  return Math.max(0, ordered - shipped);
+}
+// 注文全体の出荷状態を明細から判定：未発送／一部出荷／出荷済（有償＋協賛の両方で判定）
 function deriveShipState(o){
-  var items = o.items || {}, sh = orderShipped(o), ordTot = 0, shpTot = 0;
+  var items = o.items || {}, sp = o.sponsorItems || {};
+  var sh = orderShipped(o), shSp = orderShippedSponsor(o);
+  var ordTot = 0, shpTot = 0;
   Object.keys(items).forEach(function(p){ ordTot += Number(items[p]) || 0; });
-  Object.keys(sh).forEach(function(p){ shpTot += Math.min(Number(sh[p]) || 0, Number(items[p]) || 0); });
+  Object.keys(sp).forEach(function(p){ ordTot += Number(sp[p]) || 0; });
+  Object.keys(items).forEach(function(p){ shpTot += Math.min(Number(sh[p]) || 0, Number(items[p]) || 0); });
+  Object.keys(sp).forEach(function(p){ shpTot += Math.min(Number(shSp[p]) || 0, Number(sp[p]) || 0); });
   if (ordTot <= 0 || shpTot <= 0) return '未発送';
   if (shpTot >= ordTot) return '出荷済';
   return '一部出荷';
@@ -1896,6 +1975,7 @@ function switchModule(name, el){
   if (name === 'lending')  { _markSeen('lending'); loadLending(); }
   if (name === 'moves')     loadMoves();
   if (name === 'backorder') renderBackorders();
+  if (name === 'analysis')  { if(typeof fillActualDatalists==='function') fillActualDatalists(); renderAnalysis(); }
 }
 
 // ─── KPI更新 ─────
@@ -2061,6 +2141,7 @@ async function syncFromGAS(){
     var pSlog = gasGet('getStockLogs', { limit: 1000 });
     var pPur  = gasGet('getPurchases', { limit: 500 });
     var pNew  = gasGet('getNewOrders', { since: '' });
+    var pAct  = gasGet('getActuals');   // 実績分析（他PCと共有）。GAS未対応でも安全に無視
 
     try { const pong = await pPing; if (pong && !pong.updateAllStock){ toast('⚠️ GASが古い版です。在庫がスプシに反映されません。最新のgas-templateを貼り付けて「デプロイを管理→新バージョン」で更新してください', 'error'); } } catch(e){}
 
@@ -2229,6 +2310,18 @@ async function syncFromGAS(){
       if (added) { window._syncAddedOrders = added; }
     }
 
+    // ── 実績分析（他PCと共有）：GASにあれば取得して置き換え（GAS未対応なら現状維持）──
+    try {
+      const ac = await pAct;
+      if (ac && Array.isArray(ac.actuals)){
+        S.actuals = ac.actuals;
+        if (typeof renderAnalysis === 'function'){
+          var _am = document.getElementById('m-analysis');
+          if (_am && _am.classList.contains('active')) renderAnalysis();
+        }
+      }
+    } catch(e){}
+
     saveState();
     localStorage.setItem('lmb_lastSync', new Date().toISOString());
     toast(window._syncAddedOrders ? `✓ 同期完了（注文${window._syncAddedOrders}件を取り込み）` : '✓ 同期完了');
@@ -2325,6 +2418,14 @@ function renderOrders(){
   document.getElementById('ord-cnt').textContent = list.length;
   const total = list.reduce((s,o) => s + calcAmt(o), 0);
   document.getElementById('ord-total').textContent = yen(total);
+  // 翌月（以降）に売上計上している注文を除いた合計をカッコ書きで表示（データ移行時の当月チェック用）
+  const totalEx = list.filter(o => !_isDeferredSale(o)).reduce((s,o) => s + calcAmt(o), 0);
+  const _exWrap = document.getElementById('ord-total-ex-wrap');
+  const _exEl = document.getElementById('ord-total-ex');
+  if (_exWrap && _exEl){
+    if (totalEx !== total){ _exEl.textContent = yen(totalEx); _exWrap.style.display = ''; }
+    else { _exWrap.style.display = 'none'; }
+  }
 
   const tbody = document.getElementById('ord-tbody');
   if (list.length === 0){
@@ -2423,14 +2524,57 @@ function _accBkt(dst, p, used){
   if (!dst[p]) dst[p] = { old:0, sp:0, new:0 };
   dst[p].old += (used.old||0); dst[p].sp += (used.sp||0); dst[p].new += (used.new||0);
 }
+// 協賛使用（used）ログを「一度だけ」記録する。協賛を出し切ったときに付ける（sponsor注文は有償=協賛を出し切ったとき）。
+// 既に used ログがあれば記録しない＝リロード後（sponsorLogsはGAS永続）も二重記録しない。
+function _recordSponsorUsedOnce(order, _d, branch){
+  var cust = (S.customers || []).find(function(x){ return x.name === order.store; });
+  if (!cust) return;
+  if (!S.sponsorLogs) S.sponsorLogs = [];
+  if ((S.sponsorLogs||[]).some(function(l){ return l.orderId === order.id && l.type === 'used'; })) return;
+  _d = _d || _ymd(order.shipDate || today());
+  branch = branch || order.branch || '仙台';
+  if (order.orderType === 'sponsor'){
+    var paidDone = Object.keys(order.items||{}).length>0 && Object.keys(order.items||{}).every(function(p){ return remainingQty(order, p) <= 0; });
+    if (!paidDone) return;
+    var totalQty = Object.values(order.items || {}).reduce(function(s,q){ return s + (q||0); }, 0);
+    if (totalQty <= 0) return;
+    var prodList = Object.keys(order.items || {}).join('・');
+    S.sponsorLogs.push({ id:'sp-'+Date.now()+'-'+Math.random().toString(36).slice(2,6), custId:cust.id, custName:cust.name, type:'used', qty:totalQty, date:_d, orderId:order.id, product:prodList, branch:branch, note:'協賛注文 '+totalQty+'本出荷（'+prodList+'）', createdAt:new Date().toISOString(), createdBy:currentUser.name });
+    if (S.gasUrl){ try { gasPost(Object.assign({action:'saveSponsorLog'}, S.sponsorLogs[S.sponsorLogs.length-1])); } catch(e){} }
+  } else {
+    var sp = order.sponsorItems || {};
+    if (!Object.keys(sp).length) return;
+    var spDone = Object.keys(sp).every(function(p){ return remainingSponsorQty(order, p) <= 0; });
+    if (!spDone) return;
+    Object.entries(sp).forEach(function(e){
+      var prod=e[0], qty=Number(e[1])||0; if(!(qty>0)) return;
+      S.sponsorLogs.push({ id:'sp-'+Date.now()+'-'+Math.random().toString(36).slice(2,6), custId:cust.id, custName:cust.name, type:'used', qty:qty, date:_d, orderId:order.id, product:prod, branch:branch, note:'協賛出荷 '+qty+'本（'+prod+'）', createdAt:new Date().toISOString(), createdBy:currentUser.name });
+      if (S.gasUrl){ try { gasPost(Object.assign({action:'saveSponsorLog'}, S.sponsorLogs[S.sponsorLogs.length-1])); } catch(e){} }
+    });
+  }
+}
+// 協賛（または協賛注文の有償）がもう出し切っていないなら、使用ログを取り消す（再出荷で再記録される）
+function _undoSponsorUsedIfIncomplete(order){
+  var stillDone;
+  if (order.orderType === 'sponsor'){
+    stillDone = Object.keys(order.items||{}).length>0 && Object.keys(order.items||{}).every(function(p){ return remainingQty(order, p) <= 0; });
+  } else {
+    var sp = order.sponsorItems||{};
+    stillDone = Object.keys(sp).length>0 && Object.keys(sp).every(function(p){ return remainingSponsorQty(order, p) <= 0; });
+  }
+  if (stillDone) return;
+  var used = (S.sponsorLogs||[]).filter(function(l){ return l.orderId===order.id && l.type==='used'; });
+  if (used.length){
+    S.sponsorLogs = S.sponsorLogs.filter(function(l){ return !(l.orderId===order.id && l.type==='used'); });
+    if (S.gasUrl) used.forEach(function(l){ try { gasPost({action:'deleteSponsorLog', id:l.id}); } catch(e){} });
+  }
+}
 
 // 注文まるごとの「出荷確定」：有償明細は“残り”だけ出庫（部分出荷済みを二重に引かない）、shippedは全量化。
 // 協賛/試供品/備品/シール/協賛付与は「まるごと出荷確定」で一度だけ行う（_extrasDone で保護）。
 function applyShipEffects(order, shipDate){
   const branch = order.branch || '仙台';
-  const wasShipped = shipStatus(order) === '出荷済';   // 既に出荷済のオーダーへ誤って再実行しても協賛/試供品を二重に引かない保険
-  // 在庫が動いた日＝出荷日で記録する（注文日ではない）。
-  // 注文日で記録すると月をまたいだ時に在庫が過去へ遡って減り、締めた月の在庫・評価額が変わってしまう。
+  const wasShipped = shipStatus(order) === '出荷済';   // 既に出荷済のオーダーへ誤って再実行しても試供品等を二重に引かない保険
   const _d = _ymd(shipDate || order.shipDate || today());
   const time = new Date().toTimeString().slice(0,5);
   if (!S.slog) S.slog = [];
@@ -2442,22 +2586,29 @@ function applyShipEffects(order, shipDate){
     if (rem > 0){
       const used = depleteStock(branch, p, rem);   // 旧→協賛→新 の順で引き当て
       _accBkt(_sb.items, p, used);
-      S.slog.push({ date: _d, time, branch, type: '出庫', product: p, qty: rem, remaining: S.stock[branch][p], orderId: order.id, note: `出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+      S.slog.push({ date: _d, time, branch, type: '出庫', product: p, qty: rem, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
     }
     order.shipped[p] = Number(q) || 0;   // 全量化
   });
-  // 協賛・試供品・備品・シール・協賛付与は「まるごと出荷確定」で一度だけ
+  // 協賛（🎁）：残りだけ出庫。sp:キーで全量化（有償と同じ保存領域＝リロードでも残る）。
+  Object.entries(order.sponsorItems || {}).forEach(([p, q]) => {
+    const rem = remainingSponsorQty(order, p);
+    if (rem > 0){
+      const used = depleteStock(branch, p, rem);
+      _accBkt(_sb.sponsorItems, p, used);
+      S.slog.push({ date: _d, time, branch, type: '協賛出庫', product: p, qty: rem, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `協賛出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+    }
+    order.shipped['sp:'+p] = Number(q) || 0;   // 全量化
+  });
+  // 協賛の使用ポイント：協賛（協賛注文は有償）を出し切ったら一度だけ記録
+  _recordSponsorUsedOnce(order, _d, branch);
+  // 試供品・備品・シール・協賛付与(earned) は「まるごと出荷確定」で一度だけ
   if (!order._extrasDone && !wasShipped){
     order._extrasDone = true;
-    Object.entries(order.sponsorItems || {}).forEach(([p, q]) => {
-      const used = depleteStock(branch, p, q || 0);
-      _accBkt(_sb.sponsorItems, p, used);
-      S.slog.push({ date: _d, time, branch, type: '協賛出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `協賛出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
-    });
     Object.entries(order.freeItems || {}).forEach(([p, q]) => {
       const used = depleteStock(branch, p, q || 0);
       _accBkt(_sb.freeItems, p, used);
-      S.slog.push({ date: _d, time, branch, type: '試供出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, note: `試供品#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+      S.slog.push({ date: _d, time, branch, type: '試供出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `試供品#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
     });
     // 同梱した備品ぶん、備品の在庫も減らす（売上には含めない）
     Object.entries(order.supplyItems || {}).forEach(function(e){
@@ -2465,7 +2616,7 @@ function applyShipEffects(order, shipDate){
       if(!(_q>0)) return;
       depleteStock(branch, _p, _q);
       S.slog.push({ date:_d, time, branch, type:'備品出庫', product:_p, qty:_q,
-        remaining:S.stock[branch][_p], orderId:order.id,
+        remaining:S.stock[branch][_p], orderId:order.id, store:order.store,
         note:'出荷#'+String(order.id).slice(-6)+' 備品同梱' });
     });
     // ポイントシールを同梱した枚数ぶん、シールの在庫も減らす（同梱漏れの確認用）
@@ -2477,24 +2628,11 @@ function applyShipEffects(order, shipDate){
       depleteStock(branch, _sealP, _sealQ);
       _sb.seal = { product:_sealP, qty:_sealQ };
       S.slog.push({ date:_d, time, branch, type:'シール出庫', product:_sealP, qty:_sealQ,
-        remaining:S.stock[branch][_sealP], orderId:order.id,
+        remaining:S.stock[branch][_sealP], orderId:order.id, store:order.store,
         note:`出荷#${String(order.id).slice(-6)} 同梱${_sealQ}枚 / ワイン${wineQ}本` + (_sealQ!==wineQ ? `（差${_sealQ-wineQ>0?'+':''}${_sealQ-wineQ}）` : '（一致）') });
     }
-    const cust = (S.customers || []).find(x => x.name === order.store);
-    if (!S.sponsorLogs) S.sponsorLogs = [];
-    if (order.orderType === 'sponsor' && cust){
-      const totalQty = Object.values(order.items || {}).reduce((s, q) => s + (q || 0), 0);
-      const prodList = Object.keys(order.items || {}).join('・');
-      S.sponsorLogs.push({ id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), custId: cust.id, custName: cust.name, type: 'used', qty: totalQty, date: _d, orderId: order.id, product: prodList, branch, note: `協賛注文 ${totalQty}本出荷（${prodList}）`, createdAt: new Date().toISOString(), createdBy: currentUser.name });
-      if (S.gasUrl){ try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
-    } else {
-      checkAndAddSponsorPoints(order);  // 通常注文の協賛付与(earned)
-      if (cust && order.sponsorItems && Object.keys(order.sponsorItems).length){
-        Object.entries(order.sponsorItems).forEach(([prod, qty]) => {
-          S.sponsorLogs.push({ id: 'sp-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), custId: cust.id, custName: cust.name, type: 'used', qty, date: _d, orderId: order.id, product: prod, branch, note: `協賛出荷 ${qty}本（${prod}）`, createdAt: new Date().toISOString(), createdBy: currentUser.name });
-          if (S.gasUrl){ try { gasPost({ action: 'saveSponsorLog', ...S.sponsorLogs[S.sponsorLogs.length - 1] }); } catch(e){} }
-        });
-      }
+    if (order.orderType !== 'sponsor'){
+      checkAndAddSponsorPoints(order);  // 通常注文の協賛付与(earned)。使用(used)は _recordSponsorUsedOnce 側。
     }
   }
   saveState();
@@ -2504,23 +2642,26 @@ function applyShipEffects(order, shipDate){
 function reverseShipEffects(order){
   const branch = order.branch || '仙台';
   const bk = order._shipBkt || {};
-  const shippedMap = orderShipped(order);   // 有償の出荷済数（部分出荷でも過不足なく戻す）
+  const shippedMap = orderShipped(order);          // 有償の出荷済数
+  const shippedSpMap = orderShippedSponsor(order); // 協賛の出荷済数
   const extrasShipped = !!order._extrasDone
-    || (bk.sponsorItems && Object.keys(bk.sponsorItems).length > 0)
     || (bk.freeItems && Object.keys(bk.freeItems).length > 0)
     || shipStatus(order) === '出荷済';
   // 有償：出荷済数だけ、消費したバケツへ正確に戻す（未出荷分は元々引いていないので戻さない）
   Object.entries(shippedMap).forEach(([p, q]) => {
     restoreStockBkt(branch, p, q || 0, (bk.items || {})[p]);
   });
-  // 協賛/試供品：出庫済みのときだけ、まるごと戻す（試供品freeItemsも戻す。以前は戻し漏れがあり在庫が目減りしていた）
+  // 協賛：出荷済数だけ戻す（部分出荷でも過不足なし）
+  Object.entries(shippedSpMap).forEach(([p, q]) => {
+    restoreStockBkt(branch, p, q || 0, (bk.sponsorItems || {})[p]);
+  });
+  // 試供品：出庫済みのときだけ、まるごと戻す
   if (extrasShipped){
-    Object.entries(order.sponsorItems || {}).forEach(([p, q]) => { restoreStockBkt(branch, p, q || 0, (bk.sponsorItems || {})[p]); });
-    Object.entries(order.freeItems    || {}).forEach(([p, q]) => { restoreStockBkt(branch, p, q || 0, (bk.freeItems    || {})[p]); });
+    Object.entries(order.freeItems || {}).forEach(([p, q]) => { restoreStockBkt(branch, p, q || 0, (bk.freeItems || {})[p]); });
   }
   delete order._shipBkt;
-  order.shipped = {};          // 出荷済数をクリア（残数＝注文数に戻す）
-  order._extrasDone = false;   // 協賛/試供品の“一度だけ”フラグを解除（再出荷で再度引けるように）
+  order.shipped = {};          // 出荷済数（有償・協賛sp:とも）をクリア
+  order._extrasDone = false;   // 試供品等の“一度だけ”フラグを解除
   const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === order.id);
   if (relLogs.length){
     S.sponsorLogs = S.sponsorLogs.filter(l => l.orderId !== order.id);
@@ -2549,15 +2690,15 @@ function shipLine(id, product, qty){
   o.shipped = o.shipped || {};
   o.shipped[product] = (Number(orderShipped(o)[product]) || 0) + q;
   if (!S.slog) S.slog = [];
-  S.slog.push({ date:_d, time:new Date().toTimeString().slice(0,5), branch, type:'出庫', product, qty:q, remaining:S.stock[branch][product], orderId:o.id, note:`部分出荷#${String(o.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
-  // 全明細が出荷し切ったら「まるごと出荷確定」（残り0なので有償の追加出庫はなし・協賛/試供品/協賛付与のみ確定）
-  const allDone = Object.keys(o.items || {}).every(p => remainingQty(o, p) <= 0);
-  if (allDone){
-    applyShipEffects(o, o.shipDate);   // 内部で saveState + syncStockToGAS
+  S.slog.push({ date:_d, time:new Date().toTimeString().slice(0,5), branch, type:'出庫', product, qty:q, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`部分出荷#${String(o.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+  // 有償＋協賛をすべて出し切ったら「まるごと出荷確定」（試供品/備品/シール/協賛付与を確定）
+  const st = deriveShipState(o);
+  if (st === '出荷済'){
+    applyShipEffects(o, o.shipDate);   // 残り0なので追加出庫なし・extras/協賛使用のみ確定。内部で saveState + syncStockToGAS
     o.status = '出荷済';
     if (!o.shippedAt) o.shippedAt = new Date().toISOString();
   } else {
-    o.status = '対応中';
+    o.status = (st === '一部出荷') ? '対応中' : '新規受付';
     saveState();
     if (S.gasUrl) syncStockToGAS();
   }
@@ -2582,13 +2723,77 @@ function unshipLine(id, product){
   if (o.shipped) delete o.shipped[product];
   if (_sb.items) delete _sb.items[product];
   if (!S.slog) S.slog = [];
-  S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, note:`出荷取消#${String(o.id).slice(-6)}` });
+  S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`出荷取消#${String(o.id).slice(-6)}` });
+  _undoSponsorUsedIfIncomplete(o);   // 協賛注文(orderType=sponsor)で有償が未達になったら使用ログを取消
   const st = deriveShipState(o);
   o.status = (st === '出荷済') ? '出荷済' : (st === '一部出荷' ? '対応中' : '新規受付');
   saveState();
   if (S.gasUrl){ try { gasPost({ action:'saveOrder', ...o }); } catch(e){} }
   if (S.gasUrl) syncStockToGAS();
   toast(`✓ ${_prodNameOf(product)} の出荷を取消`);
+  if (_spOrderId === o.id) renderShipPanel();
+  renderOrders(); if (typeof updateKPI === 'function') updateKPI();
+  if (typeof renderStock === 'function') renderStock();
+  if (typeof renderBackorders === 'function') renderBackorders();
+}
+
+// ─── 協賛（🎁）の部分出荷／取消 ───
+function shipSponsorLine(id, product, qty){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const o = (S.orders || []).find(x => String(x.id) === String(id));
+  if (!o) return toast('注文が見つかりません', 'error');
+  if (!o.branch){ toast('⚠ 拠点が未確定です。先に拠点（仙台/京都）を選んでください', 'error'); return; }
+  const branch = o.branch;
+  const rem = remainingSponsorQty(o, product);
+  let q = Math.min(Number(qty) || 0, rem);
+  if (q <= 0){ toast('出荷できる残りがありません', 'error'); return; }
+  if (!o.shipDate) o.shipDate = today();
+  const _d = _ymd(o.shipDate);
+  const _sb = _ensureShipBkt(o);
+  const used = depleteStock(branch, product, q);
+  _accBkt(_sb.sponsorItems, product, used);
+  o.shipped = o.shipped || {};
+  o.shipped['sp:'+product] = (Number(orderShippedSponsor(o)[product]) || 0) + q;
+  if (!S.slog) S.slog = [];
+  S.slog.push({ date:_d, time:new Date().toTimeString().slice(0,5), branch, type:'協賛出庫', product, qty:q, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`協賛部分出荷#${String(o.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+  _recordSponsorUsedOnce(o, _d, branch);   // 協賛を出し切ったら使用ポイント記録（一度だけ）
+  const st = deriveShipState(o);
+  if (st === '出荷済'){
+    applyShipEffects(o, o.shipDate);   // 残り0・extras確定。内部で saveState + syncStockToGAS
+    o.status = '出荷済';
+    if (!o.shippedAt) o.shippedAt = new Date().toISOString();
+  } else {
+    o.status = (st === '一部出荷') ? '対応中' : '新規受付';
+    saveState();
+    if (S.gasUrl) syncStockToGAS();
+  }
+  if (S.gasUrl){ try { gasPost({ action:'saveOrder', ...o }); } catch(e){} }
+  toast(`✓ 🎁${_prodNameOf(product)} を ${q}本 出荷`);
+  if (_spOrderId === o.id) renderShipPanel();
+  renderOrders(); if (typeof updateKPI === 'function') updateKPI();
+  if (typeof renderStock === 'function') renderStock();
+  if (typeof renderBackorders === 'function') renderBackorders();
+}
+function unshipSponsorLine(id, product){
+  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+  const o = (S.orders || []).find(x => String(x.id) === String(id));
+  if (!o) return toast('注文が見つかりません', 'error');
+  const branch = o.branch || '仙台';
+  const shq = Number(orderShippedSponsor(o)[product]) || 0;
+  if (shq <= 0){ toast('取り消す出荷がありません', 'error'); return; }
+  const _sb = _ensureShipBkt(o);
+  restoreStockBkt(branch, product, shq, (_sb.sponsorItems || {})[product]);
+  if (o.shipped) delete o.shipped['sp:'+product];
+  if (_sb.sponsorItems) delete _sb.sponsorItems[product];
+  if (!S.slog) S.slog = [];
+  S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`協賛出荷取消#${String(o.id).slice(-6)}` });
+  _undoSponsorUsedIfIncomplete(o);   // 協賛が未達になったら使用ログを取消（再出荷で再記録）
+  const st = deriveShipState(o);
+  o.status = (st === '出荷済') ? '出荷済' : (st === '一部出荷' ? '対応中' : '新規受付');
+  saveState();
+  if (S.gasUrl){ try { gasPost({ action:'saveOrder', ...o }); } catch(e){} }
+  if (S.gasUrl) syncStockToGAS();
+  toast(`✓ 🎁${_prodNameOf(product)} の出荷を取消`);
   if (_spOrderId === o.id) renderShipPanel();
   renderOrders(); if (typeof updateKPI === 'function') updateKPI();
   if (typeof renderStock === 'function') renderStock();
@@ -2631,6 +2836,25 @@ function unshipLineFromPanel(id, idx){
   const ent = _spPaidList(o)[idx]; if(!ent) return;
   unshipLine(id, ent[0]);
 }
+// 協賛（🎁）行の操作（インデックス方式）
+function _spSponsorList(o){ return Object.entries(o.sponsorItems || {}).filter(([,q]) => q > 0); }
+function shipSponsorFromPanel(id, idx){
+  const o = (S.orders||[]).find(x=>String(x.id)===String(id)); if(!o) return;
+  const ent = _spSponsorList(o)[idx]; if(!ent) return;
+  const inp = document.getElementById('spqS-'+idx);
+  const qty = inp ? (parseInt(inp.value)||0) : 0;
+  shipSponsorLine(id, ent[0], qty);
+}
+function shipSponsorAllFromPanel(id, idx){
+  const o = (S.orders||[]).find(x=>String(x.id)===String(id)); if(!o) return;
+  const ent = _spSponsorList(o)[idx]; if(!ent) return;
+  shipSponsorLine(id, ent[0], remainingSponsorQty(o, ent[0]));
+}
+function unshipSponsorFromPanel(id, idx){
+  const o = (S.orders||[]).find(x=>String(x.id)===String(id)); if(!o) return;
+  const ent = _spSponsorList(o)[idx]; if(!ent) return;
+  unshipSponsorLine(id, ent[0]);
+}
 function shipAllRemaining(id){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   const o = (S.orders || []).find(x => String(x.id) === String(id));
@@ -2654,8 +2878,10 @@ function renderShipPanel(){
   const o = (S.orders || []).find(x => String(x.id) === String(_spOrderId));
   if (!o){ box.innerHTML = '<div style="padding:1rem;color:var(--wh2)">注文が見つかりません</div>'; return; }
   const sh = orderShipped(o);
+  const shSp = orderShippedSponsor(o);
   const st = deriveShipState(o);
   const paid = _spPaidList(o);
+  const spon = _spSponsorList(o);
   const stColor = st==='出荷済' ? 'var(--grn)' : (st==='一部出荷' ? '#ffcf7a' : 'var(--wh2)');
   const rows = paid.map(([p, q], idx) => {
     const shipped = Number(sh[p]) || 0;
@@ -2674,7 +2900,24 @@ function renderShipPanel(){
         ${shipped > 0 ? `<button class="act-btn dn" onclick="unshipLineFromPanel('${o.id}',${idx})">取消</button>` : ''}
       </td></tr>`;
   }).join('');
-  const allDone = paid.every(([p,q]) => (Number(q)||0) - (Number(sh[p])||0) <= 0);
+  const sponRows = spon.map(([p, q], idx) => {
+    const shipped = Number(shSp[p]) || 0;
+    const rem = Math.max(0, (Number(q)||0) - shipped);
+    const done = rem <= 0;
+    return `<tr style="border-top:1px solid rgba(201,168,76,.12)">
+      <td style="padding:.45rem .5rem"><span style="color:#c39bd3">🎁</span> ${escapeHtml(_prodNameOf(p))}<span style="color:#c39bd3;font-size:.66rem"> 協賛</span></td>
+      <td style="text-align:center">${q}</td>
+      <td style="text-align:center;color:var(--gold-l)">${shipped}</td>
+      <td style="text-align:center;font-weight:700;color:${done?'var(--wh3)':'#ff8a80'}">${rem}</td>
+      <td style="text-align:right;white-space:nowrap">
+        ${done ? '<span style="color:var(--grn);font-size:.72rem">✓ 出荷済</span>'
+               : `<input type="number" min="1" max="${rem}" value="${rem}" id="spqS-${idx}" class="ship-sel" style="width:54px;text-align:center;margin-right:.25rem">
+                  <button class="act-btn" onclick="shipSponsorFromPanel('${o.id}',${idx})">出荷</button>
+                  <button class="act-btn" onclick="shipSponsorAllFromPanel('${o.id}',${idx})" title="残り全部">全</button>`}
+        ${shipped > 0 ? `<button class="act-btn dn" onclick="unshipSponsorFromPanel('${o.id}',${idx})">取消</button>` : ''}
+      </td></tr>`;
+  }).join('');
+  const allDone = st === '出荷済';
   box.innerHTML =
     `<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.5rem">
        <div style="font-weight:700;color:var(--gold-l)">${escapeHtml(o.store||'')}</div>
@@ -2686,13 +2929,13 @@ function renderShipPanel(){
        <thead><tr style="color:var(--wh2);font-size:.7rem">
          <th style="text-align:left;padding:.3rem .5rem">商品</th><th>注文</th><th>出荷済</th><th>残り</th><th style="text-align:right;padding-right:.5rem">操作</th>
        </tr></thead>
-       <tbody>${rows || '<tr><td colspan="5" style="padding:.6rem;color:var(--wh3)">有償明細がありません</td></tr>'}</tbody>
+       <tbody>${(rows + sponRows) || '<tr><td colspan="5" style="padding:.6rem;color:var(--wh3)">明細がありません</td></tr>'}</tbody>
      </table>
      <div style="margin-top:.7rem;display:flex;gap:.5rem;flex-wrap:wrap">
        <button class="btn btn-g" onclick="shipAllRemaining('${o.id}')" ${allDone?'disabled style="opacity:.5"':''}>🚚 全部出荷（この注文）</button>
        <button class="btn" onclick="closeShipPanel()">閉じる</button>
      </div>
-     <div style="margin-top:.5rem;font-size:.68rem;color:var(--wh3);line-height:1.6">※協賛・試供品・協賛ポイントは「全部出荷（＝出荷済）」で確定します。全体を未出荷に戻すときは一覧のステータスを「新規受付」に戻してください（協賛付与も取り消されます）。</div>`;
+     <div style="margin-top:.5rem;font-size:.68rem;color:var(--wh3);line-height:1.6">※🎁協賛も明細ごとに部分出荷できます。協賛の使用ポイントは協賛を出し切ったときに記録されます。試供品・備品・協賛付与(earned)は「全部出荷（＝出荷済）」で確定します。全体を未出荷に戻すときは一覧のステータスを「新規受付」に戻してください。</div>`;
 }
 
 // 注文の拠点を確定/変更（LINE注文は拠点空で届くため、一覧から直接設定できるようにする）
@@ -2758,18 +3001,17 @@ function deleteOrder(id){
   const order = (S.orders || []).find(o => o.id === id);
   if (!order) return toast('注文が見つかりません', 'error');
 
-  const shippedMap = orderShipped(order);   // 有償の出荷済数（部分出荷対応）
+  const shippedMap = orderShipped(order);            // 有償の出荷済数（部分出荷対応）
+  const shippedSpMap = orderShippedSponsor(order);   // 協賛の出荷済数（部分出荷対応）
   const _bkD = order._shipBkt || {};
   const extrasShipped = !!order._extrasDone
-    || (_bkD.sponsorItems && Object.keys(_bkD.sponsorItems).length > 0)
     || (_bkD.freeItems && Object.keys(_bkD.freeItems).length > 0)
-    || shipStatus(order) === '出荷済';   // 協賛/試供品が出庫済みか
+    || shipStatus(order) === '出荷済';   // 試供品が出庫済みか
   const shippedPaidQty  = Object.values(shippedMap).reduce((s,q)=>s+(q||0),0);
-  const shippedExtraQty = extrasShipped
-    ? (Object.values(order.sponsorItems||{}).reduce((s,q)=>s+(q||0),0) + Object.values(order.freeItems||{}).reduce((s,q)=>s+(q||0),0))
-    : 0;
-  const wasShipped = (shippedPaidQty + shippedExtraQty) > 0;   // 実在庫を戻す必要があるか（部分出荷でもtrue）
-  const totalQty = shippedPaidQty + shippedExtraQty;
+  const shippedSponsorQty = Object.values(shippedSpMap).reduce((s,q)=>s+(q||0),0);
+  const shippedFreeQty = extrasShipped ? Object.values(order.freeItems||{}).reduce((s,q)=>s+(q||0),0) : 0;
+  const wasShipped = (shippedPaidQty + shippedSponsorQty + shippedFreeQty) > 0;   // 実在庫を戻す必要があるか（部分出荷でもtrue）
+  const totalQty = shippedPaidQty + shippedSponsorQty + shippedFreeQty;
   const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === id);
   const earnedQty = relLogs.filter(l => l.type === 'earned').reduce((s,l)=>s+(l.qty||0),0);
   const usedQty   = relLogs.filter(l => l.type === 'used').reduce((s,l)=>s+(l.qty||0),0);
@@ -2793,14 +3035,15 @@ function deleteOrder(id){
         date: today(), time: new Date().toTimeString().slice(0,5), branch: branch,
         type: '戻入', product: p, qty: q,
         remaining: S.stock[branch][p],
-        orderId: id, note: `注文削除#${String(id).slice(-6)} による在庫戻し`
+        orderId: id, store: order.store, note: `注文削除#${String(id).slice(-6)} による在庫戻し`
       });
     });
-    // 協賛/試供品：出庫済みのときだけ戻す（まるごと出荷確定で出庫される）
+    // 協賛：出荷済数（shippedSpMap）だけ戻す
+    Object.entries(shippedSpMap).forEach(([p, q]) => {
+      restoreStockBkt(branch, p, q || 0, (bk.sponsorItems || {})[p]);
+    });
+    // 試供品：出庫済みのときだけ、まるごと戻す
     if (extrasShipped){
-      Object.entries(order.sponsorItems || {}).forEach(([p, q]) => {
-        restoreStockBkt(branch, p, q || 0, (bk.sponsorItems || {})[p]);
-      });
       Object.entries(order.freeItems || {}).forEach(([p, q]) => {
         restoreStockBkt(branch, p, q || 0, (bk.freeItems || {})[p]);
       });
@@ -5041,6 +5284,186 @@ function _bsDiff(key){
   diffEl.style.color = d===0 ? '#67c23a' : (d>0 ? '#4f9dd9' : '#ff8a80');
 }
 
+// ─── 実績分析（在庫に触れない・過去実績の入力と集計）───────────────
+// 会計期：4月始まりの年度。ym('YYYY-MM') → 期首の西暦年（1〜3月は前年）
+function _fyOf(ym){
+  var y = parseInt(String(ym).slice(0,4),10), m = parseInt(String(ym).slice(5,7),10);
+  if (!y || !m) return null;
+  return (m >= 4) ? y : y - 1;
+}
+function _fyLabel(fy){ return fy + '年度（' + fy + '/4〜' + (fy+1) + '/3）'; }
+// 期内の月順（4,5,…,12,1,2,3）で 'YYYY-MM' を返す
+function _fyMonths(fy){
+  var out = [];
+  for (var i=0;i<12;i++){ var m=4+i, y=fy; if(m>12){m-=12;y=fy+1;} out.push(y+'-'+String(m).padStart(2,'0')); }
+  return out;
+}
+function _actualKey(ym, store, prod){ return String(ym)+'\u0001'+String(store)+'\u0001'+String(prod); }
+// 実際の注文を実績レコードに変換（過去↔現在を同じ軸で比較するため）
+// 月＝売上計上日(bookDate) 優先／なければ納品日→受注日。協賛(無料)は売上に含めない。金額は注文額を数量で按分。
+function _orderYm(o){ return String((o&&(o.bookDate||o.deliveryDate||o.date))||'').slice(0,7); }
+function _ordersAsActuals(){
+  var out = [];
+  (S.orders||[]).forEach(function(o){
+    if (o.orderType === 'sponsor') return;                 // 協賛注文（無料）は売上に含めない
+    var ym = _orderYm(o); if(!/^\d{4}-\d{2}$/.test(ym)) return;
+    var amt = (typeof calcAmt==='function') ? calcAmt(o) : (Number(o.amount)||0);
+    var items = o.items || {};
+    var totalQ = Object.values(items).reduce(function(s,q){return s+(Number(q)||0);},0);
+    Object.entries(items).forEach(function(e){
+      var p=e[0], q=Number(e[1])||0; if(q<=0) return;
+      var pa = totalQ>0 ? Math.round(amt * q/totalQ) : 0;
+      out.push({ id:'ord:'+o.id+':'+p, ym:ym, store:o.store||'', product:(typeof _prodNameOf==='function'?_prodNameOf(p):p), qty:q, amount:pa, memo:'注文#'+String(o.id).slice(-6), _src:'注文' });
+    });
+  });
+  return out;
+}
+function fillActualDatalists(){
+  var sl = document.getElementById('an-store-list');
+  if (sl){
+    var names = (S.customers||[]).map(function(c){return c.name;}).filter(Boolean);
+    (S.actuals||[]).forEach(function(a){ if(a.store && names.indexOf(a.store)<0) names.push(a.store); });
+    sl.innerHTML = [...new Set(names)].map(function(n){return '<option value="'+escapeHtml(n)+'">';}).join('');
+  }
+  var pl = document.getElementById('an-prod-list');
+  if (pl){
+    var prods = (typeof _prodColsAll==='function' ? _prodColsAll('', '') : []).map(function(p){return p.name;});
+    (S.actuals||[]).forEach(function(a){ if(a.product && prods.indexOf(a.product)<0) prods.push(a.product); });
+    pl.innerHTML = [...new Set(prods)].map(function(n){return '<option value="'+escapeHtml(n)+'">';}).join('');
+  }
+}
+async function addActual(){
+  if (typeof canEdit==='function' && !canEdit()) return toast('🔒 編集権限がありません','error');
+  var ym    = (document.getElementById('an-ym')||{}).value || '';
+  var store = ((document.getElementById('an-store')||{}).value || '').trim();
+  var prod  = ((document.getElementById('an-prod')||{}).value || '').trim();
+  var qty   = Number((document.getElementById('an-qty')||{}).value || 0) || 0;
+  var amount= Number((document.getElementById('an-amount')||{}).value || 0) || 0;
+  var memo  = ((document.getElementById('an-memo')||{}).value || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(ym)) return toast('年月を選んでください','error');
+  if (!store) return toast('店舗を入力してください','error');
+  if (!prod)  return toast('商品を入力してください','error');
+  if (!qty && !amount) return toast('本数か金額のどちらかは入れてください','error');
+  if (!S.actuals) S.actuals = [];
+  // 同じ 年月×店舗×商品 は上書き（入れ直しやすいように）
+  var key = _actualKey(ym, store, prod);
+  var rec = S.actuals.find(function(a){ return _actualKey(a.ym,a.store,a.product)===key; });
+  if (rec){ rec.qty=qty; rec.amount=amount; rec.memo=memo; rec.updatedAt=new Date().toISOString(); }
+  else {
+    rec = { id:'ac-'+Date.now()+'-'+Math.random().toString(36).slice(2,6), ym:ym, store:store, product:prod, qty:qty, amount:amount, memo:memo, createdAt:new Date().toISOString(), createdBy:(currentUser&&currentUser.name)||'' };
+    S.actuals.push(rec);
+  }
+  saveState();
+  // 他PCと共有：GASへ保存（未対応でも安全に無視）
+  if (S.gasUrl){ try { await gasPost({ action:'saveActual', id:rec.id, ym:rec.ym, store:rec.store, product:rec.product, qty:rec.qty, amount:rec.amount, memo:rec.memo||'', createdBy:rec.createdBy||'', createdAt:rec.createdAt||'' }); } catch(e){} }
+  ['an-qty','an-amount','an-memo'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
+  var fyEl=document.getElementById('an-fy'); if(fyEl) fyEl.value=String(_fyOf(ym));
+  toast('✓ 実績を追加しました');
+  fillActualDatalists(); renderAnalysis();
+}
+async function deleteActual(id){
+  if (typeof canEdit==='function' && !canEdit()) return toast('🔒 編集権限がありません','error');
+  var a = (S.actuals||[]).find(function(x){return x.id===id;});
+  if (!a) return;
+  if (!confirm((a.ym||'')+' / '+(a.store||'')+' / '+(a.product||'')+'\nこの実績を削除しますか？')) return;
+  S.actuals = (S.actuals||[]).filter(function(x){return x.id!==id;});
+  saveState();
+  if (S.gasUrl){ try { await gasPost({ action:'deleteActual', id:id }); } catch(e){} }
+  toast('削除しました'); renderAnalysis();
+}
+function renderAnalysis(){
+  var manual = (S.actuals || []).map(function(a){ return Object.assign({ _src:'手入力' }, a); });
+  var incEl = document.getElementById('an-inc-orders');
+  var inc = incEl ? incEl.checked : true;
+  var acts = inc ? manual.concat(_ordersAsActuals()) : manual;
+  var fySel = document.getElementById('an-fy');
+  var fys = [...new Set(acts.map(function(a){return _fyOf(a.ym);}).filter(function(v){return v!=null;}))].sort(function(a,b){return b-a;});
+  if (!fys.length){ fys = [ _fyOf(today().slice(0,7)) ]; }
+  if (fySel){
+    var cur = fySel.value;
+    fySel.innerHTML = fys.map(function(fy){ return '<option value="'+fy+'">'+_fyLabel(fy)+'</option>'; }).join('');
+    if (cur && fys.indexOf(parseInt(cur,10))>=0) fySel.value = cur;
+  }
+  var fy = parseInt((fySel&&fySel.value) || fys[0], 10);
+  var storeSel = document.getElementById('an-store-f');
+  var storeF = (storeSel||{}).value || '';
+  if (storeSel){
+    var allStores = [...new Set(acts.filter(function(a){return _fyOf(a.ym)===fy;}).map(function(a){return a.store;}).filter(Boolean))].sort();
+    var curS = storeSel.value;
+    storeSel.innerHTML = '<option value="">全店舗</option>' + allStores.map(function(s){return '<option value="'+escapeHtml(s)+'">'+escapeHtml(s)+'</option>';}).join('');
+    if (curS && allStores.indexOf(curS)>=0) storeSel.value = curS;
+    storeF = storeSel.value;
+  }
+  var inFy = acts.filter(function(a){ return _fyOf(a.ym)===fy && (!storeF || a.store===storeF); });
+  var prevFy = acts.filter(function(a){ return _fyOf(a.ym)===(fy-1) && (!storeF || a.store===storeF); });
+  var sum = function(arr,k){ return arr.reduce(function(s,a){return s+(Number(a[k])||0);},0); };
+  var amt = sum(inFy,'amount'), qty = sum(inFy,'qty'), pAmt = sum(prevFy,'amount');
+  var yoy = pAmt>0 ? Math.round((amt-pAmt)/pAmt*1000)/10 : null;
+  var yoyTxt = (yoy==null) ? '<span style="color:var(--wh3)">前年度データなし</span>'
+    : '<span style="color:'+(yoy>=0?'var(--grn)':'var(--red)')+'">'+(yoy>=0?'+':'')+yoy+'%</span> <span style="color:var(--wh3);font-size:.72rem">(前年度 '+yen(pAmt)+')</span>';
+  var box = document.getElementById('an-summary'); if(!box) return;
+  var card = function(label,val,sub){ return '<div style="flex:1;min-width:120px;background:var(--d2);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:.6rem .8rem"><div style="font-size:.7rem;color:var(--wh2)">'+label+'</div><div style="font-size:1.3rem;font-weight:700;color:var(--gold-l)">'+val+'</div>'+(sub?'<div style="font-size:.72rem;margin-top:.1rem">'+sub+'</div>':'')+'</div>'; };
+  var byStore = {}; inFy.forEach(function(a){ byStore[a.store]=(byStore[a.store]||0)+(Number(a.amount)||0); });
+  var storeRows = Object.entries(byStore).sort(function(a,b){return b[1]-a[1];}).map(function(e){
+    var pct = amt>0? Math.round(e[1]/amt*100):0;
+    return '<tr><td>'+escapeHtml(e[0])+'</td><td class="col-qty">'+yen(e[1])+'</td><td class="col-qty" style="color:var(--wh3)">'+pct+'%</td></tr>';
+  }).join('') || '<tr><td colspan="3" style="color:var(--wh3);text-align:center;padding:.5rem">データなし</td></tr>';
+  var byProd = {}; inFy.forEach(function(a){ if(!byProd[a.product])byProd[a.product]={q:0,a:0}; byProd[a.product].q+=(Number(a.qty)||0); byProd[a.product].a+=(Number(a.amount)||0); });
+  var prodRows = Object.entries(byProd).sort(function(a,b){return b[1].a-a[1].a;}).map(function(e){
+    return '<tr><td>'+escapeHtml(e[0])+'</td><td class="col-qty">'+fmt(e[1].q)+'</td><td class="col-qty">'+yen(e[1].a)+'</td></tr>';
+  }).join('') || '<tr><td colspan="3" style="color:var(--wh3);text-align:center;padding:.5rem">データなし</td></tr>';
+  var byMonth = {}; inFy.forEach(function(a){ byMonth[a.ym]=(byMonth[a.ym]||0)+(Number(a.amount)||0); });
+  var months = _fyMonths(fy);
+  var monRows = months.map(function(m){
+    var v = byMonth[m]||0; var mm = parseInt(m.slice(5,7),10);
+    return '<tr><td>'+mm+'月 <span style="color:var(--wh3);font-size:.7rem">'+m+'</span></td><td class="col-qty">'+(v?yen(v):'<span style="color:var(--wh3)">—</span>')+'</td></tr>';
+  }).join('');
+  box.innerHTML =
+    '<div style="display:flex;gap:.6rem;flex-wrap:wrap;margin:.3rem 0 .8rem">'
+    + card('売上（金額）', yen(amt), yoyTxt)
+    + card('本数', fmt(qty)+' 本')
+    + card('明細件数', fmt(inFy.length)+' 件')
+    + '</div>'
+    + '<div style="display:flex;gap:1rem;flex-wrap:wrap">'
+    +   '<div style="flex:1;min-width:220px"><div style="font-weight:700;color:var(--gold-l);margin-bottom:.3rem">店舗別</div><table style="width:100%;font-size:.8rem"><thead><tr><th style="text-align:left">店舗</th><th class="col-qty">金額</th><th class="col-qty">構成比</th></tr></thead><tbody>'+storeRows+'</tbody></table></div>'
+    +   '<div style="flex:1;min-width:220px"><div style="font-weight:700;color:var(--gold-l);margin-bottom:.3rem">商品別</div><table style="width:100%;font-size:.8rem"><thead><tr><th style="text-align:left">商品</th><th class="col-qty">本数</th><th class="col-qty">金額</th></tr></thead><tbody>'+prodRows+'</tbody></table></div>'
+    +   '<div style="flex:1;min-width:200px"><div style="font-weight:700;color:var(--gold-l);margin-bottom:.3rem">月別推移</div><table style="width:100%;font-size:.8rem"><thead><tr><th style="text-align:left">月</th><th class="col-qty">金額</th></tr></thead><tbody>'+monRows+'</tbody></table></div>'
+    + '</div>';
+  var listBox = document.getElementById('an-list');
+  var cnt = document.getElementById('an-cnt'); if(cnt) cnt.textContent = inFy.length+'件';
+  var sorted = inFy.slice().sort(function(a,b){ return String(b.ym).localeCompare(String(a.ym)) || String(a.store).localeCompare(String(b.store)); });
+  if (listBox) listBox.innerHTML = '<table style="width:100%;font-size:.8rem"><thead><tr><th style="text-align:left">年月</th><th style="text-align:left">店舗</th><th style="text-align:left">商品</th><th class="col-qty">本数</th><th class="col-qty">金額</th><th style="text-align:left">出所</th><th style="text-align:left">メモ</th><th></th></tr></thead><tbody>'
+    + (sorted.length ? sorted.map(function(a){
+        var isManual = (a._src === '手入力');
+        var srcBadge = isManual ? '<span style="color:var(--gold-l)">手入力</span>' : '<span style="color:#4f9dd9">注文</span>';
+        return '<tr><td>'+escapeHtml(a.ym)+'</td><td>'+escapeHtml(a.store)+'</td><td>'+escapeHtml(a.product)+'</td><td class="col-qty">'+fmt(a.qty)+'</td><td class="col-qty">'+yen(a.amount)+'</td><td style="font-size:.72rem">'+srcBadge+'</td><td style="font-size:.72rem;color:var(--wh2)">'+escapeHtml(a.memo||'')+'</td><td style="text-align:right">'+(isManual?'<button class="act-btn dn" onclick="deleteActual(\''+a.id+'\')">削</button>':'')+'</td></tr>';
+      }).join('')
+      : '<tr><td colspan="8" style="color:var(--wh3);text-align:center;padding:.6rem">この期の実績はまだありません</td></tr>')
+    + '</tbody></table>';
+}
+function exportActualsCsv(){
+  var fy = parseInt((document.getElementById('an-fy')||{}).value,10);
+  var storeF = (document.getElementById('an-store-f')||{}).value || '';
+  var incEl = document.getElementById('an-inc-orders');
+  var inc = incEl ? incEl.checked : true;
+  var manual = (S.actuals||[]).map(function(a){ return Object.assign({_src:'手入力'}, a); });
+  var all = inc ? manual.concat(_ordersAsActuals()) : manual;
+  var rows = all.filter(function(a){ return _fyOf(a.ym)===fy && (!storeF||a.store===storeF); })
+    .sort(function(a,b){ return String(a.ym).localeCompare(String(b.ym)); });
+  var esc = function(v){ v=String(v==null?'':v); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; };
+  var csv = '\ufeff年月,店舗,商品,本数,金額,出所,メモ\n' + rows.map(function(a){ return [a.ym,a.store,a.product,a.qty||0,a.amount||0,a._src||'',a.memo||''].map(esc).join(','); }).join('\n');
+  var blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  var url = URL.createObjectURL(blob); var link = document.createElement('a');
+  link.href = url; link.download = '実績_'+fy+'年度'+(storeF?('_'+storeF):'')+'.csv';
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+
+function _slogStore(s){
+  if (s && s.store) return s.store;
+  if (s && s.orderId){ var o=(S.orders||[]).find(function(x){return x.id===s.orderId;}); if(o) return o.store||''; }
+  return '';
+}
 function renderSlog(){
   const slog = (S.slog || []).map((s,i)=>Object.assign({ _idx:i }, s));
   const typeSel = document.getElementById('slog-type');
@@ -5057,7 +5480,7 @@ function renderSlog(){
     if (ft === '__move__'){ if (s.type!=='移動出' && s.type!=='移動入') return false; }
     else if (ft && s.type !== ft) return false;
     if (fb && s.branch !== fb) return false;
-    if (kw){ const hay = ((s.product||'')+' '+(s.note||'')+' '+(s.user||'')).toLowerCase(); if(!hay.includes(kw)) return false; }
+    if (kw){ const hay = ((s.product||'')+' '+(s.note||'')+' '+(s.user||'')+' '+_slogStore(s)).toLowerCase(); if(!hay.includes(kw)) return false; }
     return true;
   });
   rows.sort((a,b)=> (_ymd(b.date)+String(b.time||'')).localeCompare(_ymd(a.date)+String(a.time||'')));
@@ -5068,19 +5491,20 @@ function renderSlog(){
   const tb = document.getElementById('slog-tbody'); if(!tb) return;
   const MAX = 400;
   const show = rows.slice(0, MAX);
-  if(!show.length){ tb.innerHTML = '<tr><td colspan="9"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
+  if(!show.length){ tb.innerHTML = '<tr><td colspan="10"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
   const tcolor = t => ({'出庫':'#e6a23c','協賛出庫':'#c39bd3','入庫':'#67c23a','戻入':'#67c23a','移動出':'#4f9dd9','移動入':'#4f9dd9','調整':'#e67e22','初期登録':'#909399'}[t] || '#aaa');
   tb.innerHTML = show.map(s=>`<tr style="cursor:pointer" onclick="_slogSnapshot(${s._idx}, this)" title="クリックでこの時点の在庫を表示">
       <td>${escapeHtml(_ymd(s.date))}</td>
       <td style="color:var(--wh3)">${escapeHtml(s.time||'')}</td>
       <td>${escapeHtml(s.branch||'')}</td>
       <td><span style="color:${tcolor(s.type)};font-weight:600">${escapeHtml(s.type||'')}</span></td>
+      <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(_slogStore(s))}</td>
       <td>${escapeHtml(s.product||'')}</td>
       <td class="col-qty">${s.qty!=null?fmt(s.qty):''}</td>
       <td class="col-qty" style="color:var(--wh3)">${s.remaining!=null?fmt(s.remaining):''}</td>
       <td style="font-size:.7rem">${escapeHtml(s.note||'')}</td>
       <td style="font-size:.7rem">${escapeHtml(s.user||'')}</td>
-    </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="9" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
+    </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="10" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
 }
 // ══ 在庫履歴：推移表（商品を列に固定し、時系列を下に積む） ══
 var _slogMx = false;
@@ -5716,6 +6140,78 @@ function renderStocktakeForm(){
   _prodColsAll().forEach(function(p){ renderStocktakeRowDiff(p.key); });
 }
 // 記録する
+// 基準日時点の理論在庫マップ（在庫管理タブの基準日表示と同じ巻き戻しロジックで、画面と印刷を一致させる）
+function _theoStockMapAsOf(branch, asOf){
+  var out = {}; var reset = false;
+  (typeof _prodColsAll === 'function' ? _prodColsAll(branch, '') : []).forEach(function(p){
+    var bk = (typeof _bkt === 'function') ? _bkt(branch, p.key) : {old:0,sp:0,new:0};
+    out[p.key] = (bk.old||0) + (bk.sp||0) + (bk.new||0);
+  });
+  if (asOf){
+    (S.slog || []).forEach(function(s){
+      if (!s || s.branch !== branch) return;
+      if (String(s.date || '') <= asOf) return;           // 基準日以前は対象外（＝基準日終わり時点）
+      if (s.type === '初期登録'){ reset = true; return; }
+      var qy = Number(s.qty) || 0;
+      if (_BS_OUT[s.type]) out[s.product] = (out[s.product]||0) + qy;      // 出た分を戻す
+      else if (_BS_IN[s.type]) out[s.product] = (out[s.product]||0) - qy;  // 入った分を引く
+    });
+  }
+  out.__reset = reset;
+  return out;
+}
+// 在庫管理タブの基準日で、その日の理論在庫を帳簿欄に入れたA4棚卸チェックシートを印刷（拠点フィルタが両拠点なら拠点ごとに出力）
+function printStocktakeSheetAsOf(){
+  var brFilter = (document.getElementById('st-br')||{}).value || '';
+  var asOf = (document.getElementById('st-asof')||{}).value || '';
+  var branches = brFilter ? [brFilter] : ['仙台','京都'];
+  var dLabel = asOf || _ymd(today());
+  var anyReset = false;
+  var sections = branches.map(function(br){
+    var prods = (typeof _prodColsAll === 'function') ? _prodColsAll(br, '') : [];
+    var theo = _theoStockMapAsOf(br, asOf);
+    if (theo.__reset) anyReset = true;
+    var rows = prods.map(function(p){
+      var book = Number(theo[p.key]) || 0;
+      return '<tr><td class="chk">□</td><td class="nm">'+escapeHtml(p.name||'')+'</td><td class="num book">'+book+'</td><td class="num"></td><td class="num"></td><td class="memo"></td></tr>';
+    }).join('');
+    return '<div class="sect">'
+      + '<div class="secth"><b>拠点：'+escapeHtml(br)+'</b>　／　登録商品 '+prods.length+' 品目</div>'
+      + '<table><thead><tr><th class="chk">✓</th><th class="nm">商品名</th><th class="num">帳簿(この日)</th><th class="num">実数</th><th class="num">差異</th><th class="memo">備考</th></tr></thead><tbody>'
+      + (rows || '<tr><td colspan="6" style="text-align:center;color:#888">商品が読み込めていません（GAS同期後に印刷してください）</td></tr>')
+      + '</tbody></table></div>';
+  }).join('');
+  var html = '<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>棚卸チェックシート '+escapeHtml(dLabel)+'</title><style>'
+    + '@page{size:A4 portrait;margin:12mm}*{box-sizing:border-box}'
+    + 'body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;color:#000;font-size:11px;margin:0}'
+    + 'h1{font-size:16px;margin:0 0 2px}.sub{font-size:10px;color:#555;margin-bottom:8px}'
+    + '.warn{font-size:10px;color:#a33;border:1px solid #a33;padding:4px 6px;margin-bottom:8px}'
+    + '.hdr{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11px;margin-bottom:8px;border:1px solid #333;padding:6px 8px}'
+    + '.blank{display:inline-block;border-bottom:1px solid #333;min-width:70px}'
+    + '.sect{margin-bottom:12px}.secth{font-size:12px;margin:6px 0 3px;font-weight:bold}'
+    + 'table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:3px 6px}'
+    + 'th{background:#eee;font-size:10px}.chk{width:22px;text-align:center;font-size:14px}'
+    + '.nm{text-align:left}.num{width:64px;text-align:right}.book{color:#666}.memo{width:130px}'
+    + 'tbody tr{height:22px}.foot{margin-top:10px;font-size:10px;display:flex;justify-content:space-between}'
+    + '@media print{.noprint{display:none}}'
+    + '</style></head><body>'
+    + '<h1>棚卸チェックシート</h1>'
+    + '<div class="sub">基準日：'+escapeHtml(dLabel)+(asOf ? ' 終わり時点の理論在庫' : '（現在の在庫）')+'　／　出力：'+_ymd(today())+'</div>'
+    + (anyReset ? '<div class="warn">⚠ 基準日より後に「在庫初期登録（上書き）」があるため、帳簿(この日)の値が正確でない場合があります。</div>' : '')
+    + '<div class="hdr">'
+    +   '<span><b>実施日：</b><span class="blank"></span></span>'
+    +   '<span><b>実施者（数えた人）：</b><span class="blank" style="min-width:110px"></span></span>'
+    +   '<span><b>確認者：</b><span class="blank" style="min-width:90px"></span></span>'
+    + '</div>'
+    + sections
+    + '<div class="foot"><span>※ 実数を数えたら ✓ を記入 → 帳簿との差異を記入。保管用に署名してください。</span><span>実施者印：______　確認者印：______</span></div>'
+    + '<div class="noprint" style="text-align:center;margin-top:14px"><button onclick="window.print()" style="padding:8px 20px;font-size:14px;cursor:pointer">印刷する</button></div>'
+    + '<scr'+'ipt>setTimeout(function(){try{window.print();}catch(e){}},400);<\/scr'+'ipt>'
+    + '</body></html>';
+  var w = window.open('', '_blank');
+  if (!w){ toast('ポップアップがブロックされました。ブラウザで許可してから再度お試しください'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
 // 月末在庫用：登録商品一覧＋チェック欄のA4棚卸シートを印刷（手書き・保管用）
 function printStocktakeSheet(){
   var br = (document.getElementById('st-branch')||{}).value || '仙台';
