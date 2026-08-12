@@ -1778,7 +1778,7 @@ async function syncAllFromGAS(opts){
   if (!opts.silent) toast('同期中...');
   _custFullCache = null; // 完全データのキャッシュを破棄（同期で最新化）
   // ★取得前に未送信の保存を送り切る（顧客・スタッフ等の丸ごと上書きで直近の変更が戻るのを防ぐ）
-  if(typeof _qFlush==='function'){ try{ await _qFlush(false); }catch(e){} }  // false=詰まりをスキップ（同期が固まらない）
+  if(typeof _qFlush==='function'){ try{ _qFlush(false); }catch(e){} }  // 待たない＝同期を遅くしない
 
   // 9本のGETを「並列」で投げる（順次awaitだと各往復の待ち時間の合計になり遅い）。
   // 1本が失敗しても他を止めないよう、それぞれ .catch でnullに落とす。
@@ -4736,12 +4736,18 @@ function submitSponsorForm(){
 
   S.sponsors = S.sponsors || [];
   const idx = S.sponsors.findIndex(s => s.id === data.id);
+  var _spRenamedFrom = '';
   if (idx >= 0) {
+    if ((S.sponsors[idx].name || '') && (S.sponsors[idx].name || '') !== data.name) _spRenamedFrom = S.sponsors[idx].name;  // 改名を検知
     data.createdAt = S.sponsors[idx].createdAt;
     S.sponsors[idx] = data;
   } else {
     data.createdAt = data.updatedAt;
     S.sponsors.push(data);
+  }
+  // 顧客の協賛ひも付けは「ルール名」で保存されているため、改名すると対象顧客を保存し直すまで付与が止まる場合がある。危険なので黙って進めず必ず知らせる。
+  if (_spRenamedFrom){
+    setTimeout(function(){ try{ toast('⚠ 協賛ルールを「' + _spRenamedFrom + '」→「' + data.name + '」に改名しました。この協賛を使っている顧客は、一度開いて保存し直すまで付与が止まる場合があります。対象顧客の再保存をおすすめします。', 'error'); }catch(e){} }, 500);
   }
   saveState();
   if (S.gasUrl) gasPost({ action: 'saveSponsor', ...data });

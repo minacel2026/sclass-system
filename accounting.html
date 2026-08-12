@@ -1190,7 +1190,7 @@ async function syncFromGAS(){
   if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
   toast('同期中...');
   // ★取得前に未送信の保存を送り切る（商品・入金等の丸ごと上書きで直近の変更が戻るのを防ぐ）
-  if(typeof _qFlush==='function'){ try{ await _qFlush(false); }catch(e){} }  // false=詰まりをスキップ
+  if(typeof _qFlush==='function'){ try{ _qFlush(false); }catch(e){} }  // 待たない＝同期を遅くしない
   try{ const pd=await gasGet('getProducts'); if(pd&&pd.products&&pd.products.length){ S.products=pd.products; saveState(); } }catch(e){}
   try{ const r=await gasGet('getPayments'); if(r&&r.payments){ S.payments=r.payments; saveState(); } }catch(e){}
   try{ const c=await gasGet('getCashEntries'); if(c&&c.entries){ S.cashEntries=c.entries; saveState(); } }catch(e){}
