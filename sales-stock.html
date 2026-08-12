@@ -1757,11 +1757,27 @@ async function _qFlush(manual){
         } finally { if (timer) clearTimeout(timer); }
         if (!res.ok) throw new Error('http ' + res.status);
         var _body = await res.text();          // 応答本文まで受け取って到達を確認
-        if (/"error"\s*:\s*"auth"/.test(_body)) throw new Error('認証エラー（keyが一致しません）');
+        // ★サーバが「失敗」を返したら（auth に限らず全部）成功扱いにしない＝キューに残す。
+        //   以前は "error":"auth" しか失敗とみなさず、viewer_readonly / lock-timeout 等を
+        //   黙って成功として捨てていた（未送信が一瞬で消えるのに保存されない・棚卸が合わない原因）。
+        var _resp = null; try { _resp = JSON.parse(_body); } catch(_pe){}
+        if (_resp && typeof _resp === 'object'){
+          if (_resp.ok === false || _resp.error){
+            var _rc = String(_resp.error || 'ok:false');
+            if (/auth/i.test(_rc)) throw new Error('認証エラー：ログインし直してください');
+            if (/viewer|readonly|read_only|閲覧/i.test(_rc)) throw new Error('保存できません：閲覧のみ権限（編集権限が必要）');
+            if (/lock/i.test(_rc)) throw new Error('サーバが混み合って保存できませんでした（時間をおいて再送）');
+            throw new Error('保存失敗（サーバ）: ' + _rc);
+          }
+        } else if (/"error"\s*:/.test(_body) || /"ok"\s*:\s*false/.test(_body)){
+          throw new Error('保存失敗（サーバがエラーを返しました）');
+        }
         sent++;
       }catch(e){
         item._try=(item._try||0)+1;
         item._err=String((e && e.message) || e).slice(0,140);   // 失敗理由を控える（原因調査用）
+        // 失敗は黙って消さず、初回だけ理由を画面に出す（再送のたびには出さない）＝ユーザーが気づける
+        if (item._try === 1){ try{ toast('⚠ 保存できませんでした：' + item._err + '（未送信に残しました）','error'); }catch(_t){} }
         rest.push(item);
       }
     }
@@ -1775,6 +1791,14 @@ async function _qFlush(manual){
 
 async function gasPost(data){
   try{ if(typeof currentUser!=='undefined'&&currentUser){ if(!data._actor)data._actor=currentUser.name; if(!data._actorBranch)data._actorBranch=currentUser.branch||''; } }catch(e){}
+  // ★注文保存は、O列(ID)が空の旧データ／LINE注文でも行を照合できるよう、
+  //   GASが照合に使う _matchTimestamp（作成日時）を必ず付ける。
+  //   これが無いとGASが行を見つけられず“素通り”し、出荷済等が保存されない（棚卸も合わない）。
+  try{
+    if (data && data.action === 'saveOrder' && (data._matchTimestamp == null || data._matchTimestamp === '')){
+      data._matchTimestamp = data.timestamp || data._matchTs || data.date || '';
+    }
+  }catch(e){}
   if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
   // まず必ず控える（この時点で端末には残るので、失っても復旧できる）
   _qAdd(data);
@@ -2156,7 +2180,7 @@ async function syncFromGAS(){
     //   顧客・拠点移動・貸借・商品などは同期でサーバ値に丸ごと上書きされるため、
     //   送信前だと直近のローカル変更が一時的に元へ戻ってしまう（注文で起きた“戻る”と同種の穴）。
     //   先に送っておけば、取得結果に自分の変更が反映され、戻らない。
-    try { await _qFlush(true); } catch(e){}
+    try { await _qFlush(false); } catch(e){}  // false=詰まり(25s待ち)をスキップ＝同期が固まらない
     // ── 独立データは並列で読み込み（版確認・顧客・注文・在庫・協賛）──
     //   各タスクは自分の置き場だけをGASの値で上書き。相互依存なし＝保存される数字は従来と同一。
     var pPing = gasGet('ping');
@@ -2995,7 +3019,33 @@ function setOrderBranch(id, val){
   if (typeof renderStock === 'function') renderStock();
 }
 
-function changeShipStatus(id, val){
+// カレンダーで日付を選ぶ小ダイアログ（prompt の代わり）。選択したYYYY-MM-DD、キャンセルはnullを返す。
+function _pickDate(defaultYmd, title, note){
+  return new Promise(function(resolve){
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99998;display:flex;align-items:center;justify-content:center;padding:1rem';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--d2,#1c1c22);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:1rem 1.1rem;max-width:340px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.5)';
+    box.innerHTML =
+      '<div style="font-weight:700;color:var(--gold-l,#e8c97a);margin-bottom:.5rem;font-size:.95rem">' + (title || '日付を選択') + '</div>'
+      + (note ? '<div style="font-size:.72rem;color:var(--wh2,#b9b9c2);margin-bottom:.6rem;line-height:1.5">' + note + '</div>' : '')
+      + '<input type="date" id="_pickdate-inp" value="' + (defaultYmd || '') + '" min="2000-01-01" max="2100-12-31" style="width:100%;font-size:1.1rem;padding:.55rem;border-radius:6px;border:1px solid rgba(201,168,76,.4);background:var(--d3,#26262e);color:var(--wh,#f0ebe0)">'
+      + '<div style="display:flex;gap:.5rem;margin-top:.9rem;justify-content:flex-end">'
+      +   '<button id="_pickdate-cancel" class="btn" style="padding:.45rem .9rem">キャンセル</button>'
+      +   '<button id="_pickdate-ok" class="btn btn-g" style="padding:.45rem 1.2rem">決定</button>'
+      + '</div>';
+    ov.appendChild(box); document.body.appendChild(ov);
+    var inp = box.querySelector('#_pickdate-inp');
+    function done(v){ try{ document.body.removeChild(ov); }catch(e){} resolve(v); }
+    box.querySelector('#_pickdate-ok').onclick = function(){ done(inp.value || null); };
+    box.querySelector('#_pickdate-cancel').onclick = function(){ done(null); };
+    ov.onclick = function(e){ if (e.target === ov) done(null); };
+    inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') done(inp.value || null); });
+    setTimeout(function(){ try{ inp.focus(); if (inp.showPicker) inp.showPicker(); }catch(e){} }, 60);
+  });
+}
+
+async function changeShipStatus(id, val){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (['新規受付','対応中','出荷済'].indexOf(val) < 0) return;
   const o = (S.orders || []).find(x => String(x.id) === String(id));
@@ -3011,9 +3061,9 @@ function changeShipStatus(id, val){
   }
   var _sd = '';
   if (willShip && !wasShipped){
-    // 在庫が動く日＝出荷日。処理が翌日にずれ込むこともあるので、実際に出した日を入れられるようにする。
-    _sd = prompt('出荷日を入力してください（この日付で在庫が減ります）\n形式: YYYY-MM-DD', o.shipDate || today());
-    if (_sd === null){ renderOrders(); return; }          // キャンセル＝何もしない
+    // 在庫が動く日＝出荷日。注文日を初期値にしたカレンダーで選ぶ（手入力の -（ハイフン）が不要）。
+    _sd = await _pickDate(_ymd(o.shipDate || o.date || today()), '出荷日を選んでください', 'この日付で在庫が減ります（初期値＝注文日）');
+    if (!_sd){ renderOrders(); return; }          // キャンセル＝何もしない
     _sd = _ymd(_sd);
     o.shipDate = _sd;
     applyShipEffects(o, _sd);

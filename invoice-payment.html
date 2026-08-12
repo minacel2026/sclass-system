@@ -701,7 +701,7 @@ async function syncFromGAS(){
   if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
   toast('同期中...');
   // ★取得前に未送信の保存を送り切る（顧客・請求等の丸ごと上書きで直近の変更が戻るのを防ぐ）
-  if(typeof _qFlush==='function'){ try{ await _qFlush(true); }catch(e){} }
+  if(typeof _qFlush==='function'){ try{ await _qFlush(false); }catch(e){} }  // false=詰まりをスキップ
   const cust = await gasGet('getCustomers');
   if (cust && cust.customers) S.customers = cust.customers;
 
