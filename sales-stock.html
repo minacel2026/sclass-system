@@ -855,7 +855,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         <div class="fg"><label>拠点フィルタ</label><select class="fc" id="st-br" onchange="renderStock()"><option value="">両拠点</option><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>状態</label><select class="fc" id="st-state" onchange="renderStock()"><option value="">すべて</option><option value="low">補充警告のみ</option><option value="out">在庫切れのみ</option></select></div>
         <div class="fg"><label>種類</label><select class="fc" id="st-group" onchange="renderStock()"><option value="">すべて</option><option value="wine">🍷 お酒</option><option value="supply">📦 備品</option><option value="diffuser">🌿 ディフューザー</option></select></div>
-        <div class="fg" style="grid-column:span 2;min-width:0"><label>基準日（この日の在庫）</label><div style="display:flex;gap:.25rem"><input class="fc" id="st-asof" type="date" min="2000-01-01" max="2100-12-31" style="flex:1;min-width:150px" onchange="renderStock()"><button class="btn-s" style="padding:0 .6rem;white-space:nowrap;font-size:.68rem" onclick="var e=document.getElementById('st-asof');if(e)e.value='';renderStock()" title="今の在庫に戻す">今</button><button class="btn-s" style="padding:0 .6rem;white-space:nowrap;font-size:.68rem" onclick="printStocktakeSheetAsOf()" title="基準日の在庫でA4棚卸チェックシートを印刷（手書き照合用）">🖨 棚卸</button></div></div>
+        <div class="fg" style="grid-column:span 2;min-width:0"><label>基準日（この日の在庫）</label><div style="display:flex;gap:.25rem"><input class="fc" id="st-asof" type="date" min="2000-01-01" max="2100-12-31" style="flex:1;min-width:150px" onchange="renderStock()"><button class="btn-s" style="padding:0 .6rem;white-space:nowrap;font-size:.68rem" onclick="var e=document.getElementById('st-asof');if(e)e.value='';renderStock()" title="今の在庫に戻す">今</button><button class="btn-s" style="padding:0 .6rem;white-space:nowrap;font-size:.68rem" onclick="printStocktakeSheetAsOf()" title="基準日の在庫でA4棚卸チェックシートを印刷（手書き照合用）">🖨 棚卸</button><button class="btn-s" style="padding:0 .6rem;white-space:nowrap;font-size:.68rem" onclick="printDailyStockTable()" title="基準日の月の、日ごと×商品の在庫表をA4横で印刷（CSV出力あり）">📅 日別在庫表</button></div></div>
         <div class="fg"><label>&nbsp;</label><div style="display:flex;gap:.3rem;width:100%"><button class="btn-s" style="flex:1;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:0 .5rem;white-space:nowrap;font-size:.68rem" onclick="migrateToReserve()" title="一度だけ実行：既存の未出荷注文の本数を実在庫へ戻し、引当方式へ移行します（初回のみ）">⇄ 引当方式へ移行</button><button id="btn-stock-init" class="btn-s" style="flex:1;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:0 .5rem;white-space:nowrap;font-size:.68rem" onclick="var d=document.getElementById('stock-init');var open=(d.style.display!=='none');d.style.display=open?'none':'block';if(!open){if(typeof renderStockInit==='function')renderStockInit();d.scrollIntoView({block:'nearest',behavior:'smooth'});}" title="旧値・協賛・新値を一括登録／上書き">⊕ 初期登録</button></div></div>
       </div>
     </div>
@@ -6248,6 +6248,80 @@ function _theoStockMapAsOf(branch, asOf){
   }
   out.__reset = reset;
   return out;
+}
+// 日別在庫表：行＝商品／列＝その月の日付／セル＝その日の理論在庫。A4横で印刷、CSV出力あり。
+//   月は基準日(st-asof)の月、拠点は拠点フィルタ(st-br)。両拠点なら拠点ごとに表を出す。
+function printDailyStockTable(){
+  var brFilter = (document.getElementById('st-br')||{}).value || '';
+  var asOf = (document.getElementById('st-asof')||{}).value || _ymd(today());
+  var d = new Date(asOf); if (isNaN(d.getTime())) d = new Date();
+  var y = d.getFullYear(), m = d.getMonth();            // m:0始まり
+  var lastDay = new Date(y, m+1, 0).getDate();
+  var monthLabel = y + '年' + (m+1) + '月';
+  var branches = brFilter ? [brFilter] : ['仙台','京都'];
+  var pad = function(n){ return (n<10?'0':'')+n; };
+  var csvEsc = function(v){ v=String(v==null?'':v); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; };
+
+  var sections = branches.map(function(br){
+    var prods = (typeof _prodColsAll==='function') ? _prodColsAll(br,'') : [];
+    var dayMaps = [];
+    for (var day=1; day<=lastDay; day++){ dayMaps.push(_theoStockMapAsOf(br, y+'-'+pad(m+1)+'-'+pad(day))); }
+    var thDays = '';
+    for (var day=1; day<=lastDay; day++){ thDays += '<th class="num">'+(m+1)+'/'+day+'</th>'; }
+    var rows = prods.map(function(p){
+      var tds = '';
+      for (var i=0;i<lastDay;i++){ var v = Number(dayMaps[i][p.key])||0; tds += '<td class="num'+(v<0?' neg':'')+'">'+v+'</td>'; }
+      return '<tr><td class="nm">'+escapeHtml(p.name||'')+'</td>'+tds+'</tr>';
+    }).join('');
+    // CSV（この拠点ぶん）
+    var head = ['商品']; for (var day=1; day<=lastDay; day++){ head.push((m+1)+'/'+day); }
+    var csvLines = [head.map(csvEsc).join(',')];
+    prods.forEach(function(p){ var line=[csvEsc(p.name||'')]; for (var i=0;i<lastDay;i++){ line.push(Number(dayMaps[i][p.key])||0); } csvLines.push(line.join(',')); });
+    return { br:br, count:prods.length,
+      html:'<div class="sect"><div class="secth"><b>拠点：'+escapeHtml(br)+'</b>　／　'+monthLabel+'　／　商品 '+prods.length+' 品目　（数値＝その日終わりの理論在庫）</div>'
+           +'<div class="scr"><table><thead><tr><th class="nm">商品名</th>'+thDays+'</tr></thead><tbody>'
+           +(rows || '<tr><td colspan="'+(lastDay+1)+'" style="text-align:center;color:#888">商品が読み込めていません（GAS同期後に）</td></tr>')
+           +'</tbody></table></div></div>',
+      csv:'【'+br+'】\n'+csvLines.join('\n') };
+  });
+
+  var csvAll = monthLabel + '\n' + sections.map(function(s){ return s.csv; }).join('\n\n');
+  var body = sections.map(function(s){ return s.html; }).join('');
+  var html = ''
+    + '<!doctype html><html><head><meta charset="utf-8"><title>日別在庫表 '+monthLabel+'</title><style>'
+    + '@page{size:A4 landscape;margin:8mm}'
+    + 'body{font-family:sans-serif;color:#111;margin:10px}'
+    + 'h2{font-size:16px;margin:0 0 8px}'
+    + '.sect{margin:0 0 18px}'
+    + '.secth{font-size:12px;margin:0 0 4px}'
+    + '.scr{overflow-x:auto}'
+    + 'table{border-collapse:collapse;width:100%;font-size:9px}'
+    + 'th,td{border:1px solid #999;padding:2px 3px;text-align:center}'
+    + 'th{background:#f0e8d0}'
+    + 'td.nm,th.nm{text-align:left;white-space:nowrap;position:sticky;left:0;background:#fff;font-weight:600}'
+    + 'th.nm{background:#f0e8d0}'
+    + 'td.neg{color:#c00;font-weight:700}'
+    + '@media print{.noprint{display:none}}'
+    + '</style></head><body>'
+    + '<h2>日別在庫表　'+monthLabel+'</h2>'
+    + body
+    + '<div class="noprint" style="text-align:center;margin-top:14px">'
+    +   '<button onclick="window.print()" style="padding:8px 20px;font-size:14px;cursor:pointer">🖨 印刷する</button>&nbsp;'
+    +   '<button id="dlcsv" style="padding:8px 20px;font-size:14px;cursor:pointer">⬇ CSVダウンロード</button>'
+    + '</div>'
+    + '<scr'+'ipt>'
+    +   'var _csv=' + JSON.stringify(csvAll) + ';'
+    +   'document.getElementById("dlcsv").onclick=function(){'
+    +     'var bom="\\ufeff";var blob=new Blob([bom+_csv],{type:"text/csv;charset=utf-8"});'
+    +     'var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="日別在庫表_' + monthLabel + '.csv";a.click();'
+    +   '};'
+    +   'setTimeout(function(){try{window.print();}catch(e){}},500);'
+    + '<\\/scr'+'ipt>'
+    + '</body></html>';
+
+  var w = window.open('', '_blank');
+  if (!w){ toast('ポップアップがブロックされました。ブラウザで許可してください','error'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 // 在庫管理タブの基準日で、その日の理論在庫を帳簿欄に入れたA4棚卸チェックシートを印刷（拠点フィルタが両拠点なら拠点ごとに出力）
 function printStocktakeSheetAsOf(){
