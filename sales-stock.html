@@ -6266,11 +6266,14 @@ function printDailyStockTable(){
     var prods = (typeof _prodColsAll==='function') ? _prodColsAll(br,'') : [];
     var dayMaps = [];
     for (var day=1; day<=lastDay; day++){ dayMaps.push(_theoStockMapAsOf(br, y+'-'+pad(m+1)+'-'+pad(day))); }
+    // 各日の曜日クラス（土=sat・日=sun）。ヘッダとセル両方に付けて土日列をグレーにする。
+    var wcls = [];
+    for (var day=1; day<=lastDay; day++){ var wd = new Date(y, m, day).getDay(); wcls[day] = (wd===0 ? ' sun' : (wd===6 ? ' sat' : '')); }
     var thDays = '';
-    for (var day=1; day<=lastDay; day++){ thDays += '<th class="num">'+(m+1)+'/'+day+'</th>'; }
+    for (var day=1; day<=lastDay; day++){ thDays += '<th class="num'+wcls[day]+'">'+(m+1)+'/'+day+'</th>'; }
     var rows = prods.map(function(p){
       var tds = '';
-      for (var i=0;i<lastDay;i++){ var v = Number(dayMaps[i][p.key])||0; tds += '<td class="num'+(v<0?' neg':'')+'">'+v+'</td>'; }
+      for (var i=0;i<lastDay;i++){ var v = Number(dayMaps[i][p.key])||0; tds += '<td class="num'+wcls[i+1]+(v<0?' neg':'')+'">'+v+'</td>'; }
       return '<tr><td class="nm">'+escapeHtml(p.name||'')+'</td>'+tds+'</tr>';
     }).join('');
     // CSV（この拠点ぶん）
@@ -6301,6 +6304,8 @@ function printDailyStockTable(){
     + 'td.nm,th.nm{text-align:left;white-space:nowrap;position:sticky;left:0;background:#fff;font-weight:600}'
     + 'th.nm{background:#f0e8d0}'
     + 'td.neg{color:#c00;font-weight:700}'
+    + 'th.sat,td.sat{background:#e6ebf2}'   /* 土曜=薄い青灰 */
+    + 'th.sun,td.sun{background:#f2e6e6}'   /* 日曜=薄い赤灰 */
     + '@media print{.noprint{display:none}}'
     + '</style></head><body>'
     + '<h2>日別在庫表　'+monthLabel+'</h2>'
