@@ -397,6 +397,11 @@ const PRODS = PROD_LIST.map(p => p.key);
 const PRICE = Object.fromEntries(PROD_LIST.map(p => [p.key, p.price]));
 const COST  = Object.fromEntries(PROD_LIST.map(p => [p.key, p.cost]));
 const REORDER = Object.fromEntries(PROD_LIST.map(p => [p.key, p.reorder]));
+// 明細を「商品マスタの正準順(PROD_LIST)」に並べ替える（請求書の明細を入力順でなく商品順で出す）
+function _sortItemEntries(entries){
+  var idx = {}; PRODS.forEach(function(k,i){ idx[k]=i; });
+  return (entries||[]).slice().sort(function(a,b){ var ia=(idx[a[0]]==null?9999:idx[a[0]]), ib=(idx[b[0]]==null?9999:idx[b[0]]); return ia-ib; });
+}
 
 const S = {
   branch:'both', orders:[], customers:[], staff:[],
@@ -954,7 +959,7 @@ function buildInvoicePreview(){
   const company = S.company || {};
   let total = 0;
   const lines = orders.map(o => {
-    const items = Object.entries(o.items || {}).filter(([,q]) => q > 0);
+    const items = _sortItemEntries(Object.entries(o.items || {}).filter(([,q]) => q > 0));
     const itemsTxt = items.map(([p,q]) => `${p}×${q}`).join(', ');
     const amt = calcAmt(o);
     total += amt;

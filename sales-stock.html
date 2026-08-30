@@ -1296,6 +1296,18 @@ function _sealProduct(){
 }
 
 // 在庫管理・棚卸など「全商品」を対象にする画面で使う（種類での絞り込み付き）
+// 明細の並べ替え：商品マスタの並び順(sortOrder順＝_prodColsAll)に揃える。注文一覧・納品書などで使う。
+function _prodOrderIdx(){
+  var order = [];
+  try { order = _prodColsAll('', '').map(function(p){ return p.key; }); } catch(e){}
+  if (!order.length) { try { order = (PROD_LIST||[]).map(function(p){ return p.key; }); } catch(e){} }
+  var idx = {}; order.forEach(function(k,i){ idx[k]=i; });
+  return idx;
+}
+function _sortItemEntries(entries){
+  var idx = _prodOrderIdx();
+  return (entries||[]).slice().sort(function(a,b){ var ia=(idx[a[0]]==null?9999:idx[a[0]]), ib=(idx[b[0]]==null?9999:idx[b[0]]); return ia-ib; });
+}
 function _prodColsAll(br, group){
   var l = (S.products && S.products.length) ? S.products.filter(function(p){ return p && p.active!==false; }) : (PROD_LIST||[]);
   if(!l.length) l = PROD_LIST||[];
@@ -2500,7 +2512,7 @@ function renderOrders(){
   }
 
   tbody.innerHTML = list.map(o => {
-    const items = Object.entries(o.items || {}).filter(([,q]) => q > 0);
+    const items = _sortItemEntries(Object.entries(o.items || {}).filter(([,q]) => q > 0));
     const spItems = Object.entries(o.sponsorItems || {}).filter(([,q]) => q > 0);
     const itemsTxt = items.map(([p,q]) => `${_prodNameOf(p)}×${q}`).join(', ');
     const spTxt = spItems.map(([p,q]) => `🎁${_prodNameOf(p)}×${q}`).join(', ');
@@ -7046,7 +7058,7 @@ function _ssLineAmount(o, prodName, qty){
 // 出荷リストに載せる明細（ワイン＋協賛＋ポイントシール）
 function _ssLines(o){
   var lines=[];
-  Object.keys(o.items||{}).forEach(function(p){
+  (typeof _sortItemEntries==='function' ? _sortItemEntries(Object.entries(o.items||{})).map(function(e){return e[0];}) : Object.keys(o.items||{})).forEach(function(p){
     if((o.items[p]||0)>0) lines.push({key:'i-'+p, name:p, qty:o.items[p], kind:''});
   });
   Object.keys(o.sponsorItems||{}).forEach(function(p){
