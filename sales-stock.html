@@ -5855,7 +5855,7 @@ function renderStock(){
         return `
         <div class="stk-frow ${tcls}" style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:10px 8px;border-bottom:.5px solid rgba(201,168,76,.12)">
           <span style="width:4px;align-self:stretch;min-height:30px;border-radius:2px;background:${thc};flex:0 0 auto"></span>
-          <div style="flex:0 0 auto;min-width:96px;max-width:130px"><div style="display:flex;align-items:center;gap:6px;font-size:.9rem;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex:none"></span>${p.name}</div></div>
+          <div style="flex:0 0 128px;width:128px;overflow:hidden"><div style="display:flex;align-items:center;gap:6px;font-size:.9rem;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex:none"></span>${p.name}</div></div>
           <div style="flex:1 1 120px;min-width:0;font-size:.72rem;color:var(--wh2)">${escapeHtml(asOf)} 終わり時点</div>
           <div style="flex:0 0 auto;text-align:right;line-height:1.02"><div style="font-size:.6rem;color:var(--wh2)">この日の在庫</div><div style="font-size:1.35rem;font-weight:700;color:${thc}">${fmt(theo)}<span style="font-size:.6rem;color:var(--wh2);margin-left:1px">本</span></div></div>
         </div>`;
@@ -5873,7 +5873,7 @@ function renderStock(){
       return `
       <div class="stk-frow ${cls}" style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:10px 8px;border-bottom:.5px solid rgba(201,168,76,.12)">
         <span style="width:4px;align-self:stretch;min-height:30px;border-radius:2px;background:${_hc};flex:0 0 auto"></span>
-        <div style="flex:0 0 auto;min-width:96px;max-width:130px">
+        <div style="flex:0 0 128px;width:128px;overflow:hidden">
           <div style="display:flex;align-items:center;gap:6px;font-size:.9rem;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex:none"></span>${p.name}</div>
           ${stockBar(bk.old, bk.sp, bk.new)}
         </div>
@@ -7887,7 +7887,8 @@ async function saveStockInit(){
   saveState();
   syncStockToGAS();
   toast(`✓ ${br}の在庫を初期登録（上書き）しました`);
-  renderStock(); renderStockInit(); updateKPI();
+  var _si = document.getElementById('stock-init'); if (_si) _si.style.display = 'none';   // 保存したら初期登録パネルを閉じる
+  renderStock(); updateKPI();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e){ window.scrollTo(0,0); }   // 登録後は一番上へ
 }
 
