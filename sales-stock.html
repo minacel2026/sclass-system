@@ -984,7 +984,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:auto">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
-          <tr><th>日付</th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th></tr>
+          <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th></tr>
         </thead>
         <tbody id="slog-tbody"></tbody>
       </table>
@@ -3556,6 +3556,13 @@ function normalizeJp(s){
 
 // 店舗名の候補リスト（顧客マスター + 過去注文の店舗、重複排除）
 // 名前・フリガナのどちらでも、表記ゆれ（ひらがな/カタカナ/半角/全角）を問わず検索可能
+// 取引中判定：最終注文から3ヶ月以内に注文があれば取引中、無ければ休眠（店舗名で突合）
+function _custActiveSet(){
+  var cutoff=new Date(); cutoff.setMonth(cutoff.getMonth()-3); cutoff.setHours(0,0,0,0);
+  var set={};
+  (S.orders||[]).forEach(function(o){ var d=new Date(String(o.date||o.timestamp||'')); if(!isNaN(d.getTime())&&d>=cutoff){ var st=String(o.store||'').trim(); if(st)set[st]=1; } });
+  return set;
+}
 function getStoreSuggestions(kw){
   const map = new Map();  // name -> { name, kana, branch, registered }
   (S.customers||[]).forEach(c => {
@@ -3568,10 +3575,13 @@ function getStoreSuggestions(kw){
   // 拠点名（仙台/京都）は店舗名ではないので候補から除外（過去注文の店舗名/拠点の取り違え対策）
   const BRANCHES = ['仙台', '京都'];
   arr = arr.filter(x => !BRANCHES.includes(x.name));
+  const _act = _custActiveSet();
+  arr.forEach(x => { x.active = !!_act[String(x.name).trim()]; });
   const k = normalizeJp(kw);
   if (k) arr = arr.filter(x => normalizeJp(x.name).includes(k) || normalizeJp(x.kana).includes(k));
-  // 登録済みを優先、名前順
-  arr.sort((a,b) => (b.registered?1:0)-(a.registered?1:0) || a.name.localeCompare(b.name,'ja'));
+  else arr = arr.filter(x => x.active);   // キーワード無し＝取引中のみ（軽く）。休眠は名前を打てば出る
+  // 取引中→登録済み→名前順
+  arr.sort((a,b) => (b.active?1:0)-(a.active?1:0) || (b.registered?1:0)-(a.registered?1:0) || a.name.localeCompare(b.name,'ja'));
   return arr.slice(0, 30);
 }
 
@@ -3588,9 +3598,10 @@ function showStoreSuggest(){
     return;
   }
   box.innerHTML = sugg.map(x => {
-    const badge = x.registered
+    const badge = (x.registered
       ? `<span class="si-badge si-reg">${escapeHtml(x.branch || '登録済')}</span>`
-      : `<span class="si-badge si-unreg">未登録</span>`;
+      : `<span class="si-badge si-unreg">未登録</span>`)
+      + ((x.registered && !x.active) ? ` <span class="si-badge" style="background:rgba(201,162,75,.18);color:#c9a24b">休眠</span>` : '');
     return `<div class="suggest-item" data-name="${escapeHtml(x.name)}"><span>${escapeHtml(x.name)}</span>${badge}</div>`;
   }).join('');
   box.style.display = 'block';
@@ -5570,6 +5581,12 @@ function exportActualsCsv(){
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
 }
 
+// 在庫履歴の行から「注文日」を取得（orderIdで注文をたどる。無ければ空）
+function _slogOrderDate(s){
+  if(!s||!s.orderId) return '';
+  var o=(S.orders||[]).find(function(x){ return String(x.id)===String(s.orderId); });
+  return (o && o.date) ? _ymd(o.date) : '';
+}
 function _slogStore(s){
   if (s && s.store) return s.store;
   if (s && s.orderId){ var o=(S.orders||[]).find(function(x){return x.id===s.orderId;}); if(o) return o.store||''; }
@@ -5602,10 +5619,11 @@ function renderSlog(){
   const tb = document.getElementById('slog-tbody'); if(!tb) return;
   const MAX = 400;
   const show = rows.slice(0, MAX);
-  if(!show.length){ tb.innerHTML = '<tr><td colspan="10"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
+  if(!show.length){ tb.innerHTML = '<tr><td colspan="11"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
   const tcolor = t => ({'出庫':'#e6a23c','協賛出庫':'#c39bd3','入庫':'#67c23a','戻入':'#67c23a','移動出':'#4f9dd9','移動入':'#4f9dd9','調整':'#e67e22','初期登録':'#909399'}[t] || '#aaa');
   tb.innerHTML = show.map(s=>`<tr style="cursor:pointer" onclick="_slogSnapshot(${s._idx}, this)" title="クリックでこの時点の在庫を表示">
       <td>${escapeHtml(_ymd(s.date))}</td>
+      <td style="color:var(--wh3)">${escapeHtml(_slogOrderDate(s))}</td>
       <td style="color:var(--wh3)">${escapeHtml(s.time||'')}</td>
       <td>${escapeHtml(s.branch||'')}</td>
       <td><span style="color:${tcolor(s.type)};font-weight:600">${escapeHtml(s.type||'')}</span></td>
