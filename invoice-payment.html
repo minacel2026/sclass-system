@@ -40,7 +40,8 @@ main{padding:1.5rem 2rem;max-width:1500px;margin:0 auto}
 .kv-r{color:var(--red)}.kv-gr{color:var(--grn)}.kv-b{color:var(--blu)}.kv-o{color:var(--org)}
 
 /* タブ */
-.master-tabs{display:flex;gap:2px;background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:3px;margin-bottom:1.2rem;flex-wrap:wrap;position:sticky;top:56px;z-index:150}
+.tabs-sticky{position:sticky;top:56px;z-index:150;background:var(--bk,#0a0a0c);margin:0 0 1.2rem}
+.master-tabs{display:flex;gap:2px;background:var(--d2);border:1px solid rgba(201,168,76,.2);padding:3px;margin-bottom:1.2rem;flex-wrap:wrap}
 .mtab{flex:1;min-width:120px;padding:.7rem .8rem;cursor:pointer;font-size:.78rem;color:var(--wh2);background:transparent;border:none;transition:all .2s;letter-spacing:.05em;display:flex;align-items:center;justify-content:center;gap:.4rem;font-family:'Noto Sans JP',sans-serif;font-weight:500;white-space:nowrap}
 .mtab:hover:not(.active){background:rgba(201,168,76,.05);color:var(--wh)}
 .mtab.active{background:linear-gradient(180deg,rgba(201,168,76,.2),rgba(201,168,76,.1));color:var(--gold-l);box-shadow:inset 0 -2px 0 var(--gold)}
@@ -198,13 +199,13 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
   </div>
 
   <!-- ═══ 親タブ ═══ -->
-  <div class="master-tabs">
+  <div class="tabs-sticky"><div class="master-tabs">
     <button class="mtab active" onclick="switchModule('payment',this)"><span class="mtab-ic">💴</span>集金管理<span id="mtab-payment-dot" class="tab-dot" style="display:none"></span></button>
     <button class="mtab" onclick="switchModule('arsummary',this)"><span class="mtab-ic">📊</span>売掛サマリー</button>
     <button class="mtab" onclick="switchModule('invoice',this)"><span class="mtab-ic">📄</span>請求書</button>
     <button class="mtab" onclick="switchModule('bank',this)"><span class="mtab-ic">🏦</span>通帳連携<span id="mtab-bank-dot" class="tab-dot" style="display:none"></span></button>
     <button class="mtab" onclick="switchModule('history',this)"><span class="mtab-ic">📋</span>入金履歴</button>
-  </div>
+  </div></div>
 
   <!-- ════════ 集金管理 ════════ -->
   <div id="m-payment" class="mcon active">
