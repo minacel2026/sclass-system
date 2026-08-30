@@ -539,6 +539,7 @@ textarea.fc{resize:vertical;width:100%;font-family:'Noto Sans JP',sans-serif}
           <option value="有">登録あり</option>
           <option value="無">未登録</option>
         </select>
+        <label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;font-size:.72rem;color:var(--wh2)"><input type="checkbox" id="f-dormant" onchange="renderCustList()"> 休眠も表示</label>
         <span style="margin-left:auto;font-size:.72rem;color:var(--wh2)">
           <span id="list-count">0</span> 件
         </span>
@@ -1782,7 +1783,7 @@ async function syncAllFromGAS(opts){
 
   // 9本のGETを「並列」で投げる（順次awaitだと各往復の待ち時間の合計になり遅い）。
   // 1本が失敗しても他を止めないよう、それぞれ .catch でnullに落とす。
-  const [cust, refs, sps, ags, agd, agp, stf, co, prd, regs, puid] = await Promise.all([
+  const [cust, refs, sps, ags, agd, agp, stf, co, prd, regs, puid, ords] = await Promise.all([
     gasGet('getCustomers', {lite:'1'}), // 一覧は軽量版（編集時は完全版を再取得）
     gasGet('getReferrers'),
     gasGet('getSponsors'),
@@ -1793,7 +1794,8 @@ async function syncAllFromGAS(opts){
     gasGet('getCompany'),
     gasGet('getProducts'),
     gasGet('getRegistrations'),   // タブの印（承認待ち）用
-    gasGet('getPendingUids')      // タブの印（紐づけ待ち）用
+    gasGet('getPendingUids'),      // タブの印（紐づけ待ち）用
+    gasGet('getOrders')            // 顧客の最終注文日（自動休眠3ヶ月判定）用
   ].map(p => Promise.resolve(p).catch(() => null)));
 
   // ── タブの印：対応が必要な件数だけ（0件なら出さない）──
@@ -1804,6 +1806,7 @@ async function syncAllFromGAS(opts){
     updateMasterTabDots();
   } catch(e){}
 
+  if (ords && ords.orders) S.orders = ords.orders;   // 顧客の最終注文日（自動休眠判定）に使う
   if (cust && cust.customers) {
     // 安全策: id がない顧客には店舗名ベースの安定IDを補完（openCustが動くように）
     S.customers = cust.customers.map(c => {
@@ -1924,12 +1927,25 @@ function listNav(e){
   rows.forEach(function(r,i){ r.classList.toggle('knav-hi', i === cur); });
   if (rows[cur]) rows[cur].scrollIntoView({block:'nearest'});
 }
+// 取引中判定：最終注文から3ヶ月以内に注文があれば「取引中」、無ければ「休眠」。店舗名で突き合わせ。
+function _custActiveSet(){
+  var cutoff=new Date(); cutoff.setMonth(cutoff.getMonth()-3); cutoff.setHours(0,0,0,0);
+  var set={};
+  (S.orders||[]).forEach(function(o){
+    var ds=String(o.date||o.timestamp||''); var d=new Date(ds);
+    if(!isNaN(d.getTime()) && d>=cutoff){ var st=String(o.store||'').trim(); if(st) set[st]=1; }
+  });
+  return set;
+}
 function renderCustList(keepPage){
   if (!keepPage) custShown = 50;
   const kw = normalizeJp((document.getElementById('f-kw')?.value || '').trim());
   const br = document.getElementById('f-br')?.value || '';
   const uidFilter = document.getElementById('f-uid')?.value || '';
+  const _showDorm = document.getElementById('f-dormant') ? document.getElementById('f-dormant').checked : false;
+  const _act = _custActiveSet();
   let filtered = (S.customers || []).filter(c => {
+    if (!_showDorm && !_act[String(c.name||'').trim()]) return false;   // 既定は取引中のみ表示
     if (br && c.branch !== br) return false;
     if (uidFilter === '有' && !c.lineUid) return false;
     if (uidFilter === '無' && c.lineUid)  return false;
@@ -1992,7 +2008,7 @@ function renderCustList(keepPage){
             return `
             <tr class="custrow" data-ci="${realIdx}" onclick="openCustRow(${realIdx})">
               <td>${escapeHtml(c.branch || '—')}</td>
-              <td class="ct-name">${escapeHtml(c.name || '無名')}${c.sponsorEnabled ? ' <span class="ct-spo">協賛</span>' : ''}</td>
+              <td class="ct-name">${escapeHtml(c.name || '無名')}${_act[String(c.name||'').trim()] ? ' <span style="font-size:.58rem;color:#7ee2a8;border:1px solid rgba(126,226,168,.45);border-radius:99px;padding:0 5px">取引中</span>' : ' <span style="font-size:.58rem;color:#c9a24b;border:1px solid rgba(201,162,75,.45);border-radius:99px;padding:0 5px">休眠</span>'}${c.sponsorEnabled ? ' <span class="ct-spo">協賛</span>' : ''}</td>
               <td>${escapeHtml(c.tel || '—')}</td>
               <td>${escapeHtml(c.owner || '—')}</td>
               <td>${escapeHtml(c.staff || '—')}</td>
