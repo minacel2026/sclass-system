@@ -2307,7 +2307,8 @@ async function syncFromGAS(){
       if (pu && pu.purchases){
         const have = {};
         (S.purchases||[]).forEach(function(x){ if(x && x.id) have[x.id]=x; });
-        pu.purchases.forEach(function(x){ if(x && x.id && !have[x.id]) (S.purchases=S.purchases||[]).push(x); });
+        var _dp2=[]; try{ _dp2=JSON.parse(localStorage.getItem('lmb_deletedPurchases')||'[]'); }catch(e){}
+        pu.purchases.forEach(function(x){ if(x && x.id && !have[x.id] && _dp2.indexOf(String(x.id))<0) (S.purchases=S.purchases||[]).push(x); });
         saveState();
       }
     } catch(e){}
@@ -5785,42 +5786,61 @@ function _slogDupGroups(){
 // ══ 在庫履歴：指定した日付より前の記録を削除（練習・テストデータの掃除用） ══
 //   在庫の数値は一切変更しない（初期登録や棚卸で実在庫を揃えた後に、古い記録だけを消すための機能）。
 async function purgeOldSlog(){
-  // ★在庫記録の削除は証跡に関わる操作。表示を隠すだけでなく、実行そのものを admin 以外は拒否する。
+  // ★記録の削除は証跡に関わる操作。表示を隠すだけでなく、実行そのものを admin 以外は拒否する。
   try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
        if(_r!=='admin'){ toast('🔒 この操作は管理者のみ実行できます','error'); return; } }catch(e){ return; }
 
   var _d = await _pickDate('2026-04-01', 'この日より前の記録を削除', '指定日は残します（例：2026-04-01 なら3月以前を削除）');
   if (!_d) return;
   var cut = _ymd(_d);
-  var all = S.slog || [];
-  var target = all.filter(function(s){ return s && _ymd(s.date||'') && _ymd(s.date) < cut; });
-  if (!target.length){ toast('✓ ' + cut + ' より前の記録はありません'); return; }
-  // 内訳を種類別に集計して見せる（何を消すか分かるように）
-  var byType = {};
-  target.forEach(function(s){ var t=String(s.type||'その他'); byType[t]=(byType[t]||0)+1; });
-  var kinds = Object.keys(byType).map(function(t){ return '　・' + t + '：' + byType[t] + '件'; }).join('\n');
-  var oldest = target.reduce(function(a,s){ var d=_ymd(s.date); return (!a||d<a)?d:a; }, '');
-  var newest = target.reduce(function(a,s){ var d=_ymd(s.date); return (!a||d>a)?d:a; }, '');
-  var msg = '🗑 ' + cut + ' より前の在庫履歴を削除します\n\n'
-    + '対象：' + target.length + '件（' + oldest + ' 〜 ' + newest + '）\n\n' + kinds
-    + '\n\n※在庫の数値は変更しません（記録だけ消します）\n'
-    + '※' + cut + ' 以降の記録は残ります\n\n実行しますか？';
-  if (!confirm(msg)) return;
-  // ★順番：先にサーバ（在庫履歴シート）から削除し、成功を確認してから端末の記録を消す。
-  //   端末だけ消すと、次の同期でサーバから戻ってきて「消したのに戻る」ことになる。
+
+  // 対象データ（4種）。在庫の数値は変更しない＝記録だけを消す。
+  var SETS = [
+    { key:'在庫履歴', get:function(){ return S.slog||[]; },      set:function(v){ S.slog=v; } },
+    { key:'仕入',     get:function(){ return S.purchases||[]; }, set:function(v){ S.purchases=v; } },
+    { key:'貸借',     get:function(){ return S.lendings||[]; },  set:function(v){ S.lendings=v; } },
+    { key:'拠点移動', get:function(){ return S.moves||[]; },     set:function(v){ S.moves=v; } }
+  ];
+  var isOld = function(x){ var d=_ymd((x&&x.date)||''); return !!d && d < cut; };
+  var counts = {}, totalAll = 0;
+  SETS.forEach(function(st){ var n = st.get().filter(isOld).length; counts[st.key]=n; totalAll+=n; });
+  if (!totalAll){ toast('✓ ' + cut + ' より前の記録はありません'); return; }
+
+  var lines = SETS.filter(function(st){ return counts[st.key]>0; })
+                  .map(function(st){ return '　・' + st.key + '：' + counts[st.key] + '件'; }).join('\n');
+  if (!confirm('🗑 ' + cut + ' より前の記録を削除します\n\n見つかった記録：\n' + lines
+      + '\n\n※在庫の数値は変更しません（記録だけ消します）\n※' + cut + ' 以降は残ります\n\n続けますか？')) return;
+
+  var chosen = [];
+  SETS.forEach(function(st){
+    if (counts[st.key] <= 0) return;
+    if (confirm('「' + st.key + '」の ' + counts[st.key] + '件 を削除しますか？\n\nOK＝削除する ／ キャンセル＝この種類は残す')) chosen.push(st.key);
+  });
+  if (!chosen.length){ toast('削除する種類が選ばれませんでした'); return; }
+
+  // ★順番：先にサーバから削除し、成功を確認してから端末の記録を消す（失敗時は何も消さない）
   if (S.gasUrl){
     showSyncOverlay('削除中…（サーバへ送信しています）');
-    var _rs = await gasPostSync({ action:'deleteStockLogs', before: cut });
+    var _rs = await gasPostSync({ action:'purgeRecords', before: cut, kinds: JSON.stringify(chosen) });
     hideSyncOverlay();
     if (!_rs.ok){
       toast('❌ サーバから削除できませんでした：' + _rs.error + '（何も消していません）', 'error');
-      return;                                       // ← 失敗したら端末も消さない
+      return;
     }
   }
-  S.slog = all.filter(function(s){ return !(s && _ymd(s.date||'') && _ymd(s.date) < cut); });
+  var done = 0;
+  SETS.forEach(function(st){
+    if (chosen.indexOf(st.key) < 0) return;
+    st.set(st.get().filter(function(x){ return !isOld(x); }));
+    done += counts[st.key] || 0;
+  });
   saveState();
   renderSlog(); updateKPI();
-  toast('✓ ' + target.length + '件の古い記録を削除しました（在庫は変更していません）');
+  try{ if(typeof renderPurchase==='function') renderPurchase(); }catch(e){}
+  try{ if(typeof renderLendList==='function'){ renderLendList(); renderLendBalance(); } }catch(e){}
+  try{ if(typeof renderMoves==='function') renderMoves(); }catch(e){}
+  try{ if(typeof updateTabDots==='function') updateTabDots(); }catch(e){}
+  toast('✓ ' + done + '件の記録を削除しました（' + chosen.join('・') + '／在庫は変更していません）');
 }
 async function checkSlogDuplicates(){
   // ★在庫記録の削除は証跡に関わる操作。表示を隠すだけでなく、実行そのものを admin 以外は拒否する。
@@ -6356,13 +6376,13 @@ function removePurchaseDraftItem(idx){
   renderPurchaseDraft();
 }
 
-function submitPurchase(){
+async function submitPurchase(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   // 注文の修正中に「仕入」で記録した場合は、元の注文を取り消してから登録（重複防止）
   _removeEditingOrderForConvert();
   if (editingPurId){
     var _oldPur = editingPurId; editingPurId = null;
-    try { deletePurchase(_oldPur, true); } catch(e){}
+    try { await deletePurchase(_oldPur, true); } catch(e){}   // 旧記録の削除を待ってから新規保存（順番）
     if (typeof _entryEditBanner === 'function') _entryEditBanner('purchase', false);
   }
   const date     = document.getElementById('pu-date').value;
@@ -6416,9 +6436,9 @@ function submitPurchase(){
   updateKPI();
 }
 
-function deletePurchase(id, skipConfirm){
-  // サーバ側の履歴も消す（下のローカル削除と合わせる）
-  if (typeof S!=='undefined' && S.gasUrl){ try { gasPost({ action:'deletePurchase', id:id }); } catch(e){} }
+async function deletePurchase(id, skipConfirm){
+  // ★順番：権限 → 存在確認 → ユーザー確認 → サーバ削除(成功を確認) → ローカル削除 → 表示
+  //   以前はサーバ削除を最初に送っていたため、確認でキャンセルしてもサーバからは消えていた。
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
   const p = (S.purchases || []).find(x => x.id === id);
   if (!p) return toast('仕入記録が見つかりません', 'error');
@@ -6438,7 +6458,19 @@ function deletePurchase(id, skipConfirm){
       note: `仕入削除: ${p.supplier || ''}`, user: currentUser.name,
     });
   }
+  // サーバから先に削除し、成功を確認してからローカルを消す（失敗時は何も消さない）
+  if (typeof S!=='undefined' && S.gasUrl){
+    if (typeof showSyncOverlay==='function') showSyncOverlay('削除中…（サーバへ送信しています）');
+    var _svP = await gasPost({ action:'deletePurchase', id:id });
+    if (typeof hideSyncOverlay==='function') hideSyncOverlay();
+    if (_svP && _svP.ok === false){
+      toast('❌ サーバから削除できませんでした：' + (_svP.error||'') + '（削除していません）', 'error');
+      return;
+    }
+  }
   S.purchases = S.purchases.filter(x => x.id !== id);
+  // ★削除した仕入IDを墓標に記録（同期でサーバから戻ってくるのを防ぐ。注文・貸借と同じ方式）
+  try{ var _dp=JSON.parse(localStorage.getItem('lmb_deletedPurchases')||'[]'); if(_dp.indexOf(String(id))<0){ _dp.push(String(id)); localStorage.setItem('lmb_deletedPurchases', JSON.stringify(_dp)); } }catch(e){}
   saveState();
   if (restoreStock) syncStockToGAS();  // 在庫変更をスプシへ反映
   toast(restoreStock ? '✓ 削除し、在庫を戻しました' : '✓ 削除しました（在庫はそのまま）');
@@ -7015,6 +7047,7 @@ function loadLending(force){
       const b=await gasGet('getLendings');     if(b&&b.lendings){ let _dl=[]; try{ _dl=JSON.parse(localStorage.getItem('lmb_deletedLendings')||'[]'); }catch(e){} S.lendings=b.lendings.filter(l=>_dl.indexOf(l.id)<0); }
       saveState();
       renderLendPartners(); fillLendSelectors(); renderLendBalance(); renderLendList(); renderLendOpeningForm();
+      if(typeof updateTabDots==='function') updateTabDots();   // ★サーバ取得後もタブの通知を更新
     }catch(e){ if(force) toast('最新の取得に失敗しました','error'); }
   })();
 }
@@ -7169,6 +7202,7 @@ function recordLending(){
   toast('✓ '+kind+' '+_items.length+'商品を記録しました（在庫'+(kind==='貸出'?'−':'+')+_total+'本）');
   _backToOrderKind();   // 登録完了 → 取引種別を「注文（販売）」に戻す
   renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock();
+  if(typeof updateTabDots==='function') updateTabDots();   // ★データを消したらタブの通知も更新する
 }
 
 // 貸借残 初期登録：在庫を動かさず（_lendStockMoveを呼ばない）、残数レコードだけ作成
