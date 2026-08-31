@@ -5743,18 +5743,24 @@ function checkSlogDuplicates(){
     lines.push('・' + _ymd(s0.date) + ' ' + (s0.store||'') + ' ' + (s0.product||'') + ' ' + q + '本 × ' + g.rows.length + '回（余分 ' + extra + '回＝' + (q*extra) + '本）');
   });
   var msg = '⚠ 二重記録が見つかりました\n\n'
-    + dups.length + '組 / 余分に減っている在庫の合計：' + totalExtra + '本\n\n'
+    + dups.length + '組 / 重複している本数の合計：' + totalExtra + '本\n\n'
     + lines.slice(0, 15).join('\n')
     + (lines.length > 15 ? ('\n… ほか ' + (lines.length-15) + '件') : '')
-    + '\n\n【重要】余分な記録を削除し、その分の在庫を戻しますか？\n（各組の1件目だけ残します。削除後は在庫をサーバへ同期します）';
-  if (!confirm(msg)) return;
+    + '\n\n各組の1件目だけ残して、余分な記録を削除します。\n\n【在庫をどうしますか？】\n'
+    + '　OK   ＝ 記録だけ消す（在庫はそのまま）\n'
+    + '　　　　 ※初期登録や棚卸で在庫を既に正しく揃えた場合はこちら\n'
+    + '　キャンセル → 次の確認で「在庫も戻す」を選べます';
+  var _logOnly = confirm(msg);
+  if (!_logOnly){
+    if (!confirm('記録を削除し、重複していた ' + totalExtra + '本 の在庫も戻しますか？\n（在庫をまだ揃えていない場合はこちら。揃えた後にこれを実行すると在庫が増えすぎます）')) return;
+  }
   var removed = 0, restored = 0;
   var delIdx = {};
   dups.forEach(function(g){
     g.rows.slice(1).forEach(function(r){                          // 1件目は残す
       delIdx[r.idx] = true;
       var s = r.s, br = s.branch || '仙台', p = s.product || '', q = Number(s.qty) || 0;
-      if (q > 0 && p){
+      if (!_logOnly && q > 0 && p){                                // ★記録のみモードでは在庫を一切触らない
         if (String(s.type||'').indexOf('出庫') >= 0){ restoreStockBkt(br, p, q, null); restored += q; }  // 出庫の重複→在庫を戻す
         else if (s.type === '戻入'){ depleteStock(br, p, q); restored -= q; }                            // 戻入の重複→戻し過ぎを引く
       }
@@ -5763,9 +5769,10 @@ function checkSlogDuplicates(){
   });
   S.slog = (S.slog || []).filter(function(_, i){ return !delIdx[i]; });
   saveState();
-  if (S.gasUrl) syncStockToGAS();
+  if (!_logOnly && S.gasUrl) syncStockToGAS();                     // 在庫を触った時だけ同期
   renderSlog(); if (typeof renderStock === 'function') renderStock(); updateKPI();
-  toast('✓ 二重記録 ' + removed + '件を削除し、在庫 ' + restored + '本を戻しました');
+  toast(_logOnly ? ('✓ 記録 ' + removed + '件を削除しました（在庫は変更していません）')
+                 : ('✓ 二重記録 ' + removed + '件を削除し、在庫 ' + restored + '本を戻しました'));
 }
 // ══ 在庫履歴：推移表（商品を列に固定し、時系列を下に積む） ══
 var _slogMx = false;
