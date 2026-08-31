@@ -2787,17 +2787,30 @@ function reverseShipEffects(order){
   const extrasShipped = !!order._extrasDone
     || (bk.freeItems && Object.keys(bk.freeItems).length > 0)
     || shipStatus(order) === '出荷済';
+  // ★在庫を戻したら、その動きを在庫履歴にも必ず残す（記録が無いと在庫が戻った理由を追えない）
+  if (!S.slog) S.slog = [];
+  const _rd = _ymd(order.shipDate || order.date || today());
+  const _rt = new Date().toTimeString().slice(0,5);
+  const _sfx = '出荷取消#' + String(order.id).slice(-6);
   // 有償：出荷済数だけ、消費したバケツへ正確に戻す（未出荷分は元々引いていないので戻さない）
   Object.entries(shippedMap).forEach(([p, q]) => {
     restoreStockBkt(branch, p, q || 0, (bk.items || {})[p]);
+    if ((q || 0) > 0) S.slog.push({ date:_rd, time:_rt, branch:branch, type:'戻入', product:p, qty:q||0,
+      remaining:S.stock[branch][p], orderId:order.id, store:order.store, note:_sfx+' による在庫戻し' });
   });
   // 協賛：出荷済数だけ戻す（部分出荷でも過不足なし）
   Object.entries(shippedSpMap).forEach(([p, q]) => {
     restoreStockBkt(branch, p, q || 0, (bk.sponsorItems || {})[p]);
+    if ((q || 0) > 0) S.slog.push({ date:_rd, time:_rt, branch:branch, type:'戻入', product:p, qty:q||0,
+      remaining:S.stock[branch][p], orderId:order.id, store:order.store, note:_sfx+' 協賛分の在庫戻し' });
   });
   // 試供品：出庫済みのときだけ、まるごと戻す
   if (extrasShipped){
-    Object.entries(order.freeItems || {}).forEach(([p, q]) => { restoreStockBkt(branch, p, q || 0, (bk.freeItems || {})[p]); });
+    Object.entries(order.freeItems || {}).forEach(([p, q]) => {
+      restoreStockBkt(branch, p, q || 0, (bk.freeItems || {})[p]);
+      if ((q || 0) > 0) S.slog.push({ date:_rd, time:_rt, branch:branch, type:'戻入', product:p, qty:q||0,
+        remaining:S.stock[branch][p], orderId:order.id, store:order.store, note:_sfx+' 試供品の在庫戻し' });
+    });
   }
   delete order._shipBkt;
   order.shipped = {};          // 出荷済数（有償・協賛sp:とも）をクリア
@@ -3234,11 +3247,17 @@ async function deleteOrder(id){
     // 協賛：出荷済数（shippedSpMap）だけ戻す
     Object.entries(shippedSpMap).forEach(([p, q]) => {
       restoreStockBkt(branch, p, q || 0, (bk.sponsorItems || {})[p]);
+      if ((q || 0) > 0) S.slog.push({ date: today(), time: new Date().toTimeString().slice(0,5), branch: branch,
+        type: '戻入', product: p, qty: q || 0, remaining: S.stock[branch][p],
+        orderId: id, store: order.store, note: `注文削除#${String(id).slice(-6)} 協賛分の在庫戻し` });
     });
     // 試供品：出庫済みのときだけ、まるごと戻す
     if (extrasShipped){
       Object.entries(order.freeItems || {}).forEach(([p, q]) => {
         restoreStockBkt(branch, p, q || 0, (bk.freeItems || {})[p]);
+        if ((q || 0) > 0) S.slog.push({ date: today(), time: new Date().toTimeString().slice(0,5), branch: branch,
+          type: '戻入', product: p, qty: q || 0, remaining: S.stock[branch][p],
+          orderId: id, store: order.store, note: `注文削除#${String(id).slice(-6)} 試供品の在庫戻し` });
       });
     }
   }
