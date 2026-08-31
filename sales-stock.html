@@ -950,7 +950,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="printStocktakeSheetAsOf()" title="基準日の在庫でA4棚卸チェックシートを印刷（手書き照合用）">🖨 棚卸</button>
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="printDailyStockTable()" title="基準日の月の、日ごと×商品の在庫表をA4横で印刷（CSV出力あり）">📅 日別在庫表</button>
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="verifyStockByEngine()" title="今の在庫（保存値）と、履歴から計算した値が一致するか確認します（変更しません）">🧮 計算値と照合</button>
-        <button id="btn-calc-mode" class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="_stockCalcMode=!_stockCalcMode;var b=document.getElementById('btn-calc-mode');if(b){b.style.borderColor=_stockCalcMode?'var(--grn)':'';b.style.color=_stockCalcMode?'var(--grn)':'';b.textContent=_stockCalcMode?'🧮 計算値で表示中':'🧮 計算値で表示';}renderStock();" title="在庫の表示を『履歴から計算した値』に切り替えます（試験・データは変えません）。ズレる場合は初期登録が履歴に無いのが原因なので、まず🧮計算値と照合で一致を確認してください。">🧮 計算値で表示</button>
+        <button id="btn-calc-mode" class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem;border-color:var(--grn);color:var(--grn)" onclick="_stockCalcMode=!_stockCalcMode;var b=document.getElementById('btn-calc-mode');if(b){b.style.borderColor=_stockCalcMode?'var(--grn)':'';b.style.color=_stockCalcMode?'var(--grn)':'';b.textContent=_stockCalcMode?'🧮 計算値で表示中':'🧮 保存値で表示';}renderStock();" title="通常は『計算値（履歴から計算）』で表示します。押すと一時的に『保存値』表示に切り替えて見比べられます（安全網・データは変えません）。">🧮 計算値で表示中</button>
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="migrateToReserve()" title="一度だけ実行：既存の未出荷注文の本数を実在庫へ戻し、引当方式へ移行します（初回のみ）">⇄ 引当方式へ移行</button>
         <button id="btn-stock-init" class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="var d=document.getElementById('stock-init');var open=(d.style.display!=='none');d.style.display=open?'none':'block';if(!open){if(typeof renderStockInit==='function')renderStockInit();d.scrollIntoView({block:'nearest',behavior:'smooth'});}" title="旧値・協賛・新値を一括登録／上書き">⊕ 初期登録</button>
       </div>
@@ -6240,7 +6240,7 @@ function _slogSnapshot(idx, trEl){
   trEl.after(tr);
 }
 
-var _stockCalcMode = false;   // フェーズ2：在庫表示を「履歴からの計算値」にするか（試験・既定OFF）
+var _stockCalcMode = true;   // フェーズ2完了：在庫表示は既定で「履歴からの計算値」（常に計算値）
 function renderStock(){
   ensureAllBuckets();
   const br    = document.getElementById('st-br')?.value || '';
