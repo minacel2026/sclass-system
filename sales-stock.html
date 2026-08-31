@@ -5573,6 +5573,15 @@ var _BS_OUT={'出庫':1,'協賛出庫':1,'試供出庫':1,'備品出庫':1,'シ�
              '移動出':1,'無償提供':1,'貸出':1,'借入返却':1,'輸送中紛失':1};   // 在庫が減る動き
 var _BS_IN ={'入庫':1,'協賛入庫':1,'戻入':1,'移動入':1,'借入':1,'返却受':1};   // 在庫が増える動き
 var _BS_SIGNED={'調整':1,'仕入取消':1,'移動取消':1};                          // 符号そのまま（qtyの正負で増減）
+// ★在庫の増減は必ずこの関数を通す（種類の追加漏れを防ぐため、判定はここ1か所だけ）。
+//   戻り値：在庫がその記録でいくつ増えたか（減った場合はマイナス）。判定できない種類は null。
+function _slogQtyDelta(s){
+  var t = String((s && s.type) || ''), q = Number((s && s.qty)) || 0;
+  if (_BS_IN[t])     return  Math.abs(q);
+  if (_BS_OUT[t])    return -Math.abs(q);
+  if (_BS_SIGNED[t]) return  q;            // 調整・取消は qty の符号をそのまま使う
+  return null;                              // 初期登録など（差分では扱わない）
+}
 function renderBackstock(){
   const date=(document.getElementById('bs-date')||{}).value;
   const br=(document.getElementById('bs-br')||{}).value||'仙台';
@@ -5585,8 +5594,8 @@ function renderBackstock(){
     if(String(s.date||'')<=date) return;      // 基準日以前は対象外（＝基準日終わり時点を出す）
     if(s.type==='初期登録'){ resetAfter=true; return; }
     const q=Number(s.qty)||0;
-    if(_BS_OUT[s.type]) back[s.product]=(back[s.product]||0)+q;    // 出た分を戻す（＋）
-    else if(_BS_IN[s.type]) back[s.product]=(back[s.product]||0)-q; // 入った分を引く（−）
+    var _d = _slogQtyDelta(s);                                        // 増減は共通関数で判定（漏れ防止）
+    if (_d !== null) back[s.product] = (back[s.product]||0) - _d;      // その分を戻す（さかのぼり）
   });
   const rows=_prodCols().map(p=>{
     const cur=(S.stock[br]&&S.stock[br][p.key])||0;
@@ -5944,16 +5953,8 @@ async function resendSlogToServer(){
 //   記録に保存された「残数」を時系列でつなぎ、隣り合う行のつじつまが合うかを機械的に確認する。
 //   合わない箇所＝記録が抜けている／二重になっている／別の操作が割り込んだ場所。
 //   （残数は記録した瞬間の在庫を保存した値なので、本来は連続してつながるはず）
-var _SLOG_IN  = { '入庫':1, '協賛入庫':1, '戻入':1, '移動入':1, '借入':1, '返却受':1 };            // 在庫が増える
-var _SLOG_OUT = { '出庫':1, '協賛出庫':1, '試供出庫':1, '備品出庫':1, 'シール出庫':1,
-                  '移動出':1, '貸出':1, '借入返却':1, '無償提供':1, '輸送中紛失':1 };              // 在庫が減る
-function _slogDelta(s){
-  var t = String(s.type||''), q = Number(s.qty)||0;
-  if (_SLOG_IN[t])  return  Math.abs(q);
-  if (_SLOG_OUT[t]) return -Math.abs(q);
-  if (t === '調整' || t === '仕入取消' || t === '移動取消') return q;   // 符号そのまま
-  return null;   // 初期登録などは「セット」なので差分では判定しない
-}
+// 増減の判定は共通関数 _slogQtyDelta に一本化（種類の定義は _BS_IN/_BS_OUT/_BS_SIGNED の1か所だけ）
+function _slogDelta(s){ return _slogQtyDelta(s); }
 function checkSlogConsistency(){
   var byKey = {};
   (S.slog||[]).forEach(function(s, i){
@@ -6161,8 +6162,8 @@ function toggleSlogMatrix(){
 }
 // 在庫が減る/増える動きの符号（初回より前の残数を割り出す種まき用）
 function _slogSign(t){
-  if(_BS_OUT[t] || t==='貸出' || t==='借入返却' || t==='仕入取消') return -1;
-  if(_BS_IN[t]  || t==='借入' || t==='返却受') return 1;
+  var _ds = _slogQtyDelta({type:t, qty:1});      // 共通関数で向きを判定（漏れ防止）
+  if (_ds !== null) return _ds < 0 ? -1 : 1;
   return 0;
 }
 // 相手先：店名（注文から逆引き）／貸借先・仕入先（備考から）／拠点間移動
@@ -6384,8 +6385,8 @@ function renderStock(){
         if (String(s.date || '') <= asOf) return;      // 基準日以前は対象外（＝基準日終わり時点）
         if (s.type === '初期登録'){ asOfReset = true; return; }
         var qy = Number(s.qty) || 0;
-        if (_BS_OUT[s.type]) backMap[s.product] = (backMap[s.product] || 0) + qy;      // 出た分を戻す
-        else if (_BS_IN[s.type]) backMap[s.product] = (backMap[s.product] || 0) - qy;  // 入った分を引く
+        var _d2 = _slogQtyDelta(s);                                                   // 増減は共通関数で判定（漏れ防止）
+        if (_d2 !== null) backMap[s.product] = (backMap[s.product] || 0) - _d2;        // その分を戻す
       });
     }
     const rows = _prodColsAll(branch, grp).map(p => {
@@ -6833,9 +6834,8 @@ function _theoStockMapAsOf(branch, asOf){
       if (String(s.date || '') <= asOf) return;           // 基準日以前は対象外（＝基準日終わり時点）
       if (s.type === '初期登録'){ reset = true; return; }
       var qy = Number(s.qty) || 0;
-      if (_BS_OUT[s.type]) out[s.product] = (out[s.product]||0) + Math.abs(qy);      // 出た分を戻す
-      else if (_BS_IN[s.type]) out[s.product] = (out[s.product]||0) - Math.abs(qy);  // 入った分を引く
-      else if (_BS_SIGNED[s.type]) out[s.product] = (out[s.product]||0) - qy;        // 調整等は符号のまま戻す
+      var _d3 = _slogQtyDelta(s);                                                   // 増減は共通関数で判定（漏れ防止）
+      if (_d3 !== null) out[s.product] = (out[s.product]||0) - _d3;                  // その分を戻す
     });
   }
   out.__reset = reset;
