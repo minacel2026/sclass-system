@@ -982,7 +982,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       </div>
     </div>
     <div class="tw">
-      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="resendSlogToServer()" title="端末にある在庫履歴をサーバへ送り直します（二重登録されません）">⬆ サーバへ送り直す</button><button class="btn-s" style="margin-left:.4rem" onclick="purgeOldSlog()" title="指定した日より前の在庫履歴を削除します（在庫の数値は変わりません）">🗑 古い記録を削除</button><button class="btn-s" onclick="checkSlogDuplicates()" style="margin-left:.4rem" title="同じ出荷が二重に記録されていないか調べます">⚠ 重複チェック</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
+      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="checkSlogConsistency()" title="残数のつじつまが合わない箇所を洗い出します（データは変更しません）">🔍 整合チェック</button><button class="btn-s" style="margin-left:.4rem" onclick="resendSlogToServer()" title="端末にある在庫履歴をサーバへ送り直します（二重登録されません）">⬆ サーバへ送り直す</button><button class="btn-s" style="margin-left:.4rem" onclick="purgeOldSlog()" title="指定した日より前の在庫履歴を削除します（在庫の数値は変わりません）">🗑 古い記録を削除</button><button class="btn-s" onclick="checkSlogDuplicates()" style="margin-left:.4rem" title="同じ出荷が二重に記録されていないか調べます">⚠ 重複チェック</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
           <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>記録日時<span style="font-size:.6rem;color:var(--wh3)">(実操作)</span></th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del">操作</th></tr>
@@ -5567,8 +5567,12 @@ function toggleBackstock(){
   p.style.display=open?'block':'none'; if(c) c.textContent=open?'▴':'▾';
   const d=document.getElementById('bs-date'); if(open && d && !d.value) d.value=today();
 }
-var _BS_OUT={'出庫':1,'協賛出庫':1,'移動出':1,'無償提供':1};   // 在庫が減る動き
-var _BS_IN ={'入庫':1,'戻入':1,'移動入':1};        // 在庫が増える動き
+// 在庫が動く種類の一覧。★ここに漏れがあると、さかのぼり在庫・日別在庫表の数字が合わなくなる。
+//   （協賛入庫・貸借・試供品・備品・シール・調整が抜けていたため、仕入があった日でも数字が動かなかった）
+var _BS_OUT={'出庫':1,'協賛出庫':1,'試供出庫':1,'備品出庫':1,'シール出庫':1,
+             '移動出':1,'無償提供':1,'貸出':1,'借入返却':1,'輸送中紛失':1};   // 在庫が減る動き
+var _BS_IN ={'入庫':1,'協賛入庫':1,'戻入':1,'移動入':1,'借入':1,'返却受':1};   // 在庫が増える動き
+var _BS_SIGNED={'調整':1,'仕入取消':1,'移動取消':1};                          // 符号そのまま（qtyの正負で増減）
 function renderBackstock(){
   const date=(document.getElementById('bs-date')||{}).value;
   const br=(document.getElementById('bs-br')||{}).value||'仙台';
@@ -5936,6 +5940,62 @@ async function resendSlogToServer(){
 }
 // 在庫履歴の1行だけを削除する（管理者のみ）。日付を直すために古い記録を消す用途。
 //   在庫の数値は変更しない＝記録だけを消す。
+// ══ 在庫履歴の整合チェック ══
+//   記録に保存された「残数」を時系列でつなぎ、隣り合う行のつじつまが合うかを機械的に確認する。
+//   合わない箇所＝記録が抜けている／二重になっている／別の操作が割り込んだ場所。
+//   （残数は記録した瞬間の在庫を保存した値なので、本来は連続してつながるはず）
+var _SLOG_IN  = { '入庫':1, '協賛入庫':1, '戻入':1, '移動入':1, '借入':1, '返却受':1 };            // 在庫が増える
+var _SLOG_OUT = { '出庫':1, '協賛出庫':1, '試供出庫':1, '備品出庫':1, 'シール出庫':1,
+                  '移動出':1, '貸出':1, '借入返却':1, '無償提供':1, '輸送中紛失':1 };              // 在庫が減る
+function _slogDelta(s){
+  var t = String(s.type||''), q = Number(s.qty)||0;
+  if (_SLOG_IN[t])  return  Math.abs(q);
+  if (_SLOG_OUT[t]) return -Math.abs(q);
+  if (t === '調整' || t === '仕入取消' || t === '移動取消') return q;   // 符号そのまま
+  return null;   // 初期登録などは「セット」なので差分では判定しない
+}
+function checkSlogConsistency(){
+  var byKey = {};
+  (S.slog||[]).forEach(function(s, i){
+    if (!s || s.remaining == null || s.remaining === '') return;
+    var k = String(s.branch||'') + '|' + String(s.product||'');
+    (byKey[k] = byKey[k] || []).push({ i:i, s:s });
+  });
+  var bad = [];
+  Object.keys(byKey).forEach(function(k){
+    var list = byKey[k];
+    // 古い順（記録日時→処理順）に並べる＝実際に操作した順
+    list.sort(function(a,b){
+      var ra = String(a.s._rec||''), rb = String(b.s._rec||'');
+      if (ra !== rb) return ra.localeCompare(rb);
+      return Number(a.s._seq||0) - Number(b.s._seq||0);
+    });
+    for (var n = 1; n < list.length; n++){
+      var prev = list[n-1].s, cur = list[n].s;
+      if (String(cur.type||'') === '初期登録') continue;          // 初期登録は上書きなので連続性の対象外
+      var d = _slogDelta(cur);
+      if (d === null) continue;
+      var expect = (Number(prev.remaining)||0) + d;
+      var actual = Number(cur.remaining)||0;
+      if (expect !== actual){
+        bad.push({ key:k, prev:prev, cur:cur, expect:expect, actual:actual, gap:(actual - expect) });
+      }
+    }
+  });
+  if (!bad.length){ toast('✓ 在庫履歴のつじつまは合っています'); return; }
+  var lines = bad.slice(0, 20).map(function(b){
+    return '・' + String(b.key).replace('|','　') + '\n'
+      + '　　' + _ymd(b.prev.date) + ' ' + (b.prev.type||'') + '（残' + b.prev.remaining + '）\n'
+      + '　→ ' + _ymd(b.cur.date) + ' ' + (b.cur.type||'') + ' ' + (b.cur.qty||0) + '本\n'
+      + '　　本来は残' + b.expect + ' のはずが 残' + b.actual + '（差 ' + (b.gap>0?'+':'') + b.gap + '）';
+  }).join('\n\n');
+  alert('⚠ 在庫履歴のつじつまが合わない箇所：' + bad.length + '件\n\n'
+    + lines + (bad.length>20 ? '\n\n… ほか ' + (bad.length-20) + '件' : '')
+    + '\n\n【意味】\n'
+    + '差がプラス＝在庫が増える記録が抜けている（仕入・戻入など）\n'
+    + '差がマイナス＝在庫が減る記録が抜けている、または二重に減っている\n\n'
+    + '※残数は記録した瞬間の在庫です。記録を消すと前後がつながらなくなります。');
+}
 async function deleteSlogRow(idx){
   try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
        if(_r!=='admin'){ toast('🔒 この操作は管理者のみ実行できます','error'); return; } }catch(e){ return; }
@@ -6773,8 +6833,9 @@ function _theoStockMapAsOf(branch, asOf){
       if (String(s.date || '') <= asOf) return;           // 基準日以前は対象外（＝基準日終わり時点）
       if (s.type === '初期登録'){ reset = true; return; }
       var qy = Number(s.qty) || 0;
-      if (_BS_OUT[s.type]) out[s.product] = (out[s.product]||0) + qy;      // 出た分を戻す
-      else if (_BS_IN[s.type]) out[s.product] = (out[s.product]||0) - qy;  // 入った分を引く
+      if (_BS_OUT[s.type]) out[s.product] = (out[s.product]||0) + Math.abs(qy);      // 出た分を戻す
+      else if (_BS_IN[s.type]) out[s.product] = (out[s.product]||0) - Math.abs(qy);  // 入った分を引く
+      else if (_BS_SIGNED[s.type]) out[s.product] = (out[s.product]||0) - qy;        // 調整等は符号のまま戻す
     });
   }
   out.__reset = reset;
