@@ -211,7 +211,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .tab-dot.danger{background:#e0685f;box-shadow:0 0 0 0 rgba(224,104,95,.7);animation:tabDotPulseLate 1.4s infinite}
 .tab-dot.late{background:#e6a23c;box-shadow:0 0 0 0 rgba(230,162,60,.7);animation:tabDotPulseLate 1.4s infinite}
 @keyframes tabDotPulseLate{0%{box-shadow:0 0 0 0 rgba(230,162,60,.7)}70%{box-shadow:0 0 0 7px rgba(230,162,60,0)}100%{box-shadow:0 0 0 0 rgba(230,162,60,0)}}
-body.no-stockwrite #stock-init,body.no-stockwrite #btn-stock-init,body.no-stockwrite .st-adj,body.no-stockwrite .slog-del{display:none!important}
+body.no-stockwrite #stock-init,body.no-stockwrite #btn-stock-init,body.no-stockwrite .st-adj,body.no-stockwrite .slog-del,body.no-stockwrite .sp-del{display:none!important}
 body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-transfer,body.no-adjust #lend-opening,body.no-adjust #btn-lend-opening,body.no-adjust #sp-manual-adjust,body.no-adjust .st-adj,body.no-adjust .c-adj{display:none!important}
 .t-mini{display:none}
 @media (max-width:768px){
@@ -4544,6 +4544,35 @@ function confirmSponsorShip(custId){
   renderSponsor();
 }
 
+// 協賛記録を1件だけ削除する（管理者のみ）。手動調整の取り消しなどに使う。
+//   ★協賛は残数に直結するため、削除後の残数を必ず表示してから実行する。
+async function deleteSponsorLogRow(logId, custId){
+  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
+       if(_r!=='admin'){ toast('🔒 この操作は管理者のみ実行できます','error'); return; } }catch(e){ return; }
+  var l = (S.sponsorLogs||[]).find(function(x){ return String(x.id)===String(logId); });
+  if (!l) return toast('記録が見つかりません','error');
+  var bal = (typeof getSponsorBalance==='function') ? getSponsorBalance(custId) : {earned:0,used:0,pts:0};
+  var after = (l.type==='earned') ? (bal.pts - (l.qty||0)) : (bal.pts + (l.qty||0));
+  if (!confirm('この協賛記録を削除しますか？\n\n'
+      + '　' + (l.date||'') + '　' + (l.type==='earned'?'+付与':'-使用') + ' ' + (l.qty||0) + '本\n'
+      + '　' + (l.note||'') + '\n\n'
+      + '現在の残数：' + bal.pts + '本\n'
+      + '削除後の残数：' + after + '本'
+      + (after < 0 ? '\n\n⚠ 残数がマイナスになります（使用が付与を超えます）' : '')
+      + '\n\n実行しますか？')) return;
+  // ★順番：サーバから先に削除し、成功を確認してから端末の記録を消す
+  if (S.gasUrl){
+    showSyncOverlay('削除中…（サーバへ送信しています）');
+    var _rs = await gasPostSync({ action:'deleteSponsorLog', id: String(logId) });
+    hideSyncOverlay();
+    if (!_rs.ok){ toast('❌ サーバから削除できませんでした：' + _rs.error + '（何も消していません）','error'); return; }
+  }
+  S.sponsorLogs = (S.sponsorLogs||[]).filter(function(x){ return String(x.id)!==String(logId); });
+  saveState();
+  toast('✓ 協賛記録を1件削除しました（残数 ' + after + '本）');
+  try{ viewSponsorLog(custId); }catch(e){}
+  try{ if(typeof renderSponsorTab==='function') renderSponsorTab(); }catch(e){}
+}
 function viewSponsorLog(custId){
   const cust = (S.customers || []).find(c => String(c.id) === String(custId));
   if (!cust) return;
@@ -4606,13 +4635,14 @@ function viewSponsorLog(custId){
       </div>
       ${logs.length === 0 ? '<div class="empty">履歴なし</div>' : `
         <table style="width:100%;border-collapse:collapse;font-size:.78rem">
-          <thead><tr><th style="padding:.4rem;text-align:left;color:var(--gold-d);border-bottom:1px solid rgba(201,168,76,.2)">日付</th><th style="padding:.4rem;color:var(--gold-d)">種別</th><th style="padding:.4rem;text-align:right;color:var(--gold-d)">本数</th><th style="padding:.4rem;text-align:left;color:var(--gold-d)">メモ</th></tr></thead>
+          <thead><tr><th style="padding:.4rem;text-align:left;color:var(--gold-d);border-bottom:1px solid rgba(201,168,76,.2)">日付</th><th style="padding:.4rem;color:var(--gold-d)">種別</th><th style="padding:.4rem;text-align:right;color:var(--gold-d)">本数</th><th style="padding:.4rem;text-align:left;color:var(--gold-d)">メモ</th><th class="sp-del" style="padding:.4rem;color:var(--gold-d)">操作</th></tr></thead>
           <tbody>${logs.map(l => `
             <tr>
               <td style="padding:.4rem;font-size:.72rem">${escapeHtml(l.date || '')}</td>
               <td style="padding:.4rem"><span class="badge ${l.type==='earned'?'bd-paid':'bd-out'}">${l.type==='earned'?'+付与':'-使用'}</span></td>
               <td style="padding:.4rem;text-align:right;font-family:'Bebas Neue',sans-serif">${l.qty}本</td>
               <td style="padding:.4rem;font-size:.7rem;color:var(--wh2)">${escapeHtml(l.note || '')}${l.product?' / '+escapeHtml(l.product):''}</td>
+              <td class="sp-del" style="padding:.4rem;text-align:center"><button class="act-btn dn" onclick="deleteSponsorLogRow('${l.id}','${custId}')" title="この協賛記録を削除（残数が変わります）">削</button></td>
             </tr>`).join('')}</tbody>
         </table>
       `}
