@@ -5615,9 +5615,13 @@ async function deleteActual(id){
   var a = (S.actuals||[]).find(function(x){return x.id===id;});
   if (!a) return;
   if (!confirm((a.ym||'')+' / '+(a.store||'')+' / '+(a.product||'')+'\nこの実績を削除しますか？')) return;
+  // ★順番：サーバ削除の成功を確認してから端末を消す（失敗時は何も消さない）
+  if (S.gasUrl){
+    var _svAc = await gasPost({ action:'deleteActual', id:id });
+    if (_svAc && _svAc.ok === false){ toast('❌ サーバから削除できませんでした：' + (_svAc.error||'') + '（削除していません）', 'error'); return; }
+  }
   S.actuals = (S.actuals||[]).filter(function(x){return x.id!==id;});
   saveState();
-  if (S.gasUrl){ try { await gasPost({ action:'deleteActual', id:id }); } catch(e){} }
   toast('削除しました'); renderAnalysis();
 }
 function renderAnalysis(){
@@ -7126,11 +7130,15 @@ function saveLendPartner(){
   document.getElementById('lp-name').value=''; document.getElementById('lp-uid').value='';
   toast('✓ 貸借先を登録しました'); renderLendPartners(); fillLendSelectors();
 }
-function deleteLendPartner(id){
+async function deleteLendPartner(id){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 削除権限がありません', 'error');
   if(!confirm('この貸借先を削除しますか？（履歴は残ります）')) return;
+  // ★順番：サーバ削除の成功を確認してから端末を消す（失敗時は何も消さない）
+  if(S.gasUrl){
+    var _svLp = await gasPost({action:'deleteLendPartner', id:id});
+    if (_svLp && _svLp.ok === false){ toast('❌ サーバから削除できませんでした：' + (_svLp.error||'') + '（削除していません）', 'error'); return; }
+  }
   S.lendPartners=(S.lendPartners||[]).filter(p=>p.id!==id); saveState();
-  if(S.gasUrl) gasPost({action:'deleteLendPartner', id});
   renderLendPartners(); fillLendSelectors();
 }
 function renderLendPartners(){
@@ -7152,11 +7160,11 @@ function fillLendSelectors(){
   const _ld=document.getElementById('ln-date'); if(_ld && !_ld.value) _ld.value=today();
 }
 
-function _lendStockMove(branch, product, signedQty, type, note){
+function _lendStockMove(branch, product, signedQty, type, note, bizDate){
   if(signedQty < 0) depleteStock(branch, product, -signedQty);
   else restoreStockBkt(branch, product, signedQty);
   if(!S.slog) S.slog=[];
-  S.slog.push({ _rec: new Date().toISOString(), date:today(), time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), branch, type, product, qty:Math.abs(signedQty), remaining:S.stock[branch][product], orderId:'', note });
+  S.slog.push({ _rec: new Date().toISOString(), date:(bizDate||today()), time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), branch, type, product, qty:Math.abs(signedQty), remaining:S.stock[branch][product], orderId:'', note });
 }
 
 // ══ 複数商品の明細（貸借・拠点間移動）══
@@ -7249,7 +7257,7 @@ function recordLending(){
   const _lnDate=(document.getElementById('ln-date').value||today());
   let _total=0;
   _items.forEach(function(it, _i){
-    _lendStockMove(branch, it.product, sign*it.qty, kind, kind+'：'+(partner.name||'')+(memo?'（'+memo+'）':''));
+    _lendStockMove(branch, it.product, sign*it.qty, kind, kind+'：'+(partner.name||'')+(memo?'（'+memo+'）':''), _lnDate);
     const rec={ id:'ln-'+Date.now()+'-'+_i+'-'+Math.floor(Math.random()*9000+1000), date:_lnDate,
       partnerId:pid, partnerName:partner.name||'', partnerUid:partner.uid||'',
       kind, branch, product:it.product, qty:it.qty, dueDate:due, memo, status:'未返却', returnedDate:'',
@@ -7677,7 +7685,7 @@ function submitReturn(){
   var rd = (document.getElementById('rt-date')||{}).value || today();
 
   var sign = (rec.kind === '貸出') ? 1 : -1;
-  _lendStockMove(rec.branch, rec.product, sign*q, (rec.kind==='貸出' ? '返却受' : '借入返却'), '返却：' + (rec.partnerName||'') + '（' + q + '本）');
+  _lendStockMove(rec.branch, rec.product, sign*q, (rec.kind==='貸出' ? '返却受' : '借入返却'), '返却：' + (rec.partnerName||'') + '（' + q + '本）', (rec.returnedDate||today()));
   rec.returnedQty = (Number(rec.returnedQty)||0) + q;
   var done = _lendOutstanding(rec) <= 0;
   rec.status = done ? '返却済' : '未返却';
@@ -7717,7 +7725,7 @@ function returnLending(id){
   renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock(); if(typeof updateTabDots==='function') updateTabDots();
 }
 
-function deleteLending(id, skipConfirm){
+async function deleteLending(id, skipConfirm){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 削除権限がありません（社長・閲覧者は不可）','error');
   const rec=(S.lendings||[]).find(l=>l.id===id); if(!rec) return;
   const q=Number(rec.qty)||0;
@@ -7730,9 +7738,14 @@ function deleteLending(id, skipConfirm){
   msg += (reversal!==0) ? ('\n在庫が'+(reversal>0?'戻ります（+':'減ります（−')+Math.abs(reversal)+'本）。') : '\n（在庫は変わりません）';
   if(!confirm(msg)) return;
   if(reversal!==0){ _lendStockMove(rec.branch, rec.product, reversal, '貸借削除', '貸借履歴の削除：'+(rec.partnerName||'')); }
+  // ★順番：サーバ削除の成功を確認してから端末を消す（失敗時は何も消さない）
+  if(S.gasUrl){
+    var _svLn = await gasPost({action:'deleteLending', id:id});
+    if (_svLn && _svLn.ok === false){ toast('❌ サーバから削除できませんでした：' + (_svLn.error||'') + '（削除していません）', 'error'); return; }
+  }
   S.lendings=(S.lendings||[]).filter(l=>l.id!==id); saveState();
   try{ let _dl=JSON.parse(localStorage.getItem('lmb_deletedLendings')||'[]'); if(_dl.indexOf(id)<0){ _dl.push(id); localStorage.setItem('lmb_deletedLendings', JSON.stringify(_dl)); } }catch(e){}
-  if(S.gasUrl){ gasPost({action:'deleteLending', id:id}); if(reversal!==0) syncStockToGAS(); }
+  if(S.gasUrl && reversal!==0) syncStockToGAS();
   toast('✓ 貸借履歴を削除しました');
   renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock();
 }
@@ -8126,7 +8139,7 @@ async function transferStock(){
     const _p = []; if (used.old) _p.push('旧' + used.old); if (used.sp) _p.push('協' + used.sp); if (used.new) _p.push('新' + used.new);
     const _brk = _p.length ? '（' + _p.join('・') + '）' : '';
     const note = `拠点間移動 ${from}→${to}${_brk}` + (memo ? '：' + memo : '');
-    S.slog.push({ _rec: new Date().toISOString(), date: today(), time: t, branch: from, type: '移動出', product: it.product, qty: it.qty, remaining: S.stock[from][it.product], note: note, user: user });
+    S.slog.push({ _rec: new Date().toISOString(), date: _mvDate, time: t, branch: from, type: '移動出', product: it.product, qty: it.qty, remaining: S.stock[from][it.product], note: note, user: user });
     const rec = { id:'mv-'+Date.now()+'-'+_i+'-'+Math.floor(Math.random()*9000+1000), date: _mvDate, from: from, to: to,
       product: it.product, qty: it.qty, used: used, status:'輸送中', memo: memo, sentBy: user, sentAt: new Date().toISOString(),
       recvQty:'', recvDate:'', recvBy:'', lostQty:'' };
@@ -8172,11 +8185,11 @@ async function receiveMove(id){
     const part = _splitUsed(m.used, rq);
     restoreStockBkt(m.to, m.product, rq, part);
     _sumStock(m.to, m.product);
-    S.slog.push({ _rec: new Date().toISOString(), date: today(), time: t, branch: m.to, type: '移動入', product: m.product, qty: rq,
+    S.slog.push({ _rec: new Date().toISOString(), date: (m.recvDate||today()), time: t, branch: m.to, type: '移動入', product: m.product, qty: rq,
       remaining: S.stock[m.to][m.product], note: `拠点間移動 ${m.from}→${m.to}：受領` + (lost?`（紛失${lost}本）`:''), user: user });
   }
   if (lost > 0){
-    S.slog.push({ _rec: new Date().toISOString(), date: today(), time: t, branch: m.to, type: '輸送中紛失', product: m.product, qty: lost,
+    S.slog.push({ _rec: new Date().toISOString(), date: (m.recvDate||today()), time: t, branch: m.to, type: '輸送中紛失', product: m.product, qty: lost,
       remaining: S.stock[m.to][m.product] || 0, note: `拠点間移動 ${m.from}→${m.to}：発送${m.qty}本のうち${lost}本が届かず`, user: user });
   }
   m.status='完了'; m.recvQty=rq; m.recvDate=today(); m.recvBy=user; m.lostQty=lost||'';
@@ -8199,7 +8212,7 @@ async function cancelMove(id, skipConfirm){
   const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : '';
   restoreStockBkt(m.from, m.product, m.qty, m.used);
   _sumStock(m.from, m.product);
-  S.slog.push({ _rec: new Date().toISOString(), date: today(), time: new Date().toTimeString().slice(0,5), branch: m.from, type: '移動取消', product: m.product,
+  S.slog.push({ _rec: new Date().toISOString(), date: (m.recvDate||today()), time: new Date().toTimeString().slice(0,5), branch: m.from, type: '移動取消', product: m.product,
     qty: m.qty, remaining: S.stock[m.from][m.product], note: `拠点間移動 ${m.from}→${m.to}：発送を取消`, user: user });
   m.status='取消'; m.recvDate=today(); m.recvBy=user;
   saveState();
