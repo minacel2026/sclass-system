@@ -3179,6 +3179,17 @@ async function changeShipStatus(id, val){
     applyShipEffects(o, _sd);
   }
   else if (!willShip){
+    // ★在庫が戻る操作。何が起きるかを先に知らせる（誤操作で在庫が狂うのを防ぐ）
+    if (wasShipped){
+      var _shipQty = Object.values(orderShipped(o)).reduce(function(a,b){ return a + (b||0); }, 0)
+                   + Object.values(orderShippedSponsor(o)).reduce(function(a,b){ return a + (b||0); }, 0);
+      if (!confirm('「' + val + '」に戻します。\n\n'
+        + '・出荷済みの ' + _shipQty + '本 を在庫に戻します\n'
+        + '・在庫履歴に「戻入」として記録が残ります\n'
+        + '・協賛の付与・使用も取り消されます\n\n'
+        + '出荷日をやり直したい場合は、このあと再度「出荷済」にして\n'
+        + '正しい出荷日を選んでください。\n\n続けますか？')){ renderOrders(); return; }
+    }
     // ★順番：先にサーバへ保存し、成功を確認してから在庫を戻す／画面を変える。
     //   （投げっぱなしだと、保存が届かなくても画面だけ変わり、シートと食い違う）
     if (S.gasUrl){
@@ -3303,6 +3314,19 @@ function openOrderForEdit(id){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   const o = (S.orders || []).find(x => x.id === id);
   if (!o) return toast('注文が見つかりません', 'error');
+
+  // ★出荷済の注文を修正すると在庫と履歴が作り直される。何が起きるかを先に知らせる。
+  if (shipStatus(o) === '出荷済'){
+    if (!confirm('この注文は「出荷済」です。修正すると次のことが起きます。\n\n'
+      + '・出荷済み分の在庫を一度戻し、保存後にあらためて減らします\n'
+      + '・この注文の古い出庫記録は削除され、新しく記録し直されます\n'
+      + '・在庫が動く日（在庫履歴の日付）は【出荷日】のままです\n'
+      + '　　→ 注文日を変えても在庫の日付は変わりません\n\n'
+      + '【出荷日を変えたいとき】\n'
+      + '修正ではなく、注文一覧のプルダウンで「対応中」に戻してから\n'
+      + 'もう一度「出荷済」にして、正しい出荷日を選んでください。\n\n'
+      + 'このまま修正しますか？')) return;
+  }
 
   // 注文登録タブへ切替（initNewOrderが走るが値は触らない）
   const tab = document.querySelector('.mtab[onclick*="neworder"]');
@@ -6369,6 +6393,14 @@ async function adjustStock(product, branch){
   const reason = prompt(`${branch}の${product}（${bLabel}）を ${delta > 0 ? '+' : ''}${delta} 本 調整します。理由を入力してください:`);
   if (reason === null) return;
 
+  // ★在庫を直接動かす操作。実行前に内容を確認する。
+  var _cur = ((S.stock[branch]||{})[product]) || 0;
+  if (!confirm(branch + ' の ' + product + '（' + bLabel + '）を調整します。\n\n'
+    + '　現在：' + _cur + '本\n'
+    + '　調整：' + (delta > 0 ? '+' : '') + delta + '本\n'
+    + '　調整後：' + (_cur + delta) + '本\n\n'
+    + '理由：' + (reason || '（未入力）') + '\n\n'
+    + '※この操作は在庫履歴と操作履歴に残ります\n\n実行しますか？')) return;
   adjustBucket(branch, product, bucket, delta);
 
   if (!S.slog) S.slog = [];
