@@ -6959,11 +6959,11 @@ function fillLendSelectors(){
   const _ld=document.getElementById('ln-date'); if(_ld && !_ld.value) _ld.value=today();
 }
 
-function _lendStockMove(branch, product, signedQty, type, note){
+function _lendStockMove(branch, product, signedQty, type, note, bizDate){
   if(signedQty < 0) depleteStock(branch, product, -signedQty);
   else restoreStockBkt(branch, product, signedQty);
   if(!S.slog) S.slog=[];
-  S.slog.push({ date:today(), time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), branch, type, product, qty:Math.abs(signedQty), remaining:S.stock[branch][product], orderId:'', note });
+  S.slog.push({ date:(bizDate||today()), time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), branch, type, product, qty:Math.abs(signedQty), remaining:S.stock[branch][product], orderId:'', note });
 }
 
 // ══ 複数商品の明細（貸借・拠点間移動）══
@@ -7056,7 +7056,7 @@ function recordLending(){
   const _lnDate=(document.getElementById('ln-date').value||today());
   let _total=0;
   _items.forEach(function(it, _i){
-    _lendStockMove(branch, it.product, sign*it.qty, kind, kind+'：'+(partner.name||'')+(memo?'（'+memo+'）':''));
+    _lendStockMove(branch, it.product, sign*it.qty, kind, kind+'：'+(partner.name||'')+(memo?'（'+memo+'）':''), _lnDate);
     const rec={ id:'ln-'+Date.now()+'-'+_i+'-'+Math.floor(Math.random()*9000+1000), date:_lnDate,
       partnerId:pid, partnerName:partner.name||'', partnerUid:partner.uid||'',
       kind, branch, product:it.product, qty:it.qty, dueDate:due, memo, status:'未返却', returnedDate:'',
@@ -7928,7 +7928,7 @@ async function transferStock(){
     const _p = []; if (used.old) _p.push('旧' + used.old); if (used.sp) _p.push('協' + used.sp); if (used.new) _p.push('新' + used.new);
     const _brk = _p.length ? '（' + _p.join('・') + '）' : '';
     const note = `拠点間移動 ${from}→${to}${_brk}` + (memo ? '：' + memo : '');
-    S.slog.push({ date: today(), time: t, branch: from, type: '移動出', product: it.product, qty: it.qty, remaining: S.stock[from][it.product], note: note, user: user });
+    S.slog.push({ date: _mvDate, time: t, branch: from, type: '移動出', product: it.product, qty: it.qty, remaining: S.stock[from][it.product], note: note, user: user });
     const rec = { id:'mv-'+Date.now()+'-'+_i+'-'+Math.floor(Math.random()*9000+1000), date: _mvDate, from: from, to: to,
       product: it.product, qty: it.qty, used: used, status:'輸送中', memo: memo, sentBy: user, sentAt: new Date().toISOString(),
       recvQty:'', recvDate:'', recvBy:'', lostQty:'' };
