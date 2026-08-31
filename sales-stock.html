@@ -6714,11 +6714,21 @@ function printDailyStockTable(){
     }).join('');
     // CSV（この拠点ぶん）
     var head = ['商品']; for (var day=1; day<=lastDay; day++){ head.push((m+1)+'/'+day); }
+    // ★その日の在庫の総合計（全商品を足した本数）。日ごとの推移が一目で分かる。
+    var totTds = '', totVals = [];
+    for (var i=0;i<lastDay;i++){
+      var _t = 0;
+      prods.forEach(function(p){ _t += Number(dayMaps[i][p.key])||0; });
+      totVals.push(_t);
+      totTds += '<td class="num'+wcls[i+1]+(_t<0?' neg':'')+'">'+_t+'</td>';
+    }
+    var totRow = '<tr class="tot"><td class="nm">合計</td>'+totTds+'</tr>';
     var csvLines = [head.map(csvEsc).join(',')];
     prods.forEach(function(p){ var line=[csvEsc(p.name||'')]; for (var i=0;i<lastDay;i++){ line.push(Number(dayMaps[i][p.key])||0); } csvLines.push(line.join(',')); });
+    csvLines.push(['合計'].concat(totVals).join(','));
     return { br:br, count:prods.length,
       html:'<div class="sect"><div class="secth"><b>拠点：'+escapeHtml(br)+'</b>　／　'+monthLabel+'　／　商品 '+prods.length+' 品目　（数値＝その日終わりの理論在庫）</div>'
-           +'<div class="scr"><table><thead><tr><th class="nm">商品名</th>'+thDays+'</tr></thead><tbody>'
+           +'<div class="scr"><table><thead><tr><th class="nm">商品名</th>'+thDays+'</tr>'+totRow+'</thead><tbody>'
            +(rows || '<tr><td colspan="'+(lastDay+1)+'" style="text-align:center;color:#888">商品が読み込めていません（GAS同期後に）</td></tr>')
            +'</tbody></table></div></div>',
       csv:'【'+br+'】\n'+csvLines.join('\n') };
@@ -6740,6 +6750,8 @@ function printDailyStockTable(){
     + 'td.nm,th.nm{text-align:left;white-space:nowrap;position:sticky;left:0;background:#fff;font-weight:600}'
     + 'th.nm{background:#f0e8d0}'
     + 'td.neg{color:#c00;font-weight:700}'
+    + 'tr.tot td{background:#efe6cc;font-weight:700;border-top:2px solid #666}'
+    + 'tr.tot td.nm{background:#efe6cc}'
     + 'th.sat,td.sat{background:#e6ebf2}'   /* 土曜=薄い青灰 */
     + 'th.sun,td.sun{background:#f2e6e6}'   /* 日曜=薄い赤灰 */
     + '@media print{.noprint{display:none}}'
