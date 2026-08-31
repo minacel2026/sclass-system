@@ -5796,7 +5796,7 @@ async function purgeOldSlog(){
 
   // 対象データ（4種）。在庫の数値は変更しない＝記録だけを消す。
   var SETS = [
-    { key:'在庫履歴', get:function(){ return S.slog||[]; },      set:function(v){ S.slog=v; } },
+    { key:'在庫履歴', get:function(){ return S.slog||[]; },      set:function(v){ S.slog=v; if(typeof _slogRewrap==='function') _slogRewrap(); } },
     { key:'仕入',     get:function(){ return S.purchases||[]; }, set:function(v){ S.purchases=v; } },
     { key:'貸借',     get:function(){ return S.lendings||[]; },  set:function(v){ S.lendings=v; } },
     { key:'拠点移動', get:function(){ return S.moves||[]; },     set:function(v){ S.moves=v; } }
@@ -5898,6 +5898,7 @@ async function checkSlogDuplicates(){
     });
   });
   S.slog = (S.slog || []).filter(function(_, i){ return !delIdx[i]; });
+  if (typeof _slogRewrap === 'function') _slogRewrap();   // ★配列を作り直したので包み直す（送信キューが外れるのを防ぐ）
   saveState();
   if (!_logOnly && S.gasUrl) syncStockToGAS();                     // 在庫を触った時だけ同期
   renderSlog(); if (typeof renderStock === 'function') renderStock(); updateKPI();
@@ -7269,8 +7270,10 @@ function _slogEnqueue(entry){
   _slogTimer = setTimeout(_slogFlush, 1500);
   return entry;
 }
-// S.slog.push を包む（1回だけ適用）
-(function(){
+// S.slog.push を包む（サーバ送信キューに入れる）。
+// ★重要：S.slog を filter などで作り直すと新しい配列になり包みが外れる＝以後サーバに保存されなくなる。
+//   そのため関数化し、S.slog を差し替えたら必ず _slogRewrap() を呼ぶこと。
+function _slogRewrap(){
   if (!S.slog) S.slog = [];
   if (S.slog.__wrapped) return;
   var _origPush = S.slog.push.bind(S.slog);
@@ -7279,7 +7282,8 @@ function _slogEnqueue(entry){
     return _origPush.apply(null, arguments);
   };
   try { Object.defineProperty(S.slog, '__wrapped', { value:true, enumerable:false }); } catch(e){}
-})();
+}
+_slogRewrap();
 // 画面を閉じる前に未送信ぶんを送る
 window.addEventListener('beforeunload', function(){ if (_slogQueue.length) _slogFlush(); });
 
