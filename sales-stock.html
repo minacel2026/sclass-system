@@ -981,7 +981,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       </div>
     </div>
     <div class="tw">
-      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="purgeOldSlog()" title="指定した日より前の在庫履歴を削除します（在庫の数値は変わりません）">🗑 古い記録を削除</button><button class="btn-s" onclick="checkSlogDuplicates()" style="margin-left:.4rem" title="同じ出荷が二重に記録されていないか調べます">⚠ 重複チェック</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
+      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="resendSlogToServer()" title="端末にある在庫履歴をサーバへ送り直します（二重登録されません）">⬆ サーバへ送り直す</button><button class="btn-s" style="margin-left:.4rem" onclick="purgeOldSlog()" title="指定した日より前の在庫履歴を削除します（在庫の数値は変わりません）">🗑 古い記録を削除</button><button class="btn-s" onclick="checkSlogDuplicates()" style="margin-left:.4rem" title="同じ出荷が二重に記録されていないか調べます">⚠ 重複チェック</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
           <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>記録日時<span style="font-size:.6rem;color:var(--wh3)">(実操作)</span></th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th></tr>
@@ -5804,6 +5804,32 @@ function _slogDupGroups(){
 }
 // ══ 在庫履歴：指定した日付より前の記録を削除（練習・テストデータの掃除用） ══
 //   在庫の数値は一切変更しない（初期登録や棚卸で実在庫を揃えた後に、古い記録だけを消すための機能）。
+// ══ 在庫履歴：端末の記録をサーバへ送り直す（取りこぼしの復旧） ══
+//   過去の不具合で「端末にはあるがサーバに無い」記録が生じることがある。
+//   GAS側はID重複を無視する（冪等）ため、何度実行しても二重登録にはならない。
+async function resendSlogToServer(){
+  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
+       if(_r!=='admin'){ toast('🔒 この操作は管理者のみ実行できます','error'); return; } }catch(e){ return; }
+  if (!S.gasUrl){ toast('GAS URLが未設定です','error'); return; }
+  var all = (S.slog||[]).filter(function(x){ return x && (x.date || x.type); });
+  if (!all.length){ toast('送る記録がありません'); return; }
+  if (!confirm('端末にある在庫履歴 ' + all.length + '件 をサーバへ送り直します。\n\n'
+    + '※同じ記録は二重登録されません（IDで判定）\n※在庫の数値は変更しません\n\n実行しますか？')) return;
+  // IDが無い古い記録にはIDを付ける（サーバ側の重複判定に必要）
+  all.forEach(function(x){ if(!x.id) x.id = 'sl-' + Date.now() + '-' + Math.floor(Math.random()*90000+10000); });
+  saveState();
+  var batch = all.map(function(x){
+    return { id:x.id, date:x.date||today(), time:x.time||'', branch:x.branch||'', type:x.type||'',
+             product:x.product||'', qty:x.qty||0, remaining:(x.remaining===undefined?'':x.remaining),
+             orderId:x.orderId||'', note:x.note||'', user:x.user||'' };
+  });
+  showSyncOverlay('送信中…（サーバへ保存しています）');
+  var res = await gasPostSync({ action:'saveStockLogs', logs: JSON.stringify(batch) });
+  hideSyncOverlay();
+  if (!res.ok){ toast('❌ 送信できませんでした：' + res.error, 'error'); return; }
+  var added = (res.resp && typeof res.resp.added === 'number') ? res.resp.added : null;
+  toast('✓ サーバへ送信しました' + (added!==null ? ('（新たに ' + added + '件 保存／既存はそのまま）') : ''));
+}
 async function purgeOldSlog(){
   // ★記録の削除は証跡に関わる操作。表示を隠すだけでなく、実行そのものを admin 以外は拒否する。
   try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
