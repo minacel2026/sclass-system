@@ -981,7 +981,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       </div>
     </div>
     <div class="tw">
-      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="findStockCause()" title="在庫が合わない原因を調べます（変更しません）">🔎 原因を調べる</button><button class="btn-s" style="margin-left:.4rem" onclick="checkSlogConsistency()" title="残数のつじつまを確認します">🔍 整合チェック</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
+      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="findStockCause()" title="在庫が合わない原因を調べます（変更しません）">🔎 原因を調べる</button><button class="btn-s" style="margin-left:.4rem" onclick="checkSlogConsistency()" title="残数のつじつまを確認します">🔍 整合チェック</button><button class="btn-s" style="margin-left:.4rem" onclick="clearAllSlog()" title="在庫履歴を全部消します（在庫の数値は変わりません）">🗑 履歴を全消去</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
           <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del-col">操作</th></tr>
@@ -5688,6 +5688,27 @@ function renderSlog(){
     </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="10" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
   // 行削除ボタンは管理者のみ表示
   try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; document.querySelectorAll('.slog-del-col').forEach(function(el){ el.style.display=(_r==='admin')?'':'none'; }); }catch(e){}
+}
+// 在庫履歴を全部消す（端末とサーバ両方）。在庫の数値は変わらない。admin限定。
+async function clearAllSlog(){
+  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; if(_r!=='admin'){ toast('🔒 管理者のみ実行できます','error'); return; } }catch(e){ return; }
+  var cnt=(S.slog||[]).length;
+  if(!confirm('在庫履歴を全部（'+cnt+'件）消去します。\n\n'
+    + '・端末とサーバの両方から消えます\n'
+    + '・在庫の数値は変わりません（記録だけ消します）\n'
+    + '・元に戻せません\n\n実行しますか？')) return;
+  if(!confirm('本当に全消去してよろしいですか？\nこの操作は取り消せません。')) return;
+  // サーバ側：在庫履歴シートを空にする（未来日より前を全部＝全件）
+  if(S.gasUrl){
+    toast('サーバの履歴を消去中…');
+    var res=await gasGet('deleteStockLogs',{ all:'true' });   // 全件消去（日付が空の行も含む）
+    if(!res || !res.ok){ toast('サーバの履歴を消せませんでした：'+((res&&res.error)||'通信エラー')+'（端末も消していません）','error'); return; }
+  }
+  // 端末側：localStorageの在庫履歴を空にする
+  S.slog=[];
+  saveState();
+  renderSlog(); if(typeof updateKPI==='function') updateKPI();
+  toast('✓ 在庫履歴を全消去しました（在庫の数値は変わっていません）');
 }
 // 在庫履歴の1行だけ削除（サーバからも消す・admin限定・gasGetで固まらない）
 async function deleteSlogRow(idx){
