@@ -984,7 +984,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="findStockCause()" title="在庫が合わない原因を調べます（変更しません）">🔎 原因を調べる</button><button class="btn-s" style="margin-left:.4rem" onclick="checkSlogConsistency()" title="残数のつじつまを確認します">🔍 整合チェック</button><button class="btn-s" style="margin-left:.4rem" onclick="clearAllSlog()" title="在庫履歴を全部消します（在庫の数値は変わりません）">🗑 履歴を全消去</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
-          <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>操作日<span style="font-size:.6rem;color:var(--wh3)">(記録)</span></th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del-col">操作</th></tr>
+          <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del-col">操作</th></tr>
         </thead>
         <tbody id="slog-tbody"></tbody>
       </table>
@@ -1459,13 +1459,27 @@ async function gasGet(action, params){
   try {
     const r = await fetch(S.gasUrl + '?' + q, ctl ? { signal: ctl.signal } : undefined);
     if (timer) clearTimeout(timer);
-    return await r.json();
+    var _j = await r.json();
+    // ★セッション切れ（auth）を検知したら、はっきり「ログインし直し」を案内する。
+    if (_j && (_j.error === 'auth' || (typeof _j.error === 'string' && /auth/i.test(_j.error)))){
+      _notifyReloginNeeded();
+    }
+    return _j;
   } catch(e){
     if (timer) clearTimeout(timer);
     var m = (e && e.name === 'AbortError') ? '応答がありません（通信が不安定です）' : (e && e.message ? e.message : String(e));
     toast('通信エラー: ' + m, 'error');
     return null;
   }
+}
+// セッション切れの案内（何度も同じトーストを出さないよう間引く）
+function _notifyReloginNeeded(){
+  try{
+    var now = Date.now();
+    if (window.__reloginNotifiedAt && (now - window.__reloginNotifiedAt) < 8000) return;
+    window.__reloginNotifiedAt = now;
+  }catch(e){}
+  toast('🔑 ログインの有効期限が切れています。ログインし直してください（左上メニュー→ログアウト→再ログイン）', 'error');
 }
 // ══ 送信キュー（電波が弱い場所でもデータを失わない仕組み）══
 //   ビル内など通信が不安定な場所では、送信が失敗しても no-cors では気づけない。
@@ -1806,7 +1820,7 @@ async function _qFlush(manual){
         if (_resp && typeof _resp === 'object'){
           if (_resp.ok === false || _resp.error){
             var _rc = String(_resp.error || 'ok:false');
-            if (/auth/i.test(_rc)) throw new Error('認証エラー：ログインし直してください');
+            if (/auth/i.test(_rc)){ try{ _notifyReloginNeeded(); }catch(_n){} throw new Error('認証エラー：ログインし直してください'); }
             if (/viewer|readonly|read_only|閲覧/i.test(_rc)) throw new Error('保存できません：閲覧のみ権限（編集権限が必要）');
             if (/lock/i.test(_rc)) throw new Error('サーバが混み合って保存できませんでした（時間をおいて再送）');
             throw new Error('保存失敗（サーバ）: ' + _rc);
@@ -1860,6 +1874,11 @@ window.addEventListener('beforeunload', function(e){
   var editing = false;
   try { editing = !!editingOrderId; } catch(_){ editing = false; }
   if(editing){ e.preventDefault(); e.returnValue='注文の修正が保存されていません。保存せずに移動してもよろしいですか？'; return e.returnValue; }
+  // 未送信データが残っている間はリロード/離脱で確認を出す（保存途中での事故を防ぐ）
+  var pending = 0;
+  try { pending += (_qLoad()||[]).length; } catch(_e){}
+  try { if (typeof _slogQueue !== 'undefined' && _slogQueue) pending += _slogQueue.length; } catch(_e){}
+  if (pending > 0){ e.preventDefault(); e.returnValue='まだサーバに保存していないデータが'+pending+'件あります。左下の「未送信」が0になってから更新してください。'; return e.returnValue; }
 });
 
 // ─── window公開 ─────
@@ -2440,9 +2459,33 @@ async function syncFromGAS(){
     toast(window._syncAddedOrders ? `✓ 同期完了（注文${window._syncAddedOrders}件を取り込み）` : '✓ 同期完了');
     window._syncAddedOrders = 0;
     updateKPI(); renderOrders(); renderStock();
+    try { checkGhostMoves(); } catch(e){}   // 起動・同期後：幽霊移動の点検（読み取りのみ・数字は変えない）
   } finally {
     hideSyncOverlay();
   }
+}
+
+// 起動・同期後の点検（読み取りのみ・数字は一切変えない）：
+// 「輸送中」なのに、その移動で在庫を引いた履歴（移動出）が1件も無い＝在庫が引かれていない
+// 可能性のある“幽霊移動”を見つけて知らせる。リロード等で保存が途中で切れた時の取りこぼしを表に出すため。
+function checkGhostMoves(){
+  try {
+    var moves = (S.moves||[]).filter(function(m){ return m && m.status==='輸送中'; });
+    if (!moves.length) return;
+    var slog = S.slog || [];
+    var ghosts = moves.filter(function(m){
+      // 同じ移動元・商品で、その移動(from→to)を記録した「移動出」が1件でもあればOK
+      var ok = slog.some(function(s){
+        return s && s.type==='移動出' && s.branch===m.from && s.product===m.product
+          && String(s.note||'').indexOf(m.from+'→'+m.to) >= 0;
+      });
+      return !ok;
+    });
+    if (ghosts.length){
+      var head = ghosts.slice(0,3).map(function(m){ return m.from+'→'+m.to+' '+m.product+' '+(m.qty||0)+'本'; }).join('／');
+      toast('⚠️ 在庫が引かれていない可能性のある「輸送中」の移動が '+ghosts.length+'件あります（'+head+(ghosts.length>3?' 他':'')+'）。取消/受領の前に、拠点移動タブと在庫履歴をご確認ください。','error');
+    }
+  } catch(e){}
 }
 </script>
 
@@ -5640,23 +5683,6 @@ function _slogOrderDate(s){
   var o=(S.orders||[]).find(function(x){ return String(x.id)===String(s.orderId); });
   return (o && o.date) ? _ymd(o.date) : '';
 }
-// 在庫履歴の行から「操作日」（実際にこの記録を作った日）を取得。
-//   各記録には保存時に一意ID「sl-<作成ミリ秒>-xxxxx」が付く（_slogEnqueue）。
-//   その先頭のミリ秒＝端末で記録を作った瞬間なので、そこから操作日を復元する。
-//   ※日付欄(s.date)は業務日（出荷日・発送日など。過去日にもなる）で、操作日とは別物。
-//   ※復元できないもの（古い記録など）は推測せず空欄にする。
-function _slogOpDate(s){
-  if(!s) return '';
-  if(s.opDate) return _ymd(s.opDate);   // 明示的に持っていればそれを優先（将来用）
-  var m = String(s.id||'').match(/^sl-(\d{12,14})-/);
-  if(m){
-    var t = Number(m[1]);
-    if(t > 1577836800000 && t < 4102444800000){   // 2020-01-01〜2100-01-01 の妥当な範囲だけ採用
-      return new Date(t).toISOString().slice(0,10);   // today() と同じ基準で日付化
-    }
-  }
-  return '';
-}
 function _slogStore(s){
   if (s && s.store) return s.store;
   if (s && s.orderId){ var o=(S.orders||[]).find(function(x){return x.id===s.orderId;}); if(o) return o.store||''; }
@@ -5711,12 +5737,11 @@ function renderSlog(){
   const tb = document.getElementById('slog-tbody'); if(!tb) return;
   const MAX = 400;
   const show = rows.slice(0, MAX);
-  if(!show.length){ tb.innerHTML = '<tr><td colspan="13"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
+  if(!show.length){ tb.innerHTML = '<tr><td colspan="11"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
   const tcolor = t => ({'出庫':'#e6a23c','協賛出庫':'#c39bd3','入庫':'#67c23a','戻入':'#67c23a','移動出':'#4f9dd9','移動入':'#4f9dd9','調整':'#e67e22','初期登録':'#909399'}[t] || '#aaa');
   tb.innerHTML = show.map(s=>`<tr style="cursor:pointer" onclick="_slogSnapshot(${s._idx}, this)" title="クリックでこの時点の在庫を表示">
       <td>${escapeHtml(_ymd(s.date))}</td>
       <td style="color:var(--wh3)">${escapeHtml(_slogOrderDate(s))}</td>
-      <td style="color:var(--wh3)">${escapeHtml(_slogOpDate(s))}</td>
       <td style="color:var(--wh3)">${escapeHtml(s.time||'')}</td>
       <td>${escapeHtml(s.branch||'')}</td>
       <td><span style="color:${tcolor(s.type)};font-weight:600">${escapeHtml(s.type||'')}</span></td>
@@ -5727,7 +5752,7 @@ function renderSlog(){
       <td style="font-size:.7rem">${escapeHtml(s.note||'')}</td>
       <td style="font-size:.7rem">${escapeHtml(s.user||'')}</td>
       <td class="slog-del-col" style="text-align:center"><button class="act-btn dn" onclick="event.stopPropagation();deleteSlogRow(${s._idx})" title="この記録だけ削除（在庫は変わりません）">削</button></td>
-    </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="13" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
+    </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="10" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
   // 行削除ボタンは管理者のみ表示
   try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; document.querySelectorAll('.slog-del-col').forEach(function(el){ el.style.display=(_r==='admin')?'':'none'; }); }catch(e){}
 }
@@ -6040,7 +6065,7 @@ function _slogSnapshot(idx, trEl){
   const warn = st.hadReset ? '<div style="color:#e6a23c;font-size:.7rem;margin-top:.3rem">⚠ 在庫初期登録（上書き）より前は正確でない場合があります。</div>' : '';
   const tr=document.createElement('tr');
   tr.className='slog-snap';
-  tr.innerHTML=`<td colspan="13" style="background:#14141a;padding:.6rem .8rem">
+  tr.innerHTML=`<td colspan="9" style="background:#14141a;padding:.6rem .8rem">
     <div style="font-size:.74rem;color:var(--gold-l);font-weight:700;margin-bottom:.4rem">📦 ${escapeHtml(br)} ・ ${escapeHtml(e.date||'')} ${escapeHtml(e.time||'')} 時点の在庫（全商品）</div>
     <div style="line-height:1.9;font-size:.76rem">${cells}</div>${warn}
   </td>`;
@@ -7043,6 +7068,8 @@ function addLendItem(){
   var ex = lendDraft.find(function(x){ return x.product === prod; });
   if (ex) ex.qty += qty; else lendDraft.push({ product: prod, qty: qty });
   document.getElementById('ln-qty').value = '';
+  // 追加後は商品選択を空に戻し、続けて次の商品をどんどん入れられるようにする
+  var _lp = document.getElementById('ln-prod'); if(_lp){ _lp.value=''; try{ _lp.focus(); }catch(e){} }
   renderLendDraft();
   toast('明細に追加：' + prod + ' ' + qty + '本');
 }
@@ -7066,6 +7093,8 @@ function addMoveItem(){
   var ex = moveDraft.find(function(x){ return x.product === prod; });
   if (ex) ex.qty += qty; else moveDraft.push({ product: prod, qty: qty });
   document.getElementById('tr-qty').value = '';
+  // 追加後は商品選択を空に戻し、続けて次の商品をどんどん入れられるようにする
+  var _tp = document.getElementById('tr-prod'); if(_tp){ _tp.value=''; try{ _tp.focus(); }catch(e){} }
   renderMoveDraft();
   if (typeof updateTransferPreview === 'function') updateTransferPreview();
   toast('明細に追加：' + prod + ' ' + qty + '本');
