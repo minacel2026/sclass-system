@@ -211,7 +211,6 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .tab-dot.danger{background:#e0685f;box-shadow:0 0 0 0 rgba(224,104,95,.7);animation:tabDotPulseLate 1.4s infinite}
 .tab-dot.late{background:#e6a23c;box-shadow:0 0 0 0 rgba(230,162,60,.7);animation:tabDotPulseLate 1.4s infinite}
 @keyframes tabDotPulseLate{0%{box-shadow:0 0 0 0 rgba(230,162,60,.7)}70%{box-shadow:0 0 0 7px rgba(230,162,60,0)}100%{box-shadow:0 0 0 0 rgba(230,162,60,0)}}
-body.no-stockwrite #stock-init,body.no-stockwrite #btn-stock-init,body.no-stockwrite .st-adj,body.no-stockwrite .slog-del,body.no-stockwrite .sp-del{display:none!important}
 body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-transfer,body.no-adjust #lend-opening,body.no-adjust #btn-lend-opening,body.no-adjust #sp-manual-adjust,body.no-adjust .st-adj,body.no-adjust .c-adj{display:none!important}
 .t-mini{display:none}
 @media (max-width:768px){
@@ -610,7 +609,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       <div class="month-disp" id="ord-month-disp">----年--月</div>
       <button class="dnav" onclick="shiftOrderMonth(1)">›</button>
       <button class="btn-s" onclick="setOrderMonthToday()">今月</button>
-      <button class="btn-s" id="ord-all-btn" onclick="toggleOrderAll()">全期間表示</button><button class="btn-s sp-del" onclick="dedupOrders()" style="margin-left:.4rem" title="サーバに重複して残った注文行を検出して掃除します（管理者のみ）">🧹 重複注文を掃除</button>
+      <button class="btn-s" id="ord-all-btn" onclick="toggleOrderAll()">全期間表示</button><button class="btn-s" id="ord-dedup-btn" onclick="dedupOrders()" style="margin-left:.4rem;display:none" title="サーバに重複して残った注文行を掃除します（管理者のみ）">🧹 重複を掃除</button>
     </div>
     <div class="fp">
       <div class="frow">
@@ -843,7 +842,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       </div>
       <div id="tr-preview" style="font-size:.78rem;color:var(--wh2);margin:.4rem 0"></div>
       <div id="tr-draft" style="margin-top:.5rem"></div>
-      <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="transferStock()">🚚 発送する</button><button class="btn-s" style="margin-left:.5rem" onclick="document.getElementById('entry-transfer').style.display='none'" title="発送せずに閉じます">✕ 閉じる（発送しない）</button></div>
+      <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="transferStock()">🚚 発送する</button></div>
     </div>
     </div>
   </div>
@@ -871,7 +870,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         </div>
         <div class="hint-box" style="margin:.4rem 0">各商品の <b style="color:#d9a23a">旧値</b>・<b style="color:#c39bd3">協賛</b>・<b style="color:var(--grn)">新値</b> の本数を入力し「この拠点に保存」。協賛は無料在庫（棚卸の評価額は0）。出荷時は旧値→協賛→新値の順に減ります。</div>
         <div class="tw"><table class="stock-table" style="width:100%"><thead><tr><th style="text-align:left">商品</th><th style="text-align:center;width:110px;color:#e8b85a">🟠 旧値</th><th style="text-align:center;width:110px;color:#d3a8e0">🟣 協賛</th><th style="text-align:center;width:110px;color:#8fe0ab">🟢 新値</th><th style="text-align:center;width:80px">合計</th></tr></thead><tbody id="si-tbody"></tbody></table></div>
-        <div class="faction" style="margin-top:.6rem;display:flex;gap:.5rem;align-items:center"><button class="btn btn-g" onclick="saveStockInit()">💾 この拠点に保存（上書き）</button><button class="btn-s" onclick="document.getElementById('stock-init').style.display='none'" title="保存せずに閉じます（在庫は変わりません）">✕ 閉じる（保存しない）</button></div>
+        <div class="faction" style="margin-top:.6rem"><button class="btn btn-g" onclick="saveStockInit()">💾 この拠点に保存（上書き）</button></div>
       </div>
     </div>
 
@@ -982,10 +981,10 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       </div>
     </div>
     <div class="tw">
-      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="findStockCause()" title="在庫が合わない原因（消し残し・記録の差）を調べます">🔎 原因を調べる</button><button class="btn-s" style="margin-left:.4rem" onclick="diagnoseStock()" title="今の在庫が「初期登録＋その後の記録」と一致するか診断します（データは変更しません）">📊 在庫の内訳</button><button class="btn-s" style="margin-left:.4rem" onclick="checkSlogConsistency()" title="残数のつじつまが合わない箇所を洗い出します（データは変更しません）">🔍 整合チェック</button><button class="btn-s" style="margin-left:.4rem" onclick="resendSlogToServer()" title="端末にある在庫履歴をサーバへ送り直します（二重登録されません）">⬆ サーバへ送り直す</button><button class="btn-s" style="margin-left:.4rem" onclick="purgeOldSlog()" title="指定した日より前の在庫履歴を削除します（在庫の数値は変わりません）">🗑 古い記録を削除</button><button class="btn-s" onclick="checkSlogDuplicates()" style="margin-left:.4rem" title="同じ出荷が二重に記録されていないか調べます">⚠ 重複チェック</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
+      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="findStockCause()" title="在庫が合わない原因を調べます（変更しません）">🔎 原因を調べる</button><button class="btn-s" style="margin-left:.4rem" onclick="checkSlogConsistency()" title="残数のつじつまを確認します">🔍 整合チェック</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
-          <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>記録日時<span style="font-size:.6rem;color:var(--wh3)">(実操作)</span></th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del">操作</th></tr>
+          <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del-col">操作</th></tr>
         </thead>
         <tbody id="slog-tbody"></tbody>
       </table>
@@ -1075,7 +1074,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       <div class="th-area"><h3>協賛履歴（最新50件）</h3></div>
       <table>
         <thead>
-          <tr><th>日付</th><th>店舗名</th><th>種別</th><th class="col-amt">本数</th><th>商品/メモ</th><th class="sp-del">操作</th></tr>
+          <tr><th>日付</th><th>店舗名</th><th>種別</th><th class="col-amt">本数</th><th>商品/メモ</th><th class="sp-del-col">操作</th></tr>
         </thead>
         <tbody id="sp-log-tbody"></tbody>
       </table>
@@ -1129,7 +1128,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
           <div class="fg"><label>本数</label><input class="fc" id="lo-qty" type="number" min="1" step="1" placeholder="例：10"></div>
           <div class="fg"><label>メモ（任意）</label><input class="fc" id="lo-memo" placeholder="例：期首残"></div>
         </div>
-        <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="recordLendingOpening()">＋ 残数のみ登録（在庫を動かさない）</button><button class="btn-s" style="margin-left:.5rem" onclick="document.getElementById('lend-opening').style.display='none'" title="保存せずに閉じます">✕ 閉じる（保存しない）</button></div>
+        <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="recordLendingOpening()">＋ 残数のみ登録（在庫を動かさない）</button></div>
       </div>
     </div>
 
@@ -1447,16 +1446,7 @@ function toast(msg, type){
   t.textContent = msg;
   t.style.opacity = '1';
   t.style.borderColor = type === 'error' ? 'rgba(224,82,82,.5)' : 'rgba(201,168,76,.4)';
-  if (window.__toastTimer){ clearTimeout(window.__toastTimer); window.__toastTimer = null; }
-  // ★重要な失敗・保留メッセージは一瞬で消えると見逃す。エラーは長め（8秒）＋クリックで即消し。
-  //   「保留」「失敗」「できませんでした」を含むものは、押すまで消えない（sticky）。
-  var sticky = /保留|失敗|できませんでした|エラー|届いて/.test(String(msg||''));
-  t.onclick = function(){ t.style.opacity='0'; };
-  t.style.cursor = 'pointer';
-  if (!sticky){
-    window.__toastTimer = setTimeout(() => { t.style.opacity = '0'; }, type === 'error' ? 8000 : 2500);
-  }
-  // sticky のときは自動で消さない（ユーザーがクリックで消す）
+  setTimeout(() => { t.style.opacity = '0'; }, 2500);
 }
 
 async function gasGet(action, params){
@@ -1493,9 +1483,7 @@ function _qLoad(){ try{ return JSON.parse(localStorage.getItem(_QKEY)||'[]'); }c
 function _qSave(q){ try{ localStorage.setItem(_QKEY, JSON.stringify(q)); }catch(e){} }
 function _qAdd(data){
   var q=_qLoad();
-  // ★updateAllStock（在庫の全体スナップショット）は最新の1件だけあれば足りる。
-  //   古いスナップショットが未送信に溜まると、後から送られてサーバの在庫を巻き戻す事故になる。
-  //   そのため、新しい updateAllStock を積むときは、未送信の古い updateAllStock を捨てる。
+  // ★在庫の全体スナップショット(updateAllStock)は最新1件だけ。古いものが後から送られて在庫を巻き戻す事故を防ぐ。
   if (data && data.action === 'updateAllStock'){
     q = q.filter(function(it){ return !(it && it.data && it.data.action === 'updateAllStock'); });
   }
@@ -1762,22 +1750,13 @@ async function _qFlush(manual){
   try{
     for (var i=0;i<q.length;i++){
       var item=q[i];
-      // ★削除済みの注文を保存/更新しようとする保留データは破棄する。
-      //   保留になった「出荷済にする」等が遅れて届き、削除した注文をサーバに復活させる事故を防ぐ。
-      try {
-        if (item && item.data && item.data.action === 'saveOrder' && item.data.id){
-          var _delO = JSON.parse(localStorage.getItem('lmb_deletedOrders')||'[]');
-          if (_delO.indexOf(String(item.data.id)) >= 0){ continue; }   // rest に入れず捨てる＝もう送らない
-        }
-      } catch(e){}
       // 何度も失敗し続けるデータは自動送信では飛ばす（後ろの注文などが送れなくなるのを防ぐ）
       //   「今すぐ再送」を押したときは、これも含めて全部試す
       if (!manual && (item._try||0) >= 5){ rest.push(item); continue; }
       try{
         // ★予防：書き込みにもログインのセッショントークンを付ける（将来セッション必須の保存を足しても弾かれないように）。副作用なし。
         try{ var _tok = sessionStorage.getItem('lmb_token') || ''; if(_tok){ item.data._token = _tok; if(item.data.token==null) item.data.token = _tok; } }catch(_e){}
-        var _send = {}; Object.keys(item.data||{}).forEach(function(k){ if(k!=='__qid') _send[k]=item.data[k]; });  // 内部管理用の__qidはサーバへ送らない
-        var payload = JSON.stringify(_send);
+        var payload = JSON.stringify(item.data);
         var enc = encodeURIComponent(payload);
         var res;
         // 応答が返れば確実にサーバへ届いたと判断できる
@@ -1829,54 +1808,8 @@ async function _qFlush(manual){
   if(rest.length && manual) toast(rest.length+'件がまだ送れません。内容を開くと失敗理由が確認できます','error');
 }
 
-// ★保存を1回だけ直接送り、サーバの応答で成否を返す（結果を確認してから画面を変えるために使う）。
-//   従来の gasPost はキューに積んで投げっぱなし（常に ok:true）なので、
-//   「保存できていないのに出荷済と表示される」事故を防げない。出荷など重要な操作はこちらを使う。
-async function gasPostSync(data){
-  if (!S.gasUrl) return { ok:false, error:'GAS URLが未設定です' };
-  if (!navigator.onLine) return { ok:false, error:'オフラインです（電波の良い場所で再実行してください）' };
-  try{
-    if (typeof currentUser!=='undefined' && currentUser){
-      if(!data._actor) data._actor = currentUser.name;
-      // ★操作履歴の「支店」は、操作者の所属ではなく“操作した対象の拠点”を残す。
-      //   （操作者が「両拠点」だと、仙台の注文を操作しても「両拠点」と記録され、拠点別に追えなくなる）
-      if(!data._actorBranch) data._actorBranch = data.branch || currentUser.branch || '';
-    }
-  }catch(e){}
-  // GASが行照合に使う作成日時を必ず添える（無いと更新対象が見つからない）
-  try{
-    if (data && data.action === 'saveOrder' && (data._matchTimestamp == null || data._matchTimestamp === '')){
-      data._matchTimestamp = data.timestamp || data._matchTs || data.date || '';
-    }
-  }catch(e){}
-  try{ var _tok = sessionStorage.getItem('lmb_token') || ''; if(_tok){ data._token = _tok; if(data.token==null) data.token = _tok; } }catch(e){}
-  var payload = JSON.stringify(data);
-  var enc = encodeURIComponent(payload);
-  var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-  var timer = ctl ? setTimeout(function(){ try{ ctl.abort(); }catch(_){} }, 18000) : null;   // オーバーレイの自動解除(20秒)より先に必ず決着させる
-  try{
-    var res;
-    if (enc.length > 6000){
-      res = await fetch(S.gasUrl, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-        body: payload, redirect:'follow', signal: ctl ? ctl.signal : undefined });
-    } else {
-      res = await fetch(S.gasUrl + '?payload=' + enc + '&_=' + Date.now(),
-        { method:'GET', cache:'no-store', signal: ctl ? ctl.signal : undefined });
-    }
-    if (timer) clearTimeout(timer);
-    if (!res.ok) return { ok:false, error:'通信エラー(http ' + res.status + ')' };
-    var body = await res.text();
-    var resp = null; try { resp = JSON.parse(body); } catch(_pe){}
-    if (resp && (resp.ok === false || resp.error)) return { ok:false, error:String(resp.error || 'サーバが保存を拒否しました') };
-    return { ok:true, resp:resp };
-  }catch(err){
-    if (timer) clearTimeout(timer);
-    var m = (err && err.name === 'AbortError') ? '応答がありません（通信が不安定です）' : ((err && err.message) || String(err));
-    return { ok:false, error:m };
-  }
-}
 async function gasPost(data){
-  try{ if(typeof currentUser!=='undefined'&&currentUser){ if(!data._actor)data._actor=currentUser.name; if(!data._actorBranch)data._actorBranch=(data.branch||currentUser.branch||''); } }catch(e){}
+  try{ if(typeof currentUser!=='undefined'&&currentUser){ if(!data._actor)data._actor=currentUser.name; if(!data._actorBranch)data._actorBranch=currentUser.branch||''; } }catch(e){}
   // ★注文保存は、O列(ID)が空の旧データ／LINE注文でも行を照合できるよう、
   //   GASが照合に使う _matchTimestamp（作成日時）を必ず付ける。
   //   これが無いとGASが行を見つけられず“素通り”し、出荷済等が保存されない（棚卸も合わない）。
@@ -1887,20 +1820,9 @@ async function gasPost(data){
   }catch(e){}
   if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
   // まず必ず控える（この時点で端末には残るので、失っても復旧できる）
-  var _qid = 'q-' + Date.now() + '-' + Math.floor(Math.random()*100000);
-  try { data.__qid = _qid; } catch(e){}
   _qAdd(data);
-  // すぐ送信を試みる。★以前は結果を見ずに常に {ok:true} を返していたため、
-  //   保存できていなくても呼び出し側が「成功」と扱い、画面だけ更新される嘘の状態になっていた。
-  //   送信後にキューへ残っていないかで、本当に送れたかを返す（await すれば真の結果が得られる）。
-  try { await _qFlush(false); } catch(e){}
-  var _left = false, _err = '';
-  try {
-    (_qLoad() || []).forEach(function(it){
-      if (it && it.data && it.data.__qid === _qid){ _left = true; _err = it._err || '未送信'; }
-    });
-  } catch(e){}
-  if (_left) return { ok:false, error: _err, queued:true };   // 送れず未送信に残った（後で自動再送）
+  // すぐ送信を試みる（成功すれば控えは消える）
+  _qFlush(false);
   return { ok: true };
 }
 
@@ -1969,8 +1891,6 @@ function canEdit(){ return currentUser && ['admin','manager','staff','president'
 function canDelete(){ return currentUser && ['admin','manager','president'].includes(currentUser.role); }
 // 在庫の直接調整・初期登録・マスタ変更の権限（社長・閲覧者は不可）。取引（注文/返却等）は canEdit 側で許可。
 function canAdjust(){ return currentUser && ['admin','manager','staff'].includes(currentUser.role); }
-// 在庫を丸ごと書き換える操作（初期登録・在庫調整）は管理者のみ。誤操作・不正な数値操作を防ぐ。
-function canStockWrite(){ return !!(currentUser && String(currentUser.role||'').toLowerCase() === 'admin'); }
 
 // ─── 親タブ切替 ─────
 // ─── 部分出荷の純ロジック（在庫・保存には一切触れない。読み取りと計算のみ）───
@@ -1979,10 +1899,7 @@ function orderShipped(o){
   if (!o) return {};
   var sh = o.shipped;
   if (typeof sh === 'string'){ try { sh = JSON.parse(sh); } catch(e){ sh = null; } }
-  // ★shipped が空オブジェクトのときは「情報なし」として扱う。
-  //   出荷済なのに空だと出荷済数ゼロと判定され、削除しても在庫が戻らなくなるため
-  //   （出荷を取り消したときに shipped={} にクリアされる経路がある）。
-  if (sh && typeof sh === 'object' && Object.keys(sh).length === 0) sh = null;
+  if (sh && typeof sh === 'object' && Object.keys(sh).length === 0) sh = null;   // ★空は情報なし扱い（削除で在庫が戻らないバグ対策）
   if (sh && typeof sh === 'object'){
     var out = {}; Object.keys(sh).forEach(function(k){ if (k.indexOf('sp:') === 0) return; /* 協賛分は別管理 */ var v = Number(sh[k]) || 0; if (v > 0) out[k] = v; }); return out;
   }
@@ -2338,8 +2255,7 @@ async function syncFromGAS(){
       if (pu && pu.purchases){
         const have = {};
         (S.purchases||[]).forEach(function(x){ if(x && x.id) have[x.id]=x; });
-        var _dp2=[]; try{ _dp2=JSON.parse(localStorage.getItem('lmb_deletedPurchases')||'[]'); }catch(e){}
-        pu.purchases.forEach(function(x){ if(x && x.id && !have[x.id] && _dp2.indexOf(String(x.id))<0) (S.purchases=S.purchases||[]).push(x); });
+        pu.purchases.forEach(function(x){ if(x && x.id && !have[x.id]) (S.purchases=S.purchases||[]).push(x); });
         saveState();
       }
     } catch(e){}
@@ -2433,8 +2349,7 @@ async function syncFromGAS(){
 
     const stock = await pStock;
     if (stock && stock.rev != null) S.stockRev = Number(stock.rev);   // 在庫版番号を記憶（競合検知用）
-    // ★未送信の在庫更新が残っているときは、サーバの在庫を取り込まない。
-    //   端末側の未送信の方が新しいので、古いサーバ値で上書きすると在庫が巻き戻る（保留が悪さをする事故）。
+    // ★未送信の在庫更新が残っているときは、サーバの在庫を取り込まない（端末側が新しいため巻き戻さない）。
     var _hasPendingStock = false;
     try { _hasPendingStock = (_qLoad()||[]).some(function(it){ return it && it.data && it.data.action === 'updateAllStock'; }); } catch(e){}
     if (stock && stock.stock && !_hasPendingStock){
@@ -2515,7 +2430,26 @@ let ordShowAll = false;
 
 function setOrderMonthToday(){ ordMonth = new Date(); ordShowAll = false; renderOrders(); }
 function shiftOrderMonth(n){ ordMonth = new Date(ordMonth.getFullYear(), ordMonth.getMonth() + n, 1); ordShowAll = false; renderOrders(); }
-function toggleOrderAll(){ ordShowAll = !ordShowAll; document.getElementById('ord-all-btn').textContent = ordShowAll ? '月別表示' : '全期間表示'; renderOrders(); }
+function toggleOrderAll(){ ordShowAll = !ordShowAll; document.getElementById('ord-all-btn').textContent = ordShowAll ? '月別表示' : '全期間表示'; renderOrders();
+  try{ var _b=document.getElementById('ord-dedup-btn'); if(_b){ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; _b.style.display=(_r==='admin')?'inline-block':'none'; } }catch(e){}
+}
+// サーバに重複して残った注文行を掃除（gasGetで結果を受けるので固まらない・admin限定）
+async function dedupOrders(){
+  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; if(_r!=='admin'){ toast('🔒 管理者のみ実行できます','error'); return; } }catch(e){ return; }
+  if(!S.gasUrl){ toast('GAS URLが未設定です','error'); return; }
+  toast('重複を確認中…');
+  var chk = await gasGet('dedupOrdersCheck');
+  if(!chk || !chk.ok){ toast('確認できませんでした：' + ((chk&&chk.error)||'通信エラー'),'error'); return; }
+  if(!chk.dupCount){ toast('✓ 重複した注文はありません'); return; }
+  var lines=(chk.groups||[]).slice(0,10).map(function(g){ var a=g.rows[0]; return '・'+(a.store||'')+'（'+a.rows.length+'重複）'; }).join('\n');
+  if(!confirm('🧹 重複した注文が '+chk.dupCount+'組（余分 '+chk.extraRows+'行）あります。\n\n'+lines+'\n\n各注文で最も新しい行を残し、他を削除します。\n（在庫は動きません）\n\n実行しますか？')) return;
+  toast('掃除中…');
+  var run = await gasGet('dedupOrdersRun');
+  if(!run || !run.ok){ toast('削除できませんでした：' + ((run&&run.error)||'通信エラー'),'error'); return; }
+  toast('✓ 重複 '+(run.deleted||0)+'行を削除しました。同期します…');
+  if(typeof syncFromGAS==='function'){ try{ await syncFromGAS(); }catch(e){} }
+  renderOrders();
+}
 function populateOrderYears(){
   const sel = document.getElementById('sk-year'); if (!sel) return;
   const cur = sel.value;
@@ -2761,7 +2695,7 @@ function applyShipEffects(order, shipDate){
     if (rem > 0){
       const used = depleteStock(branch, p, rem);   // 旧→協賛→新 の順で引き当て
       _accBkt(_sb.items, p, used);
-      S.slog.push({ _rec: new Date().toISOString(), date: _d, time, branch, type: '出庫', product: p, qty: rem, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+      S.slog.push({ date: _d, time, branch, type: '出庫', product: p, qty: rem, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
     }
     order.shipped[p] = Number(q) || 0;   // 全量化
   });
@@ -2771,7 +2705,7 @@ function applyShipEffects(order, shipDate){
     if (rem > 0){
       const used = depleteStock(branch, p, rem);
       _accBkt(_sb.sponsorItems, p, used);
-      S.slog.push({ _rec: new Date().toISOString(), date: _d, time, branch, type: '協賛出庫', product: p, qty: rem, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `協賛出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+      S.slog.push({ date: _d, time, branch, type: '協賛出庫', product: p, qty: rem, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `協賛出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
     }
     order.shipped['sp:'+p] = Number(q) || 0;   // 全量化
   });
@@ -2783,14 +2717,14 @@ function applyShipEffects(order, shipDate){
     Object.entries(order.freeItems || {}).forEach(([p, q]) => {
       const used = depleteStock(branch, p, q || 0);
       _accBkt(_sb.freeItems, p, used);
-      S.slog.push({ _rec: new Date().toISOString(), date: _d, time, branch, type: '試供出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `試供品#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+      S.slog.push({ date: _d, time, branch, type: '試供出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `試供品#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
     });
     // 同梱した備品ぶん、備品の在庫も減らす（売上には含めない）
     Object.entries(order.supplyItems || {}).forEach(function(e){
       var _p=e[0], _q=Number(e[1])||0;
       if(!(_q>0)) return;
       depleteStock(branch, _p, _q);
-      S.slog.push({ _rec: new Date().toISOString(), date:_d, time, branch, type:'備品出庫', product:_p, qty:_q,
+      S.slog.push({ date:_d, time, branch, type:'備品出庫', product:_p, qty:_q,
         remaining:S.stock[branch][_p], orderId:order.id, store:order.store,
         note:'出荷#'+String(order.id).slice(-6)+' 備品同梱' });
     });
@@ -2802,7 +2736,7 @@ function applyShipEffects(order, shipDate){
                   + Object.values(order.sponsorItems||{}).reduce((a,b)=>a+(b||0),0);
       depleteStock(branch, _sealP, _sealQ);
       _sb.seal = { product:_sealP, qty:_sealQ };
-      S.slog.push({ _rec: new Date().toISOString(), date:_d, time, branch, type:'シール出庫', product:_sealP, qty:_sealQ,
+      S.slog.push({ date:_d, time, branch, type:'シール出庫', product:_sealP, qty:_sealQ,
         remaining:S.stock[branch][_sealP], orderId:order.id, store:order.store,
         note:`出荷#${String(order.id).slice(-6)} 同梱${_sealQ}枚 / ワイン${wineQ}本` + (_sealQ!==wineQ ? `（差${_sealQ-wineQ>0?'+':''}${_sealQ-wineQ}）` : '（一致）') });
     }
@@ -2822,30 +2756,17 @@ function reverseShipEffects(order){
   const extrasShipped = !!order._extrasDone
     || (bk.freeItems && Object.keys(bk.freeItems).length > 0)
     || shipStatus(order) === '出荷済';
-  // ★在庫を戻したら、その動きを在庫履歴にも必ず残す（記録が無いと在庫が戻った理由を追えない）
-  if (!S.slog) S.slog = [];
-  const _rd = _ymd(order.shipDate || order.date || today());
-  const _rt = new Date().toTimeString().slice(0,5);
-  const _sfx = '出荷取消#' + String(order.id).slice(-6);
   // 有償：出荷済数だけ、消費したバケツへ正確に戻す（未出荷分は元々引いていないので戻さない）
   Object.entries(shippedMap).forEach(([p, q]) => {
     restoreStockBkt(branch, p, q || 0, (bk.items || {})[p]);
-    if ((q || 0) > 0) S.slog.push({ _rec: new Date().toISOString(), date:_rd, time:_rt, branch:branch, type:'戻入', product:p, qty:q||0,
-      remaining:S.stock[branch][p], orderId:order.id, store:order.store, note:_sfx+' による在庫戻し' });
   });
   // 協賛：出荷済数だけ戻す（部分出荷でも過不足なし）
   Object.entries(shippedSpMap).forEach(([p, q]) => {
     restoreStockBkt(branch, p, q || 0, (bk.sponsorItems || {})[p]);
-    if ((q || 0) > 0) S.slog.push({ _rec: new Date().toISOString(), date:_rd, time:_rt, branch:branch, type:'戻入', product:p, qty:q||0,
-      remaining:S.stock[branch][p], orderId:order.id, store:order.store, note:_sfx+' 協賛分の在庫戻し' });
   });
   // 試供品：出庫済みのときだけ、まるごと戻す
   if (extrasShipped){
-    Object.entries(order.freeItems || {}).forEach(([p, q]) => {
-      restoreStockBkt(branch, p, q || 0, (bk.freeItems || {})[p]);
-      if ((q || 0) > 0) S.slog.push({ _rec: new Date().toISOString(), date:_rd, time:_rt, branch:branch, type:'戻入', product:p, qty:q||0,
-        remaining:S.stock[branch][p], orderId:order.id, store:order.store, note:_sfx+' 試供品の在庫戻し' });
-    });
+    Object.entries(order.freeItems || {}).forEach(([p, q]) => { restoreStockBkt(branch, p, q || 0, (bk.freeItems || {})[p]); });
   }
   delete order._shipBkt;
   order.shipped = {};          // 出荷済数（有償・協賛sp:とも）をクリア
@@ -2878,7 +2799,7 @@ function shipLine(id, product, qty){
   o.shipped = o.shipped || {};
   o.shipped[product] = (Number(orderShipped(o)[product]) || 0) + q;
   if (!S.slog) S.slog = [];
-  S.slog.push({ _rec: new Date().toISOString(), date:_d, time:new Date().toTimeString().slice(0,5), branch, type:'出庫', product, qty:q, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`部分出荷#${String(o.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+  S.slog.push({ date:_d, time:new Date().toTimeString().slice(0,5), branch, type:'出庫', product, qty:q, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`部分出荷#${String(o.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
   // 有償＋協賛をすべて出し切ったら「まるごと出荷確定」（試供品/備品/シール/協賛付与を確定）
   const st = deriveShipState(o);
   if (st === '出荷済'){
@@ -2911,7 +2832,7 @@ function unshipLine(id, product){
   if (o.shipped) delete o.shipped[product];
   if (_sb.items) delete _sb.items[product];
   if (!S.slog) S.slog = [];
-  S.slog.push({ _rec: new Date().toISOString(), date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`出荷取消#${String(o.id).slice(-6)}` });
+  S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`出荷取消#${String(o.id).slice(-6)}` });
   _undoSponsorUsedIfIncomplete(o);   // 協賛注文(orderType=sponsor)で有償が未達になったら使用ログを取消
   const st = deriveShipState(o);
   o.status = (st === '出荷済') ? '出荷済' : (st === '一部出荷' ? '対応中' : '新規受付');
@@ -2943,7 +2864,7 @@ function shipSponsorLine(id, product, qty){
   o.shipped = o.shipped || {};
   o.shipped['sp:'+product] = (Number(orderShippedSponsor(o)[product]) || 0) + q;
   if (!S.slog) S.slog = [];
-  S.slog.push({ _rec: new Date().toISOString(), date:_d, time:new Date().toTimeString().slice(0,5), branch, type:'協賛出庫', product, qty:q, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`協賛部分出荷#${String(o.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+  S.slog.push({ date:_d, time:new Date().toTimeString().slice(0,5), branch, type:'協賛出庫', product, qty:q, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`協賛部分出荷#${String(o.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
   _recordSponsorUsedOnce(o, _d, branch);   // 協賛を出し切ったら使用ポイント記録（一度だけ）
   const st = deriveShipState(o);
   if (st === '出荷済'){
@@ -2974,7 +2895,7 @@ function unshipSponsorLine(id, product){
   if (o.shipped) delete o.shipped['sp:'+product];
   if (_sb.sponsorItems) delete _sb.sponsorItems[product];
   if (!S.slog) S.slog = [];
-  S.slog.push({ _rec: new Date().toISOString(), date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`協賛出荷取消#${String(o.id).slice(-6)}` });
+  S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`協賛出荷取消#${String(o.id).slice(-6)}` });
   _undoSponsorUsedIfIncomplete(o);   // 協賛が未達になったら使用ログを取消（再出荷で再記録）
   const st = deriveShipState(o);
   o.status = (st === '出荷済') ? '出荷済' : (st === '一部出荷' ? '対応中' : '新規受付');
@@ -3192,71 +3113,25 @@ async function changeShipStatus(id, val){
     _sd = await _pickDate(_ymd(o.shipDate || o.date || today()), '出荷日を選んでください', 'この日付で在庫が減ります（初期値＝注文日）');
     if (!_sd){ renderOrders(); return; }          // キャンセル＝何もしない
     _sd = _ymd(_sd);
-    // ★順番：先にサーバへ保存し、成功を確認してから在庫を減らす／出荷済にする。
-    //   （以前は 在庫→表示→投げっぱなし送信 の順で、保存できていなくても
-    //     画面が「出荷済」になり在庫まで減っていた＝実態と食い違う嘘の表示だった）
-    if (S.gasUrl){
-      // ★通信が終わるまで消えない表示にする（自動で消えるトーストだと「終わった」と誤解させる）。
-      //   同時に画面を覆うので、二重送信や別操作も防げる。
-      showSyncOverlay('保存中…（サーバへ送信しています）');
-      var _sv = await gasPostSync(Object.assign({}, o, { action:'saveOrder', status:'出荷済', shipDate:_sd }));
-      hideSyncOverlay();
-      if (!_sv.ok){
-        toast('❌ 保存できませんでした：' + _sv.error + '（出荷済にしていません）', 'error');
-        renderOrders();
-        return;                                   // ← 保存できていないので、何も変えない
-      }
-    }
     o.shipDate = _sd;
     applyShipEffects(o, _sd);
   }
   else if (!willShip){
-    // ★在庫が戻る操作。何が起きるかを先に知らせ、在庫を戻すか／触らないかを選べるようにする。
-    var _reverseStock = true;   // 既定：在庫を戻す（通常の取り消し）
-    if (wasShipped){
-      var _shipQty = Object.values(orderShipped(o)).reduce(function(a,b){ return a + (b||0); }, 0)
-                   + Object.values(orderShippedSponsor(o)).reduce(function(a,b){ return a + (b||0); }, 0);
-      _reverseStock = confirm('「' + val + '」に戻します。\n\n'
-        + '【在庫をどうしますか？】\n'
-        + '　OK　　　＝ 出荷済みの ' + _shipQty + '本 を在庫に戻す（通常の取り消し）\n'
-        + '　キャンセル ＝ 在庫は動かさず、ステータスだけ戻す\n'
-        + '　　　　　　　　（在庫がすでにズレていて、あとで手動調整する場合）\n\n'
-        + '※「戻す」を選ぶと在庫履歴に「戻入」が残り、協賛も取り消されます。\n'
-        + '※どちらか迷ったら OK（在庫を戻す）が通常の動作です。');
-      // どちらを選んでも処理は続行する（キャンセル＝中止ではなく「在庫を触らない」の意味）
-    }
-    // ★順番：先にサーバへ保存し、成功を確認してから在庫を戻す／画面を変える。
-    if (S.gasUrl){
-      showSyncOverlay('保存中…（サーバへ送信しています）');
-      var _sv2 = await gasPostSync(Object.assign({}, o, { action:'saveOrder', status:val }));
-      hideSyncOverlay();
-      if (!_sv2.ok){
-        toast('❌ 保存できませんでした：' + _sv2.error + '（状態は変えていません）', 'error');
-        renderOrders();
-        return;                                   // ← 保存できていないので、何も変えない
-      }
-    }
-    // 在庫を戻すのは _reverseStock が true のときだけ。false なら出荷済数の記録だけクリアして在庫は据え置き。
+    // 出荷済／一部出荷（対応中で shipped あり）から「非出荷」へ戻すときは、出荷済分の在庫を戻す
     const anyShipped = Object.keys(orderShipped(o)).length > 0 || !!o._shipBkt;
-    if (_reverseStock){
-      if (wasShipped || anyShipped) reverseShipEffects(o);
-    } else {
-      // 在庫は動かさず、出荷情報だけクリア（次に出荷済にしたとき二重に減らないように）
-      try { delete o._shipBkt; o.shipped = {}; o._extrasDone = false; } catch(e){}
-      toast('ステータスのみ戻しました（在庫は変更していません。必要なら在庫調整で合わせてください）');
-    }
+    if (wasShipped || anyShipped) reverseShipEffects(o);
   }
   o.status = val;
   if (willShip && !o.shippedAt) o.shippedAt = new Date().toISOString();
   saveState();
-  // 状態変更は上ですべて保存確認済み（出荷済にする時／非出荷へ戻す時とも）。
+  if (S.gasUrl){ try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} }
   toast('✓ 出荷ステータス: ' + val);
   renderOrders();
   updateKPI();
   if (typeof renderStock === 'function') renderStock();
 }
 
-async function deleteOrder(id){
+function deleteOrder(id){
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
   const order = (S.orders || []).find(o => o.id === id);
   if (!order) return toast('注文が見つかりません', 'error');
@@ -3285,23 +3160,21 @@ async function deleteOrder(id){
   const branch = order.branch || '仙台';
 
   // 1. 実在庫を戻すのは「出荷済み分」だけ（部分出荷にも対応）。未出荷分は元々減算していない＝引当が外れるだけ。
-  //    ★B方式：注文を削除するので「その取引は無かったこと」にする。在庫は戻すが、
-  //      戻入の記録は作らず、代わりにこの注文の古い出庫記録を消す（出庫と戻入が両方残らない）。
   if (wasShipped){
     const bk = order._shipBkt || {};
+    // ★B方式：在庫は戻すが、戻入は作らない。代わりにこの注文の出庫記録を消す（出庫と戻入が両方残らない）。
     Object.entries(shippedMap).forEach(([p, q]) => { restoreStockBkt(branch, p, q || 0, (bk.items || {})[p]); });
     Object.entries(shippedSpMap).forEach(([p, q]) => { restoreStockBkt(branch, p, q || 0, (bk.sponsorItems || {})[p]); });
     if (extrasShipped){
       Object.entries(order.freeItems || {}).forEach(([p, q]) => { restoreStockBkt(branch, p, q || 0, (bk.freeItems || {})[p]); });
     }
   }
-  // ★この注文に紐づく在庫履歴（出庫系・戻入）をすべて取り除く。サーバの在庫履歴からも消す。
+  // ★この注文に紐づく在庫履歴（出庫系）を取り除く。サーバの在庫履歴からも消す。
   try {
     var _oid = String(id);
     var _delLogs = (S.slog || []).filter(function(x){ return x && String(x.orderId||'') === _oid; });
     if (_delLogs.length){
       S.slog = (S.slog || []).filter(function(x){ return !(x && String(x.orderId||'') === _oid); });
-      if (typeof _slogRewrap === 'function') _slogRewrap();
       if (S.gasUrl){
         var _lids = _delLogs.map(function(x){ return String(x.id||''); }).filter(function(v){ return !!v; });
         if (_lids.length){ try { gasPost({ action:'deleteStockLogs', ids: JSON.stringify(_lids) }); } catch(e){} }
@@ -3316,15 +3189,7 @@ async function deleteOrder(id){
   }
 
   // 3. スプシの注文行を削除
-  if (S.gasUrl) {
-    // ★削除結果を確認する（投げっぱなしだと、サーバに残ったまま画面だけ消えて同期で復活する）
-    showSyncOverlay('削除中…（サーバへ送信しています）');
-    var _svD = await gasPost({ action:'deleteOrder', id:id, timestamp:order.timestamp, store:order.store, amount:order.amount });
-    hideSyncOverlay();
-    if (_svD && _svD.ok === false){
-      toast('⚠ サーバから削除できませんでした：' + (_svD.error||'') + '（端末に控えを残しました。電波が戻ると自動送信します）', 'error');
-    }
-  }
+  if (S.gasUrl) { try { gasPost({ action:'deleteOrder', id:id, timestamp:order.timestamp, store:order.store, amount:order.amount }); } catch(e){} }
 
   // 4. ローカルから削除
   S.orders = S.orders.filter(o => o.id !== id);
@@ -3347,19 +3212,6 @@ function openOrderForEdit(id){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   const o = (S.orders || []).find(x => x.id === id);
   if (!o) return toast('注文が見つかりません', 'error');
-
-  // ★出荷済の注文を修正すると在庫と履歴が作り直される。何が起きるかを先に知らせる。
-  if (shipStatus(o) === '出荷済'){
-    if (!confirm('この注文は「出荷済」です。修正すると次のことが起きます。\n\n'
-      + '・出荷済み分の在庫を一度戻し、保存後にあらためて減らします\n'
-      + '・この注文の古い出庫記録は削除され、新しく記録し直されます\n'
-      + '・在庫が動く日（在庫履歴の日付）は【出荷日】のままです\n'
-      + '　　→ 注文日を変えても在庫の日付は変わりません\n\n'
-      + '【出荷日を変えたいとき】\n'
-      + '修正ではなく、注文一覧のプルダウンで「対応中」に戻してから\n'
-      + 'もう一度「出荷済」にして、正しい出荷日を選んでください。\n\n'
-      + 'このまま修正しますか？')) return;
-  }
 
   // 注文登録タブへ切替（initNewOrderが走るが値は触らない）
   const tab = document.querySelector('.mtab[onclick*="neworder"]');
@@ -4470,7 +4322,7 @@ function renderSponsor(){
   const logs = [...(S.sponsorLogs || [])].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 50);
   const logBody = document.getElementById('sp-log-tbody');
   if (logs.length === 0){
-    logBody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-icon">📋</div>履歴なし</div></td></tr>`;
+    logBody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">📋</div>履歴なし</div></td></tr>`;
   } else {
     logBody.innerHTML = logs.map(l => {
       const cust = (S.customers || []).find(c => String(c.id) === String(l.custId));
@@ -4484,7 +4336,7 @@ function renderSponsor(){
         <td>${typeBadge}</td>
         <td class="col-amt" style="color:${l.type === 'earned' ? 'var(--grn)' : 'var(--org)'}">${l.type === 'earned' ? '+' : '-'}${l.qty}本</td>
         <td style="font-size:.7rem;color:var(--wh2)">${escapeHtml(l.note || '')}${l.product ? ' / ' + escapeHtml(l.product) : ''}</td>
-        <td class="sp-del" style="text-align:center"><button class="act-btn dn" onclick="deleteSponsorLogRow('${l.id}','${l.custId||''}')" title="この協賛記録を削除（残数が変わります）">削</button></td>
+        <td class="sp-del-col" style="text-align:center"><button class="act-btn dn" onclick="deleteSponsorLogRow('${l.id}','${l.custId||''}')" title="この協賛記録を削除（残数が変わります）">削</button></td>
       </tr>`;
     }).join('');
   }
@@ -4564,7 +4416,7 @@ function confirmSponsorShip(custId){
 
   // 在庫ログ
   if (!S.slog) S.slog = [];
-  S.slog.push({ _rec: new Date().toISOString(),
+  S.slog.push({
     date: today(), time: new Date().toTimeString().slice(0,5),
     branch: br, type: '出庫', product: prod, qty,
     remaining: S.stock[br][prod],
@@ -4578,36 +4430,6 @@ function confirmSponsorShip(custId){
   renderSponsor();
 }
 
-// 協賛記録を1件だけ削除する（管理者のみ）。手動調整の取り消しなどに使う。
-//   ★協賛は残数に直結するため、削除後の残数を必ず表示してから実行する。
-async function deleteSponsorLogRow(logId, custId){
-  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
-       if(_r!=='admin'){ toast('🔒 この操作は管理者のみ実行できます','error'); return; } }catch(e){ return; }
-  var l = (S.sponsorLogs||[]).find(function(x){ return String(x.id)===String(logId); });
-  if (!l) return toast('記録が見つかりません','error');
-  var bal = (typeof getSponsorBalance==='function') ? getSponsorBalance(custId) : {earned:0,used:0,pts:0};
-  var after = (l.type==='earned') ? (bal.pts - (l.qty||0)) : (bal.pts + (l.qty||0));
-  if (!confirm('この協賛記録を削除しますか？\n\n'
-      + '　' + (l.date||'') + '　' + (l.type==='earned'?'+付与':'-使用') + ' ' + (l.qty||0) + '本\n'
-      + '　' + (l.note||'') + '\n\n'
-      + '現在の残数：' + bal.pts + '本\n'
-      + '削除後の残数：' + after + '本'
-      + (after < 0 ? '\n\n⚠ 残数がマイナスになります（使用が付与を超えます）' : '')
-      + '\n\n実行しますか？')) return;
-  // ★順番：サーバから先に削除し、成功を確認してから端末の記録を消す
-  if (S.gasUrl){
-    showSyncOverlay('削除中…（サーバへ送信しています）');
-    var _rs = await gasPostSync({ action:'deleteSponsorLog', id: String(logId) });
-    hideSyncOverlay();
-    if (!_rs.ok){ toast('❌ サーバから削除できませんでした：' + _rs.error + '（何も消していません）','error'); return; }
-  }
-  S.sponsorLogs = (S.sponsorLogs||[]).filter(function(x){ return String(x.id)!==String(logId); });
-  saveState();
-  toast('✓ 協賛記録を1件削除しました（残数 ' + after + '本）');
-  // 一覧・モーダルの両方を更新（モーダルが開いていない場合は一覧だけ）
-  try{ if(typeof renderSponsor==='function') renderSponsor(); }catch(e){}
-  try{ var _sm=document.getElementById('sponsor-modal'); if (custId && _sm && _sm.style.display!=='none' && _sm.innerHTML) viewSponsorLog(custId); }catch(e){}
-}
 function viewSponsorLog(custId){
   const cust = (S.customers || []).find(c => String(c.id) === String(custId));
   if (!cust) return;
@@ -4670,14 +4492,13 @@ function viewSponsorLog(custId){
       </div>
       ${logs.length === 0 ? '<div class="empty">履歴なし</div>' : `
         <table style="width:100%;border-collapse:collapse;font-size:.78rem">
-          <thead><tr><th style="padding:.4rem;text-align:left;color:var(--gold-d);border-bottom:1px solid rgba(201,168,76,.2)">日付</th><th style="padding:.4rem;color:var(--gold-d)">種別</th><th style="padding:.4rem;text-align:right;color:var(--gold-d)">本数</th><th style="padding:.4rem;text-align:left;color:var(--gold-d)">メモ</th><th class="sp-del" style="padding:.4rem;color:var(--gold-d)">操作</th></tr></thead>
+          <thead><tr><th style="padding:.4rem;text-align:left;color:var(--gold-d);border-bottom:1px solid rgba(201,168,76,.2)">日付</th><th style="padding:.4rem;color:var(--gold-d)">種別</th><th style="padding:.4rem;text-align:right;color:var(--gold-d)">本数</th><th style="padding:.4rem;text-align:left;color:var(--gold-d)">メモ</th></tr></thead>
           <tbody>${logs.map(l => `
             <tr>
               <td style="padding:.4rem;font-size:.72rem">${escapeHtml(l.date || '')}</td>
               <td style="padding:.4rem"><span class="badge ${l.type==='earned'?'bd-paid':'bd-out'}">${l.type==='earned'?'+付与':'-使用'}</span></td>
               <td style="padding:.4rem;text-align:right;font-family:'Bebas Neue',sans-serif">${l.qty}本</td>
               <td style="padding:.4rem;font-size:.7rem;color:var(--wh2)">${escapeHtml(l.note || '')}${l.product?' / '+escapeHtml(l.product):''}</td>
-              <td class="sp-del" style="padding:.4rem;text-align:center"><button class="act-btn dn" onclick="deleteSponsorLogRow('${l.id}','${custId}')" title="この協賛記録を削除（残数が変わります）">削</button></td>
             </tr>`).join('')}</tbody>
         </table>
       `}
@@ -5084,7 +4905,7 @@ function cancelOrderEdit(){
   switchModule('orders', tab);   // 注文一覧へ戻る
 }
 
-async function submitNewOrder(){
+function submitNewOrder(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   const store = document.getElementById('no-store').value.trim();
   if (!store) return toast('店舗名を入力してください', 'error');
@@ -5105,15 +4926,13 @@ async function submitNewOrder(){
     : '';
   const editIdForSave = editingOrderId;  // 編集時はこのIDを再登録時も維持（IDが変わると重複の原因になる）
   let shipStockTouched = false;  // 出荷済の在庫増減が起きたらtrue（最後にGAS同期するか判定）
-  let editPrevStatus = null;
-  let editPrevShipDate = null;   // 編集時：既存注文の出荷日を維持（在庫が動いた日は変えない）  // 編集時：既存注文の出荷ステータスを維持（ステータス変更は一覧で行う）
+  let editPrevStatus = null;  // 編集時：既存注文の出荷ステータスを維持（ステータス変更は一覧で行う）
   // 編集モード: 旧注文を巻き戻す。在庫は「旧注文が出荷済だった場合のみ」戻す（未出荷は元々減算していない）。
   // 協賛ログは旧モデルの前倒し記録も掃除するため常に取消（出荷済なら後で再付与される）。
   if (editingOrderId){
     const old = (S.orders || []).find(o => o.id === editingOrderId);
     if (old){
       editPrevStatus = old.status || null;
-      editPrevShipDate = old.shipDate || null;   // ★出荷日を引き継ぐ（修正で失うと在庫日が狂う）
       if (shipStatus(old) === '出荷済'){
         const bk = old._shipBkt || {};
         Object.entries(old.items || {}).forEach(([p, q]) => {
@@ -5123,26 +4942,6 @@ async function submitNewOrder(){
           restoreStockBkt(old.branch, p, q || 0, (bk.sponsorItems || {})[p]);
         });
         shipStockTouched = true;
-        // ★この注文の古い出庫記録を取り除く（在庫は上で戻しているので、記録も同時に引き上げる）。
-        //   残しておくと、修正のたびに同じ注文の出庫が二重・三重に積み上がり、
-        //   日付を直しても古い日付の行が残ってしまう。対象は「この注文の出庫系」だけ。
-        try {
-          var _oid = String(old.id);
-          var _removed = (S.slog || []).filter(function(x){
-            return x && String(x.orderId||'') === _oid && String(x.type||'').indexOf('出庫') >= 0;
-          });
-          if (_removed.length){
-            S.slog = (S.slog || []).filter(function(x){
-              return !(x && String(x.orderId||'') === _oid && String(x.type||'').indexOf('出庫') >= 0);
-            });
-            if (typeof _slogRewrap === 'function') _slogRewrap();   // 配列を作り直したので包み直す
-            // サーバ側の在庫履歴からも同じ行を消す（残ると同期で戻ってくる）
-            if (S.gasUrl){
-              var _ids = _removed.map(function(x){ return String(x.id||''); }).filter(function(v){ return !!v; });
-              if (_ids.length){ try { gasPost({ action:'deleteStockLogs', ids: JSON.stringify(_ids) }); } catch(e){} }
-            }
-          }
-        } catch(e){}
       }
       const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === editingOrderId);
       if (relLogs.length){
@@ -5278,7 +5077,6 @@ async function submitNewOrder(){
     payMethod: document.getElementById('no-pay').value,
     payStatus: '未収',
     status: editIdForSave ? (editPrevStatus || '新規受付') : '新規受付',
-    shipDate: editPrevShipDate || '',   // 在庫が動いた日＝出荷日。注文日とは別に持つ。
     tax: 'taxあり',
     deliveryDate: document.getElementById('no-deldate').value,
     bookDate: document.getElementById('no-bookdate').value,
@@ -5303,8 +5101,8 @@ async function submitNewOrder(){
       const used = depleteStock(branch, p, q || 0);
       order._shipBkt.items[p] = used;
       if (!S.slog) S.slog = [];
-      S.slog.push({ _rec: new Date().toISOString(),
-        date: (order.shipDate || order.date), time: order.time, branch: branch,   // ★在庫日＝出荷日（物が動いた日）
+      S.slog.push({
+        date: (order.shipDate || order.date), time: order.time, branch: branch,
         type: '出庫', product: p, qty: q,
         remaining: S.stock[branch][p],
         orderId: order.id, note: `出荷#${order.id.slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）`
@@ -5314,8 +5112,8 @@ async function submitNewOrder(){
       const used = depleteStock(branch, p, q || 0);
       order._shipBkt.sponsorItems[p] = used;
       if (!S.slog) S.slog = [];
-      S.slog.push({ _rec: new Date().toISOString(),
-        date: (order.shipDate || order.date), time: order.time, branch: branch,   // ★在庫日＝出荷日
+      S.slog.push({
+        date: (order.shipDate || order.date), time: order.time, branch: branch,
         type: '協賛出庫', product: p, qty: q,
         remaining: S.stock[branch][p],
         orderId: order.id, note: `協賛出荷#${order.id.slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）`
@@ -5327,15 +5125,7 @@ async function submitNewOrder(){
   saveState();
   // 納品日・売上計上日は saveOrder が一緒に保存する（S列/T列）。
   // 別通信（saveOrderDates）で二重に送ると到達順で競合し、日付が元に戻ることがあるため送らない。
-  if (S.gasUrl){
-    // ★保存結果を確認する（以前は投げっぱなしで、保存できていなくても登録できたように見えた）
-    showSyncOverlay('保存中…（サーバへ送信しています）');
-    var _svN = await gasPost({ action: 'saveOrder', ...order });
-    hideSyncOverlay();
-    if (_svN && _svN.ok === false){
-      toast('⚠ サーバに保存できませんでした：' + (_svN.error||'') + '（端末に控えを残しました。電波が戻ると自動送信します）', 'error');
-    }
-  }
+  if (S.gasUrl) gasPost({ action: 'saveOrder', ...order });
   if (shipStockTouched) syncStockToGAS();  // 実在庫が動いた時だけスプシへ反映
 
   let sponsorMsg = '';
@@ -5577,14 +5367,8 @@ function migrateToReserve(){
     if (shipStatus(o) === '出荷済') return;
     const b = o.branch || '仙台';
     if (!S.stock[b]) S.stock[b] = {};
-    if (!S.slog) S.slog = [];
-    var _mt = new Date().toTimeString().slice(0,5);
-    Object.entries(o.items || {}).forEach(([p, q]) => { restoreStockBkt(b, p, q || 0); moved += (q || 0);
-      if((q||0)>0) S.slog.push({ _rec: new Date().toISOString(), date:today(), time:_mt, branch:b, type:'戻入', product:p, qty:q||0,
-        remaining:S.stock[b][p], orderId:o.id, store:o.store, note:'引当方式へ移行による在庫戻し' }); });
-    Object.entries(o.sponsorItems || {}).forEach(([p, q]) => { restoreStockBkt(b, p, q || 0); moved += (q || 0);
-      if((q||0)>0) S.slog.push({ _rec: new Date().toISOString(), date:today(), time:_mt, branch:b, type:'戻入', product:p, qty:q||0,
-        remaining:S.stock[b][p], orderId:o.id, store:o.store, note:'引当方式へ移行 協賛分の在庫戻し' }); });
+    Object.entries(o.items || {}).forEach(([p, q]) => { restoreStockBkt(b, p, q || 0); moved += (q || 0); });
+    Object.entries(o.sponsorItems || {}).forEach(([p, q]) => { restoreStockBkt(b, p, q || 0); moved += (q || 0); });
   });
   localStorage.setItem('lmb_reserveMigrated', '1');
   saveState();
@@ -5602,21 +5386,10 @@ function toggleBackstock(){
   p.style.display=open?'block':'none'; if(c) c.textContent=open?'▴':'▾';
   const d=document.getElementById('bs-date'); if(open && d && !d.value) d.value=today();
 }
-// 在庫が動く種類の一覧。★ここに漏れがあると、さかのぼり在庫・日別在庫表の数字が合わなくなる。
-//   （協賛入庫・貸借・試供品・備品・シール・調整が抜けていたため、仕入があった日でも数字が動かなかった）
 var _BS_OUT={'出庫':1,'協賛出庫':1,'試供出庫':1,'備品出庫':1,'シール出庫':1,
              '移動出':1,'無償提供':1,'貸出':1,'借入返却':1,'輸送中紛失':1};   // 在庫が減る動き
 var _BS_IN ={'入庫':1,'協賛入庫':1,'戻入':1,'移動入':1,'借入':1,'返却受':1};   // 在庫が増える動き
-var _BS_SIGNED={'調整':1,'仕入取消':1,'移動取消':1};                          // 符号そのまま（qtyの正負で増減）
-// ★在庫の増減は必ずこの関数を通す（種類の追加漏れを防ぐため、判定はここ1か所だけ）。
-//   戻り値：在庫がその記録でいくつ増えたか（減った場合はマイナス）。判定できない種類は null。
-function _slogQtyDelta(s){
-  var t = String((s && s.type) || ''), q = Number((s && s.qty)) || 0;
-  if (_BS_IN[t])     return  Math.abs(q);
-  if (_BS_OUT[t])    return -Math.abs(q);
-  if (_BS_SIGNED[t]) return  q;            // 調整・取消は qty の符号をそのまま使う
-  return null;                              // 初期登録など（差分では扱わない）
-}
+var _BS_SIGNED={'調整':1,'仕入取消':1,'移動取消':1};                          // 符号そのまま
 function renderBackstock(){
   const date=(document.getElementById('bs-date')||{}).value;
   const br=(document.getElementById('bs-br')||{}).value||'仙台';
@@ -5629,8 +5402,9 @@ function renderBackstock(){
     if(String(s.date||'')<=date) return;      // 基準日以前は対象外（＝基準日終わり時点を出す）
     if(s.type==='初期登録'){ resetAfter=true; return; }
     const q=Number(s.qty)||0;
-    var _d = _slogQtyDelta(s);                                        // 増減は共通関数で判定（漏れ防止）
-    if (_d !== null) back[s.product] = (back[s.product]||0) - _d;      // その分を戻す（さかのぼり）
+    if(_BS_OUT[s.type]) back[s.product]=(back[s.product]||0)+Math.abs(q);
+    else if(_BS_IN[s.type]) back[s.product]=(back[s.product]||0)-Math.abs(q);
+    else if(_BS_SIGNED[s.type]) back[s.product]=(back[s.product]||0)-q;
   });
   const rows=_prodCols().map(p=>{
     const cur=(S.stock[br]&&S.stock[br][p.key])||0;
@@ -5743,13 +5517,9 @@ async function deleteActual(id){
   var a = (S.actuals||[]).find(function(x){return x.id===id;});
   if (!a) return;
   if (!confirm((a.ym||'')+' / '+(a.store||'')+' / '+(a.product||'')+'\nこの実績を削除しますか？')) return;
-  // ★順番：サーバ削除の成功を確認してから端末を消す（失敗時は何も消さない）
-  if (S.gasUrl){
-    var _svAc = await gasPost({ action:'deleteActual', id:id });
-    if (_svAc && _svAc.ok === false){ toast('❌ サーバから削除できませんでした：' + (_svAc.error||'') + '（削除していません）', 'error'); return; }
-  }
   S.actuals = (S.actuals||[]).filter(function(x){return x.id!==id;});
   saveState();
+  if (S.gasUrl){ try { await gasPost({ action:'deleteActual', id:id }); } catch(e){} }
   toast('削除しました'); renderAnalysis();
 }
 function renderAnalysis(){
@@ -5840,26 +5610,6 @@ function exportActualsCsv(){
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
 }
 
-// 在庫履歴の「時刻」表示を整える。スプレッドシート由来で "Sat Dec 30 1899 23:35:00 GMT+0900" のような
-// 日付型の文字列が入ることがあるため、HH:mm だけを取り出して読めるようにする（データは変えず表示のみ）。
-function _slogTime(v){
-  var t = String(v == null ? '' : v).trim();
-  if (!t) return '';
-  if (/^\d{1,2}:\d{2}$/.test(t)) return t;                 // 既に HH:mm
-  var m = t.match(/(\d{1,2}):(\d{2})(?::\d{2})?/);          // 文字列から時刻を抽出
-  if (m) return ('0'+m[1]).slice(-2) + ':' + m[2];
-  var d = new Date(t);
-  if (!isNaN(d.getTime())) return ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2);
-  return '';
-}
-// 「記録日時」＝実際にこの在庫の動きを登録した日時（出荷日とは別。過去分は空）
-function _slogRec(s){
-  var v = s && (s._rec || s.createdAt || '');
-  if (!v) return '';
-  var d = new Date(v);
-  if (isNaN(d.getTime())) return String(v).slice(0,16).replace('T',' ');
-  return _ymd(d) + ' ' + ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2);
-}
 // 在庫履歴の行から「注文日」を取得（orderIdで注文をたどる。無ければ空）
 function _slogOrderDate(s){
   if(!s||!s.orderId) return '';
@@ -5871,14 +5621,28 @@ function _slogStore(s){
   if (s && s.orderId){ var o=(S.orders||[]).find(function(x){return x.id===s.orderId;}); if(o) return o.store||''; }
   return '';
 }
+async function deleteSponsorLogRow(logId, custId){
+  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; if(_r!=='admin'){ toast('🔒 管理者のみ実行できます','error'); return; } }catch(e){ return; }
+  var l=(S.sponsorLogs||[]).find(function(x){ return String(x.id)===String(logId); });
+  if(!l) return toast('記録が見つかりません','error');
+  var bal=(typeof getSponsorBalance==='function')?getSponsorBalance(custId):{pts:0};
+  var after=(l.type==='earned')?(bal.pts-(l.qty||0)):(bal.pts+(l.qty||0));
+  if(!confirm('この協賛記録を削除しますか？\n\n'+(l.date||'')+'　'+(l.type==='earned'?'+付与':'-使用')+' '+(l.qty||0)+'本\n'+(l.note||'')+'\n\n現在の残数：'+bal.pts+'本\n削除後の残数：'+after+'本'+(after<0?'\n\n⚠ 残数がマイナスになります':'')+'\n\n実行しますか？')) return;
+  if(S.gasUrl){
+    toast('削除中…');
+    var res=await gasGet('deleteSponsorLogG',{ id:String(logId) });
+    if(!res || !res.ok){ toast('サーバから削除できませんでした：'+((res&&res.error)||'通信エラー'),'error'); return; }
+  }
+  S.sponsorLogs=(S.sponsorLogs||[]).filter(function(x){ return String(x.id)!==String(logId); });
+  saveState();
+  toast('✓ 協賛記録を1件削除しました（残数 '+after+'本）');
+  try{ if(typeof renderSponsor==='function') renderSponsor(); }catch(e){}
+}
 function renderSlog(){
-  // データ整理ボタン（古い記録の削除・重複チェック）は、テスト・保守用。admin のときだけ表示する。
+  // 診断ボタンは管理者のみ表示
   try{
-    var _at = document.getElementById('slog-admin-tools');
-    if (_at){
-      var _r = (typeof currentUser!=='undefined' && currentUser) ? String(currentUser.role||'').toLowerCase() : '';
-      _at.style.display = (_r === 'admin') ? 'inline-flex' : 'none';
-    }
+    var _at=document.getElementById('slog-admin-tools');
+    if(_at){ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; _at.style.display=(_r==='admin')?'inline-flex':'none'; }
   }catch(e){}
   const slog = (S.slog || []).map((s,i)=>Object.assign({ _idx:i }, s));
   const typeSel = document.getElementById('slog-type');
@@ -5898,17 +5662,7 @@ function renderSlog(){
     if (kw){ const hay = ((s.product||'')+' '+(s.note||'')+' '+(s.user||'')+' '+_slogStore(s)).toLowerCase(); if(!hay.includes(kw)) return false; }
     return true;
   });
-  // 並び順：日付（在庫が動った日）→ 同じ日なら記録日時（実際に操作した順）。
-  //   残数は「操作した瞬間の在庫」を保存した値なので、操作順に並べないと辻褄が合わなく見える。
-  rows.sort(function(a,b){
-    var ka = _ymd(a.date), kb = _ymd(b.date);
-    if (ka !== kb) return kb.localeCompare(ka);                       // 日付：新しい順
-    var ra = String(a._rec||''), rb = String(b._rec||'');
-    if (ra !== rb) return rb.localeCompare(ra);                       // 記録日時：新しい順
-    var sa = Number(a._seq||0), sb = Number(b._seq||0);
-    if (sa !== sb) return sb - sa;                                    // 同時刻なら処理順（出庫→協賛出庫の順を保つ）
-    return String(b.time||'').localeCompare(String(a.time||''));
-  });
+  rows.sort((a,b)=> (_ymd(b.date)+String(b.time||'')).localeCompare(_ymd(a.date)+String(a.time||'')));
   const cnt = document.getElementById('slog-cnt'); if(cnt) cnt.textContent = rows.length + '件';
   const _tbl=document.getElementById('slog-table'), _mx=document.getElementById('slog-matrix');
   if(_slogMx){ if(_tbl) _tbl.style.display='none'; if(_mx){ _mx.style.display=''; renderSlogMatrix(rows); } return; }
@@ -5916,13 +5670,12 @@ function renderSlog(){
   const tb = document.getElementById('slog-tbody'); if(!tb) return;
   const MAX = 400;
   const show = rows.slice(0, MAX);
-  if(!show.length){ tb.innerHTML = '<tr><td colspan="12"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
+  if(!show.length){ tb.innerHTML = '<tr><td colspan="11"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
   const tcolor = t => ({'出庫':'#e6a23c','協賛出庫':'#c39bd3','入庫':'#67c23a','戻入':'#67c23a','移動出':'#4f9dd9','移動入':'#4f9dd9','調整':'#e67e22','初期登録':'#909399'}[t] || '#aaa');
   tb.innerHTML = show.map(s=>`<tr style="cursor:pointer" onclick="_slogSnapshot(${s._idx}, this)" title="クリックでこの時点の在庫を表示">
       <td>${escapeHtml(_ymd(s.date))}</td>
       <td style="color:var(--wh3)">${escapeHtml(_slogOrderDate(s))}</td>
-      <td style="color:var(--wh3)">${escapeHtml(_slogTime(s.time))}</td>
-      <td style="color:var(--wh3);font-size:.72rem">${escapeHtml(_slogRec(s))}</td>
+      <td style="color:var(--wh3)">${escapeHtml(s.time||'')}</td>
       <td>${escapeHtml(s.branch||'')}</td>
       <td><span style="color:${tcolor(s.type)};font-weight:600">${escapeHtml(s.type||'')}</span></td>
       <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(_slogStore(s))}</td>
@@ -5931,387 +5684,92 @@ function renderSlog(){
       <td class="col-qty" style="color:var(--wh3)">${s.remaining!=null?fmt(s.remaining):''}</td>
       <td style="font-size:.7rem">${escapeHtml(s.note||'')}</td>
       <td style="font-size:.7rem">${escapeHtml(s.user||'')}</td>
-      <td class="slog-del" style="text-align:center"><button class="act-btn dn" onclick="event.stopPropagation();deleteSlogRow(${s._idx})" title="この記録だけを削除（在庫の数値は変わりません）">削</button></td>
+      <td class="slog-del-col" style="text-align:center"><button class="act-btn dn" onclick="event.stopPropagation();deleteSlogRow(${s._idx})" title="この記録だけ削除（在庫は変わりません）">削</button></td>
     </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="10" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
+  // 行削除ボタンは管理者のみ表示
+  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; document.querySelectorAll('.slog-del-col').forEach(function(el){ el.style.display=(_r==='admin')?'':'none'; }); }catch(e){}
 }
-// ══ 在庫履歴：二重記録の検出（同じ注文・同じ商品・同じ本数の出庫が複数ある行を洗い出す） ══
-//   不具合期に同じ出荷が2回記録されると、在庫がその分だけ余計に減る。実データで検出して直せるようにする。
-function _slogDupGroups(){
-  var groups = {};
-  (S.slog || []).forEach(function(s, i){
-    if (!s) return;
-    var t = String(s.type || '');
-    if (t.indexOf('出庫') < 0 && t !== '戻入') return;          // 出庫系・戻入だけを対象
-    // 同一とみなすキー：注文ID＋種類＋商品（1つの注文の同じ商品の出庫は1回のはず）。
-    //   ★日付は判定に含めない。注文を修正すると日付だけ違う二重記録ができるため、
-    //     日付を含めると「別物」と判定して見逃してしまう。
-    //   ※注文に紐づかない記録（仕入・移動・調整）は下の orderId 判定で対象外にしている。
-    var key = [String(s.orderId||''), t, String(s.product||'')].join('|');
-    if (!String(s.orderId||'')) return;                          // 注文に紐づかない行は対象外（手動調整等）
-    (groups[key] = groups[key] || []).push({ idx:i, s:s });
-  });
-  var dups = [];
-  Object.keys(groups).forEach(function(k){ if (groups[k].length > 1) dups.push({ key:k, rows:groups[k] }); });
-  return dups;
+// 在庫履歴の1行だけ削除（サーバからも消す・admin限定・gasGetで固まらない）
+async function deleteSlogRow(idx){
+  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; if(_r!=='admin'){ toast('🔒 管理者のみ実行できます','error'); return; } }catch(e){ return; }
+  var s=(S.slog||[])[idx]; if(!s) return toast('記録が見つかりません','error');
+  if(!confirm('この記録を削除しますか？\n\n'+_ymd(s.date)+'　'+(s.type||'')+'　'+(s.product||'')+'　'+(s.qty||0)+'本\n'+(s.note||'')+'\n\n※在庫の数値は変わりません（記録だけ）')) return;
+  if(S.gasUrl && s.id){
+    toast('削除中…');
+    var res=await gasGet('deleteStockLogs',{ ids: JSON.stringify([String(s.id)]) });
+    if(!res || !res.ok){ toast('サーバから削除できませんでした：'+((res&&res.error)||'通信エラー')+'（何も消していません）','error'); return; }
+  }
+  S.slog=(S.slog||[]).filter(function(_,i){ return i!==idx; });
+  saveState(); renderSlog(); if(typeof updateKPI==='function') updateKPI();
+  toast('✓ 記録を1件削除しました（在庫は変更していません）');
 }
-// ══ 在庫履歴：指定した日付より前の記録を削除（練習・テストデータの掃除用） ══
-//   在庫の数値は一切変更しない（初期登録や棚卸で実在庫を揃えた後に、古い記録だけを消すための機能）。
-// ══ 在庫履歴：端末の記録をサーバへ送り直す（取りこぼしの復旧） ══
-//   過去の不具合で「端末にはあるがサーバに無い」記録が生じることがある。
-//   GAS側はID重複を無視する（冪等）ため、何度実行しても二重登録にはならない。
-async function resendSlogToServer(){
-  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
-       if(_r!=='admin'){ toast('🔒 この操作は管理者のみ実行できます','error'); return; } }catch(e){ return; }
-  if (!S.gasUrl){ toast('GAS URLが未設定です','error'); return; }
-  var all = (S.slog||[]).filter(function(x){ return x && (x.date || x.type); });
-  if (!all.length){ toast('送る記録がありません'); return; }
-  if (!confirm('端末にある在庫履歴 ' + all.length + '件 をサーバへ送り直します。\n\n'
-    + '※同じ記録は二重登録されません（IDで判定）\n※在庫の数値は変更しません\n\n実行しますか？')) return;
-  // IDが無い古い記録にはIDを付ける（サーバ側の重複判定に必要）
-  all.forEach(function(x){ if(!x.id) x.id = 'sl-' + Date.now() + '-' + Math.floor(Math.random()*90000+10000); });
-  saveState();
-  var batch = all.map(function(x){
-    return { id:x.id, date:x.date||today(), time:x.time||'', branch:x.branch||'', type:x.type||'',
-             product:x.product||'', qty:x.qty||0, remaining:(x.remaining===undefined?'':x.remaining),
-             orderId:x.orderId||'', note:x.note||'', user:x.user||'' };
-  });
-  showSyncOverlay('送信中…（サーバへ保存しています）');
-  var res = await gasPostSync({ action:'saveStockLogs', logs: JSON.stringify(batch) });
-  hideSyncOverlay();
-  if (!res.ok){ toast('❌ 送信できませんでした：' + res.error, 'error'); return; }
-  var added = (res.resp && typeof res.resp.added === 'number') ? res.resp.added : null;
-  toast('✓ サーバへ送信しました' + (added!==null ? ('（新たに ' + added + '件 保存／既存はそのまま）') : ''));
+// ══ 在庫の診断（データは変更しない） ══
+// 在庫の増減判定は1か所に集約（種類の追加漏れを防ぐ）
+function _slogQtyDelta(s){
+  var t = String((s && s.type) || ''), q = Number((s && s.qty)) || 0;
+  if (_BS_IN[t])     return  Math.abs(q);
+  if (_BS_OUT[t])    return -Math.abs(q);
+  if (_BS_SIGNED[t]) return  q;
+  return null;   // 初期登録など
 }
-// 在庫履歴の1行だけを削除する（管理者のみ）。日付を直すために古い記録を消す用途。
-//   在庫の数値は変更しない＝記録だけを消す。
-// ══ 在庫履歴の整合チェック ══
-//   記録に保存された「残数」を時系列でつなぎ、隣り合う行のつじつまが合うかを機械的に確認する。
-//   合わない箇所＝記録が抜けている／二重になっている／別の操作が割り込んだ場所。
-//   （残数は記録した瞬間の在庫を保存した値なので、本来は連続してつながるはず）
-// 増減の判定は共通関数 _slogQtyDelta に一本化（種類の定義は _BS_IN/_BS_OUT/_BS_SIGNED の1か所だけ）
-function _slogDelta(s){ return _slogQtyDelta(s); }
-// ══ 在庫の内訳診断 ══
-//   「記録を全部消したのに在庫が初期登録の数字に戻らない」を確かめるための機能。
-//   今の在庫が、履歴のどの記録の積み上げでできているかを商品ごとに突き合わせる。
-// ══ 在庫が合わない原因を特定する（残っているデータを全部洗う） ══
-//   「注文も貸借も移動も仕入も消したのに在庫が戻らない」を調べるための機能。
-//   端末に残っている全データを商品別に集計し、在庫との差がどこから来たかを示す。
+// 今の在庫が「初期登録＋その後の記録」と合うか＋消し残しの取引を洗う
 function findStockCause(){
   var out = [];
   ['仙台','京都'].forEach(function(br){
-    var prods = (typeof _prodColsAll==='function') ? _prodColsAll(br,'') : [];
+    var prods = (typeof _prodColsAll==='function') ? _prodColsAll(br,'') : (typeof _prodCols==='function'?_prodCols():[]);
     prods.forEach(function(p){
       var cur = ((S.stock[br]||{})[p.key]) || 0;
-      // ① 在庫履歴から積み上げ
       var list = (S.slog||[]).filter(function(x){ return x && x.branch===br && x.product===p.key; })
-        .sort(function(a,b){ var ra=String(a._rec||''),rb=String(b._rec||'');
-          if(ra!==rb) return ra.localeCompare(rb); return Number(a._seq||0)-Number(b._seq||0); });
+        .sort(function(a,b){ var ra=String(a._rec||a.date||''),rb=String(b._rec||b.date||'');
+          return ra.localeCompare(rb); });
       var base=null, moves=0, kinds={};
       list.forEach(function(x){
         if (String(x.type||'')==='初期登録'){ base=Number(x.remaining)||0; moves=0; kinds={}; return; }
-        var d=_slogQtyDelta(x);
-        if (d!==null){ moves+=d; kinds[x.type]=(kinds[x.type]||0)+d; }
+        var d=_slogQtyDelta(x); if (d!==null){ moves+=d; kinds[x.type]=(kinds[x.type]||0)+d; }
       });
-      var calc = (base===null) ? null : base+moves;
-      var gap  = (calc===null) ? null : cur-calc;
-      // ② まだ残っている取引データ（消し忘れ）を数える
-      var left = [];
-      var ordQ = 0;
+      var calc=(base===null)?null:base+moves, gap=(calc===null)?null:cur-calc;
+      var left=[], ordQ=0;
       (S.orders||[]).forEach(function(o){
         if ((o.branch||'仙台')!==br) return;
-        var sh = (typeof orderShipped==='function') ? orderShipped(o) : {};
-        var ss = (typeof orderShippedSponsor==='function') ? orderShippedSponsor(o) : {};
-        ordQ += (Number(sh[p.key])||0) + (Number(ss[p.key])||0);
+        var sh=(typeof orderShipped==='function')?orderShipped(o):{};
+        var ss=(typeof orderShippedSponsor==='function')?orderShippedSponsor(o):{};
+        ordQ += (Number(sh[p.key])||0)+(Number(ss[p.key])||0);
       });
-      if (ordQ) left.push('出荷済の注文 ' + ordQ + '本');
-      var lendQ = 0;
-      (S.lendings||[]).forEach(function(l){
-        if (l.branch!==br || l.product!==p.key) return;
-        var q=(Number(l.qty)||0)-(Number(l.returnedQty)||0);
-        if (String(l.status||'')!=='返却済' && q>0) lendQ += (l.kind==='貸出'? -q : q);
-      });
-      if (lendQ) left.push('未返却の貸借 ' + (lendQ>0?'+':'') + lendQ + '本');
-      var mvQ = 0;
-      (S.moves||[]).forEach(function(m){
-        if (m.product!==p.key) return;
-        if (String(m.status||'')==='輸送中'){
-          if (m.from===br) mvQ -= (Number(m.qty)||0);
-        }
-      });
-      if (mvQ) left.push('輸送中の移動 ' + mvQ + '本');
-      var puQ = 0;
-      (S.purchases||[]).forEach(function(x){ if (x.branch===br && x.product===p.key) puQ += (Number(x.qty)||0); });
-      if (puQ) left.push('仕入 ' + puQ + '本');
-      if ((gap !== null && gap !== 0) || left.length){
-        out.push('・' + br + ' ' + p.key + '（今の在庫 ' + cur + '本）\n'
-          + (calc!==null ? '　　記録の積み上げ：初期登録 ' + base + ' ＋ 動き ' + (moves>=0?'+':'') + moves + ' ＝ ' + calc + '本　→ 差 ' + (gap>0?'+':'') + gap + '本\n' : '　　初期登録の記録なし\n')
-          + (Object.keys(kinds).length ? '　　内訳：' + Object.keys(kinds).map(function(k){ return k+' '+(kinds[k]>0?'+':'')+kinds[k]; }).join('　') + '\n' : '')
-          + (left.length ? '　　★まだ残っているデータ：' + left.join('／') + '\n' : ''));
+      if (ordQ) left.push('出荷済の注文 '+ordQ+'本');
+      var puQ=0; (S.purchases||[]).forEach(function(x){ if(x.branch===br&&x.product===p.key) puQ+=(Number(x.qty)||0); });
+      if (puQ) left.push('仕入 '+puQ+'本');
+      if ((gap!==null && gap!==0) || left.length){
+        out.push('・'+br+' '+p.key+'（今の在庫 '+cur+'本）\n'
+          + (calc!==null?'　記録の積み上げ：初期登録 '+base+' ＋ 動き '+(moves>=0?'+':'')+moves+' ＝ '+calc+'本　→ 差 '+(gap>0?'+':'')+gap+'本\n':'　初期登録の記録なし\n')
+          + (Object.keys(kinds).length?'　内訳：'+Object.keys(kinds).map(function(k){return k+' '+(kinds[k]>0?'+':'')+kinds[k];}).join('　')+'\n':'')
+          + (left.length?'　★まだ残っているデータ：'+left.join('／')+'\n':''));
       }
     });
   });
   if (!out.length){ alert('✓ 在庫と記録は一致しており、消し残しもありません。'); return; }
-  alert('🔎 在庫が合わない原因の調査結果\n\n' + out.slice(0,12).join('\n')
-    + (out.length>12 ? '\n… ほか ' + (out.length-12) + '件' : '')
-    + '\n\n【見方】\n'
-    + '「差」＝今の在庫と、記録から計算した在庫のズレ\n'
-    + '「まだ残っているデータ」＝消したつもりで残っている取引\n\n'
-    + '※記録を消しても在庫の数字は戻りません。最後に初期登録で揃えてください。');
+  alert('🔎 在庫が合わない原因\n\n'+out.slice(0,12).join('\n')+(out.length>12?'\n… ほか '+(out.length-12)+'件':'')
+    +'\n\n差プラス＝記録に無い増加／マイナス＝記録に無い減少\n※記録を消しても在庫は戻りません。初期登録で合わせてください。');
 }
-function diagnoseStock(){
-  var lines = [], anyGap = false;
-  ['仙台','京都'].forEach(function(br){
-    var prods = (typeof _prodColsAll==='function') ? _prodColsAll(br,'') : [];
-    prods.forEach(function(p){
-      var cur = ((S.stock[br]||{})[p.key]) || 0;
-      // その商品の記録を古い順に並べ、初期登録を起点に積み上げる
-      var list = (S.slog||[]).filter(function(x){ return x && x.branch===br && x.product===p.key; })
-        .sort(function(a,b){ var ra=String(a._rec||''),rb=String(b._rec||'');
-          if(ra!==rb) return ra.localeCompare(rb); return Number(a._seq||0)-Number(b._seq||0); });
-      var base = null, moves = 0, n = 0;
-      list.forEach(function(x){
-        if (String(x.type||'')==='初期登録'){ base = Number(x.remaining)||0; moves = 0; n = 0; return; }
-        var d = _slogQtyDelta(x);
-        if (d !== null){ moves += d; n++; }
-      });
-      if (base === null){ if (cur !== 0 || list.length) lines.push('・' + br + ' ' + p.key + '：初期登録の記録がありません（在庫 ' + cur + '本）'); return; }
-      var calc = base + moves;
-      if (calc !== cur){
-        anyGap = true;
-        lines.push('・' + br + ' ' + p.key + '\n'
-          + '　　初期登録 ' + base + '本 ＋ その後の動き ' + (moves>=0?'+':'') + moves + '本（' + n + '件）＝ ' + calc + '本\n'
-          + '　　ところが今の在庫は ' + cur + '本（差 ' + (cur-calc>0?'+':'') + (cur-calc) + '本）');
-      }
-    });
-  });
-  if (!lines.length){ alert('✓ 在庫はすべて「初期登録＋その後の記録」と一致しています。\n\n記録に残らない在庫の増減はありません。'); return; }
-  alert('⚠ 在庫と記録が合わない商品：' + lines.length + '件\n\n' + lines.slice(0,15).join('\n\n')
-    + (lines.length>15 ? '\n\n… ほか ' + (lines.length-15) + '件' : '')
-    + '\n\n【差がある意味】\n'
-    + 'プラス＝記録に無い増加がある（記録を消した／記録されずに増えた）\n'
-    + 'マイナス＝記録に無い減少がある\n\n'
-    + '※記録を消しても在庫の数字は戻りません。在庫を直すには初期登録か在庫調整を使ってください。');
-}
+// 残数のつながりが合わない箇所を洗う
 function checkSlogConsistency(){
-  var byKey = {};
-  (S.slog||[]).forEach(function(s, i){
-    if (!s || s.remaining == null || s.remaining === '') return;
-    var k = String(s.branch||'') + '|' + String(s.product||'');
-    (byKey[k] = byKey[k] || []).push({ i:i, s:s });
+  var byKey={};
+  (S.slog||[]).forEach(function(s,i){
+    if(!s||s.remaining==null||s.remaining==='') return;
+    var k=String(s.branch||'')+'|'+String(s.product||''); (byKey[k]=byKey[k]||[]).push(s);
   });
-  var bad = [];
+  var bad=[];
   Object.keys(byKey).forEach(function(k){
-    var list = byKey[k];
-    // 古い順（記録日時→処理順）に並べる＝実際に操作した順
-    list.sort(function(a,b){
-      var ra = String(a.s._rec||''), rb = String(b.s._rec||'');
-      if (ra !== rb) return ra.localeCompare(rb);
-      return Number(a.s._seq||0) - Number(b.s._seq||0);
-    });
-    for (var n = 1; n < list.length; n++){
-      var prev = list[n-1].s, cur = list[n].s;
-      if (String(cur.type||'') === '初期登録') continue;          // 初期登録は上書きなので連続性の対象外
-      var d = _slogDelta(cur);
-      if (d === null) continue;
-      var expect = (Number(prev.remaining)||0) + d;
-      var actual = Number(cur.remaining)||0;
-      if (expect !== actual){
-        bad.push({ key:k, prev:prev, cur:cur, expect:expect, actual:actual, gap:(actual - expect) });
-      }
+    var list=byKey[k].slice().sort(function(a,b){ return String(a._rec||a.date||'').localeCompare(String(b._rec||b.date||'')); });
+    for(var n=1;n<list.length;n++){
+      var prev=list[n-1],cur=list[n];
+      if(String(cur.type||'')==='初期登録') continue;
+      var d=_slogQtyDelta(cur); if(d===null) continue;
+      var expect=(Number(prev.remaining)||0)+d, actual=Number(cur.remaining)||0;
+      if(expect!==actual) bad.push('・'+k.replace('|','　')+'\n　'+(prev.type||'')+'(残'+prev.remaining+')→'+(cur.type||'')+' '+(cur.qty||0)+'本：本来残'+expect+'が残'+actual+'（差'+(actual-expect>0?'+':'')+(actual-expect)+'）');
     }
   });
-  if (!bad.length){ toast('✓ 在庫履歴のつじつまは合っています'); return; }
-  var lines = bad.slice(0, 20).map(function(b){
-    return '・' + String(b.key).replace('|','　') + '\n'
-      + '　　' + _ymd(b.prev.date) + ' ' + (b.prev.type||'') + '（残' + b.prev.remaining + '）\n'
-      + '　→ ' + _ymd(b.cur.date) + ' ' + (b.cur.type||'') + ' ' + (b.cur.qty||0) + '本\n'
-      + '　　本来は残' + b.expect + ' のはずが 残' + b.actual + '（差 ' + (b.gap>0?'+':'') + b.gap + '）';
-  }).join('\n\n');
-  alert('⚠ 在庫履歴のつじつまが合わない箇所：' + bad.length + '件\n\n'
-    + lines + (bad.length>20 ? '\n\n… ほか ' + (bad.length-20) + '件' : '')
-    + '\n\n【意味】\n'
-    + '差がプラス＝在庫が増える記録が抜けている（仕入・戻入など）\n'
-    + '差がマイナス＝在庫が減る記録が抜けている、または二重に減っている\n\n'
-    + '※残数は記録した瞬間の在庫です。記録を消すと前後がつながらなくなります。');
-}
-async function deleteSlogRow(idx){
-  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
-       if(_r!=='admin'){ toast('🔒 この操作は管理者のみ実行できます','error'); return; } }catch(e){ return; }
-  var s = (S.slog||[])[idx];
-  if (!s) return toast('記録が見つかりません','error');
-  if (!confirm('この記録を削除しますか？\n\n'
-      + _ymd(s.date) + '　' + (s.type||'') + '　' + (s.product||'') + '　' + (s.qty||0) + '本\n'
-      + (s.note||'') + '\n\n※在庫の数値は変更しません（記録だけ消します）')) return;
-  // ★順番：サーバから先に削除し、成功を確認してから端末の記録を消す
-  if (S.gasUrl && s.id){
-    showSyncOverlay('削除中…（サーバへ送信しています）');
-    var _rs = await gasPostSync({ action:'deleteStockLogs', ids: JSON.stringify([String(s.id)]) });
-    hideSyncOverlay();
-    if (!_rs.ok){ toast('❌ サーバから削除できませんでした：' + _rs.error + '（何も消していません）','error'); return; }
-  }
-  S.slog = (S.slog||[]).filter(function(_,i){ return i !== idx; });
-  if (typeof _slogRewrap === 'function') _slogRewrap();
-  saveState();
-  renderSlog(); updateKPI();
-  toast('✓ 記録を1件削除しました（在庫は変更していません）');
-}
-// サーバに重複して残った注文行を掃除する（アプリの4件とスプレッドシートの行数が合わない時に使う）。
-async function dedupOrders(){
-  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
-       if(_r!=='admin'){ toast('🔒 この操作は管理者のみ実行できます','error'); return; } }catch(e){ return; }
-  if(!S.gasUrl){ toast('GAS URLが未設定です','error'); return; }
-  showSyncOverlay('重複を確認中…');
-  var chk = await gasPostSync({ action:'dedupOrdersCheck' });
-  hideSyncOverlay();
-  if(!chk.ok){ toast('❌ 確認できませんでした：'+chk.error,'error'); return; }
-  var r = chk.resp || {};
-  if(!r.dupCount){ toast('✓ 重複した注文はありません'); return; }
-  var lines = (r.groups||[]).slice(0,10).map(function(g){
-    var a=g.rows[0];
-    return '・' + (a.store||'') + '（' + a.rows + '重複…' + g.rows.map(function(x){return x.date;}).join(' / ') + '）';
-  }).join('\n');
-  if(!confirm('🧹 サーバに重複した注文が ' + r.dupCount + '組（余分 ' + r.extraRows + '行）あります。\n\n'
-    + lines + '\n\n各注文で最も新しい行を1つ残し、他を削除します。\n（在庫は動きません。注文の重複行を消すだけです）\n\n実行しますか？')) return;
-  showSyncOverlay('掃除中…（サーバから削除しています）');
-  var run = await gasPostSync({ action:'dedupOrdersRun' });
-  hideSyncOverlay();
-  if(!run.ok){ toast('❌ 削除できませんでした：'+run.error,'error'); return; }
-  toast('✓ 重複行 ' + ((run.resp&&run.resp.deleted)||0) + '行を削除しました。同期します…');
-  if(typeof syncFromGAS==='function'){ try{ await syncFromGAS(); }catch(e){} }
-  renderOrders(); updateKPI();
-}
-async function purgeOldSlog(){
-  // ★記録の削除は証跡に関わる操作。表示を隠すだけでなく、実行そのものを admin 以外は拒否する。
-  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
-       if(_r!=='admin'){ toast('🔒 この操作は管理者のみ実行できます','error'); return; } }catch(e){ return; }
-
-  var _d = await _pickDate('2026-04-01', 'この日より前の記録を削除', '指定日は残します（例：2026-04-01 なら3月以前を削除）');
-  if (!_d) return;
-  var cut = _ymd(_d);
-
-  // 対象データ（4種）。在庫の数値は変更しない＝記録だけを消す。
-  var SETS = [
-    { key:'在庫履歴', get:function(){ return S.slog||[]; },      set:function(v){ S.slog=v; if(typeof _slogRewrap==='function') _slogRewrap(); } },
-    { key:'仕入',     get:function(){ return S.purchases||[]; }, set:function(v){ S.purchases=v; } },
-    { key:'貸借',     get:function(){ return S.lendings||[]; },  set:function(v){ S.lendings=v; } },
-    { key:'拠点移動', get:function(){ return S.moves||[]; },     set:function(v){ S.moves=v; } }
-  ];
-  var isOld = function(x){ var d=_ymd((x&&x.date)||''); return !!d && d < cut; };
-  var counts = {}, totalAll = 0;
-  SETS.forEach(function(st){ var n = st.get().filter(isOld).length; counts[st.key]=n; totalAll+=n; });
-  if (!totalAll){ toast('✓ ' + cut + ' より前の記録はありません'); return; }
-
-  var lines = SETS.filter(function(st){ return counts[st.key]>0; })
-                  .map(function(st){ return '　・' + st.key + '：' + counts[st.key] + '件'; }).join('\n');
-  if (!confirm('🗑 ' + cut + ' より前の記録を削除します\n\n見つかった記録：\n' + lines
-      + '\n\n※在庫の数値は変更しません（記録だけ消します）\n※' + cut + ' 以降は残ります\n\n続けますか？')) return;
-
-  var chosen = [];
-  SETS.forEach(function(st){
-    if (counts[st.key] <= 0) return;
-    if (confirm('「' + st.key + '」の ' + counts[st.key] + '件 を削除しますか？\n\nOK＝削除する ／ キャンセル＝この種類は残す')) chosen.push(st.key);
-  });
-  if (!chosen.length){ toast('削除する種類が選ばれませんでした'); return; }
-
-  // ★順番：先にサーバから削除し、成功を確認してから端末の記録を消す（失敗時は何も消さない）
-  if (S.gasUrl){
-    showSyncOverlay('削除中…（サーバへ送信しています）');
-    var _rs = await gasPostSync({ action:'purgeRecords', before: cut, kinds: JSON.stringify(chosen) });
-    hideSyncOverlay();
-    if (!_rs.ok){
-      toast('❌ サーバから削除できませんでした：' + _rs.error + '（何も消していません）', 'error');
-      return;
-    }
-  }
-  var done = 0;
-  SETS.forEach(function(st){
-    if (chosen.indexOf(st.key) < 0) return;
-    st.set(st.get().filter(function(x){ return !isOld(x); }));
-    done += counts[st.key] || 0;
-  });
-  saveState();
-  renderSlog(); updateKPI();
-  try{ if(typeof renderPurchase==='function') renderPurchase(); }catch(e){}
-  try{ if(typeof renderLendList==='function'){ renderLendList(); renderLendBalance(); } }catch(e){}
-  try{ if(typeof renderMoves==='function') renderMoves(); }catch(e){}
-  try{ if(typeof updateTabDots==='function') updateTabDots(); }catch(e){}
-  toast('✓ ' + done + '件の記録を削除しました（' + chosen.join('・') + '／在庫は変更していません）');
-}
-async function checkSlogDuplicates(){
-  // ★在庫記録の削除は証跡に関わる操作。表示を隠すだけでなく、実行そのものを admin 以外は拒否する。
-  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
-       if(_r!=='admin'){ toast('🔒 この操作は管理者のみ実行できます','error'); return; } }catch(e){ return; }
-
-  var dups = _slogDupGroups();
-  if (!dups.length){ toast('✓ 在庫履歴に二重記録はありません'); return; }
-  // ★各組を「記録日時が新しい順」に並べ、1件目＝最新を残す。
-  //   注文を修正して日付を直した場合、正しいのは後から作られた記録なので、古い方を消す。
-  dups.forEach(function(g){
-    g.rows.sort(function(a,b){
-      var ra = String((a.s && (a.s._rec||'')) || ''), rb = String((b.s && (b.s._rec||'')) || '');
-      if (ra !== rb) return rb.localeCompare(ra);              // 記録日時：新しい順
-      return Number((b.s&&b.s._seq)||0) - Number((a.s&&a.s._seq)||0);
-    });
-  });
-  var totalExtra = 0, lines = [];
-  dups.forEach(function(g){
-    var s0 = g.rows[0].s, extra = g.rows.length - 1;
-    var q = Number(s0.qty) || 0;
-    totalExtra += q * extra;
-    lines.push('・' + _ymd(s0.date) + ' ' + (s0.store||'') + ' ' + (s0.product||'') + ' ' + q + '本 × ' + g.rows.length + '回（余分 ' + extra + '回＝' + (q*extra) + '本）');
-  });
-  var msg = '⚠ 二重記録が見つかりました\n\n'
-    + dups.length + '組 / 重複している本数の合計：' + totalExtra + '本\n\n'
-    + lines.slice(0, 15).join('\n')
-    + (lines.length > 15 ? ('\n… ほか ' + (lines.length-15) + '件') : '')
-    + '\n\n各組は最も新しい記録を残し、古い方を削除します。\n\n【在庫をどうしますか？】\n'
-    + '　OK   ＝ 記録だけ消す（在庫はそのまま）\n'
-    + '　　　　 ※初期登録や棚卸で在庫を既に正しく揃えた場合はこちら\n'
-    + '　キャンセル → 次の確認で「在庫も戻す」を選べます';
-  var _logOnly = confirm(msg);
-  if (!_logOnly){
-    if (!confirm('記録を削除し、重複していた ' + totalExtra + '本 の在庫も戻しますか？\n（在庫をまだ揃えていない場合はこちら。揃えた後にこれを実行すると在庫が増えすぎます）')) return;
-  }
-  // 削除対象を先に確定（サーバ削除に使うIDも集める）
-  var delIdx = {}, delIds = [], removed = 0, restored = 0;
-  dups.forEach(function(g){
-    g.rows.slice(1).forEach(function(r){                          // 1件目は残す
-      delIdx[r.idx] = true;
-      if (r.s && r.s.id) delIds.push(String(r.s.id));
-      removed++;
-    });
-  });
-  // ★順番：先にサーバの在庫履歴から削除し、成功を確認してから端末の記録・在庫を変更する
-  if (S.gasUrl && delIds.length){
-    showSyncOverlay('削除中…（サーバへ送信しています）');
-    var _rs = await gasPostSync({ action:'deleteStockLogs', ids: JSON.stringify(delIds) });
-    hideSyncOverlay();
-    if (!_rs.ok){
-      toast('❌ サーバから削除できませんでした：' + _rs.error + '（何も消していません）', 'error');
-      return;                                                     // ← 失敗したら端末も消さない
-    }
-  }
-  // サーバ削除が済んでから在庫を戻す（記録のみモードでは在庫を一切触らない）
-  dups.forEach(function(g){
-    g.rows.slice(1).forEach(function(r){
-      var s = r.s, br = s.branch || '仙台', p = s.product || '', q = Number(s.qty) || 0;
-      if (!_logOnly && q > 0 && p){
-        if (String(s.type||'').indexOf('出庫') >= 0){ restoreStockBkt(br, p, q, null); restored += q;
-          S.slog.push({ _rec: new Date().toISOString(), date:today(), time:new Date().toTimeString().slice(0,5), branch:br, type:'戻入', product:p, qty:q,
-            remaining:S.stock[br][p], orderId:s.orderId||'', store:s.store||'', note:'二重記録の解消による在庫戻し' }); }
-        else if (s.type === '戻入'){ depleteStock(br, p, q); restored -= q;
-          S.slog.push({ _rec: new Date().toISOString(), date:today(), time:new Date().toTimeString().slice(0,5), branch:br, type:'調整', product:p, qty:q,
-            remaining:S.stock[br][p], orderId:s.orderId||'', store:s.store||'', note:'二重記録の解消による戻し過ぎ修正' }); }
-      }
-    });
-  });
-  S.slog = (S.slog || []).filter(function(_, i){ return !delIdx[i]; });
-  if (typeof _slogRewrap === 'function') _slogRewrap();   // ★配列を作り直したので包み直す（送信キューが外れるのを防ぐ）
-  saveState();
-  if (!_logOnly && S.gasUrl) syncStockToGAS();                     // 在庫を触った時だけ同期
-  renderSlog(); if (typeof renderStock === 'function') renderStock(); updateKPI();
-  toast(_logOnly ? ('✓ 記録 ' + removed + '件を削除しました（在庫は変更していません）')
-                 : ('✓ 二重記録 ' + removed + '件を削除し、在庫 ' + restored + '本を戻しました'));
+  if(!bad.length){ alert('✓ 在庫履歴のつじつまは合っています'); return; }
+  alert('⚠ つじつまが合わない箇所：'+bad.length+'件\n\n'+bad.slice(0,15).join('\n\n')+(bad.length>15?'\n… ほか '+(bad.length-15)+'件':''));
 }
 // ══ 在庫履歴：推移表（商品を列に固定し、時系列を下に積む） ══
 var _slogMx = false;
@@ -6324,8 +5782,8 @@ function toggleSlogMatrix(){
 }
 // 在庫が減る/増える動きの符号（初回より前の残数を割り出す種まき用）
 function _slogSign(t){
-  var _ds = _slogQtyDelta({type:t, qty:1});      // 共通関数で向きを判定（漏れ防止）
-  if (_ds !== null) return _ds < 0 ? -1 : 1;
+  if(_BS_OUT[t] || t==='貸出' || t==='借入返却' || t==='仕入取消') return -1;
+  if(_BS_IN[t]  || t==='借入' || t==='返却受') return 1;
   return 0;
 }
 // 相手先：店名（注文から逆引き）／貸借先・仕入先（備考から）／拠点間移動
@@ -6547,8 +6005,9 @@ function renderStock(){
         if (String(s.date || '') <= asOf) return;      // 基準日以前は対象外（＝基準日終わり時点）
         if (s.type === '初期登録'){ asOfReset = true; return; }
         var qy = Number(s.qty) || 0;
-        var _d2 = _slogQtyDelta(s);                                                   // 増減は共通関数で判定（漏れ防止）
-        if (_d2 !== null) backMap[s.product] = (backMap[s.product] || 0) - _d2;        // その分を戻す
+        if (_BS_OUT[s.type]) backMap[s.product] = (backMap[s.product] || 0) + Math.abs(qy);
+        else if (_BS_IN[s.type]) backMap[s.product] = (backMap[s.product] || 0) - Math.abs(qy);
+        else if (_BS_SIGNED[s.type]) backMap[s.product] = (backMap[s.product] || 0) - qy;
       });
     }
     const rows = _prodColsAll(branch, grp).map(p => {
@@ -6634,7 +6093,7 @@ function renderStock(){
 }
 
 async function adjustStock(product, branch){
-  if(typeof canStockWrite==='function' && !canStockWrite()) return toast('🔒 在庫の初期登録・調整は管理者のみ実行できます','error');
+  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
   const inp = document.getElementById(`adj-${product}-${branch}`);
@@ -6646,18 +6105,10 @@ async function adjustStock(product, branch){
   const reason = prompt(`${branch}の${product}（${bLabel}）を ${delta > 0 ? '+' : ''}${delta} 本 調整します。理由を入力してください:`);
   if (reason === null) return;
 
-  // ★在庫を直接動かす操作。実行前に内容を確認する。
-  var _cur = ((S.stock[branch]||{})[product]) || 0;
-  if (!confirm(branch + ' の ' + product + '（' + bLabel + '）を調整します。\n\n'
-    + '　現在：' + _cur + '本\n'
-    + '　調整：' + (delta > 0 ? '+' : '') + delta + '本\n'
-    + '　調整後：' + (_cur + delta) + '本\n\n'
-    + '理由：' + (reason || '（未入力）') + '\n\n'
-    + '※この操作は在庫履歴と操作履歴に残ります\n\n実行しますか？')) return;
   adjustBucket(branch, product, bucket, delta);
 
   if (!S.slog) S.slog = [];
-  S.slog.push({ _rec: new Date().toISOString(),
+  S.slog.push({
     date: today(), time: new Date().toTimeString().slice(0,5),
     branch: branch,
     type: delta > 0 ? '入庫' : '出庫',
@@ -6668,16 +6119,7 @@ async function adjustStock(product, branch){
   });
 
   saveState();
-  showSyncOverlay('保存中…（サーバへ送信しています）');
-  await syncStockToGAS();  // ★保存の完了を待つ（待たないと同期で元に戻る）
-  hideSyncOverlay();
-  // ★在庫を直接書き換える操作。操作履歴に「在庫調整」と拠点・理由を残す（updateAllStockだけでは追えないため）
-  if (S.gasUrl){
-    try { var _svAj = gasPost({ action:'logOp', op:'在庫調整', target: branch + ' ' + product,
-                    detail: bLabel + ' ' + (delta > 0 ? '+' : '') + delta + '本 / 理由:' + (reason || ''),
-                    branch: branch, _actorBranch: branch,
-                    user: (typeof currentUser!=='undefined' && currentUser ? currentUser.name : '') }); Promise.resolve(_svAj).then(function(r){ if(r && r.ok===false) toast('⚠ 操作履歴をサーバに残せませんでした（在庫は保存されています）','error'); }).catch(function(){}); } catch(e){}
-  }
+  syncStockToGAS();  // 在庫調整をスプシへ反映
   toast(`✓ ${product}（${bLabel}）を ${delta > 0 ? '+' : ''}${delta} 本 調整`);
   inp.value = '';
   renderStock();
@@ -6795,14 +6237,13 @@ function removePurchaseDraftItem(idx){
   renderPurchaseDraft();
 }
 
-async function submitPurchase(){
-  var _puJobs = [];   // サーバ保存の結果をまとめて確認するため
+function submitPurchase(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   // 注文の修正中に「仕入」で記録した場合は、元の注文を取り消してから登録（重複防止）
   _removeEditingOrderForConvert();
   if (editingPurId){
     var _oldPur = editingPurId; editingPurId = null;
-    try { await deletePurchase(_oldPur, true); } catch(e){}   // 旧記録の削除を待ってから新規保存（順番）
+    try { deletePurchase(_oldPur, true); } catch(e){}
     if (typeof _entryEditBanner === 'function') _entryEditBanner('purchase', false);
   }
   const date     = document.getElementById('pu-date').value;
@@ -6828,11 +6269,11 @@ async function submitPurchase(){
       createdAt: new Date().toISOString(),
     };
     S.purchases.push(purchase);
-    if (S.gasUrl) { try { _puJobs.push(gasPost({ action:'savePurchase', ...purchase })); } catch(e){} }   // 送信を集め、後でまとめて結果を確認
+    if (S.gasUrl) { try { gasPost({ action:'savePurchase', ...purchase }); } catch(e){} }   // サーバにも履歴を残す
     // 在庫加算：通常は新値バケツ、協賛仕入は協賛バケツへ（棚卸の評価額は0のまま保たれる）
     if (_isSp) restoreStockBkt(branch, it.product, it.qty, { old:0, sp:it.qty, new:0 });
     else       restoreStockBkt(branch, it.product, it.qty);
-    S.slog.push({ _rec: new Date().toISOString(),
+    S.slog.push({
       date, time: new Date().toTimeString().slice(0,5),
       branch, type: _isSp ? '協賛入庫' : '入庫', product: it.product, qty: it.qty,
       remaining: S.stock[branch][it.product],
@@ -6843,12 +6284,6 @@ async function submitPurchase(){
   });
 
   saveState();
-  if (_puJobs.length){   // ★保存結果を確認（失敗していたら知らせる）
-    try { var _puRes = await Promise.all(_puJobs);
-      var _puNg = _puRes.filter(function(r){ return r && r.ok === false; });
-      if (_puNg.length) toast('⚠ ' + _puNg.length + '件がサーバに保存できませんでした：' + (_puNg[0].error||'') + '（端末に控えを残しました）', 'error');
-    } catch(e){}
-  }
   syncStockToGAS();  // 仕入入庫をスプシへ反映
   toast(`✓ ${purchaseDraft.length}品目 計${totalQty}本を入庫しました`);
   _backToOrderKind();   // 登録完了 → 取引種別を「注文（販売）」に戻す
@@ -6862,9 +6297,9 @@ async function submitPurchase(){
   updateKPI();
 }
 
-async function deletePurchase(id, skipConfirm){
-  // ★順番：権限 → 存在確認 → ユーザー確認 → サーバ削除(成功を確認) → ローカル削除 → 表示
-  //   以前はサーバ削除を最初に送っていたため、確認でキャンセルしてもサーバからは消えていた。
+function deletePurchase(id, skipConfirm){
+  // サーバ側の履歴も消す（下のローカル削除と合わせる）
+  if (typeof S!=='undefined' && S.gasUrl){ try { gasPost({ action:'deletePurchase', id:id }); } catch(e){} }
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
   const p = (S.purchases || []).find(x => x.id === id);
   if (!p) return toast('仕入記録が見つかりません', 'error');
@@ -6877,26 +6312,14 @@ async function deletePurchase(id, skipConfirm){
   if (restoreStock){
     adjustBucket(p.branch, p.product, 'new', -(p.qty || 0));
     if (!S.slog) S.slog = [];
-    S.slog.push({ _rec: new Date().toISOString(),
+    S.slog.push({
       date: today(), time: new Date().toTimeString().slice(0,5),
       branch: p.branch, type: '仕入取消', product: p.product, qty: -(p.qty || 0),
       remaining: S.stock[p.branch][p.product],
       note: `仕入削除: ${p.supplier || ''}`, user: currentUser.name,
     });
   }
-  // サーバから先に削除し、成功を確認してからローカルを消す（失敗時は何も消さない）
-  if (typeof S!=='undefined' && S.gasUrl){
-    if (typeof showSyncOverlay==='function') showSyncOverlay('削除中…（サーバへ送信しています）');
-    var _svP = await gasPost({ action:'deletePurchase', id:id });
-    if (typeof hideSyncOverlay==='function') hideSyncOverlay();
-    if (_svP && _svP.ok === false){
-      toast('❌ サーバから削除できませんでした：' + (_svP.error||'') + '（削除していません）', 'error');
-      return;
-    }
-  }
   S.purchases = S.purchases.filter(x => x.id !== id);
-  // ★削除した仕入IDを墓標に記録（同期でサーバから戻ってくるのを防ぐ。注文・貸借と同じ方式）
-  try{ var _dp=JSON.parse(localStorage.getItem('lmb_deletedPurchases')||'[]'); if(_dp.indexOf(String(id))<0){ _dp.push(String(id)); localStorage.setItem('lmb_deletedPurchases', JSON.stringify(_dp)); } }catch(e){}
   saveState();
   if (restoreStock) syncStockToGAS();  // 在庫変更をスプシへ反映
   toast(restoreStock ? '✓ 削除し、在庫を戻しました' : '✓ 削除しました（在庫はそのまま）');
@@ -6996,8 +6419,9 @@ function _theoStockMapAsOf(branch, asOf){
       if (String(s.date || '') <= asOf) return;           // 基準日以前は対象外（＝基準日終わり時点）
       if (s.type === '初期登録'){ reset = true; return; }
       var qy = Number(s.qty) || 0;
-      var _d3 = _slogQtyDelta(s);                                                   // 増減は共通関数で判定（漏れ防止）
-      if (_d3 !== null) out[s.product] = (out[s.product]||0) - _d3;                  // その分を戻す
+      if (_BS_OUT[s.type]) out[s.product] = (out[s.product]||0) + Math.abs(qy);
+      else if (_BS_IN[s.type]) out[s.product] = (out[s.product]||0) - Math.abs(qy);
+      else if (_BS_SIGNED[s.type]) out[s.product] = (out[s.product]||0) - qy;
     });
   }
   out.__reset = reset;
@@ -7032,21 +6456,11 @@ function printDailyStockTable(){
     }).join('');
     // CSV（この拠点ぶん）
     var head = ['商品']; for (var day=1; day<=lastDay; day++){ head.push((m+1)+'/'+day); }
-    // ★その日の在庫の総合計（全商品を足した本数）。日ごとの推移が一目で分かる。
-    var totTds = '', totVals = [];
-    for (var i=0;i<lastDay;i++){
-      var _t = 0;
-      prods.forEach(function(p){ _t += Number(dayMaps[i][p.key])||0; });
-      totVals.push(_t);
-      totTds += '<td class="num'+wcls[i+1]+(_t<0?' neg':'')+'">'+_t+'</td>';
-    }
-    var totRow = '<tr class="tot"><td class="nm">合計</td>'+totTds+'</tr>';
     var csvLines = [head.map(csvEsc).join(',')];
     prods.forEach(function(p){ var line=[csvEsc(p.name||'')]; for (var i=0;i<lastDay;i++){ line.push(Number(dayMaps[i][p.key])||0); } csvLines.push(line.join(',')); });
-    csvLines.push(['合計'].concat(totVals).join(','));
     return { br:br, count:prods.length,
       html:'<div class="sect"><div class="secth"><b>拠点：'+escapeHtml(br)+'</b>　／　'+monthLabel+'　／　商品 '+prods.length+' 品目　（数値＝その日終わりの理論在庫）</div>'
-           +'<div class="scr"><table><thead><tr><th class="nm">商品名</th>'+thDays+'</tr>'+totRow+'</thead><tbody>'
+           +'<div class="scr"><table><thead><tr><th class="nm">商品名</th>'+thDays+'</tr></thead><tbody>'
            +(rows || '<tr><td colspan="'+(lastDay+1)+'" style="text-align:center;color:#888">商品が読み込めていません（GAS同期後に）</td></tr>')
            +'</tbody></table></div></div>',
       csv:'【'+br+'】\n'+csvLines.join('\n') };
@@ -7068,8 +6482,6 @@ function printDailyStockTable(){
     + 'td.nm,th.nm{text-align:left;white-space:nowrap;position:sticky;left:0;background:#fff;font-weight:600}'
     + 'th.nm{background:#f0e8d0}'
     + 'td.neg{color:#c00;font-weight:700}'
-    + 'tr.tot td{background:#efe6cc;font-weight:700;border-top:2px solid #666}'
-    + 'tr.tot td.nm{background:#efe6cc}'
     + 'th.sat,td.sat{background:#e6ebf2}'   /* 土曜=薄い青灰 */
     + 'th.sun,td.sun{background:#f2e6e6}'   /* 日曜=薄い赤灰 */
     + '@media print{.noprint{display:none}}'
@@ -7086,8 +6498,8 @@ function printDailyStockTable(){
     +     'var bom="\\ufeff";var blob=new Blob([bom+_csv],{type:"text/csv;charset=utf-8"});'
     +     'var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="日別在庫表_' + monthLabel + '.csv";a.click();'
     +   '};'
-    +   ''   /* ★自動で印刷ダイアログを出さない（中身を確認してから「印刷する」を押す） */
-    + '<'+'/scr'+'ipt>'
+    +   'setTimeout(function(){try{window.print();}catch(e){}},500);'
+    + '<\\/scr'+'ipt>'
     + '</body></html>';
 
   var w = window.open('', '_blank');
@@ -7140,7 +6552,7 @@ function printStocktakeSheetAsOf(){
     + sections
     + '<div class="foot"><span>※ 実数を数えたら ✓ を記入 → 帳簿との差異を記入。保管用に署名してください。</span><span>実施者印：______　確認者印：______</span></div>'
     + '<div class="noprint" style="text-align:center;margin-top:14px"><button onclick="window.print()" style="padding:8px 20px;font-size:14px;cursor:pointer">印刷する</button></div>'
-    + ''   /* 自動で印刷ダイアログを出さない（下の「印刷する」ボタンで印刷） */
+    + '<scr'+'ipt>setTimeout(function(){try{window.print();}catch(e){}},400);<\/scr'+'ipt>'
     + '</body></html>';
   var w = window.open('', '_blank');
   if (!w){ toast('ポップアップがブロックされました。ブラウザで許可してから再度お試しください'); return; }
@@ -7192,7 +6604,7 @@ function printStocktakeSheet(){
     + '</tbody></table>'
     + '<div class="foot"><span>※ 実数を数えたら ✓ を記入 → 帳簿との差異を記入。保管用に署名してください。</span><span>実施者印：______　確認者印：______</span></div>'
     + '<div class="noprint" style="text-align:center;margin-top:14px"><button onclick="window.print()" style="padding:8px 20px;font-size:14px;cursor:pointer">印刷する</button></div>'
-    + ''   /* 自動で印刷ダイアログを出さない（下の「印刷する」ボタンで印刷） */
+    + '<scr'+'ipt>setTimeout(function(){try{window.print();}catch(e){}},400);<\/scr'+'ipt>'
     + '</body></html>';
   var w = window.open('', '_blank');
   if (!w){ toast('ポップアップがブロックされました。ブラウザで許可してから再度お試しください'); return; }
@@ -7485,7 +6897,6 @@ function loadLending(force){
       const b=await gasGet('getLendings');     if(b&&b.lendings){ let _dl=[]; try{ _dl=JSON.parse(localStorage.getItem('lmb_deletedLendings')||'[]'); }catch(e){} S.lendings=b.lendings.filter(l=>_dl.indexOf(l.id)<0); }
       saveState();
       renderLendPartners(); fillLendSelectors(); renderLendBalance(); renderLendList(); renderLendOpeningForm();
-      if(typeof updateTabDots==='function') updateTabDots();   // ★サーバ取得後もタブの通知を更新
     }catch(e){ if(force) toast('最新の取得に失敗しました','error'); }
   })();
 }
@@ -7501,15 +6912,11 @@ function saveLendPartner(){
   document.getElementById('lp-name').value=''; document.getElementById('lp-uid').value='';
   toast('✓ 貸借先を登録しました'); renderLendPartners(); fillLendSelectors();
 }
-async function deleteLendPartner(id){
+function deleteLendPartner(id){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 削除権限がありません', 'error');
   if(!confirm('この貸借先を削除しますか？（履歴は残ります）')) return;
-  // ★順番：サーバ削除の成功を確認してから端末を消す（失敗時は何も消さない）
-  if(S.gasUrl){
-    var _svLp = await gasPost({action:'deleteLendPartner', id:id});
-    if (_svLp && _svLp.ok === false){ toast('❌ サーバから削除できませんでした：' + (_svLp.error||'') + '（削除していません）', 'error'); return; }
-  }
   S.lendPartners=(S.lendPartners||[]).filter(p=>p.id!==id); saveState();
+  if(S.gasUrl) gasPost({action:'deleteLendPartner', id});
   renderLendPartners(); fillLendSelectors();
 }
 function renderLendPartners(){
@@ -7531,11 +6938,11 @@ function fillLendSelectors(){
   const _ld=document.getElementById('ln-date'); if(_ld && !_ld.value) _ld.value=today();
 }
 
-function _lendStockMove(branch, product, signedQty, type, note, bizDate){
+function _lendStockMove(branch, product, signedQty, type, note){
   if(signedQty < 0) depleteStock(branch, product, -signedQty);
   else restoreStockBkt(branch, product, signedQty);
   if(!S.slog) S.slog=[];
-  S.slog.push({ _rec: new Date().toISOString(), date:(bizDate||today()), time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), branch, type, product, qty:Math.abs(signedQty), remaining:S.stock[branch][product], orderId:'', note });
+  S.slog.push({ date:today(), time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), branch, type, product, qty:Math.abs(signedQty), remaining:S.stock[branch][product], orderId:'', note });
 }
 
 // ══ 複数商品の明細（貸借・拠点間移動）══
@@ -7565,8 +6972,6 @@ function addLendItem(){
   var ex = lendDraft.find(function(x){ return x.product === prod; });
   if (ex) ex.qty += qty; else lendDraft.push({ product: prod, qty: qty });
   document.getElementById('ln-qty').value = '';
-  // ★続けて入力しやすいよう、商品の選択欄へ戻す
-  try { var _p = document.getElementById('ln-prod'); if (_p){ _p.focus(); if (typeof _p.showPicker === 'function'){ try{ _p.showPicker(); }catch(e){} } } } catch(e){}
   renderLendDraft();
   toast('明細に追加：' + prod + ' ' + qty + '本');
 }
@@ -7590,11 +6995,6 @@ function addMoveItem(){
   var ex = moveDraft.find(function(x){ return x.product === prod; });
   if (ex) ex.qty += qty; else moveDraft.push({ product: prod, qty: qty });
   document.getElementById('tr-qty').value = '';
-  // ★続けて入力しやすいよう、商品の選択欄へ戻す（そのまま次の商品を選べる）
-  try {
-    var _p = document.getElementById('tr-prod');
-    if (_p){ _p.focus(); if (typeof _p.showPicker === 'function') { try { _p.showPicker(); } catch(e){} } }
-  } catch(e){}
   renderMoveDraft();
   if (typeof updateTransferPreview === 'function') updateTransferPreview();
   toast('明細に追加：' + prod + ' ' + qty + '本');
@@ -7635,7 +7035,7 @@ function recordLending(){
   const _lnDate=(document.getElementById('ln-date').value||today());
   let _total=0;
   _items.forEach(function(it, _i){
-    _lendStockMove(branch, it.product, sign*it.qty, kind, kind+'：'+(partner.name||'')+(memo?'（'+memo+'）':''), _lnDate);
+    _lendStockMove(branch, it.product, sign*it.qty, kind, kind+'：'+(partner.name||'')+(memo?'（'+memo+'）':''));
     const rec={ id:'ln-'+Date.now()+'-'+_i+'-'+Math.floor(Math.random()*9000+1000), date:_lnDate,
       partnerId:pid, partnerName:partner.name||'', partnerUid:partner.uid||'',
       kind, branch, product:it.product, qty:it.qty, dueDate:due, memo, status:'未返却', returnedDate:'',
@@ -7651,7 +7051,6 @@ function recordLending(){
   toast('✓ '+kind+' '+_items.length+'商品を記録しました（在庫'+(kind==='貸出'?'−':'+')+_total+'本）');
   _backToOrderKind();   // 登録完了 → 取引種別を「注文（販売）」に戻す
   renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock();
-  if(typeof updateTabDots==='function') updateTabDots();   // ★データを消したらタブの通知も更新する
 }
 
 // 貸借残 初期登録：在庫を動かさず（_lendStockMoveを呼ばない）、残数レコードだけ作成
@@ -7708,12 +7107,8 @@ function _slogEnqueue(entry){
   // 一意なIDを付ける（二重送信しても増えないようにするため）
   if (!entry.id) entry.id = 'sl-' + Date.now() + '-' + Math.floor(Math.random()*90000+10000);
   if (!entry.user && typeof currentUser !== 'undefined' && currentUser) entry.user = currentUser.name || '';
-  if (!entry._rec) entry._rec = new Date().toISOString();   // ★記録日時（実際に操作した日時）を必ず入れる
-  // ★処理された順番（連番）。出庫→協賛出庫のように同じ時刻で連続して記録される場合、
-  //   時刻だけでは順序が定まらないため、計算された順に並べるための番号を持たせる。
-  if (entry._seq == null){ try { window.__slogSeq = (window.__slogSeq || 0) + 1; entry._seq = window.__slogSeq; } catch(e){} }
   _slogQueue.push({
-    id: entry.id, rec: entry._rec || '', date: entry.date || today(), time: entry.time || '',
+    id: entry.id, date: entry.date || today(), time: entry.time || '',
     branch: entry.branch || '', type: entry.type || '', product: entry.product || '',
     qty: entry.qty || 0, remaining: (entry.remaining === undefined ? '' : entry.remaining),
     orderId: entry.orderId || '', note: entry.note || '', user: entry.user || ''
@@ -7722,10 +7117,8 @@ function _slogEnqueue(entry){
   _slogTimer = setTimeout(_slogFlush, 1500);
   return entry;
 }
-// S.slog.push を包む（サーバ送信キューに入れる）。
-// ★重要：S.slog を filter などで作り直すと新しい配列になり包みが外れる＝以後サーバに保存されなくなる。
-//   そのため関数化し、S.slog を差し替えたら必ず _slogRewrap() を呼ぶこと。
-function _slogRewrap(){
+// S.slog.push を包む（1回だけ適用）
+(function(){
   if (!S.slog) S.slog = [];
   if (S.slog.__wrapped) return;
   var _origPush = S.slog.push.bind(S.slog);
@@ -7734,8 +7127,7 @@ function _slogRewrap(){
     return _origPush.apply(null, arguments);
   };
   try { Object.defineProperty(S.slog, '__wrapped', { value:true, enumerable:false }); } catch(e){}
-}
-_slogRewrap();
+})();
 // 画面を閉じる前に未送信ぶんを送る
 window.addEventListener('beforeunload', function(){ if (_slogQueue.length) _slogFlush(); });
 
@@ -7968,8 +7360,6 @@ function addFreeItem(){
   var ex=freeDraft.find(function(x){ return x.product===prod; });
   if(ex) ex.qty+=qty; else freeDraft.push({product:prod, qty:qty});
   document.getElementById('fr-qty').value='';
-  // ★続けて入力しやすいよう、商品の選択欄へ戻す
-  try { var _p = document.getElementById('fr-prod'); if (_p){ _p.focus(); if (typeof _p.showPicker === 'function'){ try{ _p.showPicker(); }catch(e){} } } } catch(e){}
   renderFreeDraft();
   toast('明細に追加：'+prod+' '+qty+'本');
 }
@@ -8008,7 +7398,7 @@ function submitFree(){
   items.forEach(function(it){
     var used=depleteStock(br, it.product, it.qty);
     var pk=[]; if(used.old) pk.push('旧'+used.old); if(used.sp) pk.push('協'+used.sp); if(used.new) pk.push('新'+used.new);
-    S.slog.push({ _rec: new Date().toISOString(), date:dt, time:t, branch:br, type:'無償提供', product:it.product, qty:it.qty,
+    S.slog.push({ date:dt, time:t, branch:br, type:'無償提供', product:it.product, qty:it.qty,
       remaining:S.stock[br][it.product],
       note:'無償提供['+purpose+']'+(to?'：'+to:'')+(memo?'（'+memo+'）':'')+(pk.length?'（'+pk.join('・')+'）':''),
       user:user });
@@ -8069,7 +7459,7 @@ function submitReturn(){
   var rd = (document.getElementById('rt-date')||{}).value || today();
 
   var sign = (rec.kind === '貸出') ? 1 : -1;
-  _lendStockMove(rec.branch, rec.product, sign*q, (rec.kind==='貸出' ? '返却受' : '借入返却'), '返却：' + (rec.partnerName||'') + '（' + q + '本）', (rec.returnedDate||today()));
+  _lendStockMove(rec.branch, rec.product, sign*q, (rec.kind==='貸出' ? '返却受' : '借入返却'), '返却：' + (rec.partnerName||'') + '（' + q + '本）');
   rec.returnedQty = (Number(rec.returnedQty)||0) + q;
   var done = _lendOutstanding(rec) <= 0;
   rec.status = done ? '返却済' : '未返却';
@@ -8109,7 +7499,7 @@ function returnLending(id){
   renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock(); if(typeof updateTabDots==='function') updateTabDots();
 }
 
-async function deleteLending(id, skipConfirm){
+function deleteLending(id, skipConfirm){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 削除権限がありません（社長・閲覧者は不可）','error');
   const rec=(S.lendings||[]).find(l=>l.id===id); if(!rec) return;
   const q=Number(rec.qty)||0;
@@ -8122,14 +7512,9 @@ async function deleteLending(id, skipConfirm){
   msg += (reversal!==0) ? ('\n在庫が'+(reversal>0?'戻ります（+':'減ります（−')+Math.abs(reversal)+'本）。') : '\n（在庫は変わりません）';
   if(!confirm(msg)) return;
   if(reversal!==0){ _lendStockMove(rec.branch, rec.product, reversal, '貸借削除', '貸借履歴の削除：'+(rec.partnerName||'')); }
-  // ★順番：サーバ削除の成功を確認してから端末を消す（失敗時は何も消さない）
-  if(S.gasUrl){
-    var _svLn = await gasPost({action:'deleteLending', id:id});
-    if (_svLn && _svLn.ok === false){ toast('❌ サーバから削除できませんでした：' + (_svLn.error||'') + '（削除していません）', 'error'); return; }
-  }
   S.lendings=(S.lendings||[]).filter(l=>l.id!==id); saveState();
   try{ let _dl=JSON.parse(localStorage.getItem('lmb_deletedLendings')||'[]'); if(_dl.indexOf(id)<0){ _dl.push(id); localStorage.setItem('lmb_deletedLendings', JSON.stringify(_dl)); } }catch(e){}
-  if(S.gasUrl && reversal!==0) syncStockToGAS();
+  if(S.gasUrl){ gasPost({action:'deleteLending', id:id}); if(reversal!==0) syncStockToGAS(); }
   toast('✓ 貸借履歴を削除しました');
   renderLendBalance(); renderLendList(); if(typeof renderStock==='function') renderStock();
 }
@@ -8408,14 +7793,9 @@ function adjustBucket(branch, product, bucketKey, delta){
 
 // 在庫初期登録パネル：現在のバケツ値を入力欄に表示
 function renderStockInit(){
-  // 基準日の初期値（未入力なら今日）。取引より前の日付に変えて使うことを想定。
-  try{ var _sd=document.getElementById('si-date'); if(_sd && !_sd.value) _sd.value = today(); }catch(e){}
   const tb = document.getElementById('si-tbody');
   if (!tb) return;
   const br = (document.getElementById('si-br') || {}).value || '仙台';
-  // ★基準日：初期登録は「この日の在庫」という出発点。取引より前の日付にすると
-  //   日別在庫表やさかのぼり在庫が正しく積み上がる（未入力なら今日）。
-  const _siDate = ((document.getElementById('si-date') || {}).value || today());
   tb.innerHTML = _prodCols().map(p => {
     const b = _bkt(br, p.key);
     const inp = (id, v, brd) => `<input type="number" id="si-${id}-${p.key}" value="${v}" step="1" oninput="siRecalc('${p.key}')" style="width:84px;text-align:center;border:1px solid ${brd};border-radius:6px">`;
@@ -8483,7 +7863,6 @@ function transitQty(branch, product){   // その拠点「宛て」の輸送中�
 }
 
 async function transferStock(){
-  var _mvJobs = [];   // 送信を集め、後でまとめて結果を確認
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
@@ -8528,20 +7907,14 @@ async function transferStock(){
     const _p = []; if (used.old) _p.push('旧' + used.old); if (used.sp) _p.push('協' + used.sp); if (used.new) _p.push('新' + used.new);
     const _brk = _p.length ? '（' + _p.join('・') + '）' : '';
     const note = `拠点間移動 ${from}→${to}${_brk}` + (memo ? '：' + memo : '');
-    S.slog.push({ _rec: new Date().toISOString(), date: _mvDate, time: t, branch: from, type: '移動出', product: it.product, qty: it.qty, remaining: S.stock[from][it.product], note: note, user: user });
+    S.slog.push({ date: today(), time: t, branch: from, type: '移動出', product: it.product, qty: it.qty, remaining: S.stock[from][it.product], note: note, user: user });
     const rec = { id:'mv-'+Date.now()+'-'+_i+'-'+Math.floor(Math.random()*9000+1000), date: _mvDate, from: from, to: to,
       product: it.product, qty: it.qty, used: used, status:'輸送中', memo: memo, sentBy: user, sentAt: new Date().toISOString(),
       recvQty:'', recvDate:'', recvBy:'', lostQty:'' };
     S.moves.push(rec);
-    if (S.gasUrl){ _mvJobs.push(gasPost({ action:'saveMove', id:rec.id, date:rec.date, from:rec.from, to:rec.to, product:rec.product,
-      qty:rec.qty, used:JSON.stringify(rec.used), status:rec.status, memo:rec.memo, sentBy:rec.sentBy })); }
+    if (S.gasUrl){ gasPost({ action:'saveMove', id:rec.id, date:rec.date, from:rec.from, to:rec.to, product:rec.product,
+      qty:rec.qty, used:JSON.stringify(rec.used), status:rec.status, memo:rec.memo, sentBy:rec.sentBy }); }
   });
-  if (_mvJobs.length){   // ★保存結果を確認
-    try { var _mvRes = await Promise.all(_mvJobs);
-      var _mvNg = _mvRes.filter(function(r){ return r && r.ok === false; });
-      if (_mvNg.length) toast('⚠ ' + _mvNg.length + '件がサーバに保存できませんでした：' + (_mvNg[0].error||'') + '（端末に控えを残しました）', 'error');
-    } catch(e){}
-  }
   saveState();
   syncStockToGAS();
   moveDraft = []; renderMoveDraft();
@@ -8574,19 +7947,17 @@ async function receiveMove(id){
     const part = _splitUsed(m.used, rq);
     restoreStockBkt(m.to, m.product, rq, part);
     _sumStock(m.to, m.product);
-    S.slog.push({ _rec: new Date().toISOString(), date: (m.recvDate||today()), time: t, branch: m.to, type: '移動入', product: m.product, qty: rq,
+    S.slog.push({ date: today(), time: t, branch: m.to, type: '移動入', product: m.product, qty: rq,
       remaining: S.stock[m.to][m.product], note: `拠点間移動 ${m.from}→${m.to}：受領` + (lost?`（紛失${lost}本）`:''), user: user });
   }
   if (lost > 0){
-    S.slog.push({ _rec: new Date().toISOString(), date: (m.recvDate||today()), time: t, branch: m.to, type: '輸送中紛失', product: m.product, qty: lost,
+    S.slog.push({ date: today(), time: t, branch: m.to, type: '輸送中紛失', product: m.product, qty: lost,
       remaining: S.stock[m.to][m.product] || 0, note: `拠点間移動 ${m.from}→${m.to}：発送${m.qty}本のうち${lost}本が届かず`, user: user });
   }
   m.status='完了'; m.recvQty=rq; m.recvDate=today(); m.recvBy=user; m.lostQty=lost||'';
   saveState();
-  if (S.gasUrl){ var _svRv = await gasPost({ action:'saveMove', id:m.id, date:m.date, from:m.from, to:m.to, product:m.product, qty:m.qty,
-    used:JSON.stringify(m.used), status:m.status, memo:m.memo, sentBy:m.sentBy, recvQty:m.recvQty, recvDate:m.recvDate, recvBy:m.recvBy, lostQty:m.lostQty });
-    if (_svRv && _svRv.ok === false) toast('⚠ サーバに保存できませんでした：' + (_svRv.error||'') + '（端末に控えを残しました）', 'error');
-    syncStockToGAS(); }
+  if (S.gasUrl){ gasPost({ action:'saveMove', id:m.id, date:m.date, from:m.from, to:m.to, product:m.product, qty:m.qty,
+    used:JSON.stringify(m.used), status:m.status, memo:m.memo, sentBy:m.sentBy, recvQty:m.recvQty, recvDate:m.recvDate, recvBy:m.recvBy, lostQty:m.lostQty }); syncStockToGAS(); }
   toast(`✓ ${m.to} で ${rq}本 を受領しました` + (lost?`（紛失 ${lost}本 を記録）`:''));
   renderMoves(); if (typeof renderStock === 'function') renderStock(); if (typeof updateKPI === 'function') updateKPI();
 }
@@ -8601,14 +7972,12 @@ async function cancelMove(id, skipConfirm){
   const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : '';
   restoreStockBkt(m.from, m.product, m.qty, m.used);
   _sumStock(m.from, m.product);
-  S.slog.push({ _rec: new Date().toISOString(), date: (m.recvDate||today()), time: new Date().toTimeString().slice(0,5), branch: m.from, type: '移動取消', product: m.product,
+  S.slog.push({ date: today(), time: new Date().toTimeString().slice(0,5), branch: m.from, type: '移動取消', product: m.product,
     qty: m.qty, remaining: S.stock[m.from][m.product], note: `拠点間移動 ${m.from}→${m.to}：発送を取消`, user: user });
   m.status='取消'; m.recvDate=today(); m.recvBy=user;
   saveState();
-  if (S.gasUrl){ var _svCn = await gasPost({ action:'saveMove', id:m.id, date:m.date, from:m.from, to:m.to, product:m.product, qty:m.qty,
-    used:JSON.stringify(m.used), status:m.status, memo:m.memo, sentBy:m.sentBy, recvQty:'', recvDate:m.recvDate, recvBy:m.recvBy, lostQty:'' });
-    if (_svCn && _svCn.ok === false) toast('⚠ サーバに保存できませんでした：' + (_svCn.error||'') + '（端末に控えを残しました）', 'error');
-    syncStockToGAS(); }
+  if (S.gasUrl){ gasPost({ action:'saveMove', id:m.id, date:m.date, from:m.from, to:m.to, product:m.product, qty:m.qty,
+    used:JSON.stringify(m.used), status:m.status, memo:m.memo, sentBy:m.sentBy, recvQty:'', recvDate:m.recvDate, recvBy:m.recvBy, lostQty:'' }); syncStockToGAS(); }
   toast(`✓ 発送を取り消しました（${m.from} に ${m.qty}本 戻しました）`);
   renderMoves(); if (typeof renderStock === 'function') renderStock(); if (typeof updateKPI === 'function') updateKPI();
 }
@@ -8673,14 +8042,13 @@ function renderMoves(){
 }
 
 async function saveStockInit(){
-  if(typeof canStockWrite==='function' && !canStockWrite()) return toast('🔒 在庫の初期登録・調整は管理者のみ実行できます','error');
+  if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
   const br = (document.getElementById('si-br') || {}).value || '仙台';
-  // ★基準日：初期登録は「この日の在庫」という出発点。取引より前の日付にすると
-  //   日別在庫表やさかのぼり在庫が正しく積み上がる（未入力なら今日）。
+  // ⑬ 基準日：初期登録は「この日の在庫」という出発点。取引より前の日付にすると計算が正しく積み上がる。
   const _siDate = ((document.getElementById('si-date') || {}).value || today());
-  if (!confirm(`${br}の在庫を、入力した旧値・協賛・新値で上書きします。\n基準日：${_siDate}（この日の在庫として記録されます）\n\nよろしいですか？`)) return;
+  if (!confirm(`${br}の在庫を、入力した旧値・協賛・新値で上書きします。\n基準日：${_siDate}（この日の在庫として記録）\n\nよろしいですか？`)) return;
   if (!S.slog) S.slog = [];
   const _it = new Date().toTimeString().slice(0,5);
   const _iu = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.name||'') : '';
@@ -8689,37 +8057,25 @@ async function saveStockInit(){
     const o = parseInt((document.getElementById('si-old-' + p.key) || {}).value) || 0;
     const s = parseInt((document.getElementById('si-sp-'  + p.key) || {}).value) || 0;
     const n = parseInt((document.getElementById('si-new-' + p.key) || {}).value) || 0;
-    const _before = ((S.stock[br] || {})[p.key]) || 0;      // 上書き前の在庫
+    const _before = ((S.stock[br] || {})[p.key]) || 0;
     setBuckets(br, p.key, o, s, n);
-    const _after = ((S.stock[br] || {})[p.key]) || 0;       // 上書き後の在庫
-    // ★商品ごとに在庫履歴を残す（「(一括)0本」だけでは何をいくつにしたか分からないため）
-    // ★数字が同じでも「初期登録を実行した」事実は残す（基準点をいつ引き直したかが分かる）
-    S.slog.push({ _rec: new Date().toISOString(), date: _siDate, time: _it, branch: br, type: '初期登録', product: p.key,
+    const _after = ((S.stock[br] || {})[p.key]) || 0;
+    // ⑭ 商品ごとに記録（「(一括)0本」だけでは何をいくつにしたか分からない）
+    S.slog.push({ date: _siDate, time: _it, branch: br, type: '初期登録', product: p.key,
       qty: _after - _before, remaining: _after,
       note: '初期登録：' + _before + '本 → ' + _after + '本（旧' + o + '/協' + s + '/新' + n + '）'
             + (_before === _after ? '（変更なし）' : ''), user: _iu });
     if (_before !== _after) _chg++;
   });
   saveState();
-  showSyncOverlay('保存中…（サーバへ送信しています）');
-  await syncStockToGAS();     // ★保存の完了を待ってから先へ進む（待たないと同期で元に戻る）
-  hideSyncOverlay();
-  // ★在庫を丸ごと上書きする重要操作。操作履歴に「初期登録」と拠点を残す。
-  //   （syncStockToGAS は全拠点まとめての updateAllStock なので、履歴が「在庫一括更新／両拠点」としか残らない）
-  if (S.gasUrl){
-    var _cnt = 0; try { _cnt = Object.keys(S.stock[br] || {}).length; } catch(e){}
-    try { var _svLg = await gasPost({ action:'logOp', op:'在庫初期登録', target: br, detail: br + 'の在庫を上書き（' + _cnt + '品目）／基準日 ' + _siDate,
-                    branch: br, _actorBranch: br,
-                    user: (typeof currentUser!=='undefined' && currentUser ? currentUser.name : '') });
-          if (_svLg && _svLg.ok === false) toast('⚠ 操作履歴をサーバに残せませんでした（在庫は保存されています）', 'error'); } catch(e){}
-  }
-  toast(`✓ ${br}の在庫を初期登録しました（基準日 ${_siDate}／変更 ${_chg} 品目）`);
+  syncStockToGAS();
+  toast(`✓ ${br}の在庫を初期登録（上書き）しました`);
   var _si = document.getElementById('stock-init'); if (_si) _si.style.display = 'none';   // 保存したら初期登録パネルを閉じる
   renderStock(); updateKPI();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e){ window.scrollTo(0,0); }   // 登録後は一番上へ
 }
 
-async function syncStockToGAS(){
+function syncStockToGAS(){
   if (!S.gasUrl) return;
   const stockData = [];
   Object.keys(S.stock || {}).forEach(branch => {
@@ -8730,12 +8086,7 @@ async function syncStockToGAS(){
                        qtyOld: b.old, qtySp: b.sp, qtyNew: b.new });
     });
   });
-  try {
-    // ★保存の完了を待つ。待たずに画面を更新すると、直後の同期がサーバの古い値で
-    //   在庫を上書きし、「変えたのに元に戻る」ことがある。
-    var _r = await gasPost({ action: 'updateAllStock', stockData: stockData });
-    if (_r && _r.ok === false) toast('⚠ 在庫をサーバに保存できませんでした：' + (_r.error||'') + '（端末に控えを残しました）', 'error');
-  } catch(e){}
+  try { gasPost({ action: 'updateAllStock', stockData: stockData }); } catch(e){}
   // 在庫を書き換えたのでローカルの版番号も+1（サーバの版上げをミラー）。未取得時は触らない
   if (S.stockRev != null) S.stockRev = Number(S.stockRev) + 1;
 }
@@ -8743,14 +8094,9 @@ async function syncStockToGAS(){
 // 同時編集ガード：保存直前にサーバの在庫版番号を取得し、自分が読んだ版と違えば競合とみなす
 async function guardStockWrite(){
   if (!S.gasUrl) return true;            // GAS未接続時は素通り
-  // ★自分の未送信在庫更新が残っているときは、サーバの版番号が自分の操作で先に上がっている。
-  //   これを「他端末の更新」と誤検知して連続操作を止めていたので、自分の未送信中は素通りする。
-  try { if ((_qLoad()||[]).some(function(it){ return it && it.data && it.data.action === 'updateAllStock'; })) return true; } catch(e){}
   try {
     const r = await gasGet('getStockRev');
     if (r && typeof r.rev !== 'undefined' && S.stockRev != null && Number(r.rev) !== Number(S.stockRev)){
-      // ★差が1だけなら「自分の直前の操作」の可能性が高い。版番号を取り込んで続行する（誤ブロックを防ぐ）。
-      if (Math.abs(Number(r.rev) - Number(S.stockRev)) <= 1){ S.stockRev = Number(r.rev); return true; }
       toast('⚠️ 他の端末で在庫が更新されています。先に「GAS同期」で最新を取り込んでから操作してください', 'error');
       return false;
     }
@@ -8975,8 +8321,6 @@ function enhanceScrollTabs(){
 // 調整権限に応じて調整系UIの表示/非表示を切替（社長＝取引可・調整不可は調整パネルを隠す）
 function applyRoleUI(){
   try{ document.body.classList.toggle('no-adjust', !(typeof canAdjust==='function' && canAdjust())); }catch(e){}
-  // 在庫の初期登録・調整は管理者のみ。ボタン自体を隠す（押せると誤操作のもと）
-  try{ document.body.classList.toggle('no-stockwrite', !(typeof canStockWrite==='function' && canStockWrite())); }catch(e){}
 }
 window.addEventListener('DOMContentLoaded', applyRoleUI);
 window.addEventListener('DOMContentLoaded', enhanceScrollTabs);
