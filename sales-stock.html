@@ -754,9 +754,9 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         <div class="fg" style="flex:1 1 120px"><label>仕入先</label><select class="fc" id="pu-supplier"><option>マルシェジャパン</option><option>オーク酒販</option><option>その他</option></select></div>
         <div class="fg" style="flex:0 1 80px"><label>拠点</label><select class="fc" id="pu-branch"><option>仙台</option><option>京都</option></select></div>
         <div class="fg" style="flex:1 1 130px"><label>商品 <span class="req">*</span></label><select class="fc" id="pu-product" onchange="updatePuCost()"></select></div>
-        <div class="fg" style="flex:0 1 70px"><label>本数 <span class="req">*</span></label><input class="fc" id="pu-qty" type="number" min="1" step="1"></div>
+        <div class="fg" style="flex:0 1 70px"><label>本数 <span class="req">*</span></label><input class="fc" id="pu-qty" type="number" min="1" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();addPurchaseItem();}"></div>
         <div class="fg" style="flex:0 1 90px"><label>仕入値の種類</label><select class="fc" id="pu-costtier" onchange="updatePuCost()"><option value="new">新値</option><option value="old">旧値</option><option value="sp">協賛（無償）</option></select></div>
-        <div class="fg" style="flex:0 1 90px"><label>仕入単価</label><input class="fc" id="pu-cost" type="number" min="0" step="100" title="商品マスターの原価が自動入力されます（手動変更も可）"></div>
+        <div class="fg" style="flex:0 1 90px"><label>仕入単価</label><input class="fc" id="pu-cost" type="number" min="0" step="100" title="商品マスターの原価が自動入力されます（手動変更も可）" onkeydown="if(event.key==='Enter'){event.preventDefault();addPurchaseItem();}"></div>
         <div class="fg" style="flex:1 1 110px"><label>備考</label><input class="fc" id="pu-note"></div>
         <div class="fg" style="flex:0 1 auto"><button class="btn btn-g" onclick="addPurchaseItem()">＋ 明細に追加</button></div>
       </div>
@@ -785,7 +785,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         <div class="fg"><label>拠点</label><select class="fc" id="ln-branch"><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>商品</label><select class="fc" id="ln-prod"><option value="">— 商品を選択 —</option></select></div>
         <div class="fg"><label>貸借日</label><input type="date" class="fc" id="ln-date" min="2000-01-01" max="2100-12-31"></div>
-        <div class="fg"><label>数量（本）</label><input type="number" class="fc" id="ln-qty" min="1" placeholder="例:12"></div>
+        <div class="fg"><label>数量（本）</label><input type="number" class="fc" id="ln-qty" min="1" placeholder="例:12" onkeydown="if(event.key==='Enter'){event.preventDefault();addLendItem();}"></div>
         <div class="fg"><label>返却予定日（任意）</label><input type="date" class="fc" id="ln-due" min="2000-01-01" max="2100-12-31"></div>
         <div class="fg"><label>メモ</label><input class="fc" id="ln-memo" placeholder="任意"></div>
         <div class="fg"><label>&nbsp;</label><button class="btn-s" onclick="addLendItem()" title="複数の商品をまとめて記録したいときに使います" style="padding:0 1rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 商品を追加</button></div>
@@ -836,7 +836,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         <div class="fg"><label>移動先</label><select class="fc" id="tr-to"><option>京都</option><option>仙台</option></select></div>
         <div class="fg"><label>商品</label><select class="fc" id="tr-prod"></select></div>
         <div class="fg"><label>発送日</label><input type="date" class="fc" id="tr-date" min="2000-01-01" max="2100-12-31"></div>
-        <div class="fg"><label>本数</label><input class="fc" id="tr-qty" type="number" min="1" step="1" placeholder="例：5"></div>
+        <div class="fg"><label>本数</label><input class="fc" id="tr-qty" type="number" min="1" step="1" placeholder="例：5" onkeydown="if(event.key==='Enter'){event.preventDefault();addMoveItem();}"></div>
         <div class="fg"><label>メモ（任意）</label><input class="fc" id="tr-memo" placeholder="例：他社返却分を京都へ"></div>
         <div class="fg"><label>&nbsp;</label><button class="btn-s" onclick="addMoveItem()" title="複数の商品をまとめて発送したいときに使います" style="padding:0 1rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 商品を追加</button></div>
       </div>
@@ -6299,6 +6299,8 @@ function addPurchaseItem(){
   const tier = (document.getElementById('pu-costtier') || {}).value || 'new';
   purchaseDraft.push({ product, qty, cost: (tier === 'sp' ? 0 : cost), tier: tier });
   document.getElementById('pu-qty').value = '';
+  // 追加後は商品選択を空に戻し、続けて次の商品をどんどん入れられるようにする
+  var _pp = document.getElementById('pu-product'); if(_pp){ _pp.value=''; try{ _pp.focus(); }catch(e){} }
   renderPurchaseDraft();
   toast(`明細に追加：${product} ${qty}本`);
 }
