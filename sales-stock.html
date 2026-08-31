@@ -1500,24 +1500,7 @@ function _pendingOrderIds(){
       if (d.action === 'saveOrderDates' && d.orderId) ids[String(d.orderId)] = 1;
     });
   }catch(e){}
-  // ★直近に状態変更した注文も保護（送信成功後・サーバ反映前に同期が走ると
-  //   サーバの古い値で上書きされ「出荷済にしても戻る」ため。90秒だけ端末側を優先）。
-  try{
-    var g = JSON.parse(localStorage.getItem('lmb_recentOrderEdits')||'{}');
-    var now = Date.now(), keep = {};
-    Object.keys(g).forEach(function(oid){ if (now - g[oid] < 90000){ ids[oid] = 1; keep[oid] = g[oid]; } });
-    localStorage.setItem('lmb_recentOrderEdits', JSON.stringify(keep));
-  }catch(e){}
   return ids;
-}
-// 注文を変更したら「直近編集」として記録（90秒間、同期でサーバ上書きされない）
-function _markOrderEdited(id){
-  if (!id) return;
-  try{
-    var g = JSON.parse(localStorage.getItem('lmb_recentOrderEdits')||'{}');
-    g[String(id)] = Date.now();
-    localStorage.setItem('lmb_recentOrderEdits', JSON.stringify(g));
-  }catch(e){}
 }
 function _qLoad(){ try{ return JSON.parse(localStorage.getItem(_QKEY)||'[]'); }catch(e){ return []; } }
 function _qSave(q){ try{ localStorage.setItem(_QKEY, JSON.stringify(q)); }catch(e){} }
@@ -3258,7 +3241,6 @@ async function changeShipStatus(id, val){
   }
   o.status = val;
   if (willShip && !o.shippedAt) o.shippedAt = new Date().toISOString();
-  if (typeof _markOrderEdited === 'function') _markOrderEdited(o.id);   // ★90秒間サーバ上書きから保護（出荷済が戻るのを防ぐ）
   saveState();
   if (S.gasUrl){ try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} }
   toast('✓ 出荷ステータス: ' + val);
@@ -3326,7 +3308,11 @@ function deleteOrder(id){
   }
 
   // 3. スプシの注文行を削除
-  if (S.gasUrl) { try { gasPost({ action:'deleteOrder', id:id, timestamp:order.timestamp, store:order.store, amount:order.amount }); } catch(e){} }
+  if (S.gasUrl) { try {
+    // ★合成ID(ord-legacy)はスプシのO列に存在しないので、照合に使える元の作成日時(_matchTs)を必ず送る。
+    var _delId = (String(id).indexOf('ord-legacy')===0) ? '' : id;   // 合成IDはGASに渡さない（O列照合を空振りさせない）
+    gasPost({ action:'deleteOrder', id:_delId, timestamp:(order._matchTs||order.timestamp), store:order.store, amount:order.amount });
+  } catch(e){} }
 
   // 4. ローカルから削除
   S.orders = S.orders.filter(o => o.id !== id);
@@ -7757,7 +7743,10 @@ function _removeEditingOrderForConvert(){
       }
     }
     // スプシの注文行を削除（別種別へ変換するので、注文としては消す）
-    if (S.gasUrl){ try { gasPost({ action:'deleteOrder', id:id, timestamp:old.timestamp, store:old.store, amount:old.amount }); } catch(e){} }
+    if (S.gasUrl){ try {
+      var _delId2 = (String(id).indexOf('ord-legacy')===0) ? '' : id;
+      gasPost({ action:'deleteOrder', id:_delId2, timestamp:(old._matchTs||old.timestamp), store:old.store, amount:old.amount });
+    } catch(e){} }
     S.orders = (S.orders || []).filter(function(o){ return o.id !== id; });
     saveState();
   }
