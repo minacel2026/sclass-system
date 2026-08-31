@@ -8299,6 +8299,9 @@ async function saveStockInit(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
   const br = (document.getElementById('si-br') || {}).value || '仙台';
+  // ★基準日：初期登録は「この日の在庫」という出発点。取引より前の日付にすると
+  //   日別在庫表やさかのぼり在庫が正しく積み上がる（未入力なら今日）。
+  const _siDate = ((document.getElementById('si-date') || {}).value || today());
   if (!confirm(`${br}の在庫を、入力した旧値・協賛・新値で上書きします。\n基準日：${_siDate}（この日の在庫として記録されます）\n\nよろしいですか？`)) return;
   if (!S.slog) S.slog = [];
   const _it = new Date().toTimeString().slice(0,5);
