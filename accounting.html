@@ -946,7 +946,8 @@ async function _qFlush(manual){
       try{
         // ★予防：書き込みにもログインのセッショントークンを付ける（将来セッション必須の保存を足しても弾かれないように）。副作用なし。
         try{ var _tok = sessionStorage.getItem('lmb_token') || ''; if(_tok){ item.data._token = _tok; if(item.data.token==null) item.data.token = _tok; } }catch(_e){}
-        var payload = JSON.stringify(item.data);
+        var _send = {}; Object.keys(item.data||{}).forEach(function(k){ if(k!=='__qid') _send[k]=item.data[k]; });
+        var payload = JSON.stringify(_send);
         var enc = encodeURIComponent(payload);
         var res;
         // 応答が返れば確実にサーバへ届いたと判断できる
@@ -985,8 +986,15 @@ async function _qFlush(manual){
 async function gasPost(data){
   try{ if(typeof currentUser!=='undefined'&&currentUser){ if(!data._actor)data._actor=currentUser.name; if(!data._actorBranch)data._actorBranch=(data.branch||currentUser.branch||''); } }catch(e){}
   if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
+  var _qid = 'q-' + Date.now() + '-' + Math.floor(Math.random()*100000);
+  try { data.__qid = _qid; } catch(e){}
   _qAdd(data);          // まず端末に控える（失敗しても消えない）
-  _qFlush(false);       // すぐ送信を試みる
+  // ★以前は結果を見ずに常に ok:true を返していたため、保存できていなくても成功と扱われていた。
+  //   送信後にキューへ残っていないかで、本当に送れたかを返す（await すれば真の結果が得られる）。
+  try { await _qFlush(false); } catch(e){}
+  var _left = false, _err = '';
+  try { (_qLoad() || []).forEach(function(it){ if (it && it.data && it.data.__qid === _qid){ _left = true; _err = it._err || '未送信'; } }); } catch(e){}
+  if (_left) return { ok:false, error:_err, queued:true };
   return { ok: true };
 }
 
