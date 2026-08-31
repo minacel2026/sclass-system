@@ -6314,7 +6314,9 @@ async function adjustStock(product, branch){
   });
 
   saveState();
-  syncStockToGAS();  // 在庫調整をスプシへ反映
+  showSyncOverlay('保存中…（サーバへ送信しています）');
+  await syncStockToGAS();  // ★保存の完了を待つ（待たないと同期で元に戻る）
+  hideSyncOverlay();
   // ★在庫を直接書き換える操作。操作履歴に「在庫調整」と拠点・理由を残す（updateAllStockだけでは追えないため）
   if (S.gasUrl){
     try { var _svAj = gasPost({ action:'logOp', op:'在庫調整', target: branch + ' ' + product,
@@ -8318,7 +8320,9 @@ async function saveStockInit(){
     if (_before !== _after) _chg++;
   });
   saveState();
-  syncStockToGAS();
+  showSyncOverlay('保存中…（サーバへ送信しています）');
+  await syncStockToGAS();     // ★保存の完了を待ってから先へ進む（待たないと同期で元に戻る）
+  hideSyncOverlay();
   // ★在庫を丸ごと上書きする重要操作。操作履歴に「初期登録」と拠点を残す。
   //   （syncStockToGAS は全拠点まとめての updateAllStock なので、履歴が「在庫一括更新／両拠点」としか残らない）
   if (S.gasUrl){
@@ -8334,7 +8338,7 @@ async function saveStockInit(){
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e){ window.scrollTo(0,0); }   // 登録後は一番上へ
 }
 
-function syncStockToGAS(){
+async function syncStockToGAS(){
   if (!S.gasUrl) return;
   const stockData = [];
   Object.keys(S.stock || {}).forEach(branch => {
@@ -8346,11 +8350,10 @@ function syncStockToGAS(){
     });
   });
   try {
-    var _p = gasPost({ action: 'updateAllStock', stockData: stockData });
-    // 結果を待って失敗なら知らせる（在庫の同期は最重要）
-    Promise.resolve(_p).then(function(r){
-      if (r && r.ok === false) toast('⚠ 在庫をサーバに保存できませんでした：' + (r.error||'') + '（端末に控えを残しました）', 'error');
-    }).catch(function(){});
+    // ★保存の完了を待つ。待たずに画面を更新すると、直後の同期がサーバの古い値で
+    //   在庫を上書きし、「変えたのに元に戻る」ことがある。
+    var _r = await gasPost({ action: 'updateAllStock', stockData: stockData });
+    if (_r && _r.ok === false) toast('⚠ 在庫をサーバに保存できませんでした：' + (_r.error||'') + '（端末に控えを残しました）', 'error');
   } catch(e){}
   // 在庫を書き換えたのでローカルの版番号も+1（サーバの版上げをミラー）。未取得時は触らない
   if (S.stockRev != null) S.stockRev = Number(S.stockRev) + 1;
