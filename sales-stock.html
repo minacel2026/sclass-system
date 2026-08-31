@@ -921,7 +921,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         <div class="fg"><label>拠点フィルタ</label><select class="fc" id="st-br" onchange="renderStock()"><option value="">両拠点</option><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>状態</label><select class="fc" id="st-state" onchange="renderStock()"><option value="">すべて</option><option value="low">補充警告のみ</option><option value="out">在庫切れのみ</option></select></div>
         <div class="fg"><label>種類</label><select class="fc" id="st-group" onchange="renderStock()"><option value="">すべて</option><option value="wine">🍷 お酒</option><option value="supply">📦 備品</option><option value="diffuser">🌿 ディフューザー</option></select></div>
-        <div class="fg" style="grid-column:span 2;min-width:0"><label>基準日（この日の在庫）</label><div style="display:flex;gap:.3rem;align-items:center"><input class="fc" id="st-asof" type="date" min="2000-01-01" max="2100-12-31" style="flex:1;min-width:120px" onchange="renderStock()"><button class="btn-s" style="padding:0 .7rem;white-space:nowrap;font-size:.68rem" onclick="var e=document.getElementById('st-asof');if(e)e.value='';renderStock()" title="今の在庫に戻す">今</button></div></div>
+        <div class="fg" style="min-width:0"><label>基準日（この日の在庫）</label><div style="display:flex;gap:.3rem;align-items:center"><input class="fc" id="st-asof" type="date" min="2000-01-01" max="2100-12-31" style="flex:1 1 auto;min-width:108px" onchange="renderStock()"><button class="btn-s" style="padding:0 .7rem;white-space:nowrap;font-size:.68rem" onclick="var e=document.getElementById('st-asof');if(e)e.value='';renderStock()" title="今の在庫に戻す">今</button></div></div>
       </div>
       <!-- 在庫の操作ボタンは折り返す専用バーにまとめ、狭い画面でもレイアウトが崩れないようにする -->
       <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.6rem">
@@ -6296,13 +6296,6 @@ function renderStock(){
           <div style="font-size:.6rem;color:var(--wh2)">出荷可能</div>
           <div style="font-size:1.35rem;font-weight:700;color:${_hc}">${avail}<span style="font-size:.6rem;color:var(--wh2);margin-left:1px">本</span></div>
         </div>
-        <div class="c-adj" style="flex:0 0 auto">
-          <div class="st-adj">
-            <select id="adjb-${p.key}-${branch}" style="width:44px;font-size:.7rem;padding:.2rem 0" title="調整するバケツ（旧値/協賛/新値）"><option value="old">旧</option><option value="sp">協</option><option value="new" selected>新</option></select>
-            <input type="number" placeholder="±" id="adj-${p.key}-${branch}" step="1">
-            <button class="act-btn" onclick="adjustStock('${p.key}','${branch}')">調整</button>
-          </div>
-        </div>
       </div>`;
     }).join('');
     const tTot = tOld + tSp + tNew;
@@ -6319,7 +6312,7 @@ function renderStock(){
       + (tTransit ? `<div style="font-size:.66rem;color:#4f9dd9;margin:-.3rem 0 .5rem">🚚 ${branch}宛てに ${fmt(tTransit)}本 が輸送中です（受領するとこの在庫に入ります）</div>` : '');
     return `
     <div class="stock-col">
-      <h3 class="stock-col-title">${branch}（引き当て順：🟠旧値 → 🟣協賛 → 🟢新値／補充閾値以下はオレンジ・在庫切れは赤）</h3>
+      <h3 class="stock-col-title">${branch}<span style="font-weight:400;font-size:.6rem;color:var(--wh3);letter-spacing:0;margin-left:.5rem">引き当て順 🟠旧→🟣協→🟢新／閾値以下=橙・切れ=赤</span></h3>
       ${summary}
       ${asOf ? `<div style="font-size:.68rem;color:${asOfReset ? 'var(--org)' : 'var(--wh2)'};margin:.1rem 0 .4rem">📅 ${escapeHtml(asOf)} 終わり時点の理論在庫を表示中（引当・出荷可能は非表示）。${asOfReset ? '⚠ この日より後に「在庫初期登録（上書き）」があるため、それ以前は正確でない場合があります。' : ''}「今」ボタンで現在の在庫に戻ります。</div>` : ''}
       <div class="stk-flow-list" style="border-top:.5px solid rgba(201,168,76,.12)">${rows || '<div style="text-align:center;color:var(--wh3);padding:.7rem">該当なし</div>'}</div>
