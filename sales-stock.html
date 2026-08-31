@@ -1500,7 +1500,24 @@ function _pendingOrderIds(){
       if (d.action === 'saveOrderDates' && d.orderId) ids[String(d.orderId)] = 1;
     });
   }catch(e){}
+  // ★直近に状態変更した注文も保護（送信成功後・サーバ反映前に同期が走ると
+  //   サーバの古い値で上書きされ「出荷済にしても戻る」ため。90秒だけ端末側を優先）。
+  try{
+    var g = JSON.parse(localStorage.getItem('lmb_recentOrderEdits')||'{}');
+    var now = Date.now(), keep = {};
+    Object.keys(g).forEach(function(oid){ if (now - g[oid] < 90000){ ids[oid] = 1; keep[oid] = g[oid]; } });
+    localStorage.setItem('lmb_recentOrderEdits', JSON.stringify(keep));
+  }catch(e){}
   return ids;
+}
+// 注文を変更したら「直近編集」として記録（90秒間、同期でサーバ上書きされない）
+function _markOrderEdited(id){
+  if (!id) return;
+  try{
+    var g = JSON.parse(localStorage.getItem('lmb_recentOrderEdits')||'{}');
+    g[String(id)] = Date.now();
+    localStorage.setItem('lmb_recentOrderEdits', JSON.stringify(g));
+  }catch(e){}
 }
 function _qLoad(){ try{ return JSON.parse(localStorage.getItem(_QKEY)||'[]'); }catch(e){ return []; } }
 function _qSave(q){ try{ localStorage.setItem(_QKEY, JSON.stringify(q)); }catch(e){} }
@@ -2822,17 +2839,30 @@ function reverseShipEffects(order){
   const extrasShipped = !!order._extrasDone
     || (bk.freeItems && Object.keys(bk.freeItems).length > 0)
     || shipStatus(order) === '出荷済';
+  // 出荷取消で戻す在庫は、必ず在庫履歴（戻入）にも残す（数字だけ戻って履歴に出ない、を防ぐ）
+  if (!S.slog) S.slog = [];
+  const _rt = new Date().toTimeString().slice(0,5);
+  const _rd = today();
+  const _rtag = String(order.id).slice(-6);
   // 有償：出荷済数だけ、消費したバケツへ正確に戻す（未出荷分は元々引いていないので戻さない）
   Object.entries(shippedMap).forEach(([p, q]) => {
-    restoreStockBkt(branch, p, q || 0, (bk.items || {})[p]);
+    const _q = q || 0;
+    restoreStockBkt(branch, p, _q, (bk.items || {})[p]);
+    if (_q > 0) S.slog.push({ date:_rd, time:_rt, branch, type:'戻入', product:p, qty:_q, remaining:S.stock[branch][p], orderId:order.id, store:order.store, note:`出荷取消#${_rtag}（状態を戻す）` });
   });
   // 協賛：出荷済数だけ戻す（部分出荷でも過不足なし）
   Object.entries(shippedSpMap).forEach(([p, q]) => {
-    restoreStockBkt(branch, p, q || 0, (bk.sponsorItems || {})[p]);
+    const _q = q || 0;
+    restoreStockBkt(branch, p, _q, (bk.sponsorItems || {})[p]);
+    if (_q > 0) S.slog.push({ date:_rd, time:_rt, branch, type:'戻入', product:p, qty:_q, remaining:S.stock[branch][p], orderId:order.id, store:order.store, note:`協賛出荷取消#${_rtag}（状態を戻す）` });
   });
   // 試供品：出庫済みのときだけ、まるごと戻す
   if (extrasShipped){
-    Object.entries(order.freeItems || {}).forEach(([p, q]) => { restoreStockBkt(branch, p, q || 0, (bk.freeItems || {})[p]); });
+    Object.entries(order.freeItems || {}).forEach(([p, q]) => {
+      const _q = q || 0;
+      restoreStockBkt(branch, p, _q, (bk.freeItems || {})[p]);
+      if (_q > 0) S.slog.push({ date:_rd, time:_rt, branch, type:'戻入', product:p, qty:_q, remaining:S.stock[branch][p], orderId:order.id, store:order.store, note:`試供品取消#${_rtag}（状態を戻す）` });
+    });
   }
   delete order._shipBkt;
   order.shipped = {};          // 出荷済数（有償・協賛sp:とも）をクリア
@@ -3159,6 +3189,25 @@ function _pickDate(defaultYmd, title, note){
   });
 }
 
+// この注文で在庫から実際に出ている正味本数（出庫系 − 戻入）を在庫履歴から数える。
+//   ＝リロード等で注文の出荷記録が消えても、在庫が既に引かれているかを在庫履歴から判定するため。
+function _orderStockOut(oid){
+  var out = 0;
+  (S.slog || []).forEach(function(s){
+    if (!s || String(s.orderId || '') !== String(oid)) return;
+    var q = Number(s.qty) || 0;
+    if (s.type==='出庫' || s.type==='協賛出庫' || s.type==='試供出庫' || s.type==='備品出庫' || s.type==='シール出庫') out += q;
+    else if (s.type==='戻入') out -= q;
+  });
+  return out;
+}
+// この注文が「出荷済」として記録している本数（有償＋協賛）
+function _orderRecordedShipped(o){
+  var t = 0;
+  try{ var m = orderShipped(o) || {}; Object.keys(m).forEach(function(k){ t += Number(m[k]) || 0; }); }catch(e){}
+  try{ var ms = orderShippedSponsor(o) || {}; Object.keys(ms).forEach(function(k){ t += Number(ms[k]) || 0; }); }catch(e){}
+  return t;
+}
 async function changeShipStatus(id, val){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (['新規受付','対応中','出荷済'].indexOf(val) < 0) return;
@@ -3175,6 +3224,26 @@ async function changeShipStatus(id, val){
   }
   var _sd = '';
   if (willShip && !wasShipped){
+    // ★二重出庫ガード：在庫履歴では既に出ているのに注文がそれを記録していない場合、
+    //   もう一度出荷すると在庫が二重に減る。止めるか、在庫を動かさず表示だけ直すかを選ぶ。
+    var _outAlready = _orderStockOut(o.id);
+    var _recShipped = _orderRecordedShipped(o);
+    if (_outAlready > _recShipped){
+      var _diff = _outAlready - _recShipped;
+      if (confirm('⚠️ この注文は在庫履歴では既に ' + _outAlready + '本 出庫済みです（注文側の記録は ' + _recShipped + '本）。\n\nこのまま出荷すると、差の ' + _diff + '本 を二重に在庫から引いてしまいます（在庫が二重に減る）。\n\n【OK】在庫を動かさず「出荷済」の表示だけ直す（推奨・既に出庫済みのため）\n【キャンセル】何もしない')){
+        o.shipped = o.shipped || {};
+        Object.keys(o.items || {}).forEach(function(p){ o.shipped[p] = Number(o.items[p]) || 0; });
+        Object.keys(o.sponsorItems || {}).forEach(function(p){ o.shipped['sp:' + p] = Number(o.sponsorItems[p]) || 0; });
+        o.status = '出荷済';
+        if (!o.shippedAt) o.shippedAt = new Date().toISOString();
+        saveState();
+        if (S.gasUrl){ try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} }
+        toast('✓ 在庫を動かさず「出荷済」にしました（既に出庫済みのため二重に引いていません）');
+        renderOrders(); updateKPI(); if (typeof renderStock === 'function') renderStock();
+        return;
+      }
+      renderOrders(); return;
+    }
     // 在庫が動く日＝出荷日。注文日を初期値にしたカレンダーで選ぶ（手入力の -（ハイフン）が不要）。
     _sd = await _pickDate(_ymd(o.shipDate || o.date || today()), '出荷日を選んでください', 'この日付で在庫が減ります（初期値＝注文日）');
     if (!_sd){ renderOrders(); return; }          // キャンセル＝何もしない
@@ -3189,6 +3258,7 @@ async function changeShipStatus(id, val){
   }
   o.status = val;
   if (willShip && !o.shippedAt) o.shippedAt = new Date().toISOString();
+  if (typeof _markOrderEdited === 'function') _markOrderEdited(o.id);   // ★90秒間サーバ上書きから保護（出荷済が戻るのを防ぐ）
   saveState();
   if (S.gasUrl){ try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} }
   toast('✓ 出荷ステータス: ' + val);
