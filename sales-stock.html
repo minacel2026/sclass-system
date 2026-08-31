@@ -866,7 +866,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       <div style="font-weight:700;color:var(--gold-l);margin-bottom:.2rem">🗃 在庫初期登録（旧値・協賛・新値を一括登録／上書き）</div>
       <div style="margin-top:.6rem">
         <div class="frow">
-          <div class="fg"><label>登録先 拠点</label><select class="fc" id="si-br" onchange="renderStockInit()"><option>仙台</option><option>京都</option></select></div>
+          <div class="fg"><label>登録先 拠点</label><select class="fc" id="si-br" onchange="renderStockInit()"><option>仙台</option><option>京都</option></select></div><div class="fg"><label>基準日（この日の在庫として記録）</label><input type="date" class="fc" id="si-date" min="2000-01-01" max="2100-12-31" title="取引を始める前の日にするのが自然です（例：4月から使うなら3/31）"></div>
         </div>
         <div class="hint-box" style="margin:.4rem 0">各商品の <b style="color:#d9a23a">旧値</b>・<b style="color:#c39bd3">協賛</b>・<b style="color:var(--grn)">新値</b> の本数を入力し「この拠点に保存」。協賛は無料在庫（棚卸の評価額は0）。出荷時は旧値→協賛→新値の順に減ります。</div>
         <div class="tw"><table class="stock-table" style="width:100%"><thead><tr><th style="text-align:left">商品</th><th style="text-align:center;width:110px;color:#e8b85a">🟠 旧値</th><th style="text-align:center;width:110px;color:#d3a8e0">🟣 協賛</th><th style="text-align:center;width:110px;color:#8fe0ab">🟢 新値</th><th style="text-align:center;width:80px">合計</th></tr></thead><tbody id="si-tbody"></tbody></table></div>
@@ -8025,9 +8025,14 @@ function adjustBucket(branch, product, bucketKey, delta){
 
 // 在庫初期登録パネル：現在のバケツ値を入力欄に表示
 function renderStockInit(){
+  // 基準日の初期値（未入力なら今日）。取引より前の日付に変えて使うことを想定。
+  try{ var _sd=document.getElementById('si-date'); if(_sd && !_sd.value) _sd.value = today(); }catch(e){}
   const tb = document.getElementById('si-tbody');
   if (!tb) return;
   const br = (document.getElementById('si-br') || {}).value || '仙台';
+  // ★基準日：初期登録は「この日の在庫」という出発点。取引より前の日付にすると
+  //   日別在庫表やさかのぼり在庫が正しく積み上がる（未入力なら今日）。
+  const _siDate = ((document.getElementById('si-date') || {}).value || today());
   tb.innerHTML = _prodCols().map(p => {
     const b = _bkt(br, p.key);
     const inp = (id, v, brd) => `<input type="number" id="si-${id}-${p.key}" value="${v}" step="1" oninput="siRecalc('${p.key}')" style="width:84px;text-align:center;border:1px solid ${brd};border-radius:6px">`;
@@ -8289,7 +8294,7 @@ async function saveStockInit(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
   const br = (document.getElementById('si-br') || {}).value || '仙台';
-  if (!confirm(`${br}の在庫を、入力した旧値・協賛・新値で上書きします。よろしいですか？`)) return;
+  if (!confirm(`${br}の在庫を、入力した旧値・協賛・新値で上書きします。\n基準日：${_siDate}（この日の在庫として記録されます）\n\nよろしいですか？`)) return;
   if (!S.slog) S.slog = [];
   const _it = new Date().toTimeString().slice(0,5);
   const _iu = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.name||'') : '';
@@ -8303,14 +8308,14 @@ async function saveStockInit(){
     const _after = ((S.stock[br] || {})[p.key]) || 0;       // 上書き後の在庫
     // ★商品ごとに在庫履歴を残す（「(一括)0本」だけでは何をいくつにしたか分からないため）
     if (_before !== _after || (o + s + n) > 0){
-      S.slog.push({ _rec: new Date().toISOString(),  _rec: new Date().toISOString(), date: today(), time: _it, branch: br, type: '初期登録', product: p.key,
+      S.slog.push({ _rec: new Date().toISOString(),  _rec: new Date().toISOString(), date: _siDate, time: _it, branch: br, type: '初期登録', product: p.key,
         qty: _after - _before, remaining: _after,
         note: '初期登録：' + _before + '本 → ' + _after + '本（旧' + o + '/協' + s + '/新' + n + '）', user: _iu });
       _chg++;
     }
   });
   if (!_chg){
-    S.slog.push({ _rec: new Date().toISOString(),  _rec: new Date().toISOString(), date: today(), time: _it, branch: br, type: '初期登録', product: '(一括)', qty: 0,
+    S.slog.push({ _rec: new Date().toISOString(),  _rec: new Date().toISOString(), date: _siDate, time: _it, branch: br, type: '初期登録', product: '(一括)', qty: 0,
       remaining: 0, note: '在庫初期登録（変更なし）', user: _iu });
   }
   saveState();
@@ -8319,7 +8324,7 @@ async function saveStockInit(){
   //   （syncStockToGAS は全拠点まとめての updateAllStock なので、履歴が「在庫一括更新／両拠点」としか残らない）
   if (S.gasUrl){
     var _cnt = 0; try { _cnt = Object.keys(S.stock[br] || {}).length; } catch(e){}
-    try { var _svLg = await gasPost({ action:'logOp', op:'在庫初期登録', target: br, detail: br + 'の在庫を上書き（' + _cnt + '品目）',
+    try { var _svLg = await gasPost({ action:'logOp', op:'在庫初期登録', target: br, detail: br + 'の在庫を上書き（' + _cnt + '品目）／基準日 ' + _siDate,
                     branch: br, _actorBranch: br,
                     user: (typeof currentUser!=='undefined' && currentUser ? currentUser.name : '') });
           if (_svLg && _svLg.ok === false) toast('⚠ 操作履歴をサーバに残せませんでした（在庫は保存されています）', 'error'); } catch(e){}
