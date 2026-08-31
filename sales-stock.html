@@ -981,7 +981,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       </div>
     </div>
     <div class="tw">
-      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><button class="btn-s" onclick="checkSlogDuplicates()" style="margin-left:auto" title="同じ出荷が二重に記録されていないか調べ、余分な分の在庫を戻します">⚠ 重複チェック</button><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
+      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="purgeOldSlog()" title="指定した日より前の在庫履歴を削除します（在庫の数値は変わりません）">🗑 古い記録を削除</button><button class="btn-s" onclick="checkSlogDuplicates()" style="margin-left:.4rem" title="同じ出荷が二重に記録されていないか調べます">⚠ 重複チェック</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
           <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>記録日時<span style="font-size:.6rem;color:var(--wh3)">(実操作)</span></th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th></tr>
@@ -5672,6 +5672,14 @@ function _slogStore(s){
   return '';
 }
 function renderSlog(){
+  // データ整理ボタン（古い記録の削除・重複チェック）は、テスト・保守用。admin のときだけ表示する。
+  try{
+    var _at = document.getElementById('slog-admin-tools');
+    if (_at){
+      var _r = (typeof currentUser!=='undefined' && currentUser) ? String(currentUser.role||'').toLowerCase() : '';
+      _at.style.display = (_r === 'admin') ? 'inline-flex' : 'none';
+    }
+  }catch(e){}
   const slog = (S.slog || []).map((s,i)=>Object.assign({ _idx:i }, s));
   const typeSel = document.getElementById('slog-type');
   if (typeSel && !typeSel._built){
@@ -5732,7 +5740,42 @@ function _slogDupGroups(){
   Object.keys(groups).forEach(function(k){ if (groups[k].length > 1) dups.push({ key:k, rows:groups[k] }); });
   return dups;
 }
-function checkSlogDuplicates(){
+// ══ 在庫履歴：指定した日付より前の記録を削除（練習・テストデータの掃除用） ══
+//   在庫の数値は一切変更しない（初期登録や棚卸で実在庫を揃えた後に、古い記録だけを消すための機能）。
+async function purgeOldSlog(){
+  var _d = await _pickDate('2026-04-01', 'この日より前の記録を削除', '指定日は残します（例：2026-04-01 なら3月以前を削除）');
+  if (!_d) return;
+  var cut = _ymd(_d);
+  var all = S.slog || [];
+  var target = all.filter(function(s){ return s && _ymd(s.date||'') && _ymd(s.date) < cut; });
+  if (!target.length){ toast('✓ ' + cut + ' より前の記録はありません'); return; }
+  // 内訳を種類別に集計して見せる（何を消すか分かるように）
+  var byType = {};
+  target.forEach(function(s){ var t=String(s.type||'その他'); byType[t]=(byType[t]||0)+1; });
+  var kinds = Object.keys(byType).map(function(t){ return '　・' + t + '：' + byType[t] + '件'; }).join('\n');
+  var oldest = target.reduce(function(a,s){ var d=_ymd(s.date); return (!a||d<a)?d:a; }, '');
+  var newest = target.reduce(function(a,s){ var d=_ymd(s.date); return (!a||d>a)?d:a; }, '');
+  var msg = '🗑 ' + cut + ' より前の在庫履歴を削除します\n\n'
+    + '対象：' + target.length + '件（' + oldest + ' 〜 ' + newest + '）\n\n' + kinds
+    + '\n\n※在庫の数値は変更しません（記録だけ消します）\n'
+    + '※' + cut + ' 以降の記録は残ります\n\n実行しますか？';
+  if (!confirm(msg)) return;
+  // ★順番：先にサーバ（在庫履歴シート）から削除し、成功を確認してから端末の記録を消す。
+  //   端末だけ消すと、次の同期でサーバから戻ってきて「消したのに戻る」ことになる。
+  if (S.gasUrl){
+    toast('サーバから削除中…');
+    var _rs = await gasPostSync({ action:'deleteStockLogs', before: cut });
+    if (!_rs.ok){
+      toast('❌ サーバから削除できませんでした：' + _rs.error + '（何も消していません）', 'error');
+      return;                                       // ← 失敗したら端末も消さない
+    }
+  }
+  S.slog = all.filter(function(s){ return !(s && _ymd(s.date||'') && _ymd(s.date) < cut); });
+  saveState();
+  renderSlog(); updateKPI();
+  toast('✓ ' + target.length + '件の古い記録を削除しました（在庫は変更していません）');
+}
+async function checkSlogDuplicates(){
   var dups = _slogDupGroups();
   if (!dups.length){ toast('✓ 在庫履歴に二重記録はありません'); return; }
   var totalExtra = 0, lines = [];
@@ -5754,17 +5797,32 @@ function checkSlogDuplicates(){
   if (!_logOnly){
     if (!confirm('記録を削除し、重複していた ' + totalExtra + '本 の在庫も戻しますか？\n（在庫をまだ揃えていない場合はこちら。揃えた後にこれを実行すると在庫が増えすぎます）')) return;
   }
-  var removed = 0, restored = 0;
-  var delIdx = {};
+  // 削除対象を先に確定（サーバ削除に使うIDも集める）
+  var delIdx = {}, delIds = [], removed = 0, restored = 0;
   dups.forEach(function(g){
     g.rows.slice(1).forEach(function(r){                          // 1件目は残す
       delIdx[r.idx] = true;
-      var s = r.s, br = s.branch || '仙台', p = s.product || '', q = Number(s.qty) || 0;
-      if (!_logOnly && q > 0 && p){                                // ★記録のみモードでは在庫を一切触らない
-        if (String(s.type||'').indexOf('出庫') >= 0){ restoreStockBkt(br, p, q, null); restored += q; }  // 出庫の重複→在庫を戻す
-        else if (s.type === '戻入'){ depleteStock(br, p, q); restored -= q; }                            // 戻入の重複→戻し過ぎを引く
-      }
+      if (r.s && r.s.id) delIds.push(String(r.s.id));
       removed++;
+    });
+  });
+  // ★順番：先にサーバの在庫履歴から削除し、成功を確認してから端末の記録・在庫を変更する
+  if (S.gasUrl && delIds.length){
+    toast('サーバから削除中…');
+    var _rs = await gasPostSync({ action:'deleteStockLogs', ids: JSON.stringify(delIds) });
+    if (!_rs.ok){
+      toast('❌ サーバから削除できませんでした：' + _rs.error + '（何も消していません）', 'error');
+      return;                                                     // ← 失敗したら端末も消さない
+    }
+  }
+  // サーバ削除が済んでから在庫を戻す（記録のみモードでは在庫を一切触らない）
+  dups.forEach(function(g){
+    g.rows.slice(1).forEach(function(r){
+      var s = r.s, br = s.branch || '仙台', p = s.product || '', q = Number(s.qty) || 0;
+      if (!_logOnly && q > 0 && p){
+        if (String(s.type||'').indexOf('出庫') >= 0){ restoreStockBkt(br, p, q, null); restored += q; }
+        else if (s.type === '戻入'){ depleteStock(br, p, q); restored -= q; }
+      }
     });
   });
   S.slog = (S.slog || []).filter(function(_, i){ return !delIdx[i]; });
