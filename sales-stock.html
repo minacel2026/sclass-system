@@ -1828,7 +1828,7 @@ async function gasPostSync(data){
   var payload = JSON.stringify(data);
   var enc = encodeURIComponent(payload);
   var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-  var timer = ctl ? setTimeout(function(){ try{ ctl.abort(); }catch(_){} }, 25000) : null;
+  var timer = ctl ? setTimeout(function(){ try{ ctl.abort(); }catch(_){} }, 18000) : null;   // オーバーレイの自動解除(20秒)より先に必ず決着させる
   try{
     var res;
     if (enc.length > 6000){
@@ -3135,8 +3135,11 @@ async function changeShipStatus(id, val){
     //   （以前は 在庫→表示→投げっぱなし送信 の順で、保存できていなくても
     //     画面が「出荷済」になり在庫まで減っていた＝実態と食い違う嘘の表示だった）
     if (S.gasUrl){
-      toast('保存中…');
+      // ★通信が終わるまで消えない表示にする（自動で消えるトーストだと「終わった」と誤解させる）。
+      //   同時に画面を覆うので、二重送信や別操作も防げる。
+      showSyncOverlay('保存中…（サーバへ送信しています）');
       var _sv = await gasPostSync(Object.assign({}, o, { action:'saveOrder', status:'出荷済', shipDate:_sd }));
+      hideSyncOverlay();
       if (!_sv.ok){
         toast('❌ 保存できませんでした：' + _sv.error + '（出荷済にしていません）', 'error');
         renderOrders();
@@ -3147,6 +3150,18 @@ async function changeShipStatus(id, val){
     applyShipEffects(o, _sd);
   }
   else if (!willShip){
+    // ★順番：先にサーバへ保存し、成功を確認してから在庫を戻す／画面を変える。
+    //   （投げっぱなしだと、保存が届かなくても画面だけ変わり、シートと食い違う）
+    if (S.gasUrl){
+      showSyncOverlay('保存中…（サーバへ送信しています）');
+      var _sv2 = await gasPostSync(Object.assign({}, o, { action:'saveOrder', status:val }));
+      hideSyncOverlay();
+      if (!_sv2.ok){
+        toast('❌ 保存できませんでした：' + _sv2.error + '（状態は変えていません）', 'error');
+        renderOrders();
+        return;                                   // ← 保存できていないので、何も変えない
+      }
+    }
     // 出荷済／一部出荷（対応中で shipped あり）から「非出荷」へ戻すときは、出荷済分の在庫を戻す
     const anyShipped = Object.keys(orderShipped(o)).length > 0 || !!o._shipBkt;
     if (wasShipped || anyShipped) reverseShipEffects(o);
@@ -3154,8 +3169,7 @@ async function changeShipStatus(id, val){
   o.status = val;
   if (willShip && !o.shippedAt) o.shippedAt = new Date().toISOString();
   saveState();
-  // 出荷済は上で保存確認済み。それ以外（新規受付/対応中）はここで保存する。
-  if (S.gasUrl && !(willShip && !wasShipped)){ try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} }
+  // 状態変更は上ですべて保存確認済み（出荷済にする時／非出荷へ戻す時とも）。
   toast('✓ 出荷ステータス: ' + val);
   renderOrders();
   updateKPI();
@@ -5767,8 +5781,9 @@ async function purgeOldSlog(){
   // ★順番：先にサーバ（在庫履歴シート）から削除し、成功を確認してから端末の記録を消す。
   //   端末だけ消すと、次の同期でサーバから戻ってきて「消したのに戻る」ことになる。
   if (S.gasUrl){
-    toast('サーバから削除中…');
+    showSyncOverlay('削除中…（サーバへ送信しています）');
     var _rs = await gasPostSync({ action:'deleteStockLogs', before: cut });
+    hideSyncOverlay();
     if (!_rs.ok){
       toast('❌ サーバから削除できませんでした：' + _rs.error + '（何も消していません）', 'error');
       return;                                       // ← 失敗したら端末も消さない
@@ -5816,8 +5831,9 @@ async function checkSlogDuplicates(){
   });
   // ★順番：先にサーバの在庫履歴から削除し、成功を確認してから端末の記録・在庫を変更する
   if (S.gasUrl && delIds.length){
-    toast('サーバから削除中…');
+    showSyncOverlay('削除中…（サーバへ送信しています）');
     var _rs = await gasPostSync({ action:'deleteStockLogs', ids: JSON.stringify(delIds) });
+    hideSyncOverlay();
     if (!_rs.ok){
       toast('❌ サーバから削除できませんでした：' + _rs.error + '（何も消していません）', 'error');
       return;                                                     // ← 失敗したら端末も消さない
