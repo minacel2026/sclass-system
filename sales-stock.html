@@ -1752,7 +1752,8 @@ async function _qFlush(manual){
       try{
         // ★予防：書き込みにもログインのセッショントークンを付ける（将来セッション必須の保存を足しても弾かれないように）。副作用なし。
         try{ var _tok = sessionStorage.getItem('lmb_token') || ''; if(_tok){ item.data._token = _tok; if(item.data.token==null) item.data.token = _tok; } }catch(_e){}
-        var payload = JSON.stringify(item.data);
+        var _send = {}; Object.keys(item.data||{}).forEach(function(k){ if(k!=='__qid') _send[k]=item.data[k]; });  // 内部管理用の__qidはサーバへ送らない
+        var payload = JSON.stringify(_send);
         var enc = encodeURIComponent(payload);
         var res;
         // 応答が返れば確実にサーバへ届いたと判断できる
@@ -1862,9 +1863,20 @@ async function gasPost(data){
   }catch(e){}
   if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
   // まず必ず控える（この時点で端末には残るので、失っても復旧できる）
+  var _qid = 'q-' + Date.now() + '-' + Math.floor(Math.random()*100000);
+  try { data.__qid = _qid; } catch(e){}
   _qAdd(data);
-  // すぐ送信を試みる（成功すれば控えは消える）
-  _qFlush(false);
+  // すぐ送信を試みる。★以前は結果を見ずに常に {ok:true} を返していたため、
+  //   保存できていなくても呼び出し側が「成功」と扱い、画面だけ更新される嘘の状態になっていた。
+  //   送信後にキューへ残っていないかで、本当に送れたかを返す（await すれば真の結果が得られる）。
+  try { await _qFlush(false); } catch(e){}
+  var _left = false, _err = '';
+  try {
+    (_qLoad() || []).forEach(function(it){
+      if (it && it.data && it.data.__qid === _qid){ _left = true; _err = it._err || '未送信'; }
+    });
+  } catch(e){}
+  if (_left) return { ok:false, error: _err, queued:true };   // 送れず未送信に残った（後で自動再送）
   return { ok: true };
 }
 
@@ -3176,7 +3188,7 @@ async function changeShipStatus(id, val){
   if (typeof renderStock === 'function') renderStock();
 }
 
-function deleteOrder(id){
+async function deleteOrder(id){
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
   const order = (S.orders || []).find(o => o.id === id);
   if (!order) return toast('注文が見つかりません', 'error');
@@ -3237,7 +3249,15 @@ function deleteOrder(id){
   }
 
   // 3. スプシの注文行を削除
-  if (S.gasUrl) { try { gasPost({ action:'deleteOrder', id:id, timestamp:order.timestamp, store:order.store, amount:order.amount }); } catch(e){} }
+  if (S.gasUrl) {
+    // ★削除結果を確認する（投げっぱなしだと、サーバに残ったまま画面だけ消えて同期で復活する）
+    showSyncOverlay('削除中…（サーバへ送信しています）');
+    var _svD = await gasPost({ action:'deleteOrder', id:id, timestamp:order.timestamp, store:order.store, amount:order.amount });
+    hideSyncOverlay();
+    if (_svD && _svD.ok === false){
+      toast('⚠ サーバから削除できませんでした：' + (_svD.error||'') + '（端末に控えを残しました。電波が戻ると自動送信します）', 'error');
+    }
+  }
 
   // 4. ローカルから削除
   S.orders = S.orders.filter(o => o.id !== id);
@@ -4952,7 +4972,7 @@ function cancelOrderEdit(){
   switchModule('orders', tab);   // 注文一覧へ戻る
 }
 
-function submitNewOrder(){
+async function submitNewOrder(){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   const store = document.getElementById('no-store').value.trim();
   if (!store) return toast('店舗名を入力してください', 'error');
@@ -5172,7 +5192,15 @@ function submitNewOrder(){
   saveState();
   // 納品日・売上計上日は saveOrder が一緒に保存する（S列/T列）。
   // 別通信（saveOrderDates）で二重に送ると到達順で競合し、日付が元に戻ることがあるため送らない。
-  if (S.gasUrl) gasPost({ action: 'saveOrder', ...order });
+  if (S.gasUrl){
+    // ★保存結果を確認する（以前は投げっぱなしで、保存できていなくても登録できたように見えた）
+    showSyncOverlay('保存中…（サーバへ送信しています）');
+    var _svN = await gasPost({ action: 'saveOrder', ...order });
+    hideSyncOverlay();
+    if (_svN && _svN.ok === false){
+      toast('⚠ サーバに保存できませんでした：' + (_svN.error||'') + '（端末に控えを残しました。電波が戻ると自動送信します）', 'error');
+    }
+  }
   if (shipStockTouched) syncStockToGAS();  // 実在庫が動いた時だけスプシへ反映
 
   let sponsorMsg = '';
