@@ -5016,13 +5016,15 @@ async function submitNewOrder(){
     : '';
   const editIdForSave = editingOrderId;  // 編集時はこのIDを再登録時も維持（IDが変わると重複の原因になる）
   let shipStockTouched = false;  // 出荷済の在庫増減が起きたらtrue（最後にGAS同期するか判定）
-  let editPrevStatus = null;  // 編集時：既存注文の出荷ステータスを維持（ステータス変更は一覧で行う）
+  let editPrevStatus = null;
+  let editPrevShipDate = null;   // 編集時：既存注文の出荷日を維持（在庫が動いた日は変えない）  // 編集時：既存注文の出荷ステータスを維持（ステータス変更は一覧で行う）
   // 編集モード: 旧注文を巻き戻す。在庫は「旧注文が出荷済だった場合のみ」戻す（未出荷は元々減算していない）。
   // 協賛ログは旧モデルの前倒し記録も掃除するため常に取消（出荷済なら後で再付与される）。
   if (editingOrderId){
     const old = (S.orders || []).find(o => o.id === editingOrderId);
     if (old){
       editPrevStatus = old.status || null;
+      editPrevShipDate = old.shipDate || null;   // ★出荷日を引き継ぐ（修正で失うと在庫日が狂う）
       if (shipStatus(old) === '出荷済'){
         const bk = old._shipBkt || {};
         Object.entries(old.items || {}).forEach(([p, q]) => {
@@ -5032,6 +5034,26 @@ async function submitNewOrder(){
           restoreStockBkt(old.branch, p, q || 0, (bk.sponsorItems || {})[p]);
         });
         shipStockTouched = true;
+        // ★この注文の古い出庫記録を取り除く（在庫は上で戻しているので、記録も同時に引き上げる）。
+        //   残しておくと、修正のたびに同じ注文の出庫が二重・三重に積み上がり、
+        //   日付を直しても古い日付の行が残ってしまう。対象は「この注文の出庫系」だけ。
+        try {
+          var _oid = String(old.id);
+          var _removed = (S.slog || []).filter(function(x){
+            return x && String(x.orderId||'') === _oid && String(x.type||'').indexOf('出庫') >= 0;
+          });
+          if (_removed.length){
+            S.slog = (S.slog || []).filter(function(x){
+              return !(x && String(x.orderId||'') === _oid && String(x.type||'').indexOf('出庫') >= 0);
+            });
+            if (typeof _slogRewrap === 'function') _slogRewrap();   // 配列を作り直したので包み直す
+            // サーバ側の在庫履歴からも同じ行を消す（残ると同期で戻ってくる）
+            if (S.gasUrl){
+              var _ids = _removed.map(function(x){ return String(x.id||''); }).filter(function(v){ return !!v; });
+              if (_ids.length){ try { gasPost({ action:'deleteStockLogs', ids: JSON.stringify(_ids) }); } catch(e){} }
+            }
+          }
+        } catch(e){}
       }
       const relLogs = (S.sponsorLogs || []).filter(l => l.orderId === editingOrderId);
       if (relLogs.length){
@@ -5167,6 +5189,7 @@ async function submitNewOrder(){
     payMethod: document.getElementById('no-pay').value,
     payStatus: '未収',
     status: editIdForSave ? (editPrevStatus || '新規受付') : '新規受付',
+    shipDate: editPrevShipDate || '',   // 在庫が動いた日＝出荷日。注文日とは別に持つ。
     tax: 'taxあり',
     deliveryDate: document.getElementById('no-deldate').value,
     bookDate: document.getElementById('no-bookdate').value,
@@ -5192,7 +5215,7 @@ async function submitNewOrder(){
       order._shipBkt.items[p] = used;
       if (!S.slog) S.slog = [];
       S.slog.push({ _rec: new Date().toISOString(),
-        date: order.date, time: order.time, branch: branch,
+        date: (order.shipDate || order.date), time: order.time, branch: branch,   // ★在庫日＝出荷日（物が動いた日）
         type: '出庫', product: p, qty: q,
         remaining: S.stock[branch][p],
         orderId: order.id, note: `出荷#${order.id.slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）`
@@ -5203,7 +5226,7 @@ async function submitNewOrder(){
       order._shipBkt.sponsorItems[p] = used;
       if (!S.slog) S.slog = [];
       S.slog.push({ _rec: new Date().toISOString(),
-        date: order.date, time: order.time, branch: branch,
+        date: (order.shipDate || order.date), time: order.time, branch: branch,   // ★在庫日＝出荷日
         type: '協賛出庫', product: p, qty: q,
         remaining: S.stock[branch][p],
         orderId: order.id, note: `協賛出荷#${order.id.slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）`
@@ -5773,7 +5796,17 @@ function renderSlog(){
     if (kw){ const hay = ((s.product||'')+' '+(s.note||'')+' '+(s.user||'')+' '+_slogStore(s)).toLowerCase(); if(!hay.includes(kw)) return false; }
     return true;
   });
-  rows.sort((a,b)=> (_ymd(b.date)+String(b.time||'')).localeCompare(_ymd(a.date)+String(a.time||'')));
+  // 並び順：日付（在庫が動った日）→ 同じ日なら記録日時（実際に操作した順）。
+  //   残数は「操作した瞬間の在庫」を保存した値なので、操作順に並べないと辻褄が合わなく見える。
+  rows.sort(function(a,b){
+    var ka = _ymd(a.date), kb = _ymd(b.date);
+    if (ka !== kb) return kb.localeCompare(ka);                       // 日付：新しい順
+    var ra = String(a._rec||''), rb = String(b._rec||'');
+    if (ra !== rb) return rb.localeCompare(ra);                       // 記録日時：新しい順
+    var sa = Number(a._seq||0), sb = Number(b._seq||0);
+    if (sa !== sb) return sb - sa;                                    // 同時刻なら処理順（出庫→協賛出庫の順を保つ）
+    return String(b.time||'').localeCompare(String(a.time||''));
+  });
   const cnt = document.getElementById('slog-cnt'); if(cnt) cnt.textContent = rows.length + '件';
   const _tbl=document.getElementById('slog-table'), _mx=document.getElementById('slog-matrix');
   if(_slogMx){ if(_tbl) _tbl.style.display='none'; if(_mx){ _mx.style.display=''; renderSlogMatrix(rows); } return; }
@@ -5806,8 +5839,11 @@ function _slogDupGroups(){
     if (!s) return;
     var t = String(s.type || '');
     if (t.indexOf('出庫') < 0 && t !== '戻入') return;          // 出庫系・戻入だけを対象
-    // 同一とみなすキー：注文ID＋種類＋商品＋本数＋日付（同じ出荷が二重に記録された状態）
-    var key = [String(s.orderId||''), t, String(s.product||''), String(s.qty||0), _ymd(s.date||'')].join('|');
+    // 同一とみなすキー：注文ID＋種類＋商品（1つの注文の同じ商品の出庫は1回のはず）。
+    //   ★日付は判定に含めない。注文を修正すると日付だけ違う二重記録ができるため、
+    //     日付を含めると「別物」と判定して見逃してしまう。
+    //   ※注文に紐づかない記録（仕入・移動・調整）は下の orderId 判定で対象外にしている。
+    var key = [String(s.orderId||''), t, String(s.product||'')].join('|');
     if (!String(s.orderId||'')) return;                          // 注文に紐づかない行は対象外（手動調整等）
     (groups[key] = groups[key] || []).push({ idx:i, s:s });
   });
@@ -7343,6 +7379,9 @@ function _slogEnqueue(entry){
   if (!entry.id) entry.id = 'sl-' + Date.now() + '-' + Math.floor(Math.random()*90000+10000);
   if (!entry.user && typeof currentUser !== 'undefined' && currentUser) entry.user = currentUser.name || '';
   if (!entry._rec) entry._rec = new Date().toISOString();   // ★記録日時（実際に操作した日時）を必ず入れる
+  // ★処理された順番（連番）。出庫→協賛出庫のように同じ時刻で連続して記録される場合、
+  //   時刻だけでは順序が定まらないため、計算された順に並べるための番号を持たせる。
+  if (entry._seq == null){ try { window.__slogSeq = (window.__slogSeq || 0) + 1; entry._seq = window.__slogSeq; } catch(e){} }
   _slogQueue.push({
     id: entry.id, rec: entry._rec || '', date: entry.date || today(), time: entry.time || '',
     branch: entry.branch || '', type: entry.type || '', product: entry.product || '',
