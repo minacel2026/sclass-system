@@ -1453,10 +1453,19 @@ async function gasGet(action, params){
   if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
   var _tok=''; try{ _tok = sessionStorage.getItem('lmb_token')||''; }catch(e){}
   const q = new URLSearchParams({ action, ...(params||{}), ...(_tok?{token:_tok}:{}) }).toString();
+  // ★10秒で必ず打ち切る（応答が無くても固まらせない）
+  var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timer = ctl ? setTimeout(function(){ try{ ctl.abort(); }catch(_){} }, 10000) : null;
   try {
-    const r = await fetch(S.gasUrl + '?' + q);
+    const r = await fetch(S.gasUrl + '?' + q, ctl ? { signal: ctl.signal } : undefined);
+    if (timer) clearTimeout(timer);
     return await r.json();
-  } catch(e){ toast('通信エラー: ' + e.message, 'error'); return null; }
+  } catch(e){
+    if (timer) clearTimeout(timer);
+    var m = (e && e.name === 'AbortError') ? '応答がありません（通信が不安定です）' : (e && e.message ? e.message : String(e));
+    toast('通信エラー: ' + m, 'error');
+    return null;
+  }
 }
 // ══ 送信キュー（電波が弱い場所でもデータを失わない仕組み）══
 //   ビル内など通信が不安定な場所では、送信が失敗しても no-cors では気づけない。
@@ -1645,6 +1654,19 @@ async function checkConnection(){
 }
 
 // 未送信の中身を一覧で表示する（どれが送れていないのか確認できる）
+function _qDropStuck(){
+  var q=_qLoad();
+  var stuck=q.filter(function(it){ return it && (it._try||0)>=3; });
+  if(!stuck.length){ toast('破棄対象（3回以上失敗）はありません'); return; }
+  var names=stuck.map(function(it){ return (it.data&&it.data.action)||'?'; });
+  if(!confirm('何度も失敗している送信 '+stuck.length+'件を破棄します。\n\n'
+    + names.slice(0,8).join('\n')
+    + '\n\n※これらはサーバに届いていません。破棄しても在庫の数値は変わりません。\n実行しますか？')) return;
+  var rest=q.filter(function(it){ return !(it && (it._try||0)>=3); });
+  _qSave(rest); _qBadge();
+  toast('✓ '+stuck.length+'件を破棄しました');
+  try{ showQueueDetail(); }catch(e){}
+}
 function showQueueDetail(){
   var q = _qLoad();
   var box = document.getElementById('q-detail');
@@ -1699,6 +1721,7 @@ function showQueueDetail(){
     + '<button class="btn btn-g" onclick="closeQueueDetail()">閉じる</button>'
     + '<button class="btn btn-g" onclick="checkConnection()">🔌 接続を確認</button>'
     + '<button class="btn btn-p" onclick="_qFlush(true).then(function(){ showQueueDetail(); })">📤 今すぐ再送</button>'
+    + '<button class="btn-s" style="margin-left:.4rem" onclick="_qDropStuck()" title="何度も失敗している送信を破棄します（deleteStockLogs等）">🧹 送れない分を破棄</button>'
     + '</div></div>';
   box.style.display = 'flex';
 }
@@ -3177,7 +3200,8 @@ function deleteOrder(id){
       S.slog = (S.slog || []).filter(function(x){ return !(x && String(x.orderId||'') === _oid); });
       if (S.gasUrl){
         var _lids = _delLogs.map(function(x){ return String(x.id||''); }).filter(function(v){ return !!v; });
-        if (_lids.length){ try { gasPost({ action:'deleteStockLogs', ids: JSON.stringify(_lids) }); } catch(e){} }
+        // ★トークン付きのgasGetで送る。gasPost(キュー)だと認証トークンが付かず deleteStockLogs が auth 失敗して溜まる。
+        if (_lids.length){ try { gasGet('deleteStockLogs', { ids: JSON.stringify(_lids) }); } catch(e){} }
       }
     }
   } catch(e){}
@@ -5701,14 +5725,22 @@ async function clearAllSlog(){
   // サーバ側：在庫履歴シートを空にする（未来日より前を全部＝全件）
   if(S.gasUrl){
     toast('サーバの履歴を消去中…');
-    var res=await gasGet('deleteStockLogs',{ all:'true' });   // 全件消去（日付が空の行も含む）
-    if(!res || !res.ok){ toast('サーバの履歴を消せませんでした：'+((res&&res.error)||'通信エラー')+'（端末も消していません）','error'); return; }
+    var res=await gasGet('deleteStockLogs',{ all:'true' });   // 全件消去（10秒でタイムアウト＝固まらない）
+    if(!res || !res.ok){
+      var _reason = (res&&res.error) ? res.error : '通信できませんでした';
+      // サーバが消せなくても、端末だけ消すか選べる
+      if(!confirm('サーバの履歴を消せませんでした：'+_reason+'\n\n'
+        + '端末（この画面）の履歴だけ消しますか？\n'
+        + '　OK＝端末だけ消す（次の同期でサーバから戻る場合があります）\n'
+        + '　キャンセル＝何もしない\n\n'
+        + '※サーバも消すには、ログインし直すか電波の良い場所で再実行してください。')){ return; }
+    }
   }
   // 端末側：localStorageの在庫履歴を空にする
   S.slog=[];
   saveState();
   renderSlog(); if(typeof updateKPI==='function') updateKPI();
-  toast('✓ 在庫履歴を全消去しました（在庫の数値は変わっていません）');
+  toast('✓ 在庫履歴を消去しました（在庫の数値は変わっていません）');
 }
 // 在庫履歴の1行だけ削除（サーバからも消す・admin限定・gasGetで固まらない）
 async function deleteSlogRow(idx){
