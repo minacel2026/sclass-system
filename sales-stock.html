@@ -981,7 +981,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       </div>
     </div>
     <div class="tw">
-      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:auto">📊 推移表</button></div>
+      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><button class="btn-s" onclick="checkSlogDuplicates()" style="margin-left:auto" title="同じ出荷が二重に記録されていないか調べ、余分な分の在庫を戻します">⚠ 重複チェック</button><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
           <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>記録日時<span style="font-size:.6rem;color:var(--wh3)">(実操作)</span></th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th></tr>
@@ -5714,6 +5714,58 @@ function renderSlog(){
       <td style="font-size:.7rem">${escapeHtml(s.note||'')}</td>
       <td style="font-size:.7rem">${escapeHtml(s.user||'')}</td>
     </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="10" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
+}
+// ══ 在庫履歴：二重記録の検出（同じ注文・同じ商品・同じ本数の出庫が複数ある行を洗い出す） ══
+//   不具合期に同じ出荷が2回記録されると、在庫がその分だけ余計に減る。実データで検出して直せるようにする。
+function _slogDupGroups(){
+  var groups = {};
+  (S.slog || []).forEach(function(s, i){
+    if (!s) return;
+    var t = String(s.type || '');
+    if (t.indexOf('出庫') < 0 && t !== '戻入') return;          // 出庫系・戻入だけを対象
+    // 同一とみなすキー：注文ID＋種類＋商品＋本数＋日付（同じ出荷が二重に記録された状態）
+    var key = [String(s.orderId||''), t, String(s.product||''), String(s.qty||0), _ymd(s.date||'')].join('|');
+    if (!String(s.orderId||'')) return;                          // 注文に紐づかない行は対象外（手動調整等）
+    (groups[key] = groups[key] || []).push({ idx:i, s:s });
+  });
+  var dups = [];
+  Object.keys(groups).forEach(function(k){ if (groups[k].length > 1) dups.push({ key:k, rows:groups[k] }); });
+  return dups;
+}
+function checkSlogDuplicates(){
+  var dups = _slogDupGroups();
+  if (!dups.length){ toast('✓ 在庫履歴に二重記録はありません'); return; }
+  var totalExtra = 0, lines = [];
+  dups.forEach(function(g){
+    var s0 = g.rows[0].s, extra = g.rows.length - 1;
+    var q = Number(s0.qty) || 0;
+    totalExtra += q * extra;
+    lines.push('・' + _ymd(s0.date) + ' ' + (s0.store||'') + ' ' + (s0.product||'') + ' ' + q + '本 × ' + g.rows.length + '回（余分 ' + extra + '回＝' + (q*extra) + '本）');
+  });
+  var msg = '⚠ 二重記録が見つかりました\n\n'
+    + dups.length + '組 / 余分に減っている在庫の合計：' + totalExtra + '本\n\n'
+    + lines.slice(0, 15).join('\n')
+    + (lines.length > 15 ? ('\n… ほか ' + (lines.length-15) + '件') : '')
+    + '\n\n【重要】余分な記録を削除し、その分の在庫を戻しますか？\n（各組の1件目だけ残します。削除後は在庫をサーバへ同期します）';
+  if (!confirm(msg)) return;
+  var removed = 0, restored = 0;
+  var delIdx = {};
+  dups.forEach(function(g){
+    g.rows.slice(1).forEach(function(r){                          // 1件目は残す
+      delIdx[r.idx] = true;
+      var s = r.s, br = s.branch || '仙台', p = s.product || '', q = Number(s.qty) || 0;
+      if (q > 0 && p){
+        if (String(s.type||'').indexOf('出庫') >= 0){ restoreStockBkt(br, p, q, null); restored += q; }  // 出庫の重複→在庫を戻す
+        else if (s.type === '戻入'){ depleteStock(br, p, q); restored -= q; }                            // 戻入の重複→戻し過ぎを引く
+      }
+      removed++;
+    });
+  });
+  S.slog = (S.slog || []).filter(function(_, i){ return !delIdx[i]; });
+  saveState();
+  if (S.gasUrl) syncStockToGAS();
+  renderSlog(); if (typeof renderStock === 'function') renderStock(); updateKPI();
+  toast('✓ 二重記録 ' + removed + '件を削除し、在庫 ' + restored + '本を戻しました');
 }
 // ══ 在庫履歴：推移表（商品を列に固定し、時系列を下に積む） ══
 var _slogMx = false;
