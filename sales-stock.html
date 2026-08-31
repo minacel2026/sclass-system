@@ -8276,14 +8276,29 @@ async function saveStockInit(){
   if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
   const br = (document.getElementById('si-br') || {}).value || '仙台';
   if (!confirm(`${br}の在庫を、入力した旧値・協賛・新値で上書きします。よろしいですか？`)) return;
+  if (!S.slog) S.slog = [];
+  const _it = new Date().toTimeString().slice(0,5);
+  const _iu = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.name||'') : '';
+  let _chg = 0;
   _prodCols().forEach(p => {
     const o = parseInt((document.getElementById('si-old-' + p.key) || {}).value) || 0;
     const s = parseInt((document.getElementById('si-sp-'  + p.key) || {}).value) || 0;
     const n = parseInt((document.getElementById('si-new-' + p.key) || {}).value) || 0;
+    const _before = ((S.stock[br] || {})[p.key]) || 0;      // 上書き前の在庫
     setBuckets(br, p.key, o, s, n);
+    const _after = ((S.stock[br] || {})[p.key]) || 0;       // 上書き後の在庫
+    // ★商品ごとに在庫履歴を残す（「(一括)0本」だけでは何をいくつにしたか分からないため）
+    if (_before !== _after || (o + s + n) > 0){
+      S.slog.push({ date: today(), time: _it, branch: br, type: '初期登録', product: p.key,
+        qty: _after - _before, remaining: _after,
+        note: '初期登録：' + _before + '本 → ' + _after + '本（旧' + o + '/協' + s + '/新' + n + '）', user: _iu });
+      _chg++;
+    }
   });
-  if (!S.slog) S.slog = [];
-  S.slog.push({ _rec: new Date().toISOString(), date: today(), time: new Date().toTimeString().slice(0,5), branch: br, type: '初期登録', product: '(一括)', qty: 0, remaining: 0, note: '在庫初期登録（旧/協賛/新を上書き）', user: (typeof currentUser !== 'undefined' ? currentUser.name : '') });
+  if (!_chg){
+    S.slog.push({ date: today(), time: _it, branch: br, type: '初期登録', product: '(一括)', qty: 0,
+      remaining: 0, note: '在庫初期登録（変更なし）', user: _iu });
+  }
   saveState();
   syncStockToGAS();
   // ★在庫を丸ごと上書きする重要操作。操作履歴に「初期登録」と拠点を残す。
