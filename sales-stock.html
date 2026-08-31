@@ -842,7 +842,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       </div>
       <div id="tr-preview" style="font-size:.78rem;color:var(--wh2);margin:.4rem 0"></div>
       <div id="tr-draft" style="margin-top:.5rem"></div>
-      <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="transferStock()">🚚 発送する</button></div>
+      <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="transferStock()">🚚 発送する</button><button class="btn-s" style="margin-left:.5rem" onclick="document.getElementById('entry-transfer').style.display='none'" title="発送せずに閉じます">✕ 閉じる（発送しない）</button></div>
     </div>
     </div>
   </div>
@@ -870,7 +870,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         </div>
         <div class="hint-box" style="margin:.4rem 0">各商品の <b style="color:#d9a23a">旧値</b>・<b style="color:#c39bd3">協賛</b>・<b style="color:var(--grn)">新値</b> の本数を入力し「この拠点に保存」。協賛は無料在庫（棚卸の評価額は0）。出荷時は旧値→協賛→新値の順に減ります。</div>
         <div class="tw"><table class="stock-table" style="width:100%"><thead><tr><th style="text-align:left">商品</th><th style="text-align:center;width:110px;color:#e8b85a">🟠 旧値</th><th style="text-align:center;width:110px;color:#d3a8e0">🟣 協賛</th><th style="text-align:center;width:110px;color:#8fe0ab">🟢 新値</th><th style="text-align:center;width:80px">合計</th></tr></thead><tbody id="si-tbody"></tbody></table></div>
-        <div class="faction" style="margin-top:.6rem"><button class="btn btn-g" onclick="saveStockInit()">💾 この拠点に保存（上書き）</button></div>
+        <div class="faction" style="margin-top:.6rem;display:flex;gap:.5rem;align-items:center"><button class="btn btn-g" onclick="saveStockInit()">💾 この拠点に保存（上書き）</button><button class="btn-s" onclick="document.getElementById('stock-init').style.display='none'" title="保存せずに閉じます（在庫は変わりません）">✕ 閉じる（保存しない）</button></div>
       </div>
     </div>
 
@@ -1128,7 +1128,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
           <div class="fg"><label>本数</label><input class="fc" id="lo-qty" type="number" min="1" step="1" placeholder="例：10"></div>
           <div class="fg"><label>メモ（任意）</label><input class="fc" id="lo-memo" placeholder="例：期首残"></div>
         </div>
-        <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="recordLendingOpening()">＋ 残数のみ登録（在庫を動かさない）</button></div>
+        <div class="faction" style="margin-top:.4rem"><button class="btn btn-g" onclick="recordLendingOpening()">＋ 残数のみ登録（在庫を動かさない）</button><button class="btn-s" style="margin-left:.5rem" onclick="document.getElementById('lend-opening').style.display='none'" title="保存せずに閉じます">✕ 閉じる（保存しない）</button></div>
       </div>
     </div>
 
