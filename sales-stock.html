@@ -34,9 +34,14 @@ window.StockEngine = (function(){
       if(!b||!p) continue;
       var cell=ensure(b,p);
       if(rec.type==='初期登録'){
-        cell.old=Number(rec.old!=null?rec.old:0)||0;
-        cell.sp =Number(rec.sp!=null?rec.sp:0)||0;
-        cell.new=Number(rec.new!=null?rec.new:0)||0;
+        var _o=rec.old, _s=rec.sp, _n=rec.new;
+        if(_o==null && _s==null && _n==null){   // 旧レコード互換：old/sp/newフィールドが無ければ note「（旧O/協S/新N）」から読む
+          var _m=String(rec.note||'').match(/（旧(-?\d+)\/協(-?\d+)\/新(-?\d+)）/);
+          if(_m){ _o=_m[1]; _s=_m[2]; _n=_m[3]; }
+        }
+        cell.old=Number(_o!=null?_o:0)||0;
+        cell.sp =Number(_s!=null?_s:0)||0;
+        cell.new=Number(_n!=null?_n:0)||0;
       } else {
         var bucket=rec.bucket||'new';
         cell[bucket]=(cell[bucket]||0)+recordDelta(rec);
@@ -8308,6 +8313,7 @@ async function saveStockInit(){
     const _after = ((S.stock[br] || {})[p.key]) || 0;
     // ⑭ 商品ごとに記録（「(一括)0本」だけでは何をいくつにしたか分からない）
     S.slog.push({ date: _siDate, time: _it, branch: br, type: '初期登録', product: p.key,
+      old: o, sp: s, new: n,
       qty: _after - _before, remaining: _after,
       note: '初期登録：' + _before + '本 → ' + _after + '本（旧' + o + '/協' + s + '/新' + n + '）'
             + (_before === _after ? '（変更なし）' : ''), user: _iu });
