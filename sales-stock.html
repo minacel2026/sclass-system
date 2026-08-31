@@ -984,7 +984,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="findStockCause()" title="在庫が合わない原因を調べます（変更しません）">🔎 原因を調べる</button><button class="btn-s" style="margin-left:.4rem" onclick="checkSlogConsistency()" title="残数のつじつまを確認します">🔍 整合チェック</button><button class="btn-s" style="margin-left:.4rem" onclick="clearAllSlog()" title="在庫履歴を全部消します（在庫の数値は変わりません）">🗑 履歴を全消去</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
-          <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del-col">操作</th></tr>
+          <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>操作日<span style="font-size:.6rem;color:var(--wh3)">(記録)</span></th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del-col">操作</th></tr>
         </thead>
         <tbody id="slog-tbody"></tbody>
       </table>
@@ -5640,6 +5640,23 @@ function _slogOrderDate(s){
   var o=(S.orders||[]).find(function(x){ return String(x.id)===String(s.orderId); });
   return (o && o.date) ? _ymd(o.date) : '';
 }
+// 在庫履歴の行から「操作日」（実際にこの記録を作った日）を取得。
+//   各記録には保存時に一意ID「sl-<作成ミリ秒>-xxxxx」が付く（_slogEnqueue）。
+//   その先頭のミリ秒＝端末で記録を作った瞬間なので、そこから操作日を復元する。
+//   ※日付欄(s.date)は業務日（出荷日・発送日など。過去日にもなる）で、操作日とは別物。
+//   ※復元できないもの（古い記録など）は推測せず空欄にする。
+function _slogOpDate(s){
+  if(!s) return '';
+  if(s.opDate) return _ymd(s.opDate);   // 明示的に持っていればそれを優先（将来用）
+  var m = String(s.id||'').match(/^sl-(\d{12,14})-/);
+  if(m){
+    var t = Number(m[1]);
+    if(t > 1577836800000 && t < 4102444800000){   // 2020-01-01〜2100-01-01 の妥当な範囲だけ採用
+      return new Date(t).toISOString().slice(0,10);   // today() と同じ基準で日付化
+    }
+  }
+  return '';
+}
 function _slogStore(s){
   if (s && s.store) return s.store;
   if (s && s.orderId){ var o=(S.orders||[]).find(function(x){return x.id===s.orderId;}); if(o) return o.store||''; }
@@ -5694,11 +5711,12 @@ function renderSlog(){
   const tb = document.getElementById('slog-tbody'); if(!tb) return;
   const MAX = 400;
   const show = rows.slice(0, MAX);
-  if(!show.length){ tb.innerHTML = '<tr><td colspan="11"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
+  if(!show.length){ tb.innerHTML = '<tr><td colspan="13"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
   const tcolor = t => ({'出庫':'#e6a23c','協賛出庫':'#c39bd3','入庫':'#67c23a','戻入':'#67c23a','移動出':'#4f9dd9','移動入':'#4f9dd9','調整':'#e67e22','初期登録':'#909399'}[t] || '#aaa');
   tb.innerHTML = show.map(s=>`<tr style="cursor:pointer" onclick="_slogSnapshot(${s._idx}, this)" title="クリックでこの時点の在庫を表示">
       <td>${escapeHtml(_ymd(s.date))}</td>
       <td style="color:var(--wh3)">${escapeHtml(_slogOrderDate(s))}</td>
+      <td style="color:var(--wh3)">${escapeHtml(_slogOpDate(s))}</td>
       <td style="color:var(--wh3)">${escapeHtml(s.time||'')}</td>
       <td>${escapeHtml(s.branch||'')}</td>
       <td><span style="color:${tcolor(s.type)};font-weight:600">${escapeHtml(s.type||'')}</span></td>
@@ -5709,7 +5727,7 @@ function renderSlog(){
       <td style="font-size:.7rem">${escapeHtml(s.note||'')}</td>
       <td style="font-size:.7rem">${escapeHtml(s.user||'')}</td>
       <td class="slog-del-col" style="text-align:center"><button class="act-btn dn" onclick="event.stopPropagation();deleteSlogRow(${s._idx})" title="この記録だけ削除（在庫は変わりません）">削</button></td>
-    </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="10" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
+    </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="13" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
   // 行削除ボタンは管理者のみ表示
   try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; document.querySelectorAll('.slog-del-col').forEach(function(el){ el.style.display=(_r==='admin')?'':'none'; }); }catch(e){}
 }
@@ -6022,7 +6040,7 @@ function _slogSnapshot(idx, trEl){
   const warn = st.hadReset ? '<div style="color:#e6a23c;font-size:.7rem;margin-top:.3rem">⚠ 在庫初期登録（上書き）より前は正確でない場合があります。</div>' : '';
   const tr=document.createElement('tr');
   tr.className='slog-snap';
-  tr.innerHTML=`<td colspan="9" style="background:#14141a;padding:.6rem .8rem">
+  tr.innerHTML=`<td colspan="13" style="background:#14141a;padding:.6rem .8rem">
     <div style="font-size:.74rem;color:var(--gold-l);font-weight:700;margin-bottom:.4rem">📦 ${escapeHtml(br)} ・ ${escapeHtml(e.date||'')} ${escapeHtml(e.time||'')} 時点の在庫（全商品）</div>
     <div style="line-height:1.9;font-size:.76rem">${cells}</div>${warn}
   </td>`;
