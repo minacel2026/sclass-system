@@ -211,7 +211,7 @@ tfoot td{background:var(--d3);font-weight:500;color:var(--gold-l)}
 .tab-dot.danger{background:#e0685f;box-shadow:0 0 0 0 rgba(224,104,95,.7);animation:tabDotPulseLate 1.4s infinite}
 .tab-dot.late{background:#e6a23c;box-shadow:0 0 0 0 rgba(230,162,60,.7);animation:tabDotPulseLate 1.4s infinite}
 @keyframes tabDotPulseLate{0%{box-shadow:0 0 0 0 rgba(230,162,60,.7)}70%{box-shadow:0 0 0 7px rgba(230,162,60,0)}100%{box-shadow:0 0 0 0 rgba(230,162,60,0)}}
-body.no-stockwrite #stock-init,body.no-stockwrite #btn-stock-init,body.no-stockwrite .st-adj{display:none!important}
+body.no-stockwrite #stock-init,body.no-stockwrite #btn-stock-init,body.no-stockwrite .st-adj,body.no-stockwrite .slog-del{display:none!important}
 body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-transfer,body.no-adjust #entry-transfer,body.no-adjust #lend-opening,body.no-adjust #btn-lend-opening,body.no-adjust #sp-manual-adjust,body.no-adjust .st-adj,body.no-adjust .c-adj{display:none!important}
 .t-mini{display:none}
 @media (max-width:768px){
@@ -985,7 +985,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="resendSlogToServer()" title="端末にある在庫履歴をサーバへ送り直します（二重登録されません）">⬆ サーバへ送り直す</button><button class="btn-s" style="margin-left:.4rem" onclick="purgeOldSlog()" title="指定した日より前の在庫履歴を削除します（在庫の数値は変わりません）">🗑 古い記録を削除</button><button class="btn-s" onclick="checkSlogDuplicates()" style="margin-left:.4rem" title="同じ出荷が二重に記録されていないか調べます">⚠ 重複チェック</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
-          <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>記録日時<span style="font-size:.6rem;color:var(--wh3)">(実操作)</span></th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th></tr>
+          <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>記録日時<span style="font-size:.6rem;color:var(--wh3)">(実操作)</span></th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del">操作</th></tr>
         </thead>
         <tbody id="slog-tbody"></tbody>
       </table>
@@ -5829,6 +5829,7 @@ function renderSlog(){
       <td class="col-qty" style="color:var(--wh3)">${s.remaining!=null?fmt(s.remaining):''}</td>
       <td style="font-size:.7rem">${escapeHtml(s.note||'')}</td>
       <td style="font-size:.7rem">${escapeHtml(s.user||'')}</td>
+      <td class="slog-del" style="text-align:center"><button class="act-btn dn" onclick="event.stopPropagation();deleteSlogRow(${s._idx})" title="この記録だけを削除（在庫の数値は変わりません）">削</button></td>
     </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="10" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
 }
 // ══ 在庫履歴：二重記録の検出（同じ注文・同じ商品・同じ本数の出庫が複数ある行を洗い出す） ══
@@ -5878,6 +5879,29 @@ async function resendSlogToServer(){
   if (!res.ok){ toast('❌ 送信できませんでした：' + res.error, 'error'); return; }
   var added = (res.resp && typeof res.resp.added === 'number') ? res.resp.added : null;
   toast('✓ サーバへ送信しました' + (added!==null ? ('（新たに ' + added + '件 保存／既存はそのまま）') : ''));
+}
+// 在庫履歴の1行だけを削除する（管理者のみ）。日付を直すために古い記録を消す用途。
+//   在庫の数値は変更しない＝記録だけを消す。
+async function deleteSlogRow(idx){
+  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
+       if(_r!=='admin'){ toast('🔒 この操作は管理者のみ実行できます','error'); return; } }catch(e){ return; }
+  var s = (S.slog||[])[idx];
+  if (!s) return toast('記録が見つかりません','error');
+  if (!confirm('この記録を削除しますか？\n\n'
+      + _ymd(s.date) + '　' + (s.type||'') + '　' + (s.product||'') + '　' + (s.qty||0) + '本\n'
+      + (s.note||'') + '\n\n※在庫の数値は変更しません（記録だけ消します）')) return;
+  // ★順番：サーバから先に削除し、成功を確認してから端末の記録を消す
+  if (S.gasUrl && s.id){
+    showSyncOverlay('削除中…（サーバへ送信しています）');
+    var _rs = await gasPostSync({ action:'deleteStockLogs', ids: JSON.stringify([String(s.id)]) });
+    hideSyncOverlay();
+    if (!_rs.ok){ toast('❌ サーバから削除できませんでした：' + _rs.error + '（何も消していません）','error'); return; }
+  }
+  S.slog = (S.slog||[]).filter(function(_,i){ return i !== idx; });
+  if (typeof _slogRewrap === 'function') _slogRewrap();
+  saveState();
+  renderSlog(); updateKPI();
+  toast('✓ 記録を1件削除しました（在庫は変更していません）');
 }
 async function purgeOldSlog(){
   // ★記録の削除は証跡に関わる操作。表示を隠すだけでなく、実行そのものを admin 以外は拒否する。
@@ -5943,6 +5967,15 @@ async function checkSlogDuplicates(){
 
   var dups = _slogDupGroups();
   if (!dups.length){ toast('✓ 在庫履歴に二重記録はありません'); return; }
+  // ★各組を「記録日時が新しい順」に並べ、1件目＝最新を残す。
+  //   注文を修正して日付を直した場合、正しいのは後から作られた記録なので、古い方を消す。
+  dups.forEach(function(g){
+    g.rows.sort(function(a,b){
+      var ra = String((a.s && (a.s._rec||'')) || ''), rb = String((b.s && (b.s._rec||'')) || '');
+      if (ra !== rb) return rb.localeCompare(ra);              // 記録日時：新しい順
+      return Number((b.s&&b.s._seq)||0) - Number((a.s&&a.s._seq)||0);
+    });
+  });
   var totalExtra = 0, lines = [];
   dups.forEach(function(g){
     var s0 = g.rows[0].s, extra = g.rows.length - 1;
@@ -5954,7 +5987,7 @@ async function checkSlogDuplicates(){
     + dups.length + '組 / 重複している本数の合計：' + totalExtra + '本\n\n'
     + lines.slice(0, 15).join('\n')
     + (lines.length > 15 ? ('\n… ほか ' + (lines.length-15) + '件') : '')
-    + '\n\n各組の1件目だけ残して、余分な記録を削除します。\n\n【在庫をどうしますか？】\n'
+    + '\n\n各組は最も新しい記録を残し、古い方を削除します。\n\n【在庫をどうしますか？】\n'
     + '　OK   ＝ 記録だけ消す（在庫はそのまま）\n'
     + '　　　　 ※初期登録や棚卸で在庫を既に正しく揃えた場合はこちら\n'
     + '　キャンセル → 次の確認で「在庫も戻す」を選べます';
@@ -6768,7 +6801,7 @@ function printDailyStockTable(){
     +     'var bom="\\ufeff";var blob=new Blob([bom+_csv],{type:"text/csv;charset=utf-8"});'
     +     'var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="日別在庫表_' + monthLabel + '.csv";a.click();'
     +   '};'
-    +   'setTimeout(function(){try{window.print();}catch(e){}},500);'
+    +   ''   /* ★自動で印刷ダイアログを出さない（中身を確認してから「印刷する」を押す） */
     + '<'+'/scr'+'ipt>'
     + '</body></html>';
 
@@ -6822,7 +6855,7 @@ function printStocktakeSheetAsOf(){
     + sections
     + '<div class="foot"><span>※ 実数を数えたら ✓ を記入 → 帳簿との差異を記入。保管用に署名してください。</span><span>実施者印：______　確認者印：______</span></div>'
     + '<div class="noprint" style="text-align:center;margin-top:14px"><button onclick="window.print()" style="padding:8px 20px;font-size:14px;cursor:pointer">印刷する</button></div>'
-    + '<scr'+'ipt>setTimeout(function(){try{window.print();}catch(e){}},400);<\/scr'+'ipt>'
+    + ''   /* 自動で印刷ダイアログを出さない（下の「印刷する」ボタンで印刷） */
     + '</body></html>';
   var w = window.open('', '_blank');
   if (!w){ toast('ポップアップがブロックされました。ブラウザで許可してから再度お試しください'); return; }
@@ -6874,7 +6907,7 @@ function printStocktakeSheet(){
     + '</tbody></table>'
     + '<div class="foot"><span>※ 実数を数えたら ✓ を記入 → 帳簿との差異を記入。保管用に署名してください。</span><span>実施者印：______　確認者印：______</span></div>'
     + '<div class="noprint" style="text-align:center;margin-top:14px"><button onclick="window.print()" style="padding:8px 20px;font-size:14px;cursor:pointer">印刷する</button></div>'
-    + '<scr'+'ipt>setTimeout(function(){try{window.print();}catch(e){}},400);<\/scr'+'ipt>'
+    + ''   /* 自動で印刷ダイアログを出さない（下の「印刷する」ボタンで印刷） */
     + '</body></html>';
   var w = window.open('', '_blank');
   if (!w){ toast('ポップアップがブロックされました。ブラウザで許可してから再度お試しください'); return; }
