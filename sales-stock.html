@@ -982,7 +982,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       </div>
     </div>
     <div class="tw">
-      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="checkSlogConsistency()" title="残数のつじつまが合わない箇所を洗い出します（データは変更しません）">🔍 整合チェック</button><button class="btn-s" style="margin-left:.4rem" onclick="resendSlogToServer()" title="端末にある在庫履歴をサーバへ送り直します（二重登録されません）">⬆ サーバへ送り直す</button><button class="btn-s" style="margin-left:.4rem" onclick="purgeOldSlog()" title="指定した日より前の在庫履歴を削除します（在庫の数値は変わりません）">🗑 古い記録を削除</button><button class="btn-s" onclick="checkSlogDuplicates()" style="margin-left:.4rem" title="同じ出荷が二重に記録されていないか調べます">⚠ 重複チェック</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
+      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="findStockCause()" title="在庫が合わない原因（消し残し・記録の差）を調べます">🔎 原因を調べる</button><button class="btn-s" style="margin-left:.4rem" onclick="diagnoseStock()" title="今の在庫が「初期登録＋その後の記録」と一致するか診断します（データは変更しません）">📊 在庫の内訳</button><button class="btn-s" style="margin-left:.4rem" onclick="checkSlogConsistency()" title="残数のつじつまが合わない箇所を洗い出します（データは変更しません）">🔍 整合チェック</button><button class="btn-s" style="margin-left:.4rem" onclick="resendSlogToServer()" title="端末にある在庫履歴をサーバへ送り直します（二重登録されません）">⬆ サーバへ送り直す</button><button class="btn-s" style="margin-left:.4rem" onclick="purgeOldSlog()" title="指定した日より前の在庫履歴を削除します（在庫の数値は変わりません）">🗑 古い記録を削除</button><button class="btn-s" onclick="checkSlogDuplicates()" style="margin-left:.4rem" title="同じ出荷が二重に記録されていないか調べます">⚠ 重複チェック</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
           <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>記録日時<span style="font-size:.6rem;color:var(--wh3)">(実操作)</span></th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del">操作</th></tr>
@@ -1956,6 +1956,10 @@ function orderShipped(o){
   if (!o) return {};
   var sh = o.shipped;
   if (typeof sh === 'string'){ try { sh = JSON.parse(sh); } catch(e){ sh = null; } }
+  // ★shipped が空オブジェクトのときは「情報なし」として扱う。
+  //   出荷済なのに空だと出荷済数ゼロと判定され、削除しても在庫が戻らなくなるため
+  //   （出荷を取り消したときに shipped={} にクリアされる経路がある）。
+  if (sh && typeof sh === 'object' && Object.keys(sh).length === 0) sh = null;
   if (sh && typeof sh === 'object'){
     var out = {}; Object.keys(sh).forEach(function(k){ if (k.indexOf('sp:') === 0) return; /* 協賛分は別管理 */ var v = Number(sh[k]) || 0; if (v > 0) out[k] = v; }); return out;
   }
@@ -1971,6 +1975,7 @@ function orderShippedSponsor(o){
   var sh = o.shipped;
   if (typeof sh === 'string'){ try { sh = JSON.parse(sh); } catch(e){ sh = null; } }
   var out = {};
+  if (sh && typeof sh === 'object' && Object.keys(sh).length === 0) sh = null;   // ★空は情報なし扱い
   if (sh && typeof sh === 'object'){
     Object.keys(sh).forEach(function(k){ if (k.indexOf('sp:') === 0){ var v = Number(sh[k]) || 0; if (v > 0) out[k.slice(3)] = v; } });
     if (Object.keys(out).length) return out;   // 明示データがあればそれが正
@@ -5957,6 +5962,108 @@ async function resendSlogToServer(){
 //   （残数は記録した瞬間の在庫を保存した値なので、本来は連続してつながるはず）
 // 増減の判定は共通関数 _slogQtyDelta に一本化（種類の定義は _BS_IN/_BS_OUT/_BS_SIGNED の1か所だけ）
 function _slogDelta(s){ return _slogQtyDelta(s); }
+// ══ 在庫の内訳診断 ══
+//   「記録を全部消したのに在庫が初期登録の数字に戻らない」を確かめるための機能。
+//   今の在庫が、履歴のどの記録の積み上げでできているかを商品ごとに突き合わせる。
+// ══ 在庫が合わない原因を特定する（残っているデータを全部洗う） ══
+//   「注文も貸借も移動も仕入も消したのに在庫が戻らない」を調べるための機能。
+//   端末に残っている全データを商品別に集計し、在庫との差がどこから来たかを示す。
+function findStockCause(){
+  var out = [];
+  ['仙台','京都'].forEach(function(br){
+    var prods = (typeof _prodColsAll==='function') ? _prodColsAll(br,'') : [];
+    prods.forEach(function(p){
+      var cur = ((S.stock[br]||{})[p.key]) || 0;
+      // ① 在庫履歴から積み上げ
+      var list = (S.slog||[]).filter(function(x){ return x && x.branch===br && x.product===p.key; })
+        .sort(function(a,b){ var ra=String(a._rec||''),rb=String(b._rec||'');
+          if(ra!==rb) return ra.localeCompare(rb); return Number(a._seq||0)-Number(b._seq||0); });
+      var base=null, moves=0, kinds={};
+      list.forEach(function(x){
+        if (String(x.type||'')==='初期登録'){ base=Number(x.remaining)||0; moves=0; kinds={}; return; }
+        var d=_slogQtyDelta(x);
+        if (d!==null){ moves+=d; kinds[x.type]=(kinds[x.type]||0)+d; }
+      });
+      var calc = (base===null) ? null : base+moves;
+      var gap  = (calc===null) ? null : cur-calc;
+      // ② まだ残っている取引データ（消し忘れ）を数える
+      var left = [];
+      var ordQ = 0;
+      (S.orders||[]).forEach(function(o){
+        if ((o.branch||'仙台')!==br) return;
+        var sh = (typeof orderShipped==='function') ? orderShipped(o) : {};
+        var ss = (typeof orderShippedSponsor==='function') ? orderShippedSponsor(o) : {};
+        ordQ += (Number(sh[p.key])||0) + (Number(ss[p.key])||0);
+      });
+      if (ordQ) left.push('出荷済の注文 ' + ordQ + '本');
+      var lendQ = 0;
+      (S.lendings||[]).forEach(function(l){
+        if (l.branch!==br || l.product!==p.key) return;
+        var q=(Number(l.qty)||0)-(Number(l.returnedQty)||0);
+        if (String(l.status||'')!=='返却済' && q>0) lendQ += (l.kind==='貸出'? -q : q);
+      });
+      if (lendQ) left.push('未返却の貸借 ' + (lendQ>0?'+':'') + lendQ + '本');
+      var mvQ = 0;
+      (S.moves||[]).forEach(function(m){
+        if (m.product!==p.key) return;
+        if (String(m.status||'')==='輸送中'){
+          if (m.from===br) mvQ -= (Number(m.qty)||0);
+        }
+      });
+      if (mvQ) left.push('輸送中の移動 ' + mvQ + '本');
+      var puQ = 0;
+      (S.purchases||[]).forEach(function(x){ if (x.branch===br && x.product===p.key) puQ += (Number(x.qty)||0); });
+      if (puQ) left.push('仕入 ' + puQ + '本');
+      if ((gap !== null && gap !== 0) || left.length){
+        out.push('・' + br + ' ' + p.key + '（今の在庫 ' + cur + '本）\n'
+          + (calc!==null ? '　　記録の積み上げ：初期登録 ' + base + ' ＋ 動き ' + (moves>=0?'+':'') + moves + ' ＝ ' + calc + '本　→ 差 ' + (gap>0?'+':'') + gap + '本\n' : '　　初期登録の記録なし\n')
+          + (Object.keys(kinds).length ? '　　内訳：' + Object.keys(kinds).map(function(k){ return k+' '+(kinds[k]>0?'+':'')+kinds[k]; }).join('　') + '\n' : '')
+          + (left.length ? '　　★まだ残っているデータ：' + left.join('／') + '\n' : ''));
+      }
+    });
+  });
+  if (!out.length){ alert('✓ 在庫と記録は一致しており、消し残しもありません。'); return; }
+  alert('🔎 在庫が合わない原因の調査結果\n\n' + out.slice(0,12).join('\n')
+    + (out.length>12 ? '\n… ほか ' + (out.length-12) + '件' : '')
+    + '\n\n【見方】\n'
+    + '「差」＝今の在庫と、記録から計算した在庫のズレ\n'
+    + '「まだ残っているデータ」＝消したつもりで残っている取引\n\n'
+    + '※記録を消しても在庫の数字は戻りません。最後に初期登録で揃えてください。');
+}
+function diagnoseStock(){
+  var lines = [], anyGap = false;
+  ['仙台','京都'].forEach(function(br){
+    var prods = (typeof _prodColsAll==='function') ? _prodColsAll(br,'') : [];
+    prods.forEach(function(p){
+      var cur = ((S.stock[br]||{})[p.key]) || 0;
+      // その商品の記録を古い順に並べ、初期登録を起点に積み上げる
+      var list = (S.slog||[]).filter(function(x){ return x && x.branch===br && x.product===p.key; })
+        .sort(function(a,b){ var ra=String(a._rec||''),rb=String(b._rec||'');
+          if(ra!==rb) return ra.localeCompare(rb); return Number(a._seq||0)-Number(b._seq||0); });
+      var base = null, moves = 0, n = 0;
+      list.forEach(function(x){
+        if (String(x.type||'')==='初期登録'){ base = Number(x.remaining)||0; moves = 0; n = 0; return; }
+        var d = _slogQtyDelta(x);
+        if (d !== null){ moves += d; n++; }
+      });
+      if (base === null){ if (cur !== 0 || list.length) lines.push('・' + br + ' ' + p.key + '：初期登録の記録がありません（在庫 ' + cur + '本）'); return; }
+      var calc = base + moves;
+      if (calc !== cur){
+        anyGap = true;
+        lines.push('・' + br + ' ' + p.key + '\n'
+          + '　　初期登録 ' + base + '本 ＋ その後の動き ' + (moves>=0?'+':'') + moves + '本（' + n + '件）＝ ' + calc + '本\n'
+          + '　　ところが今の在庫は ' + cur + '本（差 ' + (cur-calc>0?'+':'') + (cur-calc) + '本）');
+      }
+    });
+  });
+  if (!lines.length){ alert('✓ 在庫はすべて「初期登録＋その後の記録」と一致しています。\n\n記録に残らない在庫の増減はありません。'); return; }
+  alert('⚠ 在庫と記録が合わない商品：' + lines.length + '件\n\n' + lines.slice(0,15).join('\n\n')
+    + (lines.length>15 ? '\n\n… ほか ' + (lines.length-15) + '件' : '')
+    + '\n\n【差がある意味】\n'
+    + 'プラス＝記録に無い増加がある（記録を消した／記録されずに増えた）\n'
+    + 'マイナス＝記録に無い減少がある\n\n'
+    + '※記録を消しても在庫の数字は戻りません。在庫を直すには初期登録か在庫調整を使ってください。');
+}
 function checkSlogConsistency(){
   var byKey = {};
   (S.slog||[]).forEach(function(s, i){
