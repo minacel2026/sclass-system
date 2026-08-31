@@ -5743,6 +5743,10 @@ function _slogDupGroups(){
 // ══ 在庫履歴：指定した日付より前の記録を削除（練習・テストデータの掃除用） ══
 //   在庫の数値は一切変更しない（初期登録や棚卸で実在庫を揃えた後に、古い記録だけを消すための機能）。
 async function purgeOldSlog(){
+  // ★在庫記録の削除は証跡に関わる操作。表示を隠すだけでなく、実行そのものを admin 以外は拒否する。
+  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
+       if(_r!=='admin'){ toast('🔒 この操作は管理者のみ実行できます','error'); return; } }catch(e){ return; }
+
   var _d = await _pickDate('2026-04-01', 'この日より前の記録を削除', '指定日は残します（例：2026-04-01 なら3月以前を削除）');
   if (!_d) return;
   var cut = _ymd(_d);
@@ -5776,6 +5780,10 @@ async function purgeOldSlog(){
   toast('✓ ' + target.length + '件の古い記録を削除しました（在庫は変更していません）');
 }
 async function checkSlogDuplicates(){
+  // ★在庫記録の削除は証跡に関わる操作。表示を隠すだけでなく、実行そのものを admin 以外は拒否する。
+  try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():'';
+       if(_r!=='admin'){ toast('🔒 この操作は管理者のみ実行できます','error'); return; } }catch(e){ return; }
+
   var dups = _slogDupGroups();
   if (!dups.length){ toast('✓ 在庫履歴に二重記録はありません'); return; }
   var totalExtra = 0, lines = [];
