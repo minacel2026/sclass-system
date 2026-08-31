@@ -18,6 +18,18 @@ window.StockEngine = (function(){
     if(STOCK_OUT[t])    return -Math.abs(q);
     return 0;
   }
+  // 1レコードの在庫移動を、旧/協/新のバケツ別に分解する。
+  //   ① 構造化 used があれば最優先 ② note「（旧O/協S/新N）」から ③ 型から推定（協賛系=協賛、他=新値）
+  function _bucketBreakdown(rec){
+    if(rec.used && typeof rec.used==='object'){
+      return { old:Number(rec.used.old)||0, sp:Number(rec.used.sp)||0, new:Number(rec.used.new)||0 };
+    }
+    var m=String(rec.note||'').match(/（旧(-?\d+)\/協(-?\d+)\/新(-?\d+)）/);
+    if(m){ return { old:Number(m[1])||0, sp:Number(m[2])||0, new:Number(m[3])||0 }; }
+    var q=Math.abs(Number(rec.qty)||0);
+    if(rec.type==='協賛入庫' || rec.type==='協賛出庫') return { old:0, sp:q, new:0 };
+    return { old:0, sp:0, new:q };
+  }
   // 履歴(slog)から在庫を計算。asOf省略=現在庫。
   function computeStock(history, asOf){
     var stock={};
@@ -34,12 +46,23 @@ window.StockEngine = (function(){
       if(!b||!p) continue;
       var cell=ensure(b,p);
       if(rec.type==='初期登録'){
-        cell.old=Number(rec.old!=null?rec.old:0)||0;
-        cell.sp =Number(rec.sp!=null?rec.sp:0)||0;
-        cell.new=Number(rec.new!=null?rec.new:0)||0;
+        var _o=rec.old, _s=rec.sp, _n=rec.new;
+        if(_o==null && _s==null && _n==null){
+          var _m=String(rec.note||'').match(/（旧(-?\d+)\/協(-?\d+)\/新(-?\d+)）/);
+          if(_m){ _o=_m[1]; _s=_m[2]; _n=_m[3]; }
+        }
+        cell.old=Number(_o!=null?_o:0)||0;
+        cell.sp =Number(_s!=null?_s:0)||0;
+        cell.new=Number(_n!=null?_n:0)||0;
       } else {
-        var bucket=rec.bucket||'new';
-        cell[bucket]=(cell[bucket]||0)+recordDelta(rec);
+        var _dir = STOCK_OUT[rec.type] ? -1 : (STOCK_IN[rec.type] ? 1 : 0);
+        if(_dir !== 0){
+          var _bd=_bucketBreakdown(rec);
+          cell.old += _dir*_bd.old; cell.sp += _dir*_bd.sp; cell.new += _dir*_bd.new;
+        } else {
+          var bucket=rec.bucket||'new';
+          cell[bucket]=(cell[bucket]||0)+recordDelta(rec);
+        }
       }
       cell.total=(cell.old||0)+(cell.sp||0)+(cell.new||0);
     }
@@ -917,12 +940,17 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       在庫は「出荷済」になった時に実在庫から減算します。未出荷の注文分は「引当」として表示します（実在庫（引当 −X）→ 出荷可能Y）。
     </div>
     <div class="fp">
-      <div class="frow">
-        <div class="fg"><label>拠点フィルタ</label><select class="fc" id="st-br" onchange="renderStock()"><option value="">両拠点</option><option>仙台</option><option>京都</option></select></div>
-        <div class="fg"><label>状態</label><select class="fc" id="st-state" onchange="renderStock()"><option value="">すべて</option><option value="low">補充警告のみ</option><option value="out">在庫切れのみ</option></select></div>
-        <div class="fg"><label>種類</label><select class="fc" id="st-group" onchange="renderStock()"><option value="">すべて</option><option value="wine">🍷 お酒</option><option value="supply">📦 備品</option><option value="diffuser">🌿 ディフューザー</option></select></div>
-        <div class="fg" style="grid-column:span 2;min-width:0"><label>基準日（この日の在庫）</label><div style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center"><input class="fc" id="st-asof" type="date" min="2000-01-01" max="2100-12-31" style="flex:1;min-width:150px" onchange="renderStock()"><button class="btn-s" style="padding:0 .6rem;white-space:nowrap;font-size:.68rem" onclick="var e=document.getElementById('st-asof');if(e)e.value='';renderStock()" title="今の在庫に戻す">今</button><button class="btn-s" style="padding:0 .6rem;white-space:nowrap;font-size:.68rem" onclick="printStocktakeSheetAsOf()" title="基準日の在庫でA4棚卸チェックシートを印刷（手書き照合用）">🖨 棚卸</button><button class="btn-s" style="padding:0 .6rem;white-space:nowrap;font-size:.68rem" onclick="printDailyStockTable()" title="基準日の月の、日ごと×商品の在庫表をA4横で印刷（CSV出力あり）">📅 日別在庫表</button><button class="btn-s" style="padding:0 .6rem;white-space:nowrap;font-size:.68rem" onclick="verifyStockByEngine()" title="今の在庫（保存値）と、履歴から計算した値が一致するか確認します（変更しません）">🧮 計算値と照合</button></div></div>
-        <div class="fg"><label>&nbsp;</label><div style="display:flex;gap:.3rem;width:100%"><button class="btn-s" style="flex:1;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:0 .5rem;white-space:nowrap;font-size:.68rem" onclick="migrateToReserve()" title="一度だけ実行：既存の未出荷注文の本数を実在庫へ戻し、引当方式へ移行します（初回のみ）">⇄ 引当方式へ移行</button><button id="btn-stock-init" class="btn-s" style="flex:1;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:0 .5rem;white-space:nowrap;font-size:.68rem" onclick="var d=document.getElementById('stock-init');var open=(d.style.display!=='none');d.style.display=open?'none':'block';if(!open){if(typeof renderStockInit==='function')renderStockInit();d.scrollIntoView({block:'nearest',behavior:'smooth'});}" title="旧値・協賛・新値を一括登録／上書き">⊕ 初期登録</button></div></div>
+      <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end">
+        <div class="fg" style="flex:0 1 140px;min-width:110px;margin-bottom:0"><label>拠点フィルタ</label><select class="fc" id="st-br" onchange="renderStock()"><option value="">両拠点</option><option>仙台</option><option>京都</option></select></div>
+        <div class="fg" style="flex:0 1 140px;min-width:110px;margin-bottom:0"><label>状態</label><select class="fc" id="st-state" onchange="renderStock()"><option value="">すべて</option><option value="low">補充警告のみ</option><option value="out">在庫切れのみ</option></select></div>
+        <div class="fg" style="flex:0 1 150px;min-width:110px;margin-bottom:0"><label>種類</label><select class="fc" id="st-group" onchange="renderStock()"><option value="">すべて</option><option value="wine">🍷 お酒</option><option value="supply">📦 備品</option><option value="diffuser">🌿 ディフューザー</option></select></div>
+        <div class="fg" style="flex:0 1 210px;min-width:170px;margin-bottom:0"><label>基準日（この日の在庫）</label><div style="display:flex;gap:.3rem;align-items:center"><input class="fc" id="st-asof" type="date" min="2000-01-01" max="2100-12-31" style="flex:1 1 auto;min-width:108px" onchange="renderStock()"><button class="btn-s" style="padding:0 .7rem;white-space:nowrap;font-size:.68rem" onclick="var e=document.getElementById('st-asof');if(e)e.value='';renderStock()" title="今の在庫に戻す">今</button></div></div>
+        <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="printStocktakeSheetAsOf()" title="基準日の在庫でA4棚卸チェックシートを印刷（手書き照合用）">🖨 棚卸</button>
+        <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="printDailyStockTable()" title="基準日の月の、日ごと×商品の在庫表をA4横で印刷（CSV出力あり）">📅 日別在庫表</button>
+        <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="verifyStockByEngine()" title="今の在庫（保存値）と、履歴から計算した値が一致するか確認します（変更しません）">🧮 計算値と照合</button>
+        <button id="btn-calc-mode" class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem;border-color:var(--grn);color:var(--grn)" onclick="_stockCalcMode=!_stockCalcMode;var b=document.getElementById('btn-calc-mode');if(b){b.style.borderColor=_stockCalcMode?'var(--grn)':'';b.style.color=_stockCalcMode?'var(--grn)':'';b.textContent=_stockCalcMode?'🧮 計算値で表示中':'🧮 保存値で表示';}renderStock();" title="通常は『計算値（履歴から計算）』で表示します。押すと一時的に『保存値』表示に切り替えて見比べられます（安全網・データは変えません）。">🧮 計算値で表示中</button>
+        <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="migrateToReserve()" title="一度だけ実行：既存の未出荷注文の本数を実在庫へ戻し、引当方式へ移行します（初回のみ）">⇄ 引当方式へ移行</button>
+        <button id="btn-stock-init" class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="var d=document.getElementById('stock-init');var open=(d.style.display!=='none');d.style.display=open?'none':'block';if(!open){if(typeof renderStockInit==='function')renderStockInit();d.scrollIntoView({block:'nearest',behavior:'smooth'});}" title="旧値・協賛・新値を一括登録／上書き">⊕ 初期登録</button>
       </div>
     </div>
     <div class="fp" id="stock-init" style="margin-bottom:1rem;display:none">
@@ -2926,20 +2954,20 @@ function reverseShipEffects(order){
   Object.entries(shippedMap).forEach(([p, q]) => {
     const _q = q || 0;
     restoreStockBkt(branch, p, _q, (bk.items || {})[p]);
-    if (_q > 0) S.slog.push({ date:_rd, time:_rt, branch, type:'戻入', product:p, qty:_q, remaining:S.stock[branch][p], orderId:order.id, store:order.store, note:`出荷取消#${_rtag}（状態を戻す）` });
+    if (_q > 0) S.slog.push({ date:_rd, time:_rt, branch, type:'戻入', product:p, qty:_q, remaining:S.stock[branch][p], orderId:order.id, store:order.store, used:((bk.items||{})[p] || {old:0,sp:0,new:_q}), note:`出荷取消#${_rtag}（状態を戻す）` });
   });
   // 協賛：出荷済数だけ戻す（部分出荷でも過不足なし）
   Object.entries(shippedSpMap).forEach(([p, q]) => {
     const _q = q || 0;
     restoreStockBkt(branch, p, _q, (bk.sponsorItems || {})[p]);
-    if (_q > 0) S.slog.push({ date:_rd, time:_rt, branch, type:'戻入', product:p, qty:_q, remaining:S.stock[branch][p], orderId:order.id, store:order.store, note:`協賛出荷取消#${_rtag}（状態を戻す）` });
+    if (_q > 0) S.slog.push({ date:_rd, time:_rt, branch, type:'戻入', product:p, qty:_q, remaining:S.stock[branch][p], orderId:order.id, store:order.store, used:((bk.sponsorItems||{})[p] || {old:0,sp:_q,new:0}), note:`協賛出荷取消#${_rtag}（状態を戻す）` });
   });
   // 試供品：出庫済みのときだけ、まるごと戻す
   if (extrasShipped){
     Object.entries(order.freeItems || {}).forEach(([p, q]) => {
       const _q = q || 0;
       restoreStockBkt(branch, p, _q, (bk.freeItems || {})[p]);
-      if (_q > 0) S.slog.push({ date:_rd, time:_rt, branch, type:'戻入', product:p, qty:_q, remaining:S.stock[branch][p], orderId:order.id, store:order.store, note:`試供品取消#${_rtag}（状態を戻す）` });
+      if (_q > 0) S.slog.push({ date:_rd, time:_rt, branch, type:'戻入', product:p, qty:_q, remaining:S.stock[branch][p], orderId:order.id, store:order.store, used:((bk.freeItems||{})[p] || {old:0,sp:0,new:_q}), note:`試供品取消#${_rtag}（状態を戻す）` });
     });
   }
   delete order._shipBkt;
@@ -3002,11 +3030,12 @@ function unshipLine(id, product){
   const shq = Number(orderShipped(o)[product]) || 0;
   if (shq <= 0){ toast('取り消す出荷がありません', 'error'); return; }
   const _sb = _ensureShipBkt(o);
-  restoreStockBkt(branch, product, shq, (_sb.items || {})[product]);   // 消費バケツがあれば正確に、無ければ新値へ
+  const _ulUsed = (_sb.items || {})[product];   // 削除前に消費バケツ内訳を取得
+  restoreStockBkt(branch, product, shq, _ulUsed);   // 消費バケツがあれば正確に、無ければ新値へ
   if (o.shipped) delete o.shipped[product];
   if (_sb.items) delete _sb.items[product];
   if (!S.slog) S.slog = [];
-  S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`出荷取消#${String(o.id).slice(-6)}` });
+  S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, used:(_ulUsed || {old:0,sp:0,new:shq}), note:`出荷取消#${String(o.id).slice(-6)}` });
   _undoSponsorUsedIfIncomplete(o);   // 協賛注文(orderType=sponsor)で有償が未達になったら使用ログを取消
   const st = deriveShipState(o);
   o.status = (st === '出荷済') ? '出荷済' : (st === '一部出荷' ? '対応中' : '新規受付');
@@ -3065,11 +3094,12 @@ function unshipSponsorLine(id, product){
   const shq = Number(orderShippedSponsor(o)[product]) || 0;
   if (shq <= 0){ toast('取り消す出荷がありません', 'error'); return; }
   const _sb = _ensureShipBkt(o);
-  restoreStockBkt(branch, product, shq, (_sb.sponsorItems || {})[product]);
+  const _uslUsed = (_sb.sponsorItems || {})[product];   // 削除前に消費バケツ内訳を取得
+  restoreStockBkt(branch, product, shq, _uslUsed);
   if (o.shipped) delete o.shipped['sp:'+product];
   if (_sb.sponsorItems) delete _sb.sponsorItems[product];
   if (!S.slog) S.slog = [];
-  S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`協賛出荷取消#${String(o.id).slice(-6)}` });
+  S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, used:(_uslUsed || {old:0,sp:shq,new:0}), note:`協賛出荷取消#${String(o.id).slice(-6)}` });
   _undoSponsorUsedIfIncomplete(o);   // 協賛が未達になったら使用ログを取消（再出荷で再記録）
   const st = deriveShipState(o);
   o.status = (st === '出荷済') ? '出荷済' : (st === '一部出荷' ? '対応中' : '新規受付');
@@ -6224,12 +6254,16 @@ function _slogSnapshot(idx, trEl){
   trEl.after(tr);
 }
 
+var _stockCalcMode = true;   // フェーズ2完了：在庫表示は既定で「履歴からの計算値」（常に計算値）
 function renderStock(){
   ensureAllBuckets();
   const br    = document.getElementById('st-br')?.value || '';
   const state = document.getElementById('st-state')?.value || '';
   const grp   = document.getElementById('st-group')?.value || '';   // 種類（お酒/備品/ディフューザー）
   const asOf  = document.getElementById('st-asof')?.value || '';    // ★基準日（空=現在の在庫／日付=その日終わり時点の理論在庫）
+  const _calc = (typeof _stockCalcMode !== 'undefined' && _stockCalcMode) && !asOf;
+  let _comp = null;
+  if (_calc){ try { _comp = window.StockEngine.computeStock(S.slog || []); } catch(e){ _comp = null; } }
   const branches = br ? [br] : ['仙台','京都'];
   const grid = document.getElementById('stock-grid');
 
@@ -6260,7 +6294,9 @@ function renderStock(){
     }
     const rows = _prodColsAll(branch, grp).map(p => {
       const ro = _reorder(p.key, branch);   // 拠点別の発注点
-      const bk = _bkt(branch, p.key);
+      const bk = (_calc && _comp)
+        ? (function(){ var c=(_comp[branch]||{})[p.key]; return c ? {old:Number(c.old)||0,sp:Number(c.sp)||0,new:Number(c.new)||0} : {old:0,sp:0,new:0}; })()
+        : _bkt(branch, p.key);
       const q = bk.old + bk.sp + bk.new;   // = S.stock合計
       tOld += bk.old; tSp += bk.sp; tNew += bk.new;
       // ★基準日モード：この日の終わり時点の理論在庫を表示（引当・出荷可能は現在概念なので出さない）
@@ -6305,13 +6341,6 @@ function renderStock(){
           <div style="font-size:.6rem;color:var(--wh2)">出荷可能</div>
           <div style="font-size:1.35rem;font-weight:700;color:${_hc}">${avail}<span style="font-size:.6rem;color:var(--wh2);margin-left:1px">本</span></div>
         </div>
-        <div class="c-adj" style="flex:0 0 auto">
-          <div class="st-adj">
-            <select id="adjb-${p.key}-${branch}" style="width:44px;font-size:.7rem;padding:.2rem 0" title="調整するバケツ（旧値/協賛/新値）"><option value="old">旧</option><option value="sp">協</option><option value="new" selected>新</option></select>
-            <input type="number" placeholder="±" id="adj-${p.key}-${branch}" step="1">
-            <button class="act-btn" onclick="adjustStock('${p.key}','${branch}')">調整</button>
-          </div>
-        </div>
       </div>`;
     }).join('');
     const tTot = tOld + tSp + tNew;
@@ -6328,7 +6357,7 @@ function renderStock(){
       + (tTransit ? `<div style="font-size:.66rem;color:#4f9dd9;margin:-.3rem 0 .5rem">🚚 ${branch}宛てに ${fmt(tTransit)}本 が輸送中です（受領するとこの在庫に入ります）</div>` : '');
     return `
     <div class="stock-col">
-      <h3 class="stock-col-title">${branch}（引き当て順：🟠旧値 → 🟣協賛 → 🟢新値／補充閾値以下はオレンジ・在庫切れは赤）</h3>
+      <h3 class="stock-col-title">${branch}<span style="font-weight:400;font-size:.6rem;color:var(--wh3);letter-spacing:0;margin-left:.5rem">引き当て順 🟠旧→🟣協→🟢新／閾値以下=橙・切れ=赤</span></h3>
       ${summary}
       ${asOf ? `<div style="font-size:.68rem;color:${asOfReset ? 'var(--org)' : 'var(--wh2)'};margin:.1rem 0 .4rem">📅 ${escapeHtml(asOf)} 終わり時点の理論在庫を表示中（引当・出荷可能は非表示）。${asOfReset ? '⚠ この日より後に「在庫初期登録（上書き）」があるため、それ以前は正確でない場合があります。' : ''}「今」ボタンで現在の在庫に戻ります。</div>` : ''}
       <div class="stk-flow-list" style="border-top:.5px solid rgba(201,168,76,.12)">${rows || '<div style="text-align:center;color:var(--wh3);padding:.7rem">該当なし</div>'}</div>
@@ -8164,7 +8193,7 @@ async function transferStock(){
     const _p = []; if (used.old) _p.push('旧' + used.old); if (used.sp) _p.push('協' + used.sp); if (used.new) _p.push('新' + used.new);
     const _brk = _p.length ? '（' + _p.join('・') + '）' : '';
     const note = `拠点間移動 ${from}→${to}${_brk}` + (memo ? '：' + memo : '');
-    S.slog.push({ date: _mvDate, time: t, branch: from, type: '移動出', product: it.product, qty: it.qty, remaining: S.stock[from][it.product], note: note, user: user });
+    S.slog.push({ date: _mvDate, time: t, branch: from, type: '移動出', product: it.product, qty: it.qty, remaining: S.stock[from][it.product], used: used, note: note, user: user });
     const rec = { id:'mv-'+Date.now()+'-'+_i+'-'+Math.floor(Math.random()*9000+1000), date: _mvDate, from: from, to: to,
       product: it.product, qty: it.qty, used: used, status:'輸送中', memo: memo, sentBy: user, sentAt: new Date().toISOString(),
       recvQty:'', recvDate:'', recvBy:'', lostQty:'' };
@@ -8205,7 +8234,7 @@ async function receiveMove(id){
     restoreStockBkt(m.to, m.product, rq, part);
     _sumStock(m.to, m.product);
     S.slog.push({ date: today(), time: t, branch: m.to, type: '移動入', product: m.product, qty: rq,
-      remaining: S.stock[m.to][m.product], note: `拠点間移動 ${m.from}→${m.to}：受領` + (lost?`（紛失${lost}本）`:''), user: user });
+      remaining: S.stock[m.to][m.product], used: part, note: `拠点間移動 ${m.from}→${m.to}：受領` + (lost?`（紛失${lost}本）`:''), user: user });
   }
   if (lost > 0){
     S.slog.push({ date: today(), time: t, branch: m.to, type: '輸送中紛失', product: m.product, qty: lost,
@@ -8319,6 +8348,7 @@ async function saveStockInit(){
     const _after = ((S.stock[br] || {})[p.key]) || 0;
     // ⑭ 商品ごとに記録（「(一括)0本」だけでは何をいくつにしたか分からない）
     S.slog.push({ date: _siDate, time: _it, branch: br, type: '初期登録', product: p.key,
+      old: o, sp: s, new: n,
       qty: _after - _before, remaining: _after,
       note: '初期登録：' + _before + '本 → ' + _after + '本（旧' + o + '/協' + s + '/新' + n + '）'
             + (_before === _after ? '（変更なし）' : ''), user: _iu });
