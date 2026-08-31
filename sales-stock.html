@@ -6232,6 +6232,13 @@ async function adjustStock(product, branch){
 
   saveState();
   syncStockToGAS();  // 在庫調整をスプシへ反映
+  // ★在庫を直接書き換える操作。操作履歴に「在庫調整」と拠点・理由を残す（updateAllStockだけでは追えないため）
+  if (S.gasUrl){
+    try { gasPost({ action:'logOp', op:'在庫調整', target: branch + ' ' + product,
+                    detail: bLabel + ' ' + (delta > 0 ? '+' : '') + delta + '本 / 理由:' + (reason || ''),
+                    branch: branch, _actorBranch: branch,
+                    user: (typeof currentUser!=='undefined' && currentUser ? currentUser.name : '') }); } catch(e){}
+  }
   toast(`✓ ${product}（${bLabel}）を ${delta > 0 ? '+' : ''}${delta} 本 調整`);
   inp.value = '';
   renderStock();
@@ -8168,6 +8175,14 @@ async function saveStockInit(){
   S.slog.push({ _rec: new Date().toISOString(), date: today(), time: new Date().toTimeString().slice(0,5), branch: br, type: '初期登録', product: '(一括)', qty: 0, remaining: 0, note: '在庫初期登録（旧/協賛/新を上書き）', user: (typeof currentUser !== 'undefined' ? currentUser.name : '') });
   saveState();
   syncStockToGAS();
+  // ★在庫を丸ごと上書きする重要操作。操作履歴に「初期登録」と拠点を残す。
+  //   （syncStockToGAS は全拠点まとめての updateAllStock なので、履歴が「在庫一括更新／両拠点」としか残らない）
+  if (S.gasUrl){
+    var _cnt = 0; try { _cnt = Object.keys(S.stock[br] || {}).length; } catch(e){}
+    try { gasPost({ action:'logOp', op:'在庫初期登録', target: br, detail: br + 'の在庫を上書き（' + _cnt + '品目）',
+                    branch: br, _actorBranch: br,
+                    user: (typeof currentUser!=='undefined' && currentUser ? currentUser.name : '') }); } catch(e){}
+  }
   toast(`✓ ${br}の在庫を初期登録（上書き）しました`);
   var _si = document.getElementById('stock-init'); if (_si) _si.style.display = 'none';   // 保存したら初期登録パネルを閉じる
   renderStock(); updateKPI();
