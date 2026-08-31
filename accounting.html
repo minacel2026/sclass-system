@@ -983,7 +983,7 @@ async function _qFlush(manual){
 }
 
 async function gasPost(data){
-  try{ if(typeof currentUser!=='undefined'&&currentUser){ if(!data._actor)data._actor=currentUser.name; if(!data._actorBranch)data._actorBranch=currentUser.branch||''; } }catch(e){}
+  try{ if(typeof currentUser!=='undefined'&&currentUser){ if(!data._actor)data._actor=currentUser.name; if(!data._actorBranch)data._actorBranch=(data.branch||currentUser.branch||''); } }catch(e){}
   if (!S.gasUrl) { toast('GAS URLが未設定です', 'error'); return null; }
   _qAdd(data);          // まず端末に控える（失敗しても消えない）
   _qFlush(false);       // すぐ送信を試みる

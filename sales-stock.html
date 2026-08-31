@@ -984,7 +984,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:auto">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
-          <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th></tr>
+          <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>記録日時<span style="font-size:.6rem;color:var(--wh3)">(実操作)</span></th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th></tr>
         </thead>
         <tbody id="slog-tbody"></tbody>
       </table>
@@ -1813,7 +1813,9 @@ async function gasPostSync(data){
   try{
     if (typeof currentUser!=='undefined' && currentUser){
       if(!data._actor) data._actor = currentUser.name;
-      if(!data._actorBranch) data._actorBranch = currentUser.branch || '';
+      // ★操作履歴の「支店」は、操作者の所属ではなく“操作した対象の拠点”を残す。
+      //   （操作者が「両拠点」だと、仙台の注文を操作しても「両拠点」と記録され、拠点別に追えなくなる）
+      if(!data._actorBranch) data._actorBranch = data.branch || currentUser.branch || '';
     }
   }catch(e){}
   // GASが行照合に使う作成日時を必ず添える（無いと更新対象が見つからない）
@@ -1849,7 +1851,7 @@ async function gasPostSync(data){
   }
 }
 async function gasPost(data){
-  try{ if(typeof currentUser!=='undefined'&&currentUser){ if(!data._actor)data._actor=currentUser.name; if(!data._actorBranch)data._actorBranch=currentUser.branch||''; } }catch(e){}
+  try{ if(typeof currentUser!=='undefined'&&currentUser){ if(!data._actor)data._actor=currentUser.name; if(!data._actorBranch)data._actorBranch=(data.branch||currentUser.branch||''); } }catch(e){}
   // ★注文保存は、O列(ID)が空の旧データ／LINE注文でも行を照合できるよう、
   //   GASが照合に使う _matchTimestamp（作成日時）を必ず付ける。
   //   これが無いとGASが行を見つけられず“素通り”し、出荷済等が保存されない（棚卸も合わない）。
@@ -2711,7 +2713,7 @@ function applyShipEffects(order, shipDate){
     if (rem > 0){
       const used = depleteStock(branch, p, rem);   // 旧→協賛→新 の順で引き当て
       _accBkt(_sb.items, p, used);
-      S.slog.push({ date: _d, time, branch, type: '出庫', product: p, qty: rem, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+      S.slog.push({ _rec: new Date().toISOString(), date: _d, time, branch, type: '出庫', product: p, qty: rem, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
     }
     order.shipped[p] = Number(q) || 0;   // 全量化
   });
@@ -2721,7 +2723,7 @@ function applyShipEffects(order, shipDate){
     if (rem > 0){
       const used = depleteStock(branch, p, rem);
       _accBkt(_sb.sponsorItems, p, used);
-      S.slog.push({ date: _d, time, branch, type: '協賛出庫', product: p, qty: rem, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `協賛出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+      S.slog.push({ _rec: new Date().toISOString(), date: _d, time, branch, type: '協賛出庫', product: p, qty: rem, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `協賛出荷#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
     }
     order.shipped['sp:'+p] = Number(q) || 0;   // 全量化
   });
@@ -2733,14 +2735,14 @@ function applyShipEffects(order, shipDate){
     Object.entries(order.freeItems || {}).forEach(([p, q]) => {
       const used = depleteStock(branch, p, q || 0);
       _accBkt(_sb.freeItems, p, used);
-      S.slog.push({ date: _d, time, branch, type: '試供出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `試供品#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+      S.slog.push({ _rec: new Date().toISOString(), date: _d, time, branch, type: '試供出庫', product: p, qty: q, remaining: S.stock[branch][p], orderId: order.id, store: order.store, note: `試供品#${String(order.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
     });
     // 同梱した備品ぶん、備品の在庫も減らす（売上には含めない）
     Object.entries(order.supplyItems || {}).forEach(function(e){
       var _p=e[0], _q=Number(e[1])||0;
       if(!(_q>0)) return;
       depleteStock(branch, _p, _q);
-      S.slog.push({ date:_d, time, branch, type:'備品出庫', product:_p, qty:_q,
+      S.slog.push({ _rec: new Date().toISOString(), date:_d, time, branch, type:'備品出庫', product:_p, qty:_q,
         remaining:S.stock[branch][_p], orderId:order.id, store:order.store,
         note:'出荷#'+String(order.id).slice(-6)+' 備品同梱' });
     });
@@ -2752,7 +2754,7 @@ function applyShipEffects(order, shipDate){
                   + Object.values(order.sponsorItems||{}).reduce((a,b)=>a+(b||0),0);
       depleteStock(branch, _sealP, _sealQ);
       _sb.seal = { product:_sealP, qty:_sealQ };
-      S.slog.push({ date:_d, time, branch, type:'シール出庫', product:_sealP, qty:_sealQ,
+      S.slog.push({ _rec: new Date().toISOString(), date:_d, time, branch, type:'シール出庫', product:_sealP, qty:_sealQ,
         remaining:S.stock[branch][_sealP], orderId:order.id, store:order.store,
         note:`出荷#${String(order.id).slice(-6)} 同梱${_sealQ}枚 / ワイン${wineQ}本` + (_sealQ!==wineQ ? `（差${_sealQ-wineQ>0?'+':''}${_sealQ-wineQ}）` : '（一致）') });
     }
@@ -2815,7 +2817,7 @@ function shipLine(id, product, qty){
   o.shipped = o.shipped || {};
   o.shipped[product] = (Number(orderShipped(o)[product]) || 0) + q;
   if (!S.slog) S.slog = [];
-  S.slog.push({ date:_d, time:new Date().toTimeString().slice(0,5), branch, type:'出庫', product, qty:q, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`部分出荷#${String(o.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+  S.slog.push({ _rec: new Date().toISOString(), date:_d, time:new Date().toTimeString().slice(0,5), branch, type:'出庫', product, qty:q, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`部分出荷#${String(o.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
   // 有償＋協賛をすべて出し切ったら「まるごと出荷確定」（試供品/備品/シール/協賛付与を確定）
   const st = deriveShipState(o);
   if (st === '出荷済'){
@@ -2848,7 +2850,7 @@ function unshipLine(id, product){
   if (o.shipped) delete o.shipped[product];
   if (_sb.items) delete _sb.items[product];
   if (!S.slog) S.slog = [];
-  S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`出荷取消#${String(o.id).slice(-6)}` });
+  S.slog.push({ _rec: new Date().toISOString(), date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`出荷取消#${String(o.id).slice(-6)}` });
   _undoSponsorUsedIfIncomplete(o);   // 協賛注文(orderType=sponsor)で有償が未達になったら使用ログを取消
   const st = deriveShipState(o);
   o.status = (st === '出荷済') ? '出荷済' : (st === '一部出荷' ? '対応中' : '新規受付');
@@ -2880,7 +2882,7 @@ function shipSponsorLine(id, product, qty){
   o.shipped = o.shipped || {};
   o.shipped['sp:'+product] = (Number(orderShippedSponsor(o)[product]) || 0) + q;
   if (!S.slog) S.slog = [];
-  S.slog.push({ date:_d, time:new Date().toTimeString().slice(0,5), branch, type:'協賛出庫', product, qty:q, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`協賛部分出荷#${String(o.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
+  S.slog.push({ _rec: new Date().toISOString(), date:_d, time:new Date().toTimeString().slice(0,5), branch, type:'協賛出庫', product, qty:q, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`協賛部分出荷#${String(o.id).slice(-6)}（旧${used.old}/協${used.sp}/新${used.new}）` });
   _recordSponsorUsedOnce(o, _d, branch);   // 協賛を出し切ったら使用ポイント記録（一度だけ）
   const st = deriveShipState(o);
   if (st === '出荷済'){
@@ -2911,7 +2913,7 @@ function unshipSponsorLine(id, product){
   if (o.shipped) delete o.shipped['sp:'+product];
   if (_sb.sponsorItems) delete _sb.sponsorItems[product];
   if (!S.slog) S.slog = [];
-  S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`協賛出荷取消#${String(o.id).slice(-6)}` });
+  S.slog.push({ _rec: new Date().toISOString(), date:today(), time:new Date().toTimeString().slice(0,5), branch, type:'戻入', product, qty:shq, remaining:S.stock[branch][product], orderId:o.id, store:o.store, note:`協賛出荷取消#${String(o.id).slice(-6)}` });
   _undoSponsorUsedIfIncomplete(o);   // 協賛が未達になったら使用ログを取消（再出荷で再記録）
   const st = deriveShipState(o);
   o.status = (st === '出荷済') ? '出荷済' : (st === '一部出荷' ? '対応中' : '新規受付');
@@ -3195,7 +3197,7 @@ function deleteOrder(id){
     Object.entries(shippedMap).forEach(([p, q]) => {
       restoreStockBkt(branch, p, q || 0, (bk.items || {})[p]);
       if (!S.slog) S.slog = [];
-      S.slog.push({
+      S.slog.push({ _rec: new Date().toISOString(),
         date: today(), time: new Date().toTimeString().slice(0,5), branch: branch,
         type: '戻入', product: p, qty: q,
         remaining: S.stock[branch][p],
@@ -4447,7 +4449,7 @@ function confirmSponsorShip(custId){
 
   // 在庫ログ
   if (!S.slog) S.slog = [];
-  S.slog.push({
+  S.slog.push({ _rec: new Date().toISOString(),
     date: today(), time: new Date().toTimeString().slice(0,5),
     branch: br, type: '出庫', product: prod, qty,
     remaining: S.stock[br][prod],
@@ -5132,7 +5134,7 @@ function submitNewOrder(){
       const used = depleteStock(branch, p, q || 0);
       order._shipBkt.items[p] = used;
       if (!S.slog) S.slog = [];
-      S.slog.push({
+      S.slog.push({ _rec: new Date().toISOString(),
         date: order.date, time: order.time, branch: branch,
         type: '出庫', product: p, qty: q,
         remaining: S.stock[branch][p],
@@ -5143,7 +5145,7 @@ function submitNewOrder(){
       const used = depleteStock(branch, p, q || 0);
       order._shipBkt.sponsorItems[p] = used;
       if (!S.slog) S.slog = [];
-      S.slog.push({
+      S.slog.push({ _rec: new Date().toISOString(),
         date: order.date, time: order.time, branch: branch,
         type: '協賛出庫', product: p, qty: q,
         remaining: S.stock[branch][p],
@@ -5638,6 +5640,26 @@ function exportActualsCsv(){
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
 }
 
+// 在庫履歴の「時刻」表示を整える。スプレッドシート由来で "Sat Dec 30 1899 23:35:00 GMT+0900" のような
+// 日付型の文字列が入ることがあるため、HH:mm だけを取り出して読めるようにする（データは変えず表示のみ）。
+function _slogTime(v){
+  var t = String(v == null ? '' : v).trim();
+  if (!t) return '';
+  if (/^\d{1,2}:\d{2}$/.test(t)) return t;                 // 既に HH:mm
+  var m = t.match(/(\d{1,2}):(\d{2})(?::\d{2})?/);          // 文字列から時刻を抽出
+  if (m) return ('0'+m[1]).slice(-2) + ':' + m[2];
+  var d = new Date(t);
+  if (!isNaN(d.getTime())) return ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2);
+  return '';
+}
+// 「記録日時」＝実際にこの在庫の動きを登録した日時（出荷日とは別。過去分は空）
+function _slogRec(s){
+  var v = s && (s._rec || s.createdAt || '');
+  if (!v) return '';
+  var d = new Date(v);
+  if (isNaN(d.getTime())) return String(v).slice(0,16).replace('T',' ');
+  return _ymd(d) + ' ' + ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2);
+}
 // 在庫履歴の行から「注文日」を取得（orderIdで注文をたどる。無ければ空）
 function _slogOrderDate(s){
   if(!s||!s.orderId) return '';
@@ -5676,12 +5698,13 @@ function renderSlog(){
   const tb = document.getElementById('slog-tbody'); if(!tb) return;
   const MAX = 400;
   const show = rows.slice(0, MAX);
-  if(!show.length){ tb.innerHTML = '<tr><td colspan="11"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
+  if(!show.length){ tb.innerHTML = '<tr><td colspan="12"><div class="empty"><div class="empty-icon">📜</div>該当する在庫履歴がありません</div></td></tr>'; return; }
   const tcolor = t => ({'出庫':'#e6a23c','協賛出庫':'#c39bd3','入庫':'#67c23a','戻入':'#67c23a','移動出':'#4f9dd9','移動入':'#4f9dd9','調整':'#e67e22','初期登録':'#909399'}[t] || '#aaa');
   tb.innerHTML = show.map(s=>`<tr style="cursor:pointer" onclick="_slogSnapshot(${s._idx}, this)" title="クリックでこの時点の在庫を表示">
       <td>${escapeHtml(_ymd(s.date))}</td>
       <td style="color:var(--wh3)">${escapeHtml(_slogOrderDate(s))}</td>
-      <td style="color:var(--wh3)">${escapeHtml(s.time||'')}</td>
+      <td style="color:var(--wh3)">${escapeHtml(_slogTime(s.time))}</td>
+      <td style="color:var(--wh3);font-size:.72rem">${escapeHtml(_slogRec(s))}</td>
       <td>${escapeHtml(s.branch||'')}</td>
       <td><span style="color:${tcolor(s.type)};font-weight:600">${escapeHtml(s.type||'')}</span></td>
       <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(_slogStore(s))}</td>
@@ -6028,7 +6051,7 @@ async function adjustStock(product, branch){
   adjustBucket(branch, product, bucket, delta);
 
   if (!S.slog) S.slog = [];
-  S.slog.push({
+  S.slog.push({ _rec: new Date().toISOString(),
     date: today(), time: new Date().toTimeString().slice(0,5),
     branch: branch,
     type: delta > 0 ? '入庫' : '出庫',
@@ -6193,7 +6216,7 @@ function submitPurchase(){
     // 在庫加算：通常は新値バケツ、協賛仕入は協賛バケツへ（棚卸の評価額は0のまま保たれる）
     if (_isSp) restoreStockBkt(branch, it.product, it.qty, { old:0, sp:it.qty, new:0 });
     else       restoreStockBkt(branch, it.product, it.qty);
-    S.slog.push({
+    S.slog.push({ _rec: new Date().toISOString(),
       date, time: new Date().toTimeString().slice(0,5),
       branch, type: _isSp ? '協賛入庫' : '入庫', product: it.product, qty: it.qty,
       remaining: S.stock[branch][it.product],
@@ -6232,7 +6255,7 @@ function deletePurchase(id, skipConfirm){
   if (restoreStock){
     adjustBucket(p.branch, p.product, 'new', -(p.qty || 0));
     if (!S.slog) S.slog = [];
-    S.slog.push({
+    S.slog.push({ _rec: new Date().toISOString(),
       date: today(), time: new Date().toTimeString().slice(0,5),
       branch: p.branch, type: '仕入取消', product: p.product, qty: -(p.qty || 0),
       remaining: S.stock[p.branch][p.product],
@@ -6861,7 +6884,7 @@ function _lendStockMove(branch, product, signedQty, type, note){
   if(signedQty < 0) depleteStock(branch, product, -signedQty);
   else restoreStockBkt(branch, product, signedQty);
   if(!S.slog) S.slog=[];
-  S.slog.push({ date:today(), time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), branch, type, product, qty:Math.abs(signedQty), remaining:S.stock[branch][product], orderId:'', note });
+  S.slog.push({ _rec: new Date().toISOString(), date:today(), time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), branch, type, product, qty:Math.abs(signedQty), remaining:S.stock[branch][product], orderId:'', note });
 }
 
 // ══ 複数商品の明細（貸借・拠点間移動）══
@@ -7317,7 +7340,7 @@ function submitFree(){
   items.forEach(function(it){
     var used=depleteStock(br, it.product, it.qty);
     var pk=[]; if(used.old) pk.push('旧'+used.old); if(used.sp) pk.push('協'+used.sp); if(used.new) pk.push('新'+used.new);
-    S.slog.push({ date:dt, time:t, branch:br, type:'無償提供', product:it.product, qty:it.qty,
+    S.slog.push({ _rec: new Date().toISOString(), date:dt, time:t, branch:br, type:'無償提供', product:it.product, qty:it.qty,
       remaining:S.stock[br][it.product],
       note:'無償提供['+purpose+']'+(to?'：'+to:'')+(memo?'（'+memo+'）':'')+(pk.length?'（'+pk.join('・')+'）':''),
       user:user });
@@ -7826,7 +7849,7 @@ async function transferStock(){
     const _p = []; if (used.old) _p.push('旧' + used.old); if (used.sp) _p.push('協' + used.sp); if (used.new) _p.push('新' + used.new);
     const _brk = _p.length ? '（' + _p.join('・') + '）' : '';
     const note = `拠点間移動 ${from}→${to}${_brk}` + (memo ? '：' + memo : '');
-    S.slog.push({ date: today(), time: t, branch: from, type: '移動出', product: it.product, qty: it.qty, remaining: S.stock[from][it.product], note: note, user: user });
+    S.slog.push({ _rec: new Date().toISOString(), date: today(), time: t, branch: from, type: '移動出', product: it.product, qty: it.qty, remaining: S.stock[from][it.product], note: note, user: user });
     const rec = { id:'mv-'+Date.now()+'-'+_i+'-'+Math.floor(Math.random()*9000+1000), date: _mvDate, from: from, to: to,
       product: it.product, qty: it.qty, used: used, status:'輸送中', memo: memo, sentBy: user, sentAt: new Date().toISOString(),
       recvQty:'', recvDate:'', recvBy:'', lostQty:'' };
@@ -7866,11 +7889,11 @@ async function receiveMove(id){
     const part = _splitUsed(m.used, rq);
     restoreStockBkt(m.to, m.product, rq, part);
     _sumStock(m.to, m.product);
-    S.slog.push({ date: today(), time: t, branch: m.to, type: '移動入', product: m.product, qty: rq,
+    S.slog.push({ _rec: new Date().toISOString(), date: today(), time: t, branch: m.to, type: '移動入', product: m.product, qty: rq,
       remaining: S.stock[m.to][m.product], note: `拠点間移動 ${m.from}→${m.to}：受領` + (lost?`（紛失${lost}本）`:''), user: user });
   }
   if (lost > 0){
-    S.slog.push({ date: today(), time: t, branch: m.to, type: '輸送中紛失', product: m.product, qty: lost,
+    S.slog.push({ _rec: new Date().toISOString(), date: today(), time: t, branch: m.to, type: '輸送中紛失', product: m.product, qty: lost,
       remaining: S.stock[m.to][m.product] || 0, note: `拠点間移動 ${m.from}→${m.to}：発送${m.qty}本のうち${lost}本が届かず`, user: user });
   }
   m.status='完了'; m.recvQty=rq; m.recvDate=today(); m.recvBy=user; m.lostQty=lost||'';
@@ -7891,7 +7914,7 @@ async function cancelMove(id, skipConfirm){
   const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : '';
   restoreStockBkt(m.from, m.product, m.qty, m.used);
   _sumStock(m.from, m.product);
-  S.slog.push({ date: today(), time: new Date().toTimeString().slice(0,5), branch: m.from, type: '移動取消', product: m.product,
+  S.slog.push({ _rec: new Date().toISOString(), date: today(), time: new Date().toTimeString().slice(0,5), branch: m.from, type: '移動取消', product: m.product,
     qty: m.qty, remaining: S.stock[m.from][m.product], note: `拠点間移動 ${m.from}→${m.to}：発送を取消`, user: user });
   m.status='取消'; m.recvDate=today(); m.recvBy=user;
   saveState();
@@ -7973,7 +7996,7 @@ async function saveStockInit(){
     setBuckets(br, p.key, o, s, n);
   });
   if (!S.slog) S.slog = [];
-  S.slog.push({ date: today(), time: new Date().toTimeString().slice(0,5), branch: br, type: '初期登録', product: '(一括)', qty: 0, remaining: 0, note: '在庫初期登録（旧/協賛/新を上書き）', user: (typeof currentUser !== 'undefined' ? currentUser.name : '') });
+  S.slog.push({ _rec: new Date().toISOString(), date: today(), time: new Date().toTimeString().slice(0,5), branch: br, type: '初期登録', product: '(一括)', qty: 0, remaining: 0, note: '在庫初期登録（旧/協賛/新を上書き）', user: (typeof currentUser !== 'undefined' ? currentUser.name : '') });
   saveState();
   syncStockToGAS();
   toast(`✓ ${br}の在庫を初期登録（上書き）しました`);
