@@ -5462,8 +5462,14 @@ function migrateToReserve(){
     if (shipStatus(o) === '出荷済') return;
     const b = o.branch || '仙台';
     if (!S.stock[b]) S.stock[b] = {};
-    Object.entries(o.items || {}).forEach(([p, q]) => { restoreStockBkt(b, p, q || 0); moved += (q || 0); });
-    Object.entries(o.sponsorItems || {}).forEach(([p, q]) => { restoreStockBkt(b, p, q || 0); moved += (q || 0); });
+    if (!S.slog) S.slog = [];
+    var _mt = new Date().toTimeString().slice(0,5);
+    Object.entries(o.items || {}).forEach(([p, q]) => { restoreStockBkt(b, p, q || 0); moved += (q || 0);
+      if((q||0)>0) S.slog.push({ date:today(), time:_mt, branch:b, type:'戻入', product:p, qty:q||0,
+        remaining:S.stock[b][p], orderId:o.id, store:o.store, note:'引当方式へ移行による在庫戻し' }); });
+    Object.entries(o.sponsorItems || {}).forEach(([p, q]) => { restoreStockBkt(b, p, q || 0); moved += (q || 0);
+      if((q||0)>0) S.slog.push({ date:today(), time:_mt, branch:b, type:'戻入', product:p, qty:q||0,
+        remaining:S.stock[b][p], orderId:o.id, store:o.store, note:'引当方式へ移行 協賛分の在庫戻し' }); });
   });
   localStorage.setItem('lmb_reserveMigrated', '1');
   saveState();
@@ -5937,8 +5943,12 @@ async function checkSlogDuplicates(){
     g.rows.slice(1).forEach(function(r){
       var s = r.s, br = s.branch || '仙台', p = s.product || '', q = Number(s.qty) || 0;
       if (!_logOnly && q > 0 && p){
-        if (String(s.type||'').indexOf('出庫') >= 0){ restoreStockBkt(br, p, q, null); restored += q; }
-        else if (s.type === '戻入'){ depleteStock(br, p, q); restored -= q; }
+        if (String(s.type||'').indexOf('出庫') >= 0){ restoreStockBkt(br, p, q, null); restored += q;
+          S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch:br, type:'戻入', product:p, qty:q,
+            remaining:S.stock[br][p], orderId:s.orderId||'', store:s.store||'', note:'二重記録の解消による在庫戻し' }); }
+        else if (s.type === '戻入'){ depleteStock(br, p, q); restored -= q;
+          S.slog.push({ date:today(), time:new Date().toTimeString().slice(0,5), branch:br, type:'調整', product:p, qty:q,
+            remaining:S.stock[br][p], orderId:s.orderId||'', store:s.store||'', note:'二重記録の解消による戻し過ぎ修正' }); }
       }
     });
   });
@@ -6300,10 +6310,10 @@ async function adjustStock(product, branch){
   syncStockToGAS();  // 在庫調整をスプシへ反映
   // ★在庫を直接書き換える操作。操作履歴に「在庫調整」と拠点・理由を残す（updateAllStockだけでは追えないため）
   if (S.gasUrl){
-    try { gasPost({ action:'logOp', op:'在庫調整', target: branch + ' ' + product,
+    try { var _svAj = gasPost({ action:'logOp', op:'在庫調整', target: branch + ' ' + product,
                     detail: bLabel + ' ' + (delta > 0 ? '+' : '') + delta + '本 / 理由:' + (reason || ''),
                     branch: branch, _actorBranch: branch,
-                    user: (typeof currentUser!=='undefined' && currentUser ? currentUser.name : '') }); } catch(e){}
+                    user: (typeof currentUser!=='undefined' && currentUser ? currentUser.name : '') }); Promise.resolve(_svAj).then(function(r){ if(r && r.ok===false) toast('⚠ 操作履歴をサーバに残せませんでした（在庫は保存されています）','error'); }).catch(function(){}); } catch(e){}
   }
   toast(`✓ ${product}（${bLabel}）を ${delta > 0 ? '+' : ''}${delta} 本 調整`);
   inp.value = '';
@@ -6423,6 +6433,7 @@ function removePurchaseDraftItem(idx){
 }
 
 async function submitPurchase(){
+  var _puJobs = [];   // サーバ保存の結果をまとめて確認するため
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   // 注文の修正中に「仕入」で記録した場合は、元の注文を取り消してから登録（重複防止）
   _removeEditingOrderForConvert();
@@ -6454,7 +6465,7 @@ async function submitPurchase(){
       createdAt: new Date().toISOString(),
     };
     S.purchases.push(purchase);
-    if (S.gasUrl) { try { gasPost({ action:'savePurchase', ...purchase }); } catch(e){} }   // サーバにも履歴を残す
+    if (S.gasUrl) { try { _puJobs.push(gasPost({ action:'savePurchase', ...purchase })); } catch(e){} }   // 送信を集め、後でまとめて結果を確認
     // 在庫加算：通常は新値バケツ、協賛仕入は協賛バケツへ（棚卸の評価額は0のまま保たれる）
     if (_isSp) restoreStockBkt(branch, it.product, it.qty, { old:0, sp:it.qty, new:0 });
     else       restoreStockBkt(branch, it.product, it.qty);
@@ -6469,6 +6480,12 @@ async function submitPurchase(){
   });
 
   saveState();
+  if (_puJobs.length){   // ★保存結果を確認（失敗していたら知らせる）
+    try { var _puRes = await Promise.all(_puJobs);
+      var _puNg = _puRes.filter(function(r){ return r && r.ok === false; });
+      if (_puNg.length) toast('⚠ ' + _puNg.length + '件がサーバに保存できませんでした：' + (_puNg[0].error||'') + '（端末に控えを残しました）', 'error');
+    } catch(e){}
+  }
   syncStockToGAS();  // 仕入入庫をスプシへ反映
   toast(`✓ ${purchaseDraft.length}品目 計${totalQty}本を入庫しました`);
   _backToOrderKind();   // 登録完了 → 取引種別を「注文（販売）」に戻す
@@ -8064,6 +8081,7 @@ function transitQty(branch, product){   // その拠点「宛て」の輸送中�
 }
 
 async function transferStock(){
+  var _mvJobs = [];   // 送信を集め、後でまとめて結果を確認
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
@@ -8113,9 +8131,15 @@ async function transferStock(){
       product: it.product, qty: it.qty, used: used, status:'輸送中', memo: memo, sentBy: user, sentAt: new Date().toISOString(),
       recvQty:'', recvDate:'', recvBy:'', lostQty:'' };
     S.moves.push(rec);
-    if (S.gasUrl){ gasPost({ action:'saveMove', id:rec.id, date:rec.date, from:rec.from, to:rec.to, product:rec.product,
-      qty:rec.qty, used:JSON.stringify(rec.used), status:rec.status, memo:rec.memo, sentBy:rec.sentBy }); }
+    if (S.gasUrl){ _mvJobs.push(gasPost({ action:'saveMove', id:rec.id, date:rec.date, from:rec.from, to:rec.to, product:rec.product,
+      qty:rec.qty, used:JSON.stringify(rec.used), status:rec.status, memo:rec.memo, sentBy:rec.sentBy })); }
   });
+  if (_mvJobs.length){   // ★保存結果を確認
+    try { var _mvRes = await Promise.all(_mvJobs);
+      var _mvNg = _mvRes.filter(function(r){ return r && r.ok === false; });
+      if (_mvNg.length) toast('⚠ ' + _mvNg.length + '件がサーバに保存できませんでした：' + (_mvNg[0].error||'') + '（端末に控えを残しました）', 'error');
+    } catch(e){}
+  }
   saveState();
   syncStockToGAS();
   moveDraft = []; renderMoveDraft();
@@ -8157,8 +8181,10 @@ async function receiveMove(id){
   }
   m.status='完了'; m.recvQty=rq; m.recvDate=today(); m.recvBy=user; m.lostQty=lost||'';
   saveState();
-  if (S.gasUrl){ gasPost({ action:'saveMove', id:m.id, date:m.date, from:m.from, to:m.to, product:m.product, qty:m.qty,
-    used:JSON.stringify(m.used), status:m.status, memo:m.memo, sentBy:m.sentBy, recvQty:m.recvQty, recvDate:m.recvDate, recvBy:m.recvBy, lostQty:m.lostQty }); syncStockToGAS(); }
+  if (S.gasUrl){ var _svRv = await gasPost({ action:'saveMove', id:m.id, date:m.date, from:m.from, to:m.to, product:m.product, qty:m.qty,
+    used:JSON.stringify(m.used), status:m.status, memo:m.memo, sentBy:m.sentBy, recvQty:m.recvQty, recvDate:m.recvDate, recvBy:m.recvBy, lostQty:m.lostQty });
+    if (_svRv && _svRv.ok === false) toast('⚠ サーバに保存できませんでした：' + (_svRv.error||'') + '（端末に控えを残しました）', 'error');
+    syncStockToGAS(); }
   toast(`✓ ${m.to} で ${rq}本 を受領しました` + (lost?`（紛失 ${lost}本 を記録）`:''));
   renderMoves(); if (typeof renderStock === 'function') renderStock(); if (typeof updateKPI === 'function') updateKPI();
 }
@@ -8177,8 +8203,10 @@ async function cancelMove(id, skipConfirm){
     qty: m.qty, remaining: S.stock[m.from][m.product], note: `拠点間移動 ${m.from}→${m.to}：発送を取消`, user: user });
   m.status='取消'; m.recvDate=today(); m.recvBy=user;
   saveState();
-  if (S.gasUrl){ gasPost({ action:'saveMove', id:m.id, date:m.date, from:m.from, to:m.to, product:m.product, qty:m.qty,
-    used:JSON.stringify(m.used), status:m.status, memo:m.memo, sentBy:m.sentBy, recvQty:'', recvDate:m.recvDate, recvBy:m.recvBy, lostQty:'' }); syncStockToGAS(); }
+  if (S.gasUrl){ var _svCn = await gasPost({ action:'saveMove', id:m.id, date:m.date, from:m.from, to:m.to, product:m.product, qty:m.qty,
+    used:JSON.stringify(m.used), status:m.status, memo:m.memo, sentBy:m.sentBy, recvQty:'', recvDate:m.recvDate, recvBy:m.recvBy, lostQty:'' });
+    if (_svCn && _svCn.ok === false) toast('⚠ サーバに保存できませんでした：' + (_svCn.error||'') + '（端末に控えを残しました）', 'error');
+    syncStockToGAS(); }
   toast(`✓ 発送を取り消しました（${m.from} に ${m.qty}本 戻しました）`);
   renderMoves(); if (typeof renderStock === 'function') renderStock(); if (typeof updateKPI === 'function') updateKPI();
 }
@@ -8262,9 +8290,10 @@ async function saveStockInit(){
   //   （syncStockToGAS は全拠点まとめての updateAllStock なので、履歴が「在庫一括更新／両拠点」としか残らない）
   if (S.gasUrl){
     var _cnt = 0; try { _cnt = Object.keys(S.stock[br] || {}).length; } catch(e){}
-    try { gasPost({ action:'logOp', op:'在庫初期登録', target: br, detail: br + 'の在庫を上書き（' + _cnt + '品目）',
+    try { var _svLg = await gasPost({ action:'logOp', op:'在庫初期登録', target: br, detail: br + 'の在庫を上書き（' + _cnt + '品目）',
                     branch: br, _actorBranch: br,
-                    user: (typeof currentUser!=='undefined' && currentUser ? currentUser.name : '') }); } catch(e){}
+                    user: (typeof currentUser!=='undefined' && currentUser ? currentUser.name : '') });
+          if (_svLg && _svLg.ok === false) toast('⚠ 操作履歴をサーバに残せませんでした（在庫は保存されています）', 'error'); } catch(e){}
   }
   toast(`✓ ${br}の在庫を初期登録（上書き）しました`);
   var _si = document.getElementById('stock-init'); if (_si) _si.style.display = 'none';   // 保存したら初期登録パネルを閉じる
@@ -8283,7 +8312,13 @@ function syncStockToGAS(){
                        qtyOld: b.old, qtySp: b.sp, qtyNew: b.new });
     });
   });
-  try { gasPost({ action: 'updateAllStock', stockData: stockData }); } catch(e){}
+  try {
+    var _p = gasPost({ action: 'updateAllStock', stockData: stockData });
+    // 結果を待って失敗なら知らせる（在庫の同期は最重要）
+    Promise.resolve(_p).then(function(r){
+      if (r && r.ok === false) toast('⚠ 在庫をサーバに保存できませんでした：' + (r.error||'') + '（端末に控えを残しました）', 'error');
+    }).catch(function(){});
+  } catch(e){}
   // 在庫を書き換えたのでローカルの版番号も+1（サーバの版上げをミラー）。未取得時は触らない
   if (S.stockRev != null) S.stockRev = Number(S.stockRev) + 1;
 }
