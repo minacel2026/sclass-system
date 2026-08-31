@@ -1804,6 +1804,50 @@ async function _qFlush(manual){
   if(rest.length && manual) toast(rest.length+'件がまだ送れません。内容を開くと失敗理由が確認できます','error');
 }
 
+// ★保存を1回だけ直接送り、サーバの応答で成否を返す（結果を確認してから画面を変えるために使う）。
+//   従来の gasPost はキューに積んで投げっぱなし（常に ok:true）なので、
+//   「保存できていないのに出荷済と表示される」事故を防げない。出荷など重要な操作はこちらを使う。
+async function gasPostSync(data){
+  if (!S.gasUrl) return { ok:false, error:'GAS URLが未設定です' };
+  if (!navigator.onLine) return { ok:false, error:'オフラインです（電波の良い場所で再実行してください）' };
+  try{
+    if (typeof currentUser!=='undefined' && currentUser){
+      if(!data._actor) data._actor = currentUser.name;
+      if(!data._actorBranch) data._actorBranch = currentUser.branch || '';
+    }
+  }catch(e){}
+  // GASが行照合に使う作成日時を必ず添える（無いと更新対象が見つからない）
+  try{
+    if (data && data.action === 'saveOrder' && (data._matchTimestamp == null || data._matchTimestamp === '')){
+      data._matchTimestamp = data.timestamp || data._matchTs || data.date || '';
+    }
+  }catch(e){}
+  try{ var _tok = sessionStorage.getItem('lmb_token') || ''; if(_tok){ data._token = _tok; if(data.token==null) data.token = _tok; } }catch(e){}
+  var payload = JSON.stringify(data);
+  var enc = encodeURIComponent(payload);
+  var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timer = ctl ? setTimeout(function(){ try{ ctl.abort(); }catch(_){} }, 25000) : null;
+  try{
+    var res;
+    if (enc.length > 6000){
+      res = await fetch(S.gasUrl, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+        body: payload, redirect:'follow', signal: ctl ? ctl.signal : undefined });
+    } else {
+      res = await fetch(S.gasUrl + '?payload=' + enc + '&_=' + Date.now(),
+        { method:'GET', cache:'no-store', signal: ctl ? ctl.signal : undefined });
+    }
+    if (timer) clearTimeout(timer);
+    if (!res.ok) return { ok:false, error:'通信エラー(http ' + res.status + ')' };
+    var body = await res.text();
+    var resp = null; try { resp = JSON.parse(body); } catch(_pe){}
+    if (resp && (resp.ok === false || resp.error)) return { ok:false, error:String(resp.error || 'サーバが保存を拒否しました') };
+    return { ok:true, resp:resp };
+  }catch(err){
+    if (timer) clearTimeout(timer);
+    var m = (err && err.name === 'AbortError') ? '応答がありません（通信が不安定です）' : ((err && err.message) || String(err));
+    return { ok:false, error:m };
+  }
+}
 async function gasPost(data){
   try{ if(typeof currentUser!=='undefined'&&currentUser){ if(!data._actor)data._actor=currentUser.name; if(!data._actorBranch)data._actorBranch=currentUser.branch||''; } }catch(e){}
   // ★注文保存は、O列(ID)が空の旧データ／LINE注文でも行を照合できるよう、
@@ -3085,6 +3129,18 @@ async function changeShipStatus(id, val){
     _sd = await _pickDate(_ymd(o.shipDate || o.date || today()), '出荷日を選んでください', 'この日付で在庫が減ります（初期値＝注文日）');
     if (!_sd){ renderOrders(); return; }          // キャンセル＝何もしない
     _sd = _ymd(_sd);
+    // ★順番：先にサーバへ保存し、成功を確認してから在庫を減らす／出荷済にする。
+    //   （以前は 在庫→表示→投げっぱなし送信 の順で、保存できていなくても
+    //     画面が「出荷済」になり在庫まで減っていた＝実態と食い違う嘘の表示だった）
+    if (S.gasUrl){
+      toast('保存中…');
+      var _sv = await gasPostSync(Object.assign({}, o, { action:'saveOrder', status:'出荷済', shipDate:_sd }));
+      if (!_sv.ok){
+        toast('❌ 保存できませんでした：' + _sv.error + '（出荷済にしていません）', 'error');
+        renderOrders();
+        return;                                   // ← 保存できていないので、何も変えない
+      }
+    }
     o.shipDate = _sd;
     applyShipEffects(o, _sd);
   }
@@ -3096,7 +3152,8 @@ async function changeShipStatus(id, val){
   o.status = val;
   if (willShip && !o.shippedAt) o.shippedAt = new Date().toISOString();
   saveState();
-  if (S.gasUrl){ try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} }
+  // 出荷済は上で保存確認済み。それ以外（新規受付/対応中）はここで保存する。
+  if (S.gasUrl && !(willShip && !wasShipped)){ try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} }
   toast('✓ 出荷ステータス: ' + val);
   renderOrders();
   updateKPI();
