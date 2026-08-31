@@ -7199,6 +7199,8 @@ function addLendItem(){
   var ex = lendDraft.find(function(x){ return x.product === prod; });
   if (ex) ex.qty += qty; else lendDraft.push({ product: prod, qty: qty });
   document.getElementById('ln-qty').value = '';
+  // ★続けて入力しやすいよう、商品の選択欄へ戻す
+  try { var _p = document.getElementById('ln-prod'); if (_p){ _p.focus(); if (typeof _p.showPicker === 'function'){ try{ _p.showPicker(); }catch(e){} } } } catch(e){}
   renderLendDraft();
   toast('明細に追加：' + prod + ' ' + qty + '本');
 }
@@ -7222,6 +7224,11 @@ function addMoveItem(){
   var ex = moveDraft.find(function(x){ return x.product === prod; });
   if (ex) ex.qty += qty; else moveDraft.push({ product: prod, qty: qty });
   document.getElementById('tr-qty').value = '';
+  // ★続けて入力しやすいよう、商品の選択欄へ戻す（そのまま次の商品を選べる）
+  try {
+    var _p = document.getElementById('tr-prod');
+    if (_p){ _p.focus(); if (typeof _p.showPicker === 'function') { try { _p.showPicker(); } catch(e){} } }
+  } catch(e){}
   renderMoveDraft();
   if (typeof updateTransferPreview === 'function') updateTransferPreview();
   toast('明細に追加：' + prod + ' ' + qty + '本');
@@ -7592,6 +7599,8 @@ function addFreeItem(){
   var ex=freeDraft.find(function(x){ return x.product===prod; });
   if(ex) ex.qty+=qty; else freeDraft.push({product:prod, qty:qty});
   document.getElementById('fr-qty').value='';
+  // ★続けて入力しやすいよう、商品の選択欄へ戻す
+  try { var _p = document.getElementById('fr-prod'); if (_p){ _p.focus(); if (typeof _p.showPicker === 'function'){ try{ _p.showPicker(); }catch(e){} } } } catch(e){}
   renderFreeDraft();
   toast('明細に追加：'+prod+' '+qty+'本');
 }
