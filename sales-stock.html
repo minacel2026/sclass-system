@@ -948,6 +948,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="printStocktakeSheetAsOf()" title="基準日の在庫でA4棚卸チェックシートを印刷（手書き照合用）">🖨 棚卸</button>
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="printDailyStockTable()" title="基準日の月の、日ごと×商品の在庫表をA4横で印刷（CSV出力あり）">📅 日別在庫表</button>
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="verifyStockByEngine()" title="今の在庫（保存値）と、履歴から計算した値が一致するか確認します（変更しません）">🧮 計算値と照合</button>
+        <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="showQueueDetail()" title="サーバにまだ保存されていない未送信データを確認します（0件なら全部保存済み）">📤 未送信を確認</button>
         <button id="btn-calc-mode" class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem;border-color:var(--grn);color:var(--grn)" onclick="_stockCalcMode=!_stockCalcMode;var b=document.getElementById('btn-calc-mode');if(b){b.style.borderColor=_stockCalcMode?'var(--grn)':'';b.style.color=_stockCalcMode?'var(--grn)':'';b.textContent=_stockCalcMode?'🧮 計算値で表示中':'🧮 保存値で表示';}renderStock();" title="通常は『計算値（履歴から計算）』で表示します。押すと一時的に『保存値』表示に切り替えて見比べられます（安全網・データは変えません）。">🧮 計算値で表示中</button>
         <button id="btn-stock-init" class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="var d=document.getElementById('stock-init');var open=(d.style.display!=='none');d.style.display=open?'none':'block';if(!open){if(typeof renderStockInit==='function')renderStockInit();d.scrollIntoView({block:'nearest',behavior:'smooth'});}" title="旧値・協賛・新値を一括登録／上書き">⊕ 初期登録</button>
       </div>
@@ -1781,7 +1782,7 @@ function _qDropStuck(){
   var names=stuck.map(function(it){ return (it.data&&it.data.action)||'?'; });
   if(!confirm('何度も失敗している送信 '+stuck.length+'件を破棄します。\n\n'
     + names.slice(0,8).join('\n')
-    + '\n\n※これらはサーバに届いていません。破棄しても在庫の数値は変わりません。\n実行しますか？')) return;
+    + '\n\n⚠️ 破棄すると、これらのデータは永久に失われ、サーバ（スプレッドシート）に保存されません。取り消せません。\n\n通常は破棄せず、ログアウト→再ログインしてトークンを更新してから「今すぐ再送」してください。\n\nそれでも破棄しますか？')) return;
   var rest=q.filter(function(it){ return !(it && (it._try||0)>=3); });
   _qSave(rest); _qBadge();
   toast('✓ '+stuck.length+'件を破棄しました');
