@@ -6718,7 +6718,21 @@ function renderStocktakeForm(){
 // 記録する
 // 基準日時点の理論在庫マップ（在庫管理タブの基準日表示と同じ巻き戻しロジックで、画面と印刷を一致させる）
 function _theoStockMapAsOf(branch, asOf){
-  var out = {}; var reset = false;
+  // 画面の在庫表示と同じ「計算値（履歴から計算）」で、その日終わり時点の在庫を出す。
+  // 保存値からの逆算はやめ、computeStock に統一（表示と日別表がズレないように）。
+  var out = {};
+  var comp = null;
+  try { if (window.StockEngine && typeof window.StockEngine.computeStock === 'function') comp = window.StockEngine.computeStock(S.slog||[], asOf||undefined); } catch(e){ comp = null; }
+  if (comp){
+    (typeof _prodColsAll === 'function' ? _prodColsAll(branch, '') : []).forEach(function(p){
+      var c = comp[branch] && comp[branch][p.key];
+      out[p.key] = c ? (Number(c.total)||0) : 0;
+    });
+    out.__reset = false;
+    return out;
+  }
+  // ── フォールバック（計算エンジンが無い時のみ）：従来の保存値逆算 ──
+  var reset = false;
   (typeof _prodColsAll === 'function' ? _prodColsAll(branch, '') : []).forEach(function(p){
     var bk = (typeof _bkt === 'function') ? _bkt(branch, p.key) : {old:0,sp:0,new:0};
     out[p.key] = (bk.old||0) + (bk.sp||0) + (bk.new||0);
@@ -6726,7 +6740,7 @@ function _theoStockMapAsOf(branch, asOf){
   if (asOf){
     (S.slog || []).forEach(function(s){
       if (!s || s.branch !== branch) return;
-      if (String(s.date || '') <= asOf) return;           // 基準日以前は対象外（＝基準日終わり時点）
+      if (String(s.date || '') <= asOf) return;
       if (s.type === '初期登録'){ reset = true; return; }
       var qy = Number(s.qty) || 0;
       if (_BS_OUT[s.type]) out[s.product] = (out[s.product]||0) + Math.abs(qy);
