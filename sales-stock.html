@@ -6658,7 +6658,7 @@ function submitPurchase(){
       createdAt: new Date().toISOString(),
     };
     S.purchases.push(purchase);
-    if (S.gasUrl) { setTimeout(function(){ try { gasPost({ action:'savePurchase', ...purchase }); } catch(e){} }, _pi * 600); }   // ★明細ごとに600ms間隔で送る（GAS側ロック無しの同時追記の取りこぼしを防ぐ）
+    if (S.gasUrl) { try { gasPost({ action:'savePurchase', ...purchase }); } catch(e){} }   // ★即時に未送信キューへ積む（登録直後にタブを閉じても失わず自動再送）。GAS側は LockService で排他済みのため間隔待ちは不要
     // 在庫加算：通常は新値バケツ、協賛仕入は協賛バケツへ（棚卸の評価額は0のまま保たれる）
     if (_isSp) restoreStockBkt(branch, it.product, it.qty, { old:0, sp:it.qty, new:0 });
     else       restoreStockBkt(branch, it.product, it.qty);
@@ -8525,8 +8525,8 @@ async function transferStock(){
       product: it.product, qty: it.qty, used: used, status:'輸送中', memo: memo, sentBy: user, sentAt: new Date().toISOString(),
       recvQty:'', recvDate:'', recvBy:'', lostQty:'' };
     S.moves.push(rec);
-    if (S.gasUrl){ (function(r,d){ setTimeout(function(){ gasPost({ action:'saveMove', id:r.id, date:r.date, from:r.from, to:r.to, product:r.product,
-      qty:r.qty, used:JSON.stringify(r.used), status:r.status, memo:r.memo, sentBy:r.sentBy }); }, d); })(rec, _i*600); }
+    if (S.gasUrl){ try { gasPost({ action:'saveMove', id:rec.id, date:rec.date, from:rec.from, to:rec.to, product:rec.product,
+      qty:rec.qty, used:JSON.stringify(rec.used), status:rec.status, memo:rec.memo, sentBy:rec.sentBy }); } catch(e){} }   // ★即時に未送信キューへ積む（発送直後にタブを閉じても失わず自動再送）
   });
   saveState();
   syncStockToGAS();
