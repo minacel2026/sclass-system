@@ -7487,15 +7487,31 @@ function rebuildStockFromHistory(silent){
 }
 // 在庫を点検・修復（統合）：在庫履歴から計算した値と今の在庫を照合し、ズレがあればその場で修復。
 //   ＝「計算値と照合」「原因を調べる」「在庫を履歴から作り直す」を1つにまとめたもの。
-function inspectAndRepairStock(){
+async function inspectAndRepairStock(){
   try{
-    var comp = (window.StockEngine && typeof window.StockEngine.computeStock==='function')
-      ? window.StockEngine.computeStock(S.slog||[]) : null;
+    var comp = (window.StockEngine && typeof window.StockEngine.computeStock==='function') ? window.StockEngine.computeStock(S.slog||[]) : null;
     if(!comp){ toast('計算エンジンが見つかりません','error'); return; }
+    var reup = 0;
+    if (S.gasUrl){
+      try{
+        var tok=''; try{ tok = sessionStorage.getItem('lmb_token')||''; }catch(e){}
+        var _fx=0; (S.slog||[]).forEach(function(l){ if(l && !l.id){ l.id='sl-'+Date.now()+'-'+Math.floor(Math.random()*900000+100000)+'-'+(_fx++); } });
+        if(_fx){ try{ saveState(); }catch(e){} }
+        var srv = await gasGet('getStockLogs',{limit:2000});
+        var have={}; (srv&&srv.logs||[]).forEach(function(l){ if(l&&l.id) have[l.id]=1; });
+        var missing=(S.slog||[]).filter(function(l){ return l&&l.id&&!have[l.id]; });
+        for(var i=0;i<missing.length;i+=200){
+          var batch=missing.slice(i,i+200);
+          var payload=JSON.stringify({action:'saveStockLogs',logs:JSON.stringify(batch),_token:tok,token:tok});
+          var res=await fetch(S.gasUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:payload}).then(function(r){return r.text();});
+          var j=null;try{j=JSON.parse(res);}catch(_){}
+          if(j&&j.ok){ reup += (Number(j.added)||0); }
+        }
+      }catch(e){}
+    }
     var diffs=[];
     ['仙台','京都'].forEach(function(br){
       var prods = (S.stockDetail&&S.stockDetail[br]) ? Object.keys(S.stockDetail[br]) : [];
-      // 履歴側にしかない商品も拾う
       if(comp[br]) Object.keys(comp[br]).forEach(function(p){ if(prods.indexOf(p)<0) prods.push(p); });
       prods.forEach(function(p){
         var sd=(S.stockDetail[br]||{})[p]||{}; var saved=(sd.old||0)+(sd.sp||0)+(sd.new||0);
@@ -7503,10 +7519,14 @@ function inspectAndRepairStock(){
         if(saved!==calc) diffs.push({br:br,p:p,saved:saved,calc:calc});
       });
     });
-    if(!diffs.length){ alert('✓ 在庫は在庫履歴と一致しています（問題ありません）'); return; }
+    if(!diffs.length){
+      alert('✓ 点検OK：在庫は在庫履歴と一致しています。' + (reup? ('\n（サーバに未反映だった在庫履歴 '+reup+'件を送信しました）') : '\n（サーバの在庫履歴も最新です）'));
+      return;
+    }
     var msg='⚠ 在庫と在庫履歴がズレている商品：'+diffs.length+'件\n\n'
       + diffs.slice(0,15).map(function(d){ return '・'+d.br+'　'+d.p+'：今の在庫'+d.saved+' / 履歴からの計算'+d.calc+'（差'+((d.calc-d.saved)>0?'+':'')+(d.calc-d.saved)+'）'; }).join('\n')
       + (diffs.length>15?('\n… ほか '+(diffs.length-15)+'件'):'')
+      + (reup? ('\n\n（サーバに未反映だった在庫履歴 '+reup+'件は送信済み）') : '')
       + '\n\n在庫履歴が正です。履歴から在庫を作り直して直しますか？\n（在庫履歴は変わりません。在庫の数字だけ履歴に合わせます）';
     if(confirm(msg)){
       var n = (typeof rebuildStockFromHistory==='function') ? rebuildStockFromHistory(true) : 0;
