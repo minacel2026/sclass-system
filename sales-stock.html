@@ -1789,6 +1789,7 @@ function _qDropStuck(){
   try{ showQueueDetail(); }catch(e){}
 }
 function showQueueDetail(){
+  try { if (typeof _slogQueue !== 'undefined' && _slogQueue && _slogQueue.length && typeof _slogFlush === 'function') _slogFlush(); } catch(e){}
   var q = _qLoad();
   var box = document.getElementById('q-detail');
   if (!box){
@@ -1862,7 +1863,7 @@ function discardQueueItem(qid){
   showQueueDetail();
 }
 function _qBadge(){
-  var n=_qLoad().length;
+  var n=_qLoad().length + ((typeof _slogQueue!=='undefined' && _slogQueue) ? _slogQueue.length : 0);
   var el=document.getElementById('send-queue-badge');
   if(!el){
     el=document.createElement('div'); el.id='send-queue-badge';
@@ -7469,10 +7470,11 @@ function _slogEnqueue(entry){
     id: entry.id, date: entry.date || today(), time: entry.time || '',
     branch: entry.branch || '', type: entry.type || '', product: entry.product || '',
     qty: entry.qty || 0, remaining: (entry.remaining === undefined ? '' : entry.remaining),
-    orderId: entry.orderId || '', note: entry.note || '', user: entry.user || ''
+    orderId: entry.orderId || '', used: entry.used, note: entry.note || '', user: entry.user || ''
   });
   if (_slogTimer) clearTimeout(_slogTimer);
   _slogTimer = setTimeout(_slogFlush, 1500);
+  try { if (typeof _qBadge === 'function') _qBadge(); } catch(e){}
   return entry;
 }
 // S.slog.push を包む（1回だけ適用）
