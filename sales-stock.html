@@ -5266,6 +5266,23 @@ function submitNewOrder(){
   const editIdForSave = editingOrderId;  // 編集時はこのIDを再登録時も維持（IDが変わると重複の原因になる）
   let shipStockTouched = false;  // 出荷済の在庫増減が起きたらtrue（最後にGAS同期するか判定）
   let editPrevStatus = null;  // 編集時：既存注文の出荷ステータスを維持（ステータス変更は一覧で行う）
+  // ★B-2（編集モード）：出荷済の注文を編集して在庫超過になる場合は、巻き戻し・削除の前に中断する。
+  //   使える在庫＝「今の在庫」＋「この注文が戻す分（旧注文の出荷済数量）」で判定（正しい修正を誤ブロックしない）。
+  if (wasEditing){
+    const _old = (S.orders || []).find(o => o.id === editIdForSave);
+    if (_old && shipStatus(_old) === '出荷済'){
+      const _br = (document.getElementById('no-branch') || {}).value;
+      const _need = {};
+      Object.entries(items).forEach(([p, q]) => { if (q > 0) _need[p] = (_need[p] || 0) + q; });
+      (typeof sponsorShipDraft !== 'undefined' ? sponsorShipDraft : []).forEach(it => { if (it && it.qty > 0) _need[it.product] = (_need[it.product] || 0) + it.qty; });
+      const _short = [];
+      Object.keys(_need).forEach(p => {
+        const _avail = ((((S.stock[_br] || {})[p]) || 0)) + (((_old.items || {})[p]) || 0) + (((_old.sponsorItems || {})[p]) || 0);
+        if (_need[p] > _avail) _short.push(p + '（在庫' + _avail + '／注文' + _need[p] + '）');
+      });
+      if (_short.length){ toast('🚫 出荷できません。在庫不足：' + _short.join(' ／ ') + '。数量を減らすか、先に在庫を入れてください。', 'error'); return; }
+    }
+  }
   // 編集モード: 旧注文を巻き戻す。在庫は「旧注文が出荷済だった場合のみ」戻す（未出荷は元々減算していない）。
   // 協賛ログは旧モデルの前倒し記録も掃除するため常に取消（出荷済なら後で再付与される）。
   if (editingOrderId){
