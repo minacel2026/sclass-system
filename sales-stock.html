@@ -947,10 +947,8 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         <div class="fg" style="flex:0 1 210px;min-width:170px;margin-bottom:0"><label>基準日（この日の在庫）</label><div style="display:flex;gap:.3rem;align-items:center"><input class="fc" id="st-asof" type="date" min="2000-01-01" max="2100-12-31" style="flex:1 1 auto;min-width:108px" onchange="renderStock()"><button class="btn-s" style="padding:0 .7rem;white-space:nowrap;font-size:.68rem" onclick="var e=document.getElementById('st-asof');if(e)e.value='';renderStock()" title="今の在庫に戻す">今</button></div></div>
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="printStocktakeSheetAsOf()" title="基準日の在庫でA4棚卸チェックシートを印刷（手書き照合用）">🖨 棚卸</button>
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="printDailyStockTable()" title="基準日の月の、日ごと×商品の在庫表をA4横で印刷（CSV出力あり）">📅 日別在庫表</button>
-        <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="verifyStockByEngine()" title="今の在庫（保存値）と、履歴から計算した値が一致するか確認します（変更しません）">🧮 計算値と照合</button>
+        <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="inspectAndRepairStock()" title="在庫が在庫履歴と合っているか点検し、ズレていればその場で直します（在庫履歴が正）">🔧 在庫を点検・修復</button>
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="showQueueDetail()" title="サーバにまだ保存されていない未送信データを確認します（0件なら全部保存済み）">📤 未送信を確認</button>
-        <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="if(confirm('在庫の数字を、在庫履歴（記録）から計算し直して揃えます。\n（在庫履歴が正・保存値がズレたときの修復用。実行しますか？）')) rebuildStockFromHistory(false);" title="在庫（数字）を在庫履歴から作り直して一致させます">🔄 在庫を履歴から作り直す</button>
-        <button id="btn-calc-mode" class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem;border-color:var(--grn);color:var(--grn)" onclick="_stockCalcMode=!_stockCalcMode;var b=document.getElementById('btn-calc-mode');if(b){b.style.borderColor=_stockCalcMode?'var(--grn)':'';b.style.color=_stockCalcMode?'var(--grn)':'';b.textContent=_stockCalcMode?'🧮 計算値で表示中':'🧮 保存値で表示';}renderStock();" title="通常は『計算値（履歴から計算）』で表示します。押すと一時的に『保存値』表示に切り替えて見比べられます（安全網・データは変えません）。">🧮 計算値で表示中</button>
         <button id="btn-stock-init" class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="var d=document.getElementById('stock-init');var open=(d.style.display!=='none');d.style.display=open?'none':'block';if(!open){if(typeof renderStockInit==='function')renderStockInit();d.scrollIntoView({block:'nearest',behavior:'smooth'});}" title="旧値・協賛・新値を一括登録／上書き">⊕ 初期登録</button>
       </div>
     </div>
@@ -1046,10 +1044,6 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
   </div>
 
   <div id="m-slog" class="mcon">
-    <div class="hint-box">
-      <strong>📜 在庫履歴</strong><br>
-      在庫に関わる動き（出庫・仕入・拠点間移動・戻入・調整・初期登録）をまとめて確認できます。種類で絞り込めます（「移動（拠点間）」を選ぶと仙台⇄京都の移動だけ表示）。
-    </div>
 
     <div class="fp" style="margin-bottom:1rem;border:1px solid rgba(201,168,76,.3)">
       <div class="form-section-title" style="cursor:pointer" onclick="toggleBackstock()">📅 さかのぼり在庫（日付指定・過不足チェック）<span id="bs-caret" style="float:right">▾</span></div>
@@ -1073,7 +1067,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       </div>
     </div>
     <div class="tw">
-      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="findStockCause()" title="在庫が合わない原因を調べます（変更しません）">🔎 原因を調べる</button><button class="btn-s" style="margin-left:.4rem" onclick="checkSlogConsistency()" title="残数のつじつまを確認します">🔍 整合チェック</button><button class="btn-s" style="margin-left:.4rem" onclick="reuploadStockLogs()" title="端末にあってサーバに無い在庫履歴を、まとめてサーバへ送ります（重複スキップ・在庫は動きません）">⬆ サーバへ再送</button><button class="btn-s" style="margin-left:.4rem" onclick="clearAllSlog()" title="在庫履歴を全部消します（在庫の数値は変わりません）">🗑 履歴を全消去</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
+      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.6rem">📊 推移表</button><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="findStockCause()" title="在庫が合わない原因を調べます（変更しません）">🔎 原因を調べる</button><button class="btn-s" style="margin-left:.4rem" onclick="clearAllSlog()" title="在庫履歴を全部消します（在庫の数値は変わりません）">🗑 履歴を全消去</button></span></div>
       <table id="slog-table">
         <thead>
           <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>操作日<span style="font-size:.6rem;color:var(--wh3)">(記録)</span></th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del-col">操作</th></tr>
@@ -1845,6 +1839,7 @@ function showQueueDetail(){
     + '<button class="btn btn-g" onclick="closeQueueDetail()">閉じる</button>'
     + '<button class="btn btn-g" onclick="checkConnection()">🔌 接続を確認</button>'
     + '<button class="btn btn-p" onclick="_qFlush(true).then(function(){ showQueueDetail(); })">📤 今すぐ再送</button>'
+    + '<button class="btn-s" style="margin-left:.4rem" onclick="reuploadStockLogs()" title="端末にあってサーバに無い在庫履歴を、まとめてサーバへ送ります（重複スキップ・在庫は動きません）">⬆ 在庫履歴を全部サーバへ再送</button>'
     + '<button class="btn-s" style="margin-left:.4rem" onclick="_qDropStuck()" title="何度も失敗している送信を破棄します（deleteStockLogs等）">🧹 送れない分を破棄</button>'
     + '</div></div>';
   box.style.display = 'flex';
@@ -7500,6 +7495,36 @@ function rebuildStockFromHistory(silent){
     return changed;
   }catch(e){ if(!silent) toast('作り直しに失敗：'+e.message,'error'); return 0; }
 }
+// 在庫を点検・修復（統合）：在庫履歴から計算した値と今の在庫を照合し、ズレがあればその場で修復。
+//   ＝「計算値と照合」「原因を調べる」「在庫を履歴から作り直す」を1つにまとめたもの。
+function inspectAndRepairStock(){
+  try{
+    var comp = (window.StockEngine && typeof window.StockEngine.computeStock==='function')
+      ? window.StockEngine.computeStock(S.slog||[]) : null;
+    if(!comp){ toast('計算エンジンが見つかりません','error'); return; }
+    var diffs=[];
+    ['仙台','京都'].forEach(function(br){
+      var prods = (S.stockDetail&&S.stockDetail[br]) ? Object.keys(S.stockDetail[br]) : [];
+      // 履歴側にしかない商品も拾う
+      if(comp[br]) Object.keys(comp[br]).forEach(function(p){ if(prods.indexOf(p)<0) prods.push(p); });
+      prods.forEach(function(p){
+        var sd=(S.stockDetail[br]||{})[p]||{}; var saved=(sd.old||0)+(sd.sp||0)+(sd.new||0);
+        var c=comp[br]&&comp[br][p]; var calc=c?(c.total||0):0;
+        if(saved!==calc) diffs.push({br:br,p:p,saved:saved,calc:calc});
+      });
+    });
+    if(!diffs.length){ alert('✓ 在庫は在庫履歴と一致しています（問題ありません）'); return; }
+    var msg='⚠ 在庫と在庫履歴がズレている商品：'+diffs.length+'件\n\n'
+      + diffs.slice(0,15).map(function(d){ return '・'+d.br+'　'+d.p+'：今の在庫'+d.saved+' / 履歴からの計算'+d.calc+'（差'+((d.calc-d.saved)>0?'+':'')+(d.calc-d.saved)+'）'; }).join('\n')
+      + (diffs.length>15?('\n… ほか '+(diffs.length-15)+'件'):'')
+      + '\n\n在庫履歴が正です。履歴から在庫を作り直して直しますか？\n（在庫履歴は変わりません。在庫の数字だけ履歴に合わせます）';
+    if(confirm(msg)){
+      var n = (typeof rebuildStockFromHistory==='function') ? rebuildStockFromHistory(true) : 0;
+      alert('✓ '+n+'商品の在庫を、在庫履歴に合わせて直しました');
+    }
+  }catch(e){ toast('点検に失敗：'+e.message,'error'); }
+}
+// 在庫を点検・修復（統合）ここまで
 async function reuploadStockLogs(){
   if (!S.gasUrl) return toast('GAS URLが未設定です','error');
   // ★id無しの古い記録（初期登録など）にはidを補完する。無いとサーバがスキップして永久に転記されない。
