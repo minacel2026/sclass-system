@@ -3337,8 +3337,25 @@ function _orderRecordedShipped(o){
   try{ var ms = orderShippedSponsor(o) || {}; Object.keys(ms).forEach(function(k){ t += Number(ms[k]) || 0; }); }catch(e){}
   return t;
 }
-async function changeShipStatus(id, val){
-  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
+// 注文の状態変更が本当にサーバに反映されたか、数秒後に確認して、未反映なら自動で再送する保険。
+//   （出荷済にしたのにサーバに届かず「新規受付」のまま残るのを防ぐ）
+function _ensureOrderSaved(id){
+  if (!S.gasUrl || !id) return;
+  setTimeout(async function(){
+    try{
+      var loc = (S.orders||[]).find(function(x){ return String(x.id)===String(id); });
+      if (!loc) return;
+      var srv = await gasGet('getOrders');
+      var so = (srv && srv.orders || []).find(function(x){ return String(x.id)===String(id); });
+      // サーバに無い、または状態が食い違う → 再送（キュー経由で自動リトライ）
+      if (!so || String(so.status||'') !== String(loc.status||'')){
+        try { gasPost({ action:'saveOrder', ...loc }); } catch(e){}
+        try { toast('サーバへ反映を再送しました（' + (loc.store||'') + '：' + (loc.status||'') + '）'); } catch(e){}
+      }
+    }catch(e){}
+  }, 3000);
+}
+async function changeShipStatus(id, val){  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (['新規受付','対応中','出荷済'].indexOf(val) < 0) return;
   const o = (S.orders || []).find(x => String(x.id) === String(id));
   if (!o) return;
@@ -3366,7 +3383,7 @@ async function changeShipStatus(id, val){
         o.status = '出荷済';
         if (!o.shippedAt) o.shippedAt = new Date().toISOString();
         saveState();
-        if (S.gasUrl){ try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} }
+        if (S.gasUrl){ try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} _ensureOrderSaved(o.id); }
         toast('✓ 在庫を動かさず「出荷済」にしました（既に出庫済みのため二重に引いていません）');
         renderOrders(); updateKPI(); if (typeof renderStock === 'function') renderStock();
         return;
@@ -3389,7 +3406,7 @@ async function changeShipStatus(id, val){
   if (willShip && !o.shippedAt) o.shippedAt = new Date().toISOString();
   if (typeof _markOrderEdited === 'function') _markOrderEdited(o.id);   // ★90秒間サーバ上書きから保護（出荷済が戻るのを防ぐ）
   saveState();
-  if (S.gasUrl){ try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} }
+  if (S.gasUrl){ try { gasPost({ action: 'saveOrder', ...o }); } catch(e){} _ensureOrderSaved(o.id); }
   toast('✓ 出荷ステータス: ' + val);
   renderOrders();
   updateKPI();
