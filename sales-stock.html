@@ -8,9 +8,9 @@
 // ══ 在庫計算エンジン（履歴から在庫を計算する）══
 //   フェーズ2：まずは検算用。既存の保存値(_bkt)は温存し、計算値と突き合わせられるようにする。
 window.StockEngine = (function(){
-  var STOCK_IN  = {'入庫':1,'協賛入庫':1,'戻入':1,'移動入':1,'借入':1,'返却受':1};
+  var STOCK_IN  = {'入庫':1,'協賛入庫':1,'戻入':1,'移動入':1,'借入':1,'返却受':1,'移動取消':1};
   var STOCK_OUT = {'出庫':1,'協賛出庫':1,'試供出庫':1,'備品出庫':1,'シール出庫':1,'移動出':1,'無償提供':1,'貸出':1,'借入返却':1,'輸送中紛失':1};
-  var STOCK_SIGNED = {'調整':1,'仕入取消':1,'移動取消':1};
+  var STOCK_SIGNED = {'調整':1,'仕入取消':1};
   function recordDelta(rec){
     var t=String(rec.type||''), q=Number(rec.qty)||0;
     if(STOCK_SIGNED[t]) return q;
@@ -5197,6 +5197,8 @@ function submitNewOrder(){
         S.sponsorLogs = S.sponsorLogs.filter(l => l.orderId !== editingOrderId);
         if (S.gasUrl) relLogs.forEach(l => { try { gasPost({ action:'deleteSponsorLog', id:l.id }); } catch(e){} });
       }
+      // ★旧注文の在庫履歴（出庫・協賛出庫・戻入など）も消す。消さないと編集で出庫が二重に残り、計算値が二重に減る（deleteOrderと同じ扱い）。
+      S.slog = (S.slog || []).filter(function(x){ return !(x && String(x.orderId||'') === String(editingOrderId)); });
       S.orders = (S.orders || []).filter(o => o.id !== editingOrderId);
     }
     editingOrderId = null;  // 以降は通常の新規登録ロジックで再登録
@@ -6523,6 +6525,8 @@ function submitPurchase(){
   if (editingPurId){
     var _oldPur = editingPurId; editingPurId = null;
     try { deletePurchase(_oldPur, true); } catch(e){}
+    var _stillP = (S.purchases||[]).find(function(x){ return x.id===_oldPur; });
+    if (_stillP){ editingPurId=_oldPur; return toast('元の仕入を削除できませんでした。二重登録を防ぐため、修正を中止しました。', 'error'); }
     if (typeof _entryEditBanner === 'function') _entryEditBanner('purchase', false);
   }
   const date     = document.getElementById('pu-date').value;
@@ -7218,10 +7222,11 @@ function fillLendSelectors(){
 }
 
 function _lendStockMove(branch, product, signedQty, type, note, bizDate){
-  if(signedQty < 0) depleteStock(branch, product, -signedQty);
-  else restoreStockBkt(branch, product, signedQty);
+  var _used;
+  if(signedQty < 0){ _used = depleteStock(branch, product, -signedQty); }
+  else { restoreStockBkt(branch, product, signedQty); _used = {old:0,sp:0,new:signedQty}; }
   if(!S.slog) S.slog=[];
-  S.slog.push({ date:(bizDate||today()), time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), branch, type, product, qty:Math.abs(signedQty), remaining:S.stock[branch][product], orderId:'', note });
+  S.slog.push({ date:(bizDate||today()), time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), branch, type, product, qty:Math.abs(signedQty), remaining:S.stock[branch][product], orderId:'', used:_used, note });
 }
 
 // ══ 複数商品の明細（貸借・拠点間移動）══
@@ -7295,6 +7300,8 @@ function recordLending(){
   if (editingLendId){
     var _oldId = editingLendId; editingLendId = null;
     try { deleteLending(_oldId, true); } catch(e){}
+    var _stillL = (S.lendings||[]).find(function(x){ return x.id===_oldId; });
+    if (_stillL){ editingLendId=_oldId; return toast('元の貸借を削除できませんでした。二重登録を防ぐため、修正を中止しました。', 'error'); }
     if (typeof _entryEditBanner === 'function') _entryEditBanner('lending', false);
   }
   if(typeof canEdit==='function' && !canEdit()) return toast('🔒 貸借を記録する権限がありません（閲覧のみ）', 'error');
@@ -7794,7 +7801,7 @@ function deleteLending(id, skipConfirm){
   let msg='この貸借履歴を削除しますか？\n'+(rec.date||'')+'　'+(rec.partnerName||'')+'　'+rec.kind+'　'+(rec.product||'')+' '+q+'本';
   msg += (reversal!==0) ? ('\n在庫が'+(reversal>0?'戻ります（+':'減ります（−')+Math.abs(reversal)+'本）。') : '\n（在庫は変わりません）';
   if(!confirm(msg)) return;
-  if(reversal!==0){ _lendStockMove(rec.branch, rec.product, reversal, '貸借削除', '貸借履歴の削除：'+(rec.partnerName||'')); }
+  if(reversal!==0){ var _revType=(reversal>0?'返却受':'借入返却'); _lendStockMove(rec.branch, rec.product, reversal, _revType, '貸借削除：'+(rec.partnerName||'')+'（'+(rec.kind||'')+'取消）'); }
   S.lendings=(S.lendings||[]).filter(l=>l.id!==id); saveState();
   try{ let _dl=JSON.parse(localStorage.getItem('lmb_deletedLendings')||'[]'); if(_dl.indexOf(id)<0){ _dl.push(id); localStorage.setItem('lmb_deletedLendings', JSON.stringify(_dl)); } }catch(e){}
   if(S.gasUrl){ gasPost({action:'deleteLending', id:id}); if(reversal!==0) syncStockToGAS(); }
@@ -8156,7 +8163,13 @@ async function transferStock(){
   _removeEditingOrderForConvert();
   if (editingMoveId){
     var _oldMv = editingMoveId; editingMoveId = null;
-    try { await cancelMove(_oldMv, true); } catch(e){}
+    try { await cancelMove(_oldMv, true, true); } catch(e){}   // 元の移動を取消（transferStockで既にガード済みなので二重ガードはしない）
+    // ★取消が実際に効いたか検証：まだ輸送中なら、二重登録（＝二重出庫）を防ぐため中止する
+    var _stillMv = (S.moves||[]).find(function(x){ return x.id===_oldMv && x.status==='輸送中'; });
+    if (_stillMv){
+      editingMoveId = _oldMv;   // 修正状態を戻す（もう一度やり直せるように）
+      return toast('元の移動を取り消せませんでした。二重登録を防ぐため、修正を中止しました。もう一度お試しください。', 'error');
+    }
     if (typeof _entryEditBanner === 'function') _entryEditBanner('transfer', false);
   }
   const from = (document.getElementById('tr-from')||{}).value;
@@ -8249,9 +8262,9 @@ async function receiveMove(id){
 }
 
 // 取消：発送そのものを取り消し、移動元へ在庫を戻す（誤発送用）
-async function cancelMove(id, skipConfirm){
+async function cancelMove(id, skipConfirm, skipGuard){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 取消の権限がありません（社長・閲覧者は不可）','error');
-  if (!(await guardStockWrite())) return;
+  if (!skipGuard && !(await guardStockWrite())) return;
   const m = (S.moves||[]).find(function(x){ return x.id===id; });
   if (!m || m.status!=='輸送中') return;
   if (!skipConfirm && !confirm(`${m.product} ${m.qty}本（${m.from}→${m.to}）の発送を取り消します。\n\n・${m.from} の在庫が ${m.qty}本 戻ります\n・誤って発送した時だけ使ってください\n\nよろしいですか？`)) return;
@@ -8259,7 +8272,7 @@ async function cancelMove(id, skipConfirm){
   restoreStockBkt(m.from, m.product, m.qty, m.used);
   _sumStock(m.from, m.product);
   S.slog.push({ date: today(), time: new Date().toTimeString().slice(0,5), branch: m.from, type: '移動取消', product: m.product,
-    qty: m.qty, remaining: S.stock[m.from][m.product], note: `拠点間移動 ${m.from}→${m.to}：発送を取消`, user: user });
+    qty: m.qty, remaining: S.stock[m.from][m.product], used: (m.used || {old:0,sp:0,new:m.qty}), note: `拠点間移動 ${m.from}→${m.to}：発送を取消`, user: user });
   m.status='取消'; m.recvDate=today(); m.recvBy=user;
   saveState();
   if (S.gasUrl){ gasPost({ action:'saveMove', id:m.id, date:m.date, from:m.from, to:m.to, product:m.product, qty:m.qty,
