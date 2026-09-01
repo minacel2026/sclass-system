@@ -3054,6 +3054,7 @@ function shipLine(id, product, qty){
   const rem = remainingQty(o, product);
   let q = Math.min(Number(qty) || 0, rem);
   if (q <= 0){ toast('出荷できる残りがありません', 'error'); return; }
+  if (_blockIfShort(branch, product, q, '出荷')) return;   // ★B-2：在庫不足なら中断（在庫は動かさない）
   if (!o.shipDate) o.shipDate = today();
   const _d = _ymd(o.shipDate);
   const _sb = _ensureShipBkt(o);
@@ -3120,6 +3121,7 @@ function shipSponsorLine(id, product, qty){
   const rem = remainingSponsorQty(o, product);
   let q = Math.min(Number(qty) || 0, rem);
   if (q <= 0){ toast('出荷できる残りがありません', 'error'); return; }
+  if (_blockIfShort(branch, product, q, '協賛出荷')) return;   // ★B-2：在庫不足なら中断（在庫は動かさない）
   if (!o.shipDate) o.shipDate = today();
   const _d = _ymd(o.shipDate);
   const _sb = _ensureShipBkt(o);
@@ -8302,6 +8304,17 @@ function depleteStock(branch, product, qty){
   if (need > 0){ b.new -= need; used.new += need; need = 0; }
   _sumStock(branch, product);
   return used;
+}
+// B-2：合計在庫が不足なら警告して true を返す。呼び出し側は true のとき return（＝在庫を一切動かさない）。
+//   在庫を減らす“出荷系”の入口でだけ使う。取消・受領・返却・調整・初期登録には使わない。
+function _blockIfShort(branch, product, qty, label){
+  const have = _sumStock(branch, product);
+  const need = Number(qty) || 0;
+  if (need > have){
+    toast('🚫 ' + (label || '出荷') + 'できません：' + branch + 'の' + product + 'は在庫 ' + have + ' 本（' + need + ' 本は ' + (need - have) + ' 本不足）。先に仕入・初期登録で在庫を入れてください。', 'error');
+    return true;
+  }
+  return false;
 }
 // 戻し：消費内訳(used)があればそのバケツへ正確に戻す。無ければ新値へ戻す（旧データ互換）。
 function restoreStockBkt(branch, product, qty, used){
