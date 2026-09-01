@@ -3237,6 +3237,7 @@ function shipAllRemaining(id){
   if (!o) return;
   if (!o.branch){ toast('⚠ 拠点が未確定です。先に拠点を選んでください', 'error'); return; }
   if (deriveShipState(o) === '出荷済'){ toast('すべて出荷済みです'); return; }
+  if (_blockIfShortOrder(o, '全部出荷')) return;   // ★B-2：在庫不足なら中断（在庫は動かさない）
   if (!o.shipDate) o.shipDate = today();
   applyShipEffects(o, o.shipDate);   // 残り全部＋協賛/試供品を確定
   o.status = '出荷済';
@@ -3439,6 +3440,7 @@ async function changeShipStatus(id, val){  if (!canEdit()) return toast('🔒 �
       renderOrders(); return;
     }
     // 在庫が動く日＝出荷日。注文日を初期値にしたカレンダーで選ぶ（手入力の -（ハイフン）が不要）。
+    if (_blockIfShortOrder(o, '出荷')) { renderOrders(); return; }   // ★B-2：在庫不足なら中断（日付を尋ねる前に止める）
     _sd = await _pickDate(_ymd(o.shipDate || o.date || today()), '出荷日を選んでください', 'この日付で在庫が減ります（初期値＝注文日）');
     if (!_sd){ renderOrders(); return; }          // キャンセル＝何もしない
     _sd = _ymd(_sd);
@@ -4729,6 +4731,7 @@ function confirmSponsorShip(custId){
 
   if (qty <= 0) return toast('本数を入力してください', 'error');
   if (qty > bal.pts) return toast(`残数（${bal.pts}本）を超えています`, 'error');
+  if (_blockIfShort(br, prod, qty, '協賛出荷')) return;   // ★B-2：在庫不足なら中断（在庫は動かさない）
 
   if (!S.sponsorLogs) S.sponsorLogs = [];
   S.sponsorLogs.push({
@@ -5429,6 +5432,7 @@ function submitNewOrder(){
     createdBy: currentUser.name,
   };
 
+  if (!wasEditing && shipStatus(order) === '出荷済' && _blockIfShortOrder(order, '出荷', true)) return;   // ★B-2：新規注文の即時出荷で在庫不足なら中断（保存前に止める）
   if (!S.orders) S.orders = [];
   S.orders.push(order);
 
@@ -6684,7 +6688,7 @@ function deletePurchase(id, skipConfirm){
     S.slog.push({
       date: today(), time: new Date().toTimeString().slice(0,5),
       branch: p.branch, type: '仕入取消', product: p.product, qty: -(p.qty || 0),
-      remaining: S.stock[p.branch][p.product], used: { old:0, sp:0, new:0, [_tier]: -(p.qty || 0) },
+      remaining: S.stock[p.branch][p.product], bucket: _tier, used: { old:0, sp:0, new:0, [_tier]: -(p.qty || 0) },
       note: `仕入削除: ${p.supplier || ''}`, user: currentUser.name,
     });
   }
@@ -7448,6 +7452,7 @@ function recordLending(){
   }
   const partner=(S.lendPartners||[]).find(p=>p.id===pid)||{};
   const sign=(kind==='貸出')?-1:1;
+  if (kind === '貸出'){ for (const _it of _items){ if (_blockIfShort(branch, _it.product, _it.qty, '貸出')) return; } }   // ★B-2：貸出で在庫不足なら中断（返却系は対象外）
   const _lnDate=(document.getElementById('ln-date').value||today());
   let _total=0;
   _items.forEach(function(it, _i){
@@ -8312,6 +8317,28 @@ function _blockIfShort(branch, product, qty, label){
   const need = Number(qty) || 0;
   if (need > have){
     toast('🚫 ' + (label || '出荷') + 'できません：' + branch + 'の' + product + 'は在庫 ' + have + ' 本（' + need + ' 本は ' + (need - have) + ' 本不足）。先に仕入・初期登録で在庫を入れてください。', 'error');
+    return true;
+  }
+  return false;
+}
+// B-2：注文をまるごと出荷確定する経路用。有償(残り)＋協賛(残り)＋試供品の合計が、合計在庫を超える商品があれば警告して true。
+//   備品・シールは対象外（本体在庫＝ワインの不足だけを止め、消耗品で出荷全体を止めない）。
+function _blockIfShortOrder(o, label, itemsOnly){
+  if (!o || !o.branch) return false;
+  const branch = o.branch;
+  const need = {};
+  const add = (p, q) => { q = Number(q) || 0; if (p && q > 0) need[p] = (need[p] || 0) + q; };
+  Object.keys(o.items || {}).forEach(p => add(p, (typeof remainingQty === 'function') ? remainingQty(o, p) : o.items[p]));
+  Object.keys(o.sponsorItems || {}).forEach(p => add(p, (typeof remainingSponsorQty === 'function') ? remainingSponsorQty(o, p) : o.sponsorItems[p]));
+  const _willExtras = !itemsOnly && !o._extrasDone && (typeof shipStatus === 'function' ? shipStatus(o) !== '出荷済' : true);
+  if (_willExtras) Object.keys(o.freeItems || {}).forEach(p => add(p, o.freeItems[p]));
+  const short = [];
+  Object.keys(need).forEach(p => {
+    const have = _sumStock(branch, p);
+    if (need[p] > have) short.push(p + '（在庫' + have + '／出荷' + need[p] + '／不足' + (need[p] - have) + '）');
+  });
+  if (short.length){
+    toast('🚫 ' + (label || '出荷') + 'できません。在庫不足：' + short.join(' ／ ') + '。先に仕入・初期登録で在庫を入れてください。', 'error');
     return true;
   }
   return false;
