@@ -2395,7 +2395,7 @@ async function syncFromGAS(silent){
     if (cust && cust.customers) S.customers = cust.customers;
 
     // ── 拠点移動（輸送中の在庫）──
-    try { const mv = await pMv; if (mv && mv.moves) { S.moves = mv.moves; if (typeof updateTransitBadge==='function') updateTransitBadge(); } } catch(e){}
+    try { const mv = await pMv; if (mv && mv.moves) { var _srvMv=mv.moves; var _mid={}; _srvMv.forEach(function(m){if(m&&m.id)_mid[m.id]=1;}); var _locMv=(S.moves||[]).filter(function(m){return m&&m.id&&!_mid[m.id];}); S.moves = _srvMv.concat(_locMv); if (typeof updateTransitBadge==='function') updateTransitBadge(); } } catch(e){}
 
     // ── 在庫履歴（別端末での入出庫も見えるように統合）──
     //   ローカルの履歴は消さず、サーバにしか無いものだけ足す
@@ -2434,7 +2434,11 @@ async function syncFromGAS(silent){
       const ld = await pLd;
       if (ld && ld.lendings){
         let _dl = []; try{ _dl = JSON.parse(localStorage.getItem('lmb_deletedLendings')||'[]'); }catch(e){}
-        S.lendings = ld.lendings.filter(function(l){ return _dl.indexOf(l.id) < 0; });
+        // ★置換でなくマージ：サーバに無いローカルの貸借（未送信の借入など）は残す。消すと同期で借入記録が消える。
+        var _srvLd = ld.lendings.filter(function(l){ return _dl.indexOf(l.id) < 0; });
+        var _srvIds = {}; _srvLd.forEach(function(l){ if(l && l.id) _srvIds[l.id] = 1; });
+        var _localUnsent = (S.lendings||[]).filter(function(l){ return l && l.id && !_srvIds[l.id] && _dl.indexOf(l.id) < 0; });
+        S.lendings = _srvLd.concat(_localUnsent);
         if (typeof updateTabDots === 'function') updateTabDots();
       }
     } catch(e){}
@@ -7237,7 +7241,7 @@ function loadLending(force){
   (async()=>{
     try{
       const a=await gasGet('getLendPartners'); if(a&&a.partners) S.lendPartners=a.partners;
-      const b=await gasGet('getLendings');     if(b&&b.lendings){ let _dl=[]; try{ _dl=JSON.parse(localStorage.getItem('lmb_deletedLendings')||'[]'); }catch(e){} S.lendings=b.lendings.filter(l=>_dl.indexOf(l.id)<0); }
+      const b=await gasGet('getLendings');     if(b&&b.lendings){ let _dl=[]; try{ _dl=JSON.parse(localStorage.getItem('lmb_deletedLendings')||'[]'); }catch(e){} var _srv=b.lendings.filter(l=>_dl.indexOf(l.id)<0); var _sid={}; _srv.forEach(l=>{if(l&&l.id)_sid[l.id]=1;}); var _loc=(S.lendings||[]).filter(l=>l&&l.id&&!_sid[l.id]&&_dl.indexOf(l.id)<0); S.lendings=_srv.concat(_loc); }
       saveState();
       renderLendPartners(); fillLendSelectors(); renderLendBalance(); renderLendList(); renderLendOpeningForm();
     }catch(e){ if(force) toast('最新の取得に失敗しました','error'); }
@@ -8460,7 +8464,7 @@ async function cancelMove(id, skipConfirm, skipGuard){
 // ══ 拠点移動タブ：輸送中一覧＋移動履歴 ══
 async function loadMoves(){
   if (S.gasUrl){
-    try{ const r = await gasGet('getMoves'); if (r && r.moves){ S.moves = r.moves; saveState(); } }catch(e){}
+    try{ const r = await gasGet('getMoves'); if (r && r.moves){ var _srvMv=r.moves; var _mid={}; _srvMv.forEach(function(m){if(m&&m.id)_mid[m.id]=1;}); var _locMv=(S.moves||[]).filter(function(m){return m&&m.id&&!_mid[m.id];}); S.moves = _srvMv.concat(_locMv); saveState(); } }catch(e){}
   }
   renderMoves(); if (typeof updateKPI === 'function') updateKPI();
 }
