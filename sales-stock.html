@@ -6056,43 +6056,6 @@ function _slogQtyDelta(s){
   return null;   // 初期登録など
 }
 // 今の在庫が「初期登録＋その後の記録」と合うか＋消し残しの取引を洗う
-function findStockCause(){
-  var out = [];
-  ['仙台','京都'].forEach(function(br){
-    var prods = (typeof _prodColsAll==='function') ? _prodColsAll(br,'') : (typeof _prodCols==='function'?_prodCols():[]);
-    prods.forEach(function(p){
-      var cur = ((S.stock[br]||{})[p.key]) || 0;
-      var list = (S.slog||[]).filter(function(x){ return x && x.branch===br && x.product===p.key; })
-        .sort(function(a,b){ var ra=String(a._rec||a.date||''),rb=String(b._rec||b.date||'');
-          return ra.localeCompare(rb); });
-      var base=null, moves=0, kinds={};
-      list.forEach(function(x){
-        if (String(x.type||'')==='初期登録'){ base=Number(x.remaining)||0; moves=0; kinds={}; return; }
-        var d=_slogQtyDelta(x); if (d!==null){ moves+=d; kinds[x.type]=(kinds[x.type]||0)+d; }
-      });
-      var calc=(base===null)?null:base+moves, gap=(calc===null)?null:cur-calc;
-      var left=[], ordQ=0;
-      (S.orders||[]).forEach(function(o){
-        if ((o.branch||'仙台')!==br) return;
-        var sh=(typeof orderShipped==='function')?orderShipped(o):{};
-        var ss=(typeof orderShippedSponsor==='function')?orderShippedSponsor(o):{};
-        ordQ += (Number(sh[p.key])||0)+(Number(ss[p.key])||0);
-      });
-      if (ordQ) left.push('出荷済の注文 '+ordQ+'本');
-      var puQ=0; (S.purchases||[]).forEach(function(x){ if(x.branch===br&&x.product===p.key) puQ+=(Number(x.qty)||0); });
-      if (puQ) left.push('仕入 '+puQ+'本');
-      if ((gap!==null && gap!==0) || left.length){
-        out.push('・'+br+' '+p.key+'（今の在庫 '+cur+'本）\n'
-          + (calc!==null?'　記録の積み上げ：初期登録 '+base+' ＋ 動き '+(moves>=0?'+':'')+moves+' ＝ '+calc+'本　→ 差 '+(gap>0?'+':'')+gap+'本\n':'　初期登録の記録なし\n')
-          + (Object.keys(kinds).length?'　内訳：'+Object.keys(kinds).map(function(k){return k+' '+(kinds[k]>0?'+':'')+kinds[k];}).join('　')+'\n':'')
-          + (left.length?'　★まだ残っているデータ：'+left.join('／')+'\n':''));
-      }
-    });
-  });
-  if (!out.length){ alert('✓ 在庫と記録は一致しており、消し残しもありません。'); return; }
-  alert('🔎 在庫が合わない原因\n\n'+out.slice(0,12).join('\n')+(out.length>12?'\n… ほか '+(out.length-12)+'件':'')
-    +'\n\n差プラス＝記録に無い増加／マイナス＝記録に無い減少\n※記録を消しても在庫は戻りません。初期登録で合わせてください。');
-}
 // 残数のつながりが合わない箇所を洗う
 function checkSlogConsistency(){
   var byKey={};
