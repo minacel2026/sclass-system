@@ -6032,7 +6032,7 @@ function renderSlog(){
       <td class="col-qty" style="color:var(--wh3)">${s.remaining!=null?fmt(s.remaining):''}</td>
       <td style="font-size:.7rem">${escapeHtml(s.note||'')}</td>
       <td style="font-size:.7rem">${escapeHtml(s.user||'')}</td>
-      <td class="slog-del-col" style="text-align:center"><button class="act-btn dn" onclick="event.stopPropagation();deleteSlogRow(${s._idx})" title="この記録だけ削除（在庫は変わりません）">削</button></td>
+      <td class="slog-del-col" style="text-align:center">${ (String(s.type||'')==='初期登録') ? '<span style="color:var(--wh3);font-size:.62rem" title="初期登録は在庫の起点なので削除できません。直すときは⊕初期登録で入れ直してください">—</span>' : '<button class="act-btn dn" onclick="event.stopPropagation();deleteSlogRow('+s._idx+')" title="この記録を取り消し、在庫もこの取引ぶんだけ元に戻します">削</button>' }</td>
     </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="13" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
   // 行削除ボタンは管理者のみ表示
   try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; document.querySelectorAll('.slog-del-col').forEach(function(el){ el.style.display=(_r==='admin')?'':'none'; }); }catch(e){}
@@ -6071,7 +6071,8 @@ async function clearAllSlog(){
 async function deleteSlogRow(idx){
   try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; if(_r!=='admin'){ toast('🔒 管理者のみ実行できます','error'); return; } }catch(e){ return; }
   var s=(S.slog||[])[idx]; if(!s) return toast('記録が見つかりません','error');
-  if(!confirm('この記録を削除しますか？\n\n'+_ymd(s.date)+'　'+(s.type||'')+'　'+(s.product||'')+'　'+(s.qty||0)+'本\n'+(s.note||'')+'\n\n※在庫の数値は変わりません（記録だけ）')) return;
+  if(String(s.type||'')==='初期登録'){ return toast('初期登録は削除できません。直すときは⊕初期登録で入れ直してください','error'); }
+  if(!confirm('この記録を削除しますか？\n\n'+_ymd(s.date)+'　'+(s.type||'')+'　'+(s.product||'')+'　'+(s.qty||0)+'本\n'+(s.note||'')+'\n\n※この記録を取り消し、在庫もこの取引ぶんだけ元に戻します（在庫履歴から再計算）。')) return;
   if(S.gasUrl && s.id){
     toast('削除中…');
     var res=await gasGet('deleteStockLogs',{ ids: JSON.stringify([String(s.id)]) });
@@ -6079,8 +6080,10 @@ async function deleteSlogRow(idx){
   }
   S.slog=(S.slog||[]).filter(function(_,i){ return i!==idx; });
   try { if (typeof _wrapSlogPush==='function') _wrapSlogPush(); } catch(e){}
-  saveState(); renderSlog(); if(typeof updateKPI==='function') updateKPI();
-  toast('✓ 記録を1件削除しました（在庫は変更していません）');
+  saveState();
+  var _n = 0; try { if (typeof rebuildStockFromHistory==='function') _n = rebuildStockFromHistory(true); } catch(e){}   // ★記録を消したので在庫を履歴から作り直して連動して戻す
+  renderSlog(); if(typeof renderStock==='function') renderStock(); if(typeof updateKPI==='function') updateKPI();
+  toast('✓ 記録を削除し、在庫を戻しました' + (_n? ('（'+_n+'商品を更新）') : ''));
 }
 // ══ 在庫の診断（データは変更しない） ══
 // 在庫の増減判定は1か所に集約（種類の追加漏れを防ぐ）
