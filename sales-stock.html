@@ -6635,7 +6635,7 @@ function submitPurchase(){
       createdAt: new Date().toISOString(),
     };
     S.purchases.push(purchase);
-    if (S.gasUrl) { setTimeout(function(){ try { gasPost({ action:'savePurchase', ...purchase }); } catch(e){} }, _pi * 600); }   // ★明細ごとに600ms間隔で送る（GAS側ロック無しの同時追記の取りこぼしを防ぐ）
+    if (S.gasUrl) { try { gasPost({ action:'savePurchase', ...purchase }); } catch(e){} }   // ★即時に未送信キューへ積む（登録直後にタブを閉じても失わず、次回起動で自動再送）。GAS側は LockService で排他済みのため間隔待ちは不要
     // 在庫加算：通常は新値バケツ、協賛仕入は協賛バケツへ（棚卸の評価額は0のまま保たれる）
     if (_isSp) restoreStockBkt(branch, it.product, it.qty, { old:0, sp:it.qty, new:0 });
     else       restoreStockBkt(branch, it.product, it.qty);
