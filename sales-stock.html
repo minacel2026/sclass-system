@@ -1075,7 +1075,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="findStockCause()" title="在庫が合わない原因を調べます（変更しません）">🔎 原因を調べる</button><button class="btn-s" style="margin-left:.4rem" onclick="checkSlogConsistency()" title="残数のつじつまを確認します">🔍 整合チェック</button><button class="btn-s" style="margin-left:.4rem" onclick="clearAllSlog()" title="在庫履歴を全部消します（在庫の数値は変わりません）">🗑 履歴を全消去</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
-          <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del-col">操作</th></tr>
+          <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>操作日<span style="font-size:.6rem;color:var(--wh3)">(記録)</span></th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del-col">操作</th></tr>
         </thead>
         <tbody id="slog-tbody"></tbody>
       </table>
@@ -2197,6 +2197,23 @@ function switchModule(name, el){
   if (name === 'moves')     loadMoves();
   if (name === 'backorder') renderBackorders();
   if (name === 'analysis')  { if(typeof fillActualDatalists==='function') fillActualDatalists(); renderAnalysis(); }
+  // データ系タブに移ったら、静かに（通信中表示なし）最新をバックグラウンド取得する。投げっぱなし＝固まらない。
+  if (['orders','stock','slog','lending','moves','purchase','backorder'].indexOf(name) >= 0){ try { _autoSync(); } catch(e){} }
+}
+
+// 静かな自動同期：30秒に1回まで／二重起動しない／awaitしない（固まらない）。取得後に画面を更新。
+var _lastAutoSync = 0, _autoSyncing = false;
+function _autoSync(){
+  if (typeof S==='undefined' || !S.gasUrl) return;
+  var now = Date.now();
+  if (_autoSyncing) return;
+  if (now - _lastAutoSync < 30000) return;   // 30秒に1回まで
+  _lastAutoSync = now; _autoSyncing = true;
+  try {
+    var p = syncFromGAS(true);   // silent＝通信中表示・トーストなし
+    if (p && p.then) p.then(function(){ _autoSyncing=false; }, function(){ _autoSyncing=false; });
+    else _autoSyncing = false;
+  } catch(e){ _autoSyncing = false; }
 }
 
 // ─── KPI更新 ─────
@@ -2342,9 +2359,9 @@ function hideSyncOverlay(){
   var o=document.getElementById('lmb-sync-overlay'); if(o) o.style.display='none';
 }
 
-async function syncFromGAS(){
-  if (!S.gasUrl) return toast('GAS URLを設定してください', 'error');
-  showSyncOverlay();
+async function syncFromGAS(silent){
+  if (!S.gasUrl) return silent ? undefined : toast('GAS URLを設定してください', 'error');
+  if (!silent) showSyncOverlay();
   try {
     // ★同期でデータを取得する前に、未送信の保存をサーバへ送り切る。
     //   顧客・拠点移動・貸借・商品などは同期でサーバ値に丸ごと上書きされるため、
@@ -2369,7 +2386,7 @@ async function syncFromGAS(){
     var pNew  = gasGet('getNewOrders', { since: '' });
     var pAct  = gasGet('getActuals');   // 実績分析（他PCと共有）。GAS未対応でも安全に無視
 
-    try { const pong = await pPing; if (pong && !pong.updateAllStock){ toast('⚠️ GASが古い版です。在庫がスプシに反映されません。最新のgas-templateを貼り付けて「デプロイを管理→新バージョン」で更新してください', 'error'); } } catch(e){}
+    try { const pong = await pPing; if (pong && !pong.updateAllStock && !silent){ toast('⚠️ GASが古い版です。在庫がスプシに反映されません。最新のgas-templateを貼り付けて「デプロイを管理→新バージョン」で更新してください', 'error'); } } catch(e){}
 
     const cust = await pCust;
     if (cust && cust.customers) S.customers = cust.customers;
@@ -2491,7 +2508,7 @@ async function syncFromGAS(){
       //   新しいGASは getOrders で timestamp を返すため、それで版を判定して明示的に知らせる。
       try {
         if (_gasIsOld){
-          toast('⚠️ GASが古い版です。注文日などの修正が保存されず元に戻ります。最新のガステンプレートを貼り付けて「デプロイを管理→新バージョン」で更新してください', 'error');
+          if(!silent) toast('⚠️ GASが古い版です。注文日などの修正が保存されず元に戻ります。最新のガステンプレートを貼り付けて「デプロイを管理→新バージョン」で更新してください', 'error');
         }
       } catch(e){}
 
@@ -2579,12 +2596,12 @@ async function syncFromGAS(){
 
     saveState();
     localStorage.setItem('lmb_lastSync', new Date().toISOString());
-    toast(window._syncAddedOrders ? `✓ 同期完了（注文${window._syncAddedOrders}件を取り込み）` : '✓ 同期完了');
+    if (!silent) toast(window._syncAddedOrders ? `✓ 同期完了（注文${window._syncAddedOrders}件を取り込み）` : '✓ 同期完了');
     window._syncAddedOrders = 0;
     updateKPI(); renderOrders(); renderStock();
     try { checkGhostMoves(); } catch(e){}   // 起動・同期後：幽霊移動の点検（読み取りのみ・数字は変えない）
   } finally {
-    hideSyncOverlay();
+    if (!silent) hideSyncOverlay();
   }
 }
 
@@ -5867,6 +5884,16 @@ function _slogOrderDate(s){
   var o=(S.orders||[]).find(function(x){ return String(x.id)===String(s.orderId); });
   return (o && o.date) ? _ymd(o.date) : '';
 }
+// 操作日（実際にこの記録を作った日）。各記録のID「sl-<作成ミリ秒>-…」から復元する。
+//   日付欄(s.date)は業務日（出荷日・発送日など、過去日にもなる）なので、それとは別物。
+//   復元できない古い記録は空欄にする（推測しない）。
+function _slogOpDate(s){
+  if(!s) return '';
+  if(s.opDate) return _ymd(s.opDate);
+  var m = String(s.id||'').match(/^sl-(\d{12,14})-/);
+  if(m){ var t=Number(m[1]); if(t>1577836800000 && t<4102444800000){ return new Date(t).toISOString().slice(0,10); } }
+  return '';
+}
 function _slogStore(s){
   if (s && s.store) return s.store;
   if (s && s.orderId){ var o=(S.orders||[]).find(function(x){return x.id===s.orderId;}); if(o) return o.store||''; }
@@ -5926,6 +5953,7 @@ function renderSlog(){
   tb.innerHTML = show.map(s=>`<tr style="cursor:pointer" onclick="_slogSnapshot(${s._idx}, this)" title="クリックでこの時点の在庫を表示">
       <td>${escapeHtml(_ymd(s.date))}</td>
       <td style="color:var(--wh3)">${escapeHtml(_slogOrderDate(s))}</td>
+      <td style="color:var(--wh3)">${escapeHtml(_slogOpDate(s))}</td>
       <td style="color:var(--wh3)">${escapeHtml(s.time||'')}</td>
       <td>${escapeHtml(s.branch||'')}</td>
       <td><span style="color:${tcolor(s.type)};font-weight:600">${escapeHtml(s.type||'')}</span></td>
@@ -5936,7 +5964,7 @@ function renderSlog(){
       <td style="font-size:.7rem">${escapeHtml(s.note||'')}</td>
       <td style="font-size:.7rem">${escapeHtml(s.user||'')}</td>
       <td class="slog-del-col" style="text-align:center"><button class="act-btn dn" onclick="event.stopPropagation();deleteSlogRow(${s._idx})" title="この記録だけ削除（在庫は変わりません）">削</button></td>
-    </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="10" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
+    </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="13" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
   // 行削除ボタンは管理者のみ表示
   try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; document.querySelectorAll('.slog-del-col').forEach(function(el){ el.style.display=(_r==='admin')?'':'none'; }); }catch(e){}
 }
@@ -8137,8 +8165,15 @@ function updateTransferPreview(){
   const prod = (document.getElementById('tr-prod')||{}).value;
   const qty = parseInt((document.getElementById('tr-qty')||{}).value) || 0;
   if (!prod){ box.textContent = ''; return; }
-  const sf = _sumStock(from, prod), st = _sumStock(to, prod);
-  box.innerHTML = `現在：${from} <b>${sf}</b>本 ／ ${to} <b>${st}</b>本`
+  let sf = _sumStock(from, prod), st = _sumStock(to, prod);
+  var _editing = false;
+  // 修正中は、保存時に元の移動が取り消されて在庫が戻る。その分を現在庫に足して見せる（-42のような誤表示を防ぐ）
+  if (typeof editingMoveId !== 'undefined' && editingMoveId){
+    var _em = (S.moves||[]).find(function(x){ return x.id===editingMoveId && x.status==='輸送中'; });
+    if (_em && _em.from===from && _em.product===prod){ sf += (Number(_em.qty)||0); _editing = true; }
+  }
+  box.innerHTML = (_editing ? '<span style="color:var(--gold-l);font-size:.7rem">修正：元の移動を戻して計算　</span>' : '')
+    + `現在：${from} <b>${sf}</b>本 ／ ${to} <b>${st}</b>本`
     + (qty>0 ? `　→　移動後：${from} <b>${sf-qty}</b>本 ／ ${to} <b>${st+qty}</b>本` : '');
 }
 // ══ 拠点間移動：2段階（発送 → 受領）══
@@ -8197,6 +8232,13 @@ async function transferStock(){
   const t = new Date().toTimeString().slice(0,5);
   const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : '';
   const _mvDate = (document.getElementById('tr-date').value||today());
+  // 発送日が極端に先（1年超）なら入力ミスの可能性が高いので確認する（例：2060と打ち間違い）
+  if (_mvDate){
+    var _dd = new Date(_mvDate + 'T00:00:00'); var _lim = new Date(); _lim.setFullYear(_lim.getFullYear()+1);
+    if (!isNaN(_dd.getTime()) && _dd > _lim){
+      if (!confirm('発送日が「' + _mvDate + '」になっています。かなり先の日付です。入力ミスではありませんか？\n\nこのまま発送する場合は「OK」、日付を直す場合は「キャンセル」。')) return;
+    }
+  }
   if (!S.slog) S.slog = [];
   S.moves = S.moves || [];
   _items.forEach(function(it, _i){
