@@ -5985,6 +5985,19 @@ async function deleteSponsorLogRow(logId, custId){
   toast('✓ 協賛記録を1件削除しました（残数 '+after+'本）');
   try{ if(typeof renderSponsor==='function') renderSponsor(); }catch(e){}
 }
+// 在庫履歴の行の操作欄：専用タブがある取引は「削」を出さず、その専用タブへ誘導する。
+//   専用タブが無い取引（無償提供・持ち出し系・戻入・調整）だけ在庫履歴の「削」で在庫ごと取り消す。
+function _slogDelCell(s){
+  var t = String((s&&s.type)||'');
+  var g = function(label,tip){ return '<span style="color:var(--wh3);font-size:.62rem;cursor:help" title="'+tip+'">'+label+'</span>'; };
+  if (t==='初期登録') return g('—','初期登録は在庫の起点なので削除できません。直すときは⊕初期登録で入れ直してください');
+  if (t==='入庫' || t==='協賛入庫' || t==='仕入取消') return g('仕入','仕入の記録です。取り消すときは「仕入管理」タブで削除してください（ここでは消せません）');
+  if (t==='移動出' || t==='移動入' || t==='移動取消' || t==='輸送中紛失') return g('移動','拠点移動の記録です。取り消すときは「拠点移動」タブで取消／受領してください');
+  if (t==='貸出' || t==='借入' || t==='返却受' || t==='借入返却') return g('貸借','貸借の記録です。取り消すときは「貸借管理」タブで削除／返却してください');
+  if (t==='出庫' || t==='協賛出庫') return g('注文','注文の出荷記録です。取り消すときは「注文一覧」で出荷ステータスを戻す／削除してください');
+  // 専用タブが無いもの（無償提供・試供/備品/シール出庫・戻入・調整）＝在庫履歴の削で在庫ごと戻す
+  return '<button class="act-btn dn" onclick="event.stopPropagation();deleteSlogRow('+s._idx+')" title="この記録を取り消し、在庫もこの取引ぶんだけ元に戻します">削</button>';
+}
 function renderSlog(){
   // 診断ボタンは管理者のみ表示
   try{
@@ -6032,7 +6045,7 @@ function renderSlog(){
       <td class="col-qty" style="color:var(--wh3)">${s.remaining!=null?fmt(s.remaining):''}</td>
       <td style="font-size:.7rem">${escapeHtml(s.note||'')}</td>
       <td style="font-size:.7rem">${escapeHtml(s.user||'')}</td>
-      <td class="slog-del-col" style="text-align:center">${ (String(s.type||'')==='初期登録') ? '<span style="color:var(--wh3);font-size:.62rem" title="初期登録は在庫の起点なので削除できません。直すときは⊕初期登録で入れ直してください">—</span>' : '<button class="act-btn dn" onclick="event.stopPropagation();deleteSlogRow('+s._idx+')" title="この記録を取り消し、在庫もこの取引ぶんだけ元に戻します">削</button>' }</td>
+      <td class="slog-del-col" style="text-align:center">${_slogDelCell(s)}</td>
     </tr>`).join('') + (rows.length>MAX ? `<tr><td colspan="13" style="text-align:center;color:var(--wh3);padding:.5rem">最新${MAX}件を表示（全${rows.length}件）。絞り込むと見やすくなります。</td></tr>` : '');
   // 行削除ボタンは管理者のみ表示
   try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; document.querySelectorAll('.slog-del-col').forEach(function(el){ el.style.display=(_r==='admin')?'':'none'; }); }catch(e){}
@@ -6071,7 +6084,12 @@ async function clearAllSlog(){
 async function deleteSlogRow(idx){
   try{ var _r=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser.role||'').toLowerCase():''; if(_r!=='admin'){ toast('🔒 管理者のみ実行できます','error'); return; } }catch(e){ return; }
   var s=(S.slog||[])[idx]; if(!s) return toast('記録が見つかりません','error');
-  if(String(s.type||'')==='初期登録'){ return toast('初期登録は削除できません。直すときは⊕初期登録で入れ直してください','error'); }
+  var _t = String(s.type||'');
+  if(_t==='初期登録'){ return toast('初期登録は削除できません。直すときは⊕初期登録で入れ直してください','error'); }
+  if(_t==='入庫'||_t==='協賛入庫'||_t==='仕入取消'){ return alert('これは仕入の記録です。取り消すときは「仕入管理」タブで削除してください。'); }
+  if(_t==='移動出'||_t==='移動入'||_t==='移動取消'||_t==='輸送中紛失'){ return alert('これは拠点移動の記録です。取り消すときは「拠点移動」タブで取消／受領してください。'); }
+  if(_t==='貸出'||_t==='借入'||_t==='返却受'||_t==='借入返却'){ return alert('これは貸借の記録です。取り消すときは「貸借管理」タブで削除／返却してください。'); }
+  if(_t==='出庫'||_t==='協賛出庫'){ return alert('これは注文の出荷記録です。取り消すときは「注文一覧」で出荷ステータスを戻す／削除してください。'); }
   if(!confirm('この記録を削除しますか？\n\n'+_ymd(s.date)+'　'+(s.type||'')+'　'+(s.product||'')+'　'+(s.qty||0)+'本\n'+(s.note||'')+'\n\n※この記録を取り消し、在庫もこの取引ぶんだけ元に戻します（在庫履歴から再計算）。')) return;
   if(S.gasUrl && s.id){
     toast('削除中…');
