@@ -7460,6 +7460,10 @@ var _slogTimer = null;
 //   サーバに無い分だけが追加される。在庫は動かさない（履歴レコードを送るだけ）。
 async function reuploadStockLogs(){
   if (!S.gasUrl) return toast('GAS URLが未設定です','error');
+  // ★id無しの古い記録（初期登録など）にはidを補完する。無いとサーバがスキップして永久に転記されない。
+  var _fixed = 0;
+  (S.slog||[]).forEach(function(l){ if (l && !l.id){ l.id = 'sl-' + Date.now() + '-' + Math.floor(Math.random()*900000+100000) + '-' + (_fixed++); } });
+  if (_fixed){ try { saveState(); } catch(e){} }
   var all = (S.slog||[]).filter(function(l){ return l && l.id; });
   if (!all.length) return toast('送る在庫履歴がありません','error');
   // まずサーバに今いくつ在るか（確認用）
@@ -8491,7 +8495,7 @@ async function saveStockInit(){
     setBuckets(br, p.key, o, s, n);
     const _after = ((S.stock[br] || {})[p.key]) || 0;
     // ⑭ 商品ごとに記録（「(一括)0本」だけでは何をいくつにしたか分からない）
-    S.slog.push({ date: _siDate, time: _it, branch: br, type: '初期登録', product: p.key,
+    S.slog.push({ id: 'sl-' + Date.now() + '-' + Math.floor(Math.random()*90000+10000), date: _siDate, time: _it, branch: br, type: '初期登録', product: p.key,
       old: o, sp: s, new: n,
       qty: _after - _before, remaining: _after,
       note: '初期登録：' + _before + '本 → ' + _after + '本（旧' + o + '/協' + s + '/新' + n + '）'
