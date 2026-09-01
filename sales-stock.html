@@ -1522,6 +1522,7 @@ function loadState(){
       if (v) try { S[k] = JSON.parse(v); } catch(e){}
     });
     if (!S.sponsorLogs) S.sponsorLogs = [];
+    try { if (typeof _wrapSlogPush === 'function') _wrapSlogPush(); } catch(e){}   // slogを差し替えたのでラッパ貼り直し（idが付くように）
     S.gasUrl = localStorage.getItem('gasUrl') || 'https://script.google.com/macros/s/AKfycbwLHdGQrxsQzNK-hfRa7Gu_9t4Qz8IseeMHUTVeobiYuWRJ8Lpfku98vYYnN3TNx-4b/exec';
     // 在庫オブジェクト初期化
     _prodCols().map(x=>x.key).forEach(p => {
@@ -3437,6 +3438,7 @@ function deleteOrder(id){
     var _delLogs = (S.slog || []).filter(function(x){ return x && String(x.orderId||'') === _oid; });
     if (_delLogs.length){
       S.slog = (S.slog || []).filter(function(x){ return !(x && String(x.orderId||'') === _oid); });
+      try { if (typeof _wrapSlogPush==='function') _wrapSlogPush(); } catch(e){}
       if (S.gasUrl){
         var _lids = _delLogs.map(function(x){ return String(x.id||''); }).filter(function(v){ return !!v; });
         // ★トークン付きのgasGetで送る。gasPost(キュー)だと認証トークンが付かず deleteStockLogs が auth 失敗して溜まる。
@@ -5217,6 +5219,7 @@ function submitNewOrder(){
       }
       // ★旧注文の在庫履歴（出庫・協賛出庫・戻入など）も消す。消さないと編集で出庫が二重に残り、計算値が二重に減る（deleteOrderと同じ扱い）。
       S.slog = (S.slog || []).filter(function(x){ return !(x && String(x.orderId||'') === String(editingOrderId)); });
+      try { if (typeof _wrapSlogPush==='function') _wrapSlogPush(); } catch(e){}
       S.orders = (S.orders || []).filter(o => o.id !== editingOrderId);
     }
     editingOrderId = null;  // 以降は通常の新規登録ロジックで再登録
@@ -5994,6 +5997,7 @@ async function clearAllSlog(){
   }
   // 端末側：localStorageの在庫履歴を空にする
   S.slog=[];
+  try { if (typeof _wrapSlogPush==='function') _wrapSlogPush(); } catch(e){}
   saveState();
   renderSlog(); if(typeof updateKPI==='function') updateKPI();
   toast('✓ 在庫履歴を消去しました（在庫の数値は変わっていません）');
@@ -6009,6 +6013,7 @@ async function deleteSlogRow(idx){
     if(!res || !res.ok){ toast('サーバから削除できませんでした：'+((res&&res.error)||'通信エラー')+'（何も消していません）','error'); return; }
   }
   S.slog=(S.slog||[]).filter(function(_,i){ return i!==idx; });
+  try { if (typeof _wrapSlogPush==='function') _wrapSlogPush(); } catch(e){}
   saveState(); renderSlog(); if(typeof updateKPI==='function') updateKPI();
   toast('✓ 記録を1件削除しました（在庫は変更していません）');
 }
@@ -7512,8 +7517,10 @@ function _slogEnqueue(entry){
   try { if (typeof _qBadge === 'function') _qBadge(); } catch(e){}
   return entry;
 }
-// S.slog.push を包む（1回だけ適用）
-(function(){
+// S.slog.push を包む（idの自動付与＋サーバ送信予約）。
+// ★S.slogを配列ごと置き換えるとラッパが外れるので、置き換える処理の後に必ず _wrapSlogPush() を呼び直す。
+//   （全消去・注文削除・注文編集などの後、初期登録等がid無しで転記されない事故を防ぐ）
+function _wrapSlogPush(){
   if (!S.slog) S.slog = [];
   if (S.slog.__wrapped) return;
   var _origPush = S.slog.push.bind(S.slog);
@@ -7522,7 +7529,8 @@ function _slogEnqueue(entry){
     return _origPush.apply(null, arguments);
   };
   try { Object.defineProperty(S.slog, '__wrapped', { value:true, enumerable:false }); } catch(e){}
-})();
+}
+_wrapSlogPush();
 // 画面を閉じる前に未送信ぶんを送る
 window.addEventListener('beforeunload', function(){ if (_slogQueue.length) _slogFlush(); });
 
