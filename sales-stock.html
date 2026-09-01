@@ -1977,6 +1977,41 @@ window.addEventListener('online', function(){ toast('📶 電波が戻りまし�
 window.addEventListener('offline', function(){ _qBadge(); });
 setInterval(function(){ if(_qLoad().length) _qFlush(false); }, 30000);
 window.addEventListener('load', function(){ setTimeout(function(){ _qBadge(); _qFlush(false); }, 1500); });
+
+// ── サーバ（スプレッドシート）未反映の常時警告 ──
+//   「送ったつもりで載っていない」を検知するため、端末の在庫履歴とサーバを照合。
+//   不一致なら画面上部に赤い帯を出し続ける（position:fixed＝タブ移動でも消えない）。タップで点検・修復。
+function _syncWarnBar(show){
+  var el=document.getElementById('sync-warn-bar');
+  if(!el){
+    el=document.createElement('div'); el.id='sync-warn-bar';
+    el.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9700;padding:8px 12px;text-align:center;'
+      +'font-size:.82rem;font-weight:700;cursor:pointer;background:#e0685f;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.45);display:none';
+    el.onclick=async function(){ el.textContent='⏳ サーバへ送信中…'; try{ if(typeof inspectAndRepairStock==='function') await inspectAndRepairStock(); }catch(e){} try{ await _checkSyncStatus(true); }catch(e){} };
+    document.body.appendChild(el);
+  }
+  if(show){ el.textContent='⚠ サーバ（スプレッドシート）に未反映のデータがあります — ここをタップして送信してください'; el.style.display='block'; }
+  else { el.style.display='none'; }
+}
+var _syncChecking=false, _lastSyncCheck=0;
+async function _checkSyncStatus(force){
+  if(typeof S==='undefined' || !S.gasUrl) return;
+  var now=Date.now();
+  if(!force && (now-_lastSyncCheck)<45000) return;   // 45秒に1回まで（負荷抑制）
+  if(_syncChecking) return;
+  _syncChecking=true; _lastSyncCheck=now;
+  try{
+    var q=(typeof _qLoad==='function')?_qLoad().length:0;
+    var sq=(typeof _slogQueue!=='undefined'&&_slogQueue)?_slogQueue.length:0;
+    var srv=await gasGet('getStockLogs',{limit:2000});
+    var have={}; (srv&&srv.logs||[]).forEach(function(l){ if(l&&l.id) have[l.id]=1; });
+    var missing=(S.slog||[]).filter(function(l){ return l&&l.id&&!have[l.id]; }).length;
+    _syncWarnBar( (q+sq+missing) > 0 );
+  }catch(e){ /* 取得失敗時は表示を変えない */ }
+  finally{ _syncChecking=false; }
+}
+setInterval(function(){ _checkSyncStatus(); }, 60000);   // 1分ごとにサーバと照合
+window.addEventListener('load', function(){ setTimeout(function(){ _checkSyncStatus(true); }, 4000); });
 // 注文の修正を開いたまま（保存・更新していない）ときだけ警告する。
 // ※未送信データは端末に保存され自動再送されるため、送信キューでは警告しない（左下の「未送信 N件」で確認できる）
 window.addEventListener('beforeunload', function(e){
@@ -2607,6 +2642,7 @@ async function syncFromGAS(silent){
     updateKPI(); renderOrders(); renderStock();
     // ★同期のたびに、在庫（保存値）を在庫履歴から自動で作り直す＝常に「履歴＝在庫」を保ち、ズレを防ぐ
     try { if (typeof rebuildStockFromHistory === 'function') rebuildStockFromHistory(true); } catch(e){}
+    try { if (typeof _checkSyncStatus === 'function') _checkSyncStatus(true); } catch(e){}
     try { checkGhostMoves(); } catch(e){}   // 起動・同期後：幽霊移動の点検（読み取りのみ・数字は変えない）
   } finally {
     if (!silent) hideSyncOverlay();
