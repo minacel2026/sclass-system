@@ -8439,8 +8439,11 @@ async function guardStockWrite(){
   try {
     const r = await gasGet('getStockRev');
     if (r && typeof r.rev !== 'undefined' && S.stockRev != null && Number(r.rev) !== Number(S.stockRev)){
-      toast('⚠️ 他の端末で在庫が更新されています。先に「GAS同期」で最新を取り込んでから操作してください', 'error');
-      return false;
+      if (confirm('⚠️ 他の端末で在庫が更新されています。\n\n今すぐ最新を取り込みますか？（推奨）\n\n【OK】GAS同期して最新にする → もう一度操作してください\n【キャンセル】何もしない')){
+        try { await syncFromGAS(); } catch(e){}
+        try { toast('✓ 最新を取り込みました。もう一度操作してください'); } catch(e){}
+      }
+      return false;   // いずれにせよ今回の操作は中止（古い前提での二重書き込みを防ぐ）
     }
   } catch(e){ /* 取得失敗時は止めない（運用を妨げない） */ }
   return true;
