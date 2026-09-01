@@ -6778,14 +6778,21 @@ function printDailyStockTable(){
       for (var i=0;i<lastDay;i++){ var v = Number(dayMaps[i][p.key])||0; tds += '<td class="num'+wcls[i+1]+(v<0?' neg':'')+'">'+v+'</td>'; }
       return '<tr><td class="nm">'+escapeHtml(p.name||'')+'</td>'+tds+'</tr>';
     }).join('');
+    // ★各日の全商品合計（最下段の「合計」行）
+    var dayTotals = [];
+    for (var i=0;i<lastDay;i++){ var sum=0; prods.forEach(function(p){ sum += Number(dayMaps[i][p.key])||0; }); dayTotals.push(sum); }
+    var totTds = '';
+    for (var i=0;i<lastDay;i++){ var tv=dayTotals[i]; totTds += '<td class="num tot'+wcls[i+1]+(tv<0?' neg':'')+'">'+tv+'</td>'; }
+    var totalRow = '<tr class="totrow"><td class="nm">合計</td>'+totTds+'</tr>';
     // CSV（この拠点ぶん）
     var head = ['商品']; for (var day=1; day<=lastDay; day++){ head.push((m+1)+'/'+day); }
     var csvLines = [head.map(csvEsc).join(',')];
     prods.forEach(function(p){ var line=[csvEsc(p.name||'')]; for (var i=0;i<lastDay;i++){ line.push(Number(dayMaps[i][p.key])||0); } csvLines.push(line.join(',')); });
+    var csvTot=['合計']; for (var i=0;i<lastDay;i++){ csvTot.push(dayTotals[i]); } csvLines.push(csvTot.join(','));
     return { br:br, count:prods.length,
       html:'<div class="sect"><div class="secth"><b>拠点：'+escapeHtml(br)+'</b>　／　'+monthLabel+'　／　商品 '+prods.length+' 品目　（数値＝その日終わりの理論在庫）</div>'
            +'<div class="scr"><table><thead><tr><th class="nm">商品名</th>'+thDays+'</tr></thead><tbody>'
-           +(rows || '<tr><td colspan="'+(lastDay+1)+'" style="text-align:center;color:#888">商品が読み込めていません（GAS同期後に）</td></tr>')
+           +(rows ? (rows + totalRow) : '<tr><td colspan="'+(lastDay+1)+'" style="text-align:center;color:#888">商品が読み込めていません（GAS同期後に）</td></tr>')
            +'</tbody></table></div></div>',
       csv:'【'+br+'】\n'+csvLines.join('\n') };
   });
@@ -6806,6 +6813,8 @@ function printDailyStockTable(){
     + 'td.nm,th.nm{text-align:left;white-space:nowrap;position:sticky;left:0;background:#fff;font-weight:600}'
     + 'th.nm{background:#f0e8d0}'
     + 'td.neg{color:#c00;font-weight:700}'
+    + 'tr.totrow td{font-weight:700;background:#efe9d6;border-top:2px solid #999}'
+    + 'tr.totrow td.neg{color:#c00}'
     + 'th.sat,td.sat{background:#e6ebf2}'   /* 土曜=薄い青灰 */
     + 'th.sun,td.sun{background:#f2e6e6}'   /* 日曜=薄い赤灰 */
     + '@media print{.noprint{display:none}}'
