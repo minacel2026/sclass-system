@@ -5339,9 +5339,15 @@ function submitNewOrder(){
         S.sponsorLogs = S.sponsorLogs.filter(l => l.orderId !== editingOrderId);
         if (S.gasUrl) relLogs.forEach(l => { try { gasPost({ action:'deleteSponsorLog', id:l.id }); } catch(e){} });
       }
-      // ★旧注文の在庫履歴（出庫・協賛出庫・戻入など）も消す。消さないと編集で出庫が二重に残り、計算値が二重に減る（deleteOrderと同じ扱い）。
+      // ★旧注文の在庫履歴（出庫・協賛出庫・戻入など）も消す。ローカルとサーバ両方から。
+      //   サーバを消さないと、旧レコードが在庫履歴シートに残り、再同期で復活して重複が積み上がる（deleteOrderと同じ扱いに揃える）。
+      var _editDelLogs = (S.slog || []).filter(function(x){ return x && String(x.orderId||'') === String(editingOrderId); });
       S.slog = (S.slog || []).filter(function(x){ return !(x && String(x.orderId||'') === String(editingOrderId)); });
       try { if (typeof _wrapSlogPush==='function') _wrapSlogPush(); } catch(e){}
+      if (S.gasUrl && _editDelLogs.length){
+        var _editLids = _editDelLogs.map(function(x){ return String(x.id||''); }).filter(function(v){ return !!v; });
+        if (_editLids.length){ try { gasGet('deleteStockLogs', { ids: JSON.stringify(_editLids) }); } catch(e){} }
+      }
       S.orders = (S.orders || []).filter(o => o.id !== editingOrderId);
     }
     editingOrderId = null;  // 以降は通常の新規登録ロジックで再登録
