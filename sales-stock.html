@@ -871,7 +871,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         <div class="fg"><label>拠点</label><select class="fc" id="ln-branch"><option>仙台</option><option>京都</option></select></div>
         <div class="fg"><label>商品</label><select class="fc" id="ln-prod"><option value="">— 商品を選択 —</option></select></div>
         <div class="fg"><label>貸借日</label><input type="date" class="fc" id="ln-date" min="2000-01-01" max="2100-12-31"></div>
-        <div class="fg"><label>数量（本）</label><input type="number" class="fc" id="ln-qty" min="1" placeholder="例:12" onkeydown="if(event.key==='Enter'){event.preventDefault();addLendItem();}"></div>
+        <div class="fg"><label>数量（本）</label><input type="number" class="fc" id="ln-qty" min="1" placeholder="例:12" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addLendItem();}"></div>
         <div class="fg"><label>返却予定日（任意）</label><input type="date" class="fc" id="ln-due" min="2000-01-01" max="2100-12-31"></div>
         <div class="fg"><label>メモ</label><input class="fc" id="ln-memo" placeholder="任意"></div>
         <div class="fg"><label>&nbsp;</label><button class="btn-s" onclick="addLendItem()" title="複数の商品をまとめて記録したいときに使います" style="padding:0 1rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 商品を追加</button></div>
@@ -922,7 +922,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         <div class="fg"><label>移動先</label><select class="fc" id="tr-to"><option>京都</option><option>仙台</option></select></div>
         <div class="fg"><label>商品</label><select class="fc" id="tr-prod"></select></div>
         <div class="fg"><label>発送日</label><input type="date" class="fc" id="tr-date" min="2000-01-01" max="2100-12-31"></div>
-        <div class="fg"><label>本数</label><input class="fc" id="tr-qty" type="number" min="1" step="1" placeholder="例：5" onkeydown="if(event.key==='Enter'){event.preventDefault();addMoveItem();}"></div>
+        <div class="fg"><label>本数</label><input class="fc" id="tr-qty" type="number" min="1" step="1" placeholder="例：5" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addMoveItem();}"></div>
         <div class="fg"><label>メモ（任意）</label><input class="fc" id="tr-memo" placeholder="例：他社返却分を京都へ"></div>
         <div class="fg"><label>&nbsp;</label><button class="btn-s" onclick="addMoveItem()" title="複数の商品をまとめて発送したいときに使います" style="padding:0 1rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 商品を追加</button></div>
       </div>
@@ -7296,8 +7296,25 @@ function renderLendDraft(){
 }
 
 // ── 移動の明細 ──
-function addMoveItem(){
-  var prod = (document.getElementById('tr-prod')||{}).value;
+// Shift+Enter で「1つ前の入力欄」に戻る（拠点移動・貸借のキーボード入力補助）
+(function(){
+  var groups = [
+    ['tr-from','tr-to','tr-prod','tr-date','tr-qty','tr-memo'],
+    ['ln-partner','ln-branch','ln-prod','ln-date','ln-qty','ln-due','ln-memo']
+  ];
+  document.addEventListener('keydown', function(e){
+    if (e.key !== 'Enter' || !e.shiftKey) return;
+    var id = e.target && e.target.id; if (!id) return;
+    for (var g=0; g<groups.length; g++){
+      var ids = groups[g], i = ids.indexOf(id);
+      if (i < 0) continue;
+      e.preventDefault(); e.stopPropagation();   // 追加(addMoveItem等)を走らせない
+      if (i > 0){ var prev = document.getElementById(ids[i-1]); if (prev){ try{ prev.focus(); if (prev.select) prev.select(); }catch(_){} } }
+      return;
+    }
+  }, true);   // capture=true：欄のEnter処理より先に拾う
+})();
+function addMoveItem(){  var prod = (document.getElementById('tr-prod')||{}).value;
   var qty  = parseInt((document.getElementById('tr-qty')||{}).value || '', 10);
   var from = (document.getElementById('tr-from')||{}).value;
   if (!prod) return toast('商品を選んでください', 'error');
