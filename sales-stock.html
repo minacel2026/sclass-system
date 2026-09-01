@@ -3698,8 +3698,8 @@ function _orderFieldMove(dir, fromEl){
   if (i < 0) i = fields.indexOf(_orderNavLast);   // ボタン操作でフォーカスが外れた場合の保険
   if (i < 0) i = 0;
   let ni = i + dir;
-  if (ni < 0) ni = 0;
-  if (ni >= fields.length) ni = fields.length - 1;
+  if (ni < 0) ni = fields.length - 1;      // 最初の欄でShift+Enter → 最後の欄へ回る
+  if (ni >= fields.length) ni = 0;         // 最後の欄でEnter → 最初の欄へ回る
   const next = fields[ni];
   if (next){ next.focus(); if (next.select){ try { next.select(); } catch(_){} } }
 }
