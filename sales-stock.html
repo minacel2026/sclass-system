@@ -24,9 +24,25 @@ window.StockEngine = (function(){
     if(rec.used && typeof rec.used==='object'){
       return { old:Number(rec.used.old)||0, sp:Number(rec.used.sp)||0, new:Number(rec.used.new)||0 };
     }
+    var q=Math.abs(Number(rec.qty)||0);
+    // ② 従来の3点セット（旧O/協S/新N・「/」区切り）を厳密一致で最優先（完全後方互換）
     var m=String(rec.note||'').match(/（旧(-?\d+)\/協(-?\d+)\/新(-?\d+)）/);
     if(m){ return { old:Number(m[1])||0, sp:Number(m[2])||0, new:Number(m[3])||0 }; }
-    var q=Math.abs(Number(rec.qty)||0);
+    // ②' 部分形式メモ対応：「（ … ）」の内訳カッコから 旧/協/新+数字 を順不同・任意個・区切り不問で拾う。
+    //     例）無償提供「（協84）」、混在「（旧2・協80・新2）」、拠点移動「（旧5・協3・新2）」（・区切り）など。
+    //     安全弁：抽出した内訳の合計が数量と一致するときだけ採用（誤検出・部分欠落は弾いて③へ）。
+    var g=String(rec.note||'').match(/（[^（）]*[旧協新]\s*-?\d+[^（）]*）/g);
+    if(g){
+      var _o=0,_s=0,_n=0,_hit=false;
+      for(var _i=0;_i<g.length;_i++){
+        var _mo=g[_i].match(/旧\s*(-?\d+)/), _ms=g[_i].match(/協\s*(-?\d+)/), _mn=g[_i].match(/新\s*(-?\d+)/);
+        if(_mo){ _o+=Number(_mo[1])||0; _hit=true; }
+        if(_ms){ _s+=Number(_ms[1])||0; _hit=true; }
+        if(_mn){ _n+=Number(_mn[1])||0; _hit=true; }
+      }
+      if(_hit && (_o+_s+_n)===q) return { old:_o, sp:_s, new:_n };
+    }
+    // ③ 型から推定（協賛系=協賛、他=新値）
     if(rec.type==='協賛入庫' || rec.type==='協賛出庫') return { old:0, sp:q, new:0 };
     return { old:0, sp:0, new:q };
   }
