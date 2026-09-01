@@ -6468,7 +6468,7 @@ function renderPurchase(){
       <td class="col-amt">¥${fmt(p.cost||0)}</td>
       <td class="col-amt" style="color:var(--gold-l)">¥${fmt((p.cost||0) * (p.qty||0))}</td>
       <td style="font-size:.72rem;color:var(--wh2)">${escapeHtml(p.note||'')}</td>
-      <td><button class="act-btn" onclick="editPurchase('${p.id}')">修正</button><button class="act-btn dn" onclick="deletePurchase('${p.id}')">削</button></td>
+      <td><button class="act-btn dn" onclick="deletePurchase('${p.id}')">削</button></td>
     </tr>
   `).join('');
 }
@@ -7865,7 +7865,7 @@ function renderLendList(){
         +'<td>'+(done?'<span style="color:var(--wh3)">返却済'+(l.returnedDate?'('+escapeHtml(l.returnedDate)+')':'')+'</span>'
                      :(part?'<span style="color:#4f9dd9">一部返却</span>':'<span style="color:#ffcf7a">未返却</span>'))+'</td>'
         +'<td style="white-space:nowrap">'
-          +(((!done?'<button class="btn-s" onclick="returnLending(\''+l.id+'\')">返却</button> <button class="btn-s" onclick="editLending(\''+l.id+'\')">修正</button>':'')
+          +(((!done?'<button class="btn-s" onclick="returnLending(\''+l.id+'\')">返却</button>':'')
             +(mayDel?((done?'':' ')+'<button class="btn-s" style="border-color:#e0685f;color:#e0685f" onclick="deleteLending(\''+l.id+'\')">削除</button>'):''))
             || '—')
         +'</td></tr>';
@@ -8354,7 +8354,7 @@ function renderMoves(){
           + '<td style="color:var(--wh3);font-size:.72rem">' + escapeHtml(m.memo||'') + '</td>'
           + '<td style="white-space:nowrap">'
           + (may ? '<button class="btn-s" onclick="receiveMove(\'' + m.id + '\')">📥 受領</button> '
-                 + '<button class="btn-s" onclick="editMove(\'' + m.id + '\')">修正</button> '
+                 + ''
                  + '<button class="btn-s" style="border-color:#e0685f;color:#e0685f" onclick="cancelMove(\'' + m.id + '\')">取消</button>'
                  : '—')
           + '</td></tr>';
