@@ -7479,7 +7479,7 @@ function recordLending(){
       kind, branch, product:it.product, qty:it.qty, dueDate:due, memo, status:'未返却', returnedDate:'',
       createdAt:new Date().toISOString(), createdBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||'' };
     S.lendings=S.lendings||[]; S.lendings.push(rec);
-    if(S.gasUrl){ (function(r,d){ setTimeout(function(){ gasPost({action:'saveLending', id:r.id, date:r.date, partnerId:r.partnerId, partnerName:r.partnerName, partnerUid:r.partnerUid, kind:r.kind, branch:r.branch, product:r.product, qty:r.qty, dueDate:r.dueDate, memo:r.memo, status:r.status, createdBy:r.createdBy }); }, d); })(rec, _i*600); }
+    if(S.gasUrl){ try { gasPost({action:'saveLending', id:rec.id, date:rec.date, partnerId:rec.partnerId, partnerName:rec.partnerName, partnerUid:rec.partnerUid, kind:rec.kind, branch:rec.branch, product:rec.product, qty:rec.qty, dueDate:rec.dueDate, memo:rec.memo, status:rec.status, createdBy:rec.createdBy }); } catch(e){} }   // ★即時に未送信キューへ積む（登録直後にタブを閉じても失わず自動再送）。従来の setTimeout 遅延だと発火前に消えていた
     _total+=it.qty;
   });
   saveState();
