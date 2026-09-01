@@ -1072,7 +1072,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       </div>
     </div>
     <div class="tw">
-      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="findStockCause()" title="在庫が合わない原因を調べます（変更しません）">🔎 原因を調べる</button><button class="btn-s" style="margin-left:.4rem" onclick="checkSlogConsistency()" title="残数のつじつまを確認します">🔍 整合チェック</button><button class="btn-s" style="margin-left:.4rem" onclick="clearAllSlog()" title="在庫履歴を全部消します（在庫の数値は変わりません）">🗑 履歴を全消去</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
+      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="findStockCause()" title="在庫が合わない原因を調べます（変更しません）">🔎 原因を調べる</button><button class="btn-s" style="margin-left:.4rem" onclick="checkSlogConsistency()" title="残数のつじつまを確認します">🔍 整合チェック</button><button class="btn-s" style="margin-left:.4rem" onclick="reuploadStockLogs()" title="端末にあってサーバに無い在庫履歴を、まとめてサーバへ送ります（重複スキップ・在庫は動きません）">⬆ サーバへ再送</button><button class="btn-s" style="margin-left:.4rem" onclick="clearAllSlog()" title="在庫履歴を全部消します（在庫の数値は変わりません）">🗑 履歴を全消去</button></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.4rem">📊 推移表</button></div>
       <table id="slog-table">
         <thead>
           <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>操作日<span style="font-size:.6rem;color:var(--wh3)">(記録)</span></th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del-col">操作</th></tr>
@@ -7455,6 +7455,37 @@ function _lendOutstanding(rec){ return Math.max(0, (Number(rec.qty)||0) - (Numbe
 //   送信は少し待ってからまとめて行う（連続登録時の通信を1回にまとめるため）。
 var _slogQueue = [];
 var _slogTimer = null;
+// 端末にあってサーバに無い在庫履歴を、まとめてサーバへ再送する（取り残しの復旧用）。
+//   saveStockLogs は冪等（同じIDはサーバ側でスキップ）なので、端末の全履歴を送れば
+//   サーバに無い分だけが追加される。在庫は動かさない（履歴レコードを送るだけ）。
+async function reuploadStockLogs(){
+  if (!S.gasUrl) return toast('GAS URLが未設定です','error');
+  var all = (S.slog||[]).filter(function(l){ return l && l.id; });
+  if (!all.length) return toast('送る在庫履歴がありません','error');
+  // まずサーバに今いくつ在るか（確認用）
+  var before = 0;
+  try { var r0 = await gasGet('getStockLogs',{limit:2000}); before = (r0 && r0.logs || []).length; } catch(e){}
+  if (!confirm('端末の在庫履歴 ' + all.length + ' 件を、サーバへ送ります。\n（サーバに既に在るものは自動でスキップ＝重複しません。在庫は動きません）\n\n現在サーバには ' + before + ' 件あります。実行しますか？')) return;
+  // 大きいと1回のURLに載らないので、200件ずつに分けてsaveStockLogsで送る
+  var tok = ''; try { tok = sessionStorage.getItem('lmb_token') || ''; } catch(e){}
+  var added = 0, skipped = 0, sentBatches = 0, failed = 0;
+  showSyncOverlay && showSyncOverlay();
+  try {
+    for (var i=0; i<all.length; i+=200){
+      var batch = all.slice(i, i+200);
+      var payload = JSON.stringify({ action:'saveStockLogs', logs: JSON.stringify(batch), _token:tok, token:tok });
+      try {
+        var res = await fetch(S.gasUrl, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: payload }).then(function(r){ return r.text(); });
+        var j = null; try { j = JSON.parse(res); } catch(_p){}
+        if (j && j.ok){ added += (Number(j.added)||0); skipped += (Number(j.skipped)||0); sentBatches++; }
+        else { failed++; }
+      } catch(e){ failed++; }
+    }
+  } finally { hideSyncOverlay && hideSyncOverlay(); }
+  var after = 0;
+  try { var r1 = await gasGet('getStockLogs',{limit:2000}); after = (r1 && r1.logs || []).length; } catch(e){}
+  toast('✓ 在庫履歴の再送：新規 ' + added + ' 件を追加（重複スキップ ' + skipped + '）／サーバ ' + before + '→' + after + ' 件' + (failed?('／失敗バッチ '+failed):''), failed?'error':'info');
+}
 function _slogFlush(){
   _slogTimer = null;
   if (!_slogQueue.length || !S.gasUrl) { _slogQueue = []; return; }
