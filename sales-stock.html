@@ -3345,19 +3345,25 @@ function _orderRecordedShipped(o){
 //   （出荷済にしたのにサーバに届かず「新規受付」のまま残るのを防ぐ）
 function _ensureOrderSaved(id){
   if (!S.gasUrl || !id) return;
-  setTimeout(async function(){
+  var _tries = 0;
+  var _check = async function(){
+    _tries++;
     try{
       var loc = (S.orders||[]).find(function(x){ return String(x.id)===String(id); });
       if (!loc) return;
       var srv = await gasGet('getOrders');
       var so = (srv && srv.orders || []).find(function(x){ return String(x.id)===String(id); });
-      // サーバに無い、または状態が食い違う → 再送（キュー経由で自動リトライ）
-      if (!so || String(so.status||'') !== String(loc.status||'')){
-        try { gasPost({ action:'saveOrder', ...loc }); } catch(e){}
-        try { toast('サーバへ反映を再送しました（' + (loc.store||'') + '：' + (loc.status||'') + '）'); } catch(e){}
-      }
-    }catch(e){}
-  }, 3000);
+      if (so && String(so.status||'') === String(loc.status||'')){ return; }   // 反映OK＝終了
+      // 未反映 → 直接サーバへ送り込む（キュー任せにせず、その場で確実に）
+      var tok=''; try{ tok = sessionStorage.getItem('lmb_token')||''; }catch(e){}
+      var body = Object.assign({ action:'saveOrder', _token:tok, token:tok }, loc);
+      if (body._matchTimestamp==null || body._matchTimestamp==='') body._matchTimestamp = body.timestamp || body.date || '';
+      try { await fetch(S.gasUrl, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(body) }); } catch(e){}
+      if (_tries < 4){ setTimeout(_check, 1500); }        // まだ回数が残っていれば再確認
+      else { try { toast('⚠ 注文「'+(loc.store||'')+'」の'+(loc.status||'')+'反映が確認できません。通信を確認して、もう一度状態を切り替えてください', 'error'); } catch(e){} }
+    }catch(e){ if (_tries < 4){ setTimeout(_check, 1500); } }
+  };
+  setTimeout(_check, 1500);
 }
 async function changeShipStatus(id, val){  if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (['新規受付','対応中','出荷済'].indexOf(val) < 0) return;
