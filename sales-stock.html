@@ -1067,7 +1067,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
       </div>
     </div>
     <div class="tw">
-      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.6rem">📊 推移表</button><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="findStockCause()" title="在庫が合わない原因を調べます（変更しません）">🔎 原因を調べる</button><button class="btn-s" style="margin-left:.4rem" onclick="clearAllSlog()" title="在庫履歴を全部消します（在庫の数値は変わりません）">🗑 履歴を全消去</button></span></div>
+      <div class="th-area"><h3>在庫履歴</h3><span id="slog-cnt" style="font-size:.72rem;color:var(--wh2)"></span><button class="btn-s" id="slog-mx-btn" onclick="toggleSlogMatrix()" style="margin-left:.6rem">📊 推移表</button><span id="slog-admin-tools" style="display:none;margin-left:auto"><button class="btn-s" onclick="clearAllSlog()" title="在庫履歴を全部消します（在庫の数値は変わりません）">🗑 履歴を全消去</button></span></div>
       <table id="slog-table">
         <thead>
           <tr><th>日付<span style="font-size:.6rem;color:var(--wh3)">(在庫)</span></th><th>注文日</th><th>操作日<span style="font-size:.6rem;color:var(--wh3)">(記録)</span></th><th>時刻</th><th>拠点</th><th>種類</th><th>店舗</th><th>商品</th><th class="col-qty">本数</th><th class="col-qty">残数</th><th>備考</th><th>担当</th><th class="slog-del-col">操作</th></tr>
@@ -1187,19 +1187,23 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
   </div>
 
   <div id="m-lending" class="mcon">
-    <div class="fp">
-      <div class="th-area"><h3>🤝 貸借先（外部会社）</h3><button class="btn-s" onclick="loadLending(true)">🔄 最新を取得</button></div>
+    <!-- 上部ツールバー（登録系は1行にまとめ、フォームは折りたたみ） -->
+    <div class="fp" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1rem">
+      <button class="btn-s" onclick="loadLending(true)">🔄 最新を取得</button>
+      <button class="btn-s" onclick="var d=document.getElementById('lp-form');d.style.display=(d.style.display!=='none')?'none':'block';">＋ 貸借先を登録</button>
+      <button id="btn-lend-opening" class="btn-s" onclick="var d=document.getElementById('lend-opening');var open=(d.style.display!=='none');d.style.display=open?'none':'block';if(!open){if(typeof renderLendOpeningForm==='function')renderLendOpeningForm();d.scrollIntoView({block:'nearest',behavior:'smooth'});}" title="稼働開始時点で既に貸借中だった残数を登録（在庫は動きません）">⊕ 貸借残初期登録</button>
+      <span style="flex:1;min-width:0;font-size:.66rem;color:var(--wh3)">貸出・借入の入力は「注文登録」タブ（取引種別＝貸出／借入）。ここでは登録・残数・履歴を確認します。</span>
+    </div>
+
+    <!-- 貸借先の登録フォーム（折りたたみ） -->
+    <div class="fp" id="lp-form" style="display:none;margin-bottom:1rem">
+      <div class="th-area"><h3>🤝 貸借先（外部会社）を登録</h3></div>
       <div class="frow">
         <div class="fg"><label>会社名</label><input class="fc" id="lp-name" placeholder="例：○○商事"></div>
         <div class="fg"><label>LINE UID（マイページ用・任意）</label><input class="fc" id="lp-uid" placeholder="後で設定可"></div>
         <div class="fg"><label>&nbsp;</label><button class="btn" onclick="saveLendPartner()" style="padding:0 1.2rem;display:flex;align-items:center;justify-content:center;white-space:nowrap">＋ 貸借先を登録</button></div>
       </div>
       <div id="lend-partner-list" style="margin-top:.6rem"></div>
-    </div>
-
-    <div class="hint-box" style="display:flex;align-items:center;gap:.5rem;font-size:.68rem;padding:.4rem .6rem;margin-bottom:1rem">
-      <span style="flex:1;min-width:0">▸ 貸出・借入の入力は「注文登録」タブに統合しました（取引種別＝貸出／借入）。ここでは貸借先の登録・残数・履歴を確認できます。</span>
-      <button id="btn-lend-opening" class="btn-s" style="white-space:nowrap;font-size:.68rem;padding:0 .6rem;flex:none" onclick="var d=document.getElementById('lend-opening');var open=(d.style.display!=='none');d.style.display=open?'none':'block';if(!open){if(typeof renderLendOpeningForm==='function')renderLendOpeningForm();d.scrollIntoView({block:'nearest',behavior:'smooth'});}" title="稼働開始時点で既に貸借中だった残数を登録（在庫は動きません）">⊕ 貸借残初期登録</button>
     </div>
 
     <div class="fp" id="lend-opening" style="margin-bottom:1rem;display:none">
@@ -2164,7 +2168,7 @@ function switchModule(name, el){
     orders:    '受けた注文の一覧です。検索・出荷（🚚）・修正・削除ができ、下に合計売上（翌月計上を除く額つき）も出ます。',
     neworder:  '新しい取引を登録します。取引種別で「注文／仕入／貸出・借入／拠点間移動／試供品」を切り替えて入力します。',
     stock:     '拠点ごとの在庫を確認・調整します。基準日でその日の在庫を表示、A4棚卸チェックシートの印刷もできます。',
-    slog:      '入出庫の履歴です。いつ・どの拠点・どの商品が何本動いたかを、店舗名つきで確認・検索できます。',
+    slog:      '',
     lending:   '外部会社への貸出・借入の残数と履歴を管理します。貸借先の登録もここで行います。',
     moves:     '仙台↔京都の在庫移動（輸送中・受領）を管理します。実際の入力は注文登録タブに統合されています。',
     purchase:  '仕入（入庫）の登録と履歴です。在庫が増える取引を記録します。',
@@ -2181,7 +2185,7 @@ function switchModule(name, el){
     var _own = false, _ch = _mc ? _mc.children : [];
     for (var _i = 0; _i < _ch.length; _i++){ var _cn = ' ' + (_ch[_i].className || '') + ' '; if (_cn.indexOf(' hint-box ') >= 0 || _cn.indexOf(' mod-head ') >= 0){ _own = true; break; } }
     if (_own){ _td.style.display = 'none'; }
-    else { _td.style.display = ''; _td.textContent = _tabDescMap[name] || ''; }
+    else { var _d = _tabDescMap[name] || ''; _td.textContent = _d; _td.style.display = _d ? '' : 'none'; }
   }
 
   if (name === 'orders')    renderOrders();
