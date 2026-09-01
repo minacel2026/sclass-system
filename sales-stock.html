@@ -4178,7 +4178,11 @@ function onOrderTypeChange(){
 
 function getSponsorBalance(custId, excludeOrderId){
   if (!S.sponsorLogs) S.sponsorLogs = [];
-  const logs = S.sponsorLogs.filter(l => String(l.custId) === String(custId)
+  // custIdが空で保存された使用ログ（旧LINE協賛注文など）は、顧客名の完全一致で救済する（custId空のときだけ）
+  var _c = (S.customers||[]).find(function(x){ return String(x.id)===String(custId); });
+  var _nm = _c ? String(_c.name) : '';
+  const logs = S.sponsorLogs.filter(l => ( String(l.custId) === String(custId)
+      || (!String(l.custId||'') && _nm && String(l.custName||'')===_nm) )
     && (!excludeOrderId || String(l.orderId) !== String(excludeOrderId)));
   const earned = logs.filter(l => l.type === 'earned').reduce((s,l) => s + (l.qty || 0), 0);
   const used   = logs.filter(l => l.type === 'used').reduce((s,l) => s + (l.qty || 0), 0);
@@ -4286,7 +4290,11 @@ function submitSpCarry(){
 // 協賛残数の商品別内訳（付与商品ごとに earned − used）
 function getSponsorBalanceByProduct(custId, excludeOrderId){
   if (!S.sponsorLogs) S.sponsorLogs = [];
-  const logs = S.sponsorLogs.filter(l => String(l.custId) === String(custId)
+  // custIdが空で保存された使用ログは顧客名の完全一致で救済（custId空のときだけ）
+  var _c = (S.customers||[]).find(function(x){ return String(x.id)===String(custId); });
+  var _nm = _c ? String(_c.name) : '';
+  const logs = S.sponsorLogs.filter(l => ( String(l.custId) === String(custId)
+      || (!String(l.custId||'') && _nm && String(l.custName||'')===_nm) )
     && (!excludeOrderId || String(l.orderId) !== String(excludeOrderId)));
   const byProd = {};
   logs.forEach(l => {
