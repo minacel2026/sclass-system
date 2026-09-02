@@ -2603,7 +2603,7 @@ async function syncFromGAS(silent){
       try {
         const _cnt = {};
         S.orders.forEach(function(o){
-          const k = String(o._matchTs || o.timestamp || '') + '|' + String(o.store || '');
+          const k = String(o._matchTs || o.timestamp || '') + '|' + String(o.store || '') + '|' + JSON.stringify(o.items||{}) + '|' + JSON.stringify(o.sponsorItems||{}) + '|' + String(o.amount||'');   // ★明細・金額も含める（同店・同日時でも中身が違えば別注文）
           if (k.trim() !== '|') _cnt[k] = (_cnt[k] || 0) + 1;
         });
         const _dup = Object.keys(_cnt).filter(function(k){ return _cnt[k] > 1; }).length;
