@@ -723,7 +723,7 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
     <button class="mtab" onclick="switchModule('analysis',this)"><span class="mtab-ic">📊</span>実績分析</button>
   </div>
   </div>
-  <div id="tab-desc" style="margin:.35rem 0 .5rem;padding:.4rem .7rem;font-size:.75rem;color:var(--wh2);background:rgba(201,168,76,.06);border-left:3px solid rgba(201,168,76,.5);border-radius:4px;line-height:1.55">受けた注文の一覧です。検索・出荷（🚚）・修正・削除ができ、下に合計売上（翌月計上を除く額つき）も出ます。</div>
+  <div id="tab-desc" style="margin:.35rem 0 .5rem;padding:.4rem .7rem;font-size:.75rem;color:var(--wh2);background:rgba(201,168,76,.06);border-left:3px solid rgba(201,168,76,.5);border-radius:4px;line-height:1.55">受けた注文の一覧です。検索・出荷（🚚）・修正・削除ができ、下に合計売上（翌月計上を除く額・ル・レーヴ内訳つき）も出ます。</div>
 
   <!-- ════════ 注文一覧 ════════ -->
   <div id="m-orders" class="mcon active">
@@ -2246,7 +2246,7 @@ function switchModule(name, el){
   document.getElementById('m-' + name).classList.add('active');
   // タブの説明をタブバー直下に表示（選択中タブのぶんだけ差し替え）
   var _tabDescMap = {
-    orders:    '受けた注文の一覧です。検索・出荷（🚚）・修正・削除ができ、下に合計売上（翌月計上を除く額つき）も出ます。',
+    orders:    '受けた注文の一覧です。検索・出荷（🚚）・修正・削除ができ、下に合計売上（翌月計上を除く額・ル・レーヴ内訳つき）も出ます。',
     neworder:  '新しい取引を登録します。取引種別で「注文／仕入／貸出・借入／拠点間移動／試供品」を切り替えて入力します。',
     stock:     '拠点ごとの在庫を確認・調整します。基準日でその日の在庫を表示、A4棚卸チェックシートの印刷もできます。',
     slog:      '',
@@ -2831,6 +2831,15 @@ function renderOrders(){
     if (totalEx !== total){ _exEl.textContent = yen(totalEx); _exWrap.style.display = ''; }
     else { _exWrap.style.display = 'none'; }
   }
+  // ★売上科目の内訳：区分「ル・レーヴ・ブリヤン」の商品だけの注文（預かり販売）を別集計してカッコ書き
+  try{
+    const _lrCat = 'ル・レーヴ・ブリヤン';
+    const _isLR = (k)=>{ const p=(S.products||[]).find(x=>(x.key||x.name)===k); return !!(p && String(p.category||'')===_lrCat); };
+    const _lrTotal = list.filter(o=>{ const ks=Object.keys(o.items||{}); return ks.length>0 && ks.every(_isLR); }).reduce((s,o)=>s+calcAmt(o),0);
+    let _lrEl = document.getElementById('ord-total-lr');
+    if (!_lrEl){ _lrEl=document.createElement('span'); _lrEl.id='ord-total-lr'; _lrEl.style.cssText='margin-left:.4rem;font-size:.72rem;color:var(--wh3)'; document.getElementById('ord-total').parentNode.appendChild(_lrEl); }
+    _lrEl.innerHTML = _lrTotal>0 ? ('（うちル・レーヴ <span style="color:#c8b98a">'+yen(_lrTotal)+'</span>／その他 <span style="color:var(--gold-l)">'+yen(total-_lrTotal)+'</span>）') : '';
+  }catch(e){}
 
   const tbody = document.getElementById('ord-tbody');
   if (list.length === 0){
