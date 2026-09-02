@@ -7606,11 +7606,11 @@ function rebuildStockFromHistory(silent){
       if(!S.stockDetail[br]) S.stockDetail[br]={};
       if(!S.stock[br]) S.stock[br]={};
       Object.keys(comp[br]||{}).forEach(function(p){
-        var c=comp[br][p]||{}; var o=c.old||0, s=c.sp||0, n=c.new||0;
-        var cur=S.stockDetail[br][p]||{}; var curTotal=(cur.old||0)+(cur.sp||0)+(cur.new||0);
-        if(curTotal!==o+s+n || (cur.old||0)!==o || (cur.sp||0)!==s || (cur.new||0)!==n){
-          S.stockDetail[br][p]={old:o,sp:s,new:n};
-          S.stock[br][p]=o+s+n;
+        var c=comp[br][p]||{}; var b=c.borrowed||0, o=c.old||0, s=c.sp||0, n=c.new||0;
+        var cur=S.stockDetail[br][p]||{}; var curTotal=(cur.borrowed||0)+(cur.old||0)+(cur.sp||0)+(cur.new||0);
+        if(curTotal!==b+o+s+n || (cur.borrowed||0)!==b || (cur.old||0)!==o || (cur.sp||0)!==s || (cur.new||0)!==n){
+          S.stockDetail[br][p]={borrowed:b,old:o,sp:s,new:n};   // ★借入バケツも保存（従来は旧/協/新のみで借入が落ちていた）
+          S.stock[br][p]=b+o+s+n;
           changed++;
         }
       });
@@ -7653,7 +7653,7 @@ async function inspectAndRepairStock(){
       var prods = (S.stockDetail&&S.stockDetail[br]) ? Object.keys(S.stockDetail[br]) : [];
       if(comp[br]) Object.keys(comp[br]).forEach(function(p){ if(prods.indexOf(p)<0) prods.push(p); });
       prods.forEach(function(p){
-        var sd=(S.stockDetail[br]||{})[p]||{}; var saved=(sd.old||0)+(sd.sp||0)+(sd.new||0);
+        var sd=(S.stockDetail[br]||{})[p]||{}; var saved=(sd.borrowed||0)+(sd.old||0)+(sd.sp||0)+(sd.new||0);
         var c=comp[br]&&comp[br][p]; var calc=c?(c.total||0):0;
         if(saved!==calc) diffs.push({br:br,p:p,saved:saved,calc:calc});
       });
