@@ -72,6 +72,11 @@ window.StockEngine = (function(){
         cell.sp =Number(_s!=null?_s:0)||0;
         cell.new=Number(_n!=null?_n:0)||0;
         // 借入バケツは初期登録では触らない
+      } else if(t==='締め残高'){
+        // 月次締め：その日時点の在庫（借/旧/協/新）を固定する。以前の履歴が後から変わっても、この値から先で計算する
+        var _lb=rec.borrowed,_lo=rec.old,_ls=rec.sp,_ln=rec.new;
+        if(_lb==null&&_lo==null&&_ls==null&&_ln==null){ var _lm=String(rec.note||'').match(/（借(-?\d+)\/旧(-?\d+)\/協(-?\d+)\/新(-?\d+)）/); if(_lm){ _lb=_lm[1];_lo=_lm[2];_ls=_lm[3];_ln=_lm[4]; } }
+        cell.borrowed=Number(_lb||0)||0; cell.old=Number(_lo||0)||0; cell.sp=Number(_ls||0)||0; cell.new=Number(_ln||0)||0;
       } else if(t==='借入'){
         cell.borrowed += q;                                  // ★借入 → borrowedバケツ
       } else if(STOCK_IN[t]){
@@ -975,6 +980,9 @@ body.no-adjust #stock-init,body.no-adjust #btn-stock-init,body.no-adjust #stock-
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="printStocktakeSheetAsOf()" title="基準日の在庫でA4棚卸チェックシートを印刷（手書き照合用）">🖨 棚卸</button>
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="printDailyStockTable()" title="基準日の月の、日ごと×商品の在庫表をA4横で印刷（CSV出力あり）">📅 日別在庫表</button>
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="inspectAndRepairStock()" title="在庫が在庫履歴と合っているか点検し、ズレていればその場で直します（在庫履歴が正）">🔧 在庫を点検・修復</button>
+        <span id="lock-badge" style="font-size:.68rem;margin-left:.4rem;white-space:nowrap"></span>
+        <button id="btn-lock" class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem;display:none" onclick="openPeriodLock()" title="締め日までの取引を変更不可にし、その日の在庫を固定します（管理者のみ）">🔒 月次締め</button>
+        <button id="btn-unlock" class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem;display:none;border-color:#e0685f;color:#e0685f" onclick="releasePeriodLock()" title="締めを解除します（管理者のみ）">🔓 締め解除</button>
         <button class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="showQueueDetail()" title="サーバにまだ保存されていない未送信データを確認します（0件なら全部保存済み）">📤 未送信を確認</button>
         <button id="btn-stock-init" class="btn-s" style="padding:.4rem .8rem;white-space:nowrap;font-size:.68rem" onclick="var d=document.getElementById('stock-init');var open=(d.style.display!=='none');d.style.display=open?'none':'block';if(!open){if(typeof renderStockInit==='function')renderStockInit();d.scrollIntoView({block:'nearest',behavior:'smooth'});}" title="旧値・協賛・新値を一括登録／上書き">⊕ 初期登録</button>
       </div>
@@ -3090,6 +3098,7 @@ function shipLine(id, product, qty){
   if (_blockIfShort(branch, product, q, '出荷')) return;   // ★B-2：在庫不足なら中断（在庫は動かさない）
   if (!o.shipDate) o.shipDate = today();
   const _d = _ymd(o.shipDate);
+  if (_lockGuard(_d,'出荷日')) return;
   const _sb = _ensureShipBkt(o);
   const used = depleteStock(branch, product, q);
   _accBkt(_sb.items, product, used);
@@ -3121,6 +3130,7 @@ function unshipLine(id, product){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   const o = (S.orders || []).find(x => String(x.id) === String(id));
   if (!o) return toast('注文が見つかりません', 'error');
+  if (_lockGuard(o.shipDate||o.date,'出荷日')) return;
   const branch = o.branch || '仙台';
   const shq = Number(orderShipped(o)[product]) || 0;
   if (shq <= 0){ toast('取り消す出荷がありません', 'error'); return; }
@@ -3157,6 +3167,7 @@ function shipSponsorLine(id, product, qty){
   if (_blockIfShort(branch, product, q, '協賛出荷')) return;   // ★B-2：在庫不足なら中断（在庫は動かさない）
   if (!o.shipDate) o.shipDate = today();
   const _d = _ymd(o.shipDate);
+  if (_lockGuard(_d,'出荷日')) return;
   const _sb = _ensureShipBkt(o);
   const used = depleteStock(branch, product, q);
   _accBkt(_sb.sponsorItems, product, used);
@@ -3186,6 +3197,7 @@ function unshipSponsorLine(id, product){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   const o = (S.orders || []).find(x => String(x.id) === String(id));
   if (!o) return toast('注文が見つかりません', 'error');
+  if (_lockGuard(o.shipDate||o.date,'出荷日')) return;
   const branch = o.branch || '仙台';
   const shq = Number(orderShippedSponsor(o)[product]) || 0;
   if (shq <= 0){ toast('取り消す出荷がありません', 'error'); return; }
@@ -3268,6 +3280,7 @@ function shipAllRemaining(id){
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   const o = (S.orders || []).find(x => String(x.id) === String(id));
   if (!o) return;
+  if (_lockGuard(o.shipDate||o.date,'出荷日')) return;
   if (!o.branch){ toast('⚠ 拠点が未確定です。先に拠点を選んでください', 'error'); return; }
   if (deriveShipState(o) === '出荷済'){ toast('すべて出荷済みです'); return; }
   if (_blockIfShortOrder(o, '全部出荷')) return;   // ★B-2：在庫不足なら中断（在庫は動かさない）
@@ -3442,6 +3455,7 @@ async function changeShipStatus(id, val){  if (!canEdit()) return toast('🔒 �
   const o = (S.orders || []).find(x => String(x.id) === String(id));
   if (!o) return;
   const prev = shipStatus(o);
+  if (_lockGuard(o.date,'注文日') || _lockGuard(o.shipDate,'出荷日')){ renderOrders(); return; }
   if (prev === val){ renderOrders(); return; }
   const wasShipped = prev === '出荷済';
   const willShip = val === '出荷済';
@@ -3477,6 +3491,7 @@ async function changeShipStatus(id, val){  if (!canEdit()) return toast('🔒 �
     _sd = await _pickDate(_ymd(o.shipDate || o.date || today()), '出荷日を選んでください', 'この日付で在庫が減ります（初期値＝注文日）');
     if (!_sd){ renderOrders(); return; }          // キャンセル＝何もしない
     _sd = _ymd(_sd);
+    if (_lockGuard(_sd,'出荷日')){ o.status = prev; renderOrders(); return; }
     o.shipDate = _sd;
     applyShipEffects(o, _sd);
   }
@@ -3499,6 +3514,7 @@ async function changeShipStatus(id, val){  if (!canEdit()) return toast('🔒 �
 function deleteOrder(id){
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
   const order = (S.orders || []).find(o => o.id === id);
+  if (order && (_lockGuard(order.date,'注文日') || _lockGuard(order.shipDate,'出荷日'))) return;
   if (!order) return toast('注文が見つかりません', 'error');
 
   const shippedMap = orderShipped(order);            // 有償の出荷済数（部分出荷対応）
@@ -4245,6 +4261,7 @@ function submitSpAdjust(){
   if(!qty || isNaN(qty)) return toast('本数を入力してください（減らす場合は −2 のように入力）','error');
   var prod=(document.getElementById('spa-prod')||{}).value||'商品指定なし';
   var dt=(document.getElementById('spa-date')||{}).value||today();
+  if (_lockGuard(dt,'調整日')) return;
   var memo=((document.getElementById('spa-memo')||{}).value||'').trim();
   var bal=getSponsorBalance(id);
   if(qty<0 && bal.pts+qty<0) return toast('残数が足りません（現在 '+bal.pts+'本）','error');
@@ -5448,6 +5465,8 @@ function submitNewOrder(){
   //   従来は入力/更新した瞬間の日時が入り、過去日付の注文でも日時が当日になっていた。
   //   時刻は、元の作成日時があればその時刻を維持、無ければ現在時刻を付ける。
   const _bizDate = document.getElementById('no-date').value || today();
+  if (_lockGuard(_bizDate,'注文日')) return;
+  if (editingOrderId){ var _eo0=(S.orders||[]).find(function(x){return x.id===editingOrderId;}); if(_eo0 && (_lockGuard(_eo0.date,'元の注文日')||_lockGuard(_eo0.shipDate,'元の出荷日'))) return; }
   let _origHM = '';
   if (wasEditing && _editOrigTs){
     const _m = String(_editOrigTs).match(/(\d{1,2}):(\d{2})/);
@@ -6156,6 +6175,8 @@ async function deleteSlogRow(idx){
   var s=(S.slog||[])[idx]; if(!s) return toast('記録が見つかりません','error');
   var _t = String(s.type||'');
   if(_t==='初期登録'){ return toast('初期登録は削除できません。直すときは⊕初期登録で入れ直してください','error'); }
+  if(_t==='締め残高'){ return toast('締め残高は削除できません。「締め解除」すると自動で消えます','error'); }
+  if(_lockGuard(s.date,'在庫履歴の日付')) return;
   if(_t==='入庫'||_t==='協賛入庫'||_t==='仕入取消'){ return alert('これは仕入の記録です。取り消すときは「仕入管理」タブで削除してください。'); }
   if(_t==='移動出'||_t==='移動入'||_t==='移動取消'||_t==='輸送中紛失'){ return alert('これは拠点移動の記録です。取り消すときは「拠点移動」タブで取消／受領してください。'); }
   if(_t==='貸出'||_t==='借入'||_t==='返却受'||_t==='借入返却'){ return alert('これは貸借の記録です。取り消すときは「貸借管理」タブで削除／返却してください。'); }
@@ -6529,6 +6550,7 @@ async function adjustStock(product, branch){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
+  if (_lockGuard(today(),'調整日')) return;
   const inp = document.getElementById(`adj-${product}-${branch}`);
   const delta = parseInt(inp.value) || 0;
   if (delta === 0) return;
@@ -6684,6 +6706,7 @@ function submitPurchase(){
     if (typeof _entryEditBanner === 'function') _entryEditBanner('purchase', false);
   }
   const date     = document.getElementById('pu-date').value;
+  if (_lockGuard(date,'仕入日')) return;
   const supplier = document.getElementById('pu-supplier').value;
   const branch   = document.getElementById('pu-branch').value;
   const note     = document.getElementById('pu-note').value;
@@ -6739,6 +6762,7 @@ function deletePurchase(id, skipConfirm){
   if (typeof S!=='undefined' && S.gasUrl){ try { gasPost({ action:'deletePurchase', id:id }); } catch(e){} }
   if (!canDelete()) return toast('🔒 削除権限がありません', 'error');
   const p = (S.purchases || []).find(x => x.id === id);
+  if (p && _lockGuard(p.date,'仕入日')) return;
   if (!p) return toast('仕入記録が見つかりません', 'error');
   if (!skipConfirm && !confirm('この仕入記録を削除しますか？')) return;
   const restoreStock = skipConfirm ? true : confirm(
@@ -7075,6 +7099,7 @@ async function submitStocktake(){
   if (typeof canEdit === 'function' && !canEdit()) return toast('🔒 編集権限がありません', 'error');
   var br = (document.getElementById('st-branch')||{}).value || '';
   var dt = (document.getElementById('st-date')||{}).value || today();
+  if (_lockGuard(dt,'棚卸日')) return;
   if (!br) return toast('拠点を選んでください', 'error');
   var items = [];
   _prodColsAll().forEach(function(p){
@@ -7528,6 +7553,7 @@ function recordLending(){
   const sign=(kind==='貸出')?-1:1;
   if (kind === '貸出'){ for (const _it of _items){ if (_blockIfShort(branch, _it.product, _it.qty, '貸出')) return; } }   // ★B-2：貸出で在庫不足なら中断（返却系は対象外）
   const _lnDate=(document.getElementById('ln-date').value||today());
+  if (_lockGuard(_lnDate,'貸借日')) return;
   let _total=0;
   _items.forEach(function(it, _i){
     _lendStockMove(branch, it.product, sign*it.qty, kind, kind+'：'+(partner.name||'')+(memo?'（'+memo+'）':''), _lnDate);
@@ -7596,6 +7622,69 @@ var _slogTimer = null;
 //   サーバに無い分だけが追加される。在庫は動かさない（履歴レコードを送るだけ）。
 // 在庫（保存値）を在庫履歴から作り直す。履歴が唯一の真実なので、常にこれで揃えられる。
 //   silent=true：確認・トーストなし（起動時の自動再計算用）。戻り値：変わった商品数。
+// ══════════ 月次締め（締め日以前の取引は変更不可・その日の在庫を固定） ══════════
+//   締め日は S.lockDate（サーバ＝GASスクリプトプロパティ LOCK_DATE が正。起動時に取得）。
+//   画面側は各入口で _lockGuard(日付) で弾き、GAS側でも doPost の入口で同じ判定をする（二重で守る）。
+function _lockDate(){ try{ return String(S.lockDate || localStorage.getItem('lmb_lockDate') || '').trim(); }catch(e){ return String(S.lockDate||''); } }
+function _isLocked(d){ var L=_lockDate(); if(!L) return false; var y=(typeof _ymd==='function')?_ymd(d):String(d||'').slice(0,10); return !!y && y<=L; }
+function _lockGuard(d, label){
+  if(!_isLocked(d)) return false;
+  var y=(typeof _ymd==='function')?_ymd(d):String(d||'').slice(0,10);
+  toast('🔒 '+(label||'この取引')+'（'+y+'）は締め済みです（'+_lockDate()+'まで変更不可）。直す場合は管理者が「締め解除」してください','error');
+  return true;
+}
+async function _loadLockDate(){
+  try{ var r=await gasGet('getLockDate',{}); if(r && r.ok!==false && r.lockDate!==undefined){ S.lockDate=String(r.lockDate||''); try{ localStorage.setItem('lmb_lockDate', S.lockDate); }catch(e){} } }catch(e){}
+  _renderLockBadge();
+}
+function _isAdminUser(){ return (typeof currentUser!=='undefined'&&currentUser&&String(currentUser.role||'').toLowerCase()==='admin'); }
+function _renderLockBadge(){
+  var el=document.getElementById('lock-badge'); if(!el) return;
+  var L=_lockDate(), isAdmin=_isAdminUser();
+  el.textContent = L ? ('🔒 '+L+' まで締め済み') : '🔓 未締め';
+  el.style.color = L ? '#e6a23c' : '#888';
+  var b1=document.getElementById('btn-lock'), b2=document.getElementById('btn-unlock');
+  if(b1) b1.style.display=isAdmin?'':'none'; if(b2) b2.style.display=(isAdmin&&L)?'':'none';
+}
+function _lastMonthEnd(){ var d=new Date(); d.setDate(0); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+async function openPeriodLock(){
+  if(!_isAdminUser()) return toast('🔒 月次締めは管理者のみ実行できます','error');
+  var L=_lockDate();
+  var d=prompt('締め日を入力してください（この日までの取引が変更できなくなります）\n形式：YYYY-MM-DD'+(L?('\n現在の締め日：'+L):''), L? L : _lastMonthEnd());
+  if(d===null) return; d=String(d).trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return toast('日付の形式が違います（YYYY-MM-DD）','error');
+  if(L && d<=L) return toast('すでに '+L+' まで締め済みです。戻す場合は「締め解除」してください','error');
+  if(!window.StockEngine) return toast('計算エンジンが見つかりません','error');
+  var comp=window.StockEngine.computeStock(S.slog||[], d);
+  var lines=[], recs=[], seq=0, user=(typeof currentUser!=='undefined'&&currentUser)?currentUser.name:'';
+  ['仙台','京都'].forEach(function(br){ Object.keys(comp[br]||{}).forEach(function(pn){ var c=comp[br][pn]; var tot=c.total||0; lines.push(br+' '+pn+'：'+tot+'本');
+    recs.push({ id:'sl-lock-'+Date.now()+'-'+(seq++)+'-'+Math.floor(Math.random()*9000+1000), date:d, time:'23:59', branch:br, type:'締め残高', product:pn, qty:0, remaining:tot,
+      borrowed:c.borrowed||0, old:c.old||0, sp:c.sp||0, new:c.new||0, note:'月次締め：'+d+'（借'+(c.borrowed||0)+'/旧'+(c.old||0)+'/協'+(c.sp||0)+'/新'+(c.new||0)+'）', user:user, _seq:999999 }); }); });
+  if(!confirm('締め日：'+d+'\n\nこの日時点の在庫を「締め残高」として固定し、以後この日以前の取引（注文・仕入・貸借・拠点移動・無償提供・履歴削除・初期登録）は変更できなくなります。\n\n'+lines.slice(0,12).join('\n')+(lines.length>12?('\n…他'+(lines.length-12)+'件'):'')+'\n\n実行しますか？')) return;
+  if(!S.slog) S.slog=[];
+  recs.forEach(function(r){ S.slog.push(r); });
+  S.lockDate=d; try{ localStorage.setItem('lmb_lockDate', d); }catch(e){}
+  saveState();
+  try{ if(typeof syncStockToGAS==='function') syncStockToGAS(); }catch(e){}   // 締め残高をサーバへ（在庫履歴）
+  gasPost({ action:'setLockDate', lockDate:d });                                  // 締め日をサーバへ（管理者のみ通る）
+  _renderLockBadge(); try{ renderStock(); }catch(e){}
+  toast('🔒 '+d+' で締めました（'+recs.length+'商品の締め残高を記録）');
+}
+async function releasePeriodLock(){
+  if(!_isAdminUser()) return toast('🔒 締め解除は管理者のみ実行できます','error');
+  var L=_lockDate(); if(!L) return toast('締めは設定されていません');
+  if(!confirm('締め（'+L+'）を解除します。\n\nこの日以前の取引が再び変更できるようになり、'+L+' の締め残高の記録は削除されます。\n\n解除しますか？')) return;
+  var del=(S.slog||[]).filter(function(l){ return l&&l.type==='締め残高'&&String(l.date||'')===L; }).map(function(l){ return String(l.id||''); }).filter(Boolean);
+  S.lockDate=''; try{ localStorage.setItem('lmb_lockDate',''); }catch(e){}
+  gasPost({ action:'setLockDate', lockDate:'' });                                 // 先に解除（解除後でないと締め残高の削除がサーバで弾かれる）
+  S.slog=(S.slog||[]).filter(function(l){ return !(l&&l.type==='締め残高'&&String(l.date||'')===L); });
+  saveState();
+  if(del.length) gasPost({ action:'deleteStockLogs', ids:JSON.stringify(del) });
+  _renderLockBadge(); try{ renderStock(); }catch(e){}
+  toast('🔓 締め（'+L+'）を解除しました');
+}
+window.addEventListener('load', function(){ setTimeout(function(){ _loadLockDate(); }, 2500); });
+
 function rebuildStockFromHistory(silent){
   try{
     var comp = (window.StockEngine && typeof window.StockEngine.computeStock==='function')
@@ -7988,6 +8077,7 @@ function submitFree(){
   _removeEditingOrderForConvert();
   var br=(document.getElementById('fr-branch')||{}).value;
   var dt=(document.getElementById('fr-date')||{}).value||today();
+  if (_lockGuard(dt,'提供日')) return;
   var purpose=(document.getElementById('fr-purpose')||{}).value||'試供品';
   var to=((document.getElementById('fr-to')||{}).value||'').trim();
   var memo=((document.getElementById('fr-memo')||{}).value||'').trim();
@@ -8100,6 +8190,7 @@ function returnLending(id){
   const q=parseInt(ans,10);
   if(!(q>0) || q>rest) return toast('1〜'+rest+' の範囲で入力してください','error');
   var _rd=prompt('返却日を入力してください（YYYY-MM-DD）', today()); if(_rd===null) return; _rd=String(_rd).trim(); if(!/^\d{4}-\d{2}-\d{2}$/.test(_rd)) _rd=today();
+  if (_lockGuard(_rd,'返却日')) return;
   const sign=(rec.kind==='貸出')?1:-1;
   _lendStockMove(rec.branch, rec.product, sign*q, (rec.kind==='貸出'?'返却受':'借入返却'), '返却：'+rec.partnerName+'（'+q+'本）');
   rec.returnedQty=(Number(rec.returnedQty)||0)+q;
@@ -8116,6 +8207,7 @@ function returnLending(id){
 function deleteLending(id, skipConfirm){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 削除権限がありません（社長・閲覧者は不可）','error');
   const rec=(S.lendings||[]).find(l=>l.id===id); if(!rec) return;
+  if (_lockGuard(rec.date,'貸借日')) return;
   const q=Number(rec.qty)||0;
   // 削除で打ち消す在庫量（+で在庫を戻す / −で在庫を減らす）
   // 一部返却済みなら「まだ返っていない分」だけが在庫に効いているので、その分だけ打ち消す。
@@ -8573,6 +8665,7 @@ async function _transferStockImpl(){
   const t = new Date().toTimeString().slice(0,5);
   const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : '';
   const _mvDate = (document.getElementById('tr-date').value||today());
+  if (_lockGuard(_mvDate,'発送日')) return;
   // 発送日が極端に先（1年超）なら入力ミスの可能性が高いので確認する（例：2060と打ち間違い）
   if (_mvDate){
     var _dd = new Date(_mvDate + 'T00:00:00'); var _lim = new Date(); _lim.setFullYear(_lim.getFullYear()+1);
@@ -8633,6 +8726,7 @@ async function _receiveMoveImpl(id){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 受領する権限がありません（社長・閲覧者は不可）','error');
   if (!(await guardStockWrite())) return;
   const m = (S.moves||[]).find(function(x){ return x.id===id; });
+  if (_lockGuard(today(),'受領日')) return;
   if (!m || m.status!=='輸送中') return;
   const ans = prompt(`${m.product} を ${m.to} で受領します。\n実際に届いた本数を入力してください（発送 ${m.qty}本）`, String(m.qty));
   if (ans === null) return;
@@ -8689,6 +8783,7 @@ async function _cancelMoveImpl(id, skipConfirm, skipGuard){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 取消の権限がありません（社長・閲覧者は不可）','error');
   if (!skipGuard && !(await guardStockWrite())) return;
   const m = (S.moves||[]).find(function(x){ return x.id===id; });
+  if (m && _lockGuard(m.date,'発送日')) return;
   if (!m || m.status!=='輸送中') return;
   if (!skipConfirm && !confirm(`${m.product} ${m.qty}本（${m.from}→${m.to}）の発送を取り消します。\n\n・${m.from} の在庫が ${m.qty}本 戻ります\n・誤って発送した時だけ使ってください\n\nよろしいですか？`)) return;
   const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : '';
@@ -8770,6 +8865,7 @@ async function saveStockInit(){
   const br = (document.getElementById('si-br') || {}).value || '仙台';
   // ⑬ 基準日：初期登録は「この日の在庫」という出発点。取引より前の日付にすると計算が正しく積み上がる。
   const _siDate = ((document.getElementById('si-date') || {}).value || today());
+  if (_lockGuard(_siDate,'基準日')) return;
   if (!confirm(`${br}の在庫を、入力した旧値・協賛・新値で上書きします。\n基準日：${_siDate}（この日の在庫として記録）\n\nよろしいですか？`)) return;
   if (!S.slog) S.slog = [];
   const _it = new Date().toTimeString().slice(0,5);
