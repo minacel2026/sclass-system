@@ -8522,7 +8522,16 @@ function transitQty(branch, product){   // その拠点「宛て」の輸送中�
   return movesInTransit().reduce(function(a,m){ return a + ((m.to===branch && m.product===product) ? (Number(m.qty)||0) : 0); }, 0);
 }
 
+// ★根本対策：在庫を動かす拠点移動系（発送・受領・取消）は同時に1つだけ走らせる。
+//   async 処理中（guardStockWrite / cancelMove の await 中）に発送ボタンが再度押されると、
+//   関数が2本並走して両方が在庫チェックを通過し、移動出が二重に記録され在庫も二重に減っていた。
+var _moveOpBusy = false;
 async function transferStock(){
+  if (_moveOpBusy) return toast('発送処理中です。少しお待ちください', 'error');
+  _moveOpBusy = true;
+  try { return await _transferStockImpl(); } finally { _moveOpBusy = false; }
+}
+async function _transferStockImpl(){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 調整権限がありません（社長は取引のみ可・在庫調整/初期登録は不可）','error');
   if (!canEdit()) return toast('🔒 編集権限がありません', 'error');
   if (!(await guardStockWrite())) return;   // 同時編集ガード（他端末の在庫更新を検知）
@@ -8571,6 +8580,19 @@ async function transferStock(){
       if (!confirm('発送日が「' + _mvDate + '」になっています。かなり先の日付です。入力ミスではありませんか？\n\nこのまま発送する場合は「OK」、日付を直す場合は「キャンセル」。')) return;
     }
   }
+  // ★安全弁：同じ 移動元→移動先・商品・本数 の「輸送中」が直近10秒以内に登録済みなら二重登録とみなして中止
+  {
+    var _now = Date.now();
+    var _dupHit = _items.find(function(it){
+      return (S.moves||[]).some(function(m){
+        if (!m || m.status !== '輸送中') return false;
+        if (m.from !== from || m.to !== to || m.product !== it.product || Number(m.qty) !== Number(it.qty)) return false;
+        var _ts = Date.parse(m.sentAt || '') || 0;
+        return _ts && (_now - _ts) < 10000;
+      });
+    });
+    if (_dupHit) return toast('同じ内容の発送が直前に登録されています（二重登録を防ぐため中止しました）。輸送中一覧をご確認ください。', 'error');
+  }
   if (!S.slog) S.slog = [];
   S.moves = S.moves || [];
   _items.forEach(function(it, _i){
@@ -8603,6 +8625,11 @@ async function transferStock(){
 
 // 受領：移動先の在庫へ足す。届いた本数が少なければ差分を「輸送中紛失」として記録する。
 async function receiveMove(id){
+  if (_moveOpBusy) return toast('処理中です。少しお待ちください', 'error');
+  _moveOpBusy = true;
+  try { return await _receiveMoveImpl(id); } finally { _moveOpBusy = false; }
+}
+async function _receiveMoveImpl(id){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 受領する権限がありません（社長・閲覧者は不可）','error');
   if (!(await guardStockWrite())) return;
   const m = (S.moves||[]).find(function(x){ return x.id===id; });
@@ -8653,6 +8680,12 @@ async function receiveMove(id){
 
 // 取消：発送そのものを取り消し、移動元へ在庫を戻す（誤発送用）
 async function cancelMove(id, skipConfirm, skipGuard){
+  if (skipGuard) return _cancelMoveImpl(id, skipConfirm, skipGuard);   // transferStock内部からの呼び出し（既にガード保持中）
+  if (_moveOpBusy) return toast('処理中です。少しお待ちください', 'error');
+  _moveOpBusy = true;
+  try { return await _cancelMoveImpl(id, skipConfirm, skipGuard); } finally { _moveOpBusy = false; }
+}
+async function _cancelMoveImpl(id, skipConfirm, skipGuard){
   if(typeof canAdjust==='function' && !canAdjust()) return toast('🔒 取消の権限がありません（社長・閲覧者は不可）','error');
   if (!skipGuard && !(await guardStockWrite())) return;
   const m = (S.moves||[]).find(function(x){ return x.id===id; });
