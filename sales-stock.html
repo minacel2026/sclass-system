@@ -50,11 +50,16 @@ window.StockEngine = (function(){
     var stock={};
     var ALLOC=['borrowed','old','sp','new'];   // 引き当て順：借入→旧→協→新
     function ensure(b,p){ stock[b]=stock[b]||{}; stock[b][p]=stock[b][p]||{total:0,borrowed:0,old:0,sp:0,new:0}; return stock[b][p]; }
-    var sorted=(history||[]).slice().sort(function(a,b){
-      var da=String(a.date||''),db=String(b.date||'');
+    // 同じ日付の中の順序：締め残高は必ずその日の最後（_seq はサーバに保存されず再読込で失われるため、種別で固定する）
+    function _hm(t){ var m=String(t||'').match(/(\d{1,2}):(\d{2})/); return m?(('0'+m[1]).slice(-2)+':'+m[2]):''; }   // 「Sat Dec 30 1899 16:40:00 …」形式も HH:MM に正規化
+    var sorted=(history||[]).map(function(r,i){ return {r:r,i:i}; }).sort(function(A,B){
+      var a=A.r,b=B.r; var da=String(a.date||''),db=String(b.date||'');
       if(da!==db) return da<db?-1:1;
-      return Number(a._seq||0)-Number(b._seq||0);
-    });
+      var la=(a.type==='締め残高')?1:0, lb=(b.type==='締め残高')?1:0; if(la!==lb) return la-lb;
+      var sa=Number(a._seq||0), sb=Number(b._seq||0); if(sa!==sb) return sa-sb;
+      var ta=_hm(a.time), tb=_hm(b.time); if(ta!==tb) return ta<tb?-1:1;
+      return A.i-B.i;
+    }).map(function(x){ return x.r; });
     for(var k=0;k<sorted.length;k++){
       var rec=sorted[k];
       if(asOf && String(rec.date||'')>asOf) continue;
