@@ -2033,7 +2033,13 @@ async function _checkSyncStatus(force){
     var srv=await gasGet('getStockLogs',{limit:2000});
     var have={}; (srv&&srv.logs||[]).forEach(function(l){ if(l&&l.id) have[l.id]=1; });
     var missing=(S.slog||[]).filter(function(l){ return l&&l.id&&!have[l.id]; }).length;
-    _syncWarnBar( (q+sq+missing) > 0 );
+    // ★根本修正：在庫履歴だけでなく「拠点移動」「協賛ログ」もサーバと照合し、保存漏れを検知する。
+    //   （従来は在庫履歴しか見ておらず、拠点移動・協賛の保存漏れに誰も気づけなかった）
+    var missMove=0;
+    try{ var _sm=await gasGet('getMoves',{}); var _mh={}; ((_sm&&_sm.moves)||[]).forEach(function(m){ if(m&&m.id) _mh[String(m.id)]=1; }); missMove=(S.moves||[]).filter(function(m){ return m&&m.id&&!_mh[String(m.id)]; }).length; }catch(e){}
+    var missSp=0;
+    try{ var _ss=await gasGet('getSponsorLogs',{limit:2000}); var _sh={}; ((_ss&&_ss.logs)||[]).forEach(function(l){ if(l&&l.id) _sh[String(l.id)]=1; }); missSp=(S.sponsorLogs||[]).filter(function(l){ return l&&l.id&&!_sh[String(l.id)]; }).length; }catch(e){}
+    _syncWarnBar( (q+sq+missing+missMove+missSp) > 0 );
   }catch(e){ /* 取得失敗時は表示を変えない */ }
   finally{ _syncChecking=false; }
 }
