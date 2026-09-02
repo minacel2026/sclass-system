@@ -8949,7 +8949,7 @@ function dedupeOrders(orders){
   orders.forEach(function(o){
     o = o || {};
     var id = String(o.id || '');
-    var ck = String(o.store||'') + '|' + String(o.date||'') + '|' + JSON.stringify(o.items||{}) + '|' + String(o.amount||'');
+    var ck = String(o.store||'') + '|' + String(o.date||'') + '|' + JSON.stringify(o.items||{}) + '|' + JSON.stringify(o.sponsorItems||{}) + '|' + JSON.stringify(o.freeItems||{}) + '|' + String(o.amount||'');   // ★協賛・試供品も含めて同一判定（協賛のみの注文が同店同日に2件あると片方が消えていた）
     var pos = (id && idPos[id] !== undefined) ? idPos[id]
             : (ckPos[ck] !== undefined ? ckPos[ck] : undefined);
     if (pos === undefined){
